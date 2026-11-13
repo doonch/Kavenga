@@ -1,0 +1,16 @@
+# macOS & OS metadata
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Editor & IDE directories
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python / local server artifacts
+__pycache__/
+*.pyc
+*.log

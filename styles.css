@@ -1,0 +1,771 @@
+:root {
+  --bg-deep: #0b1826;
+  --card-bg: rgba(13, 27, 42, 0.84);
+  --card-border: rgba(232, 198, 142, 0.28);
+  --sand-warm: #f3e3c3;
+  --sand-gold: #e7b563;
+  --lapa-jade: #3ef0d0;
+  --coral-terracotta: #d46542;
+  --text-main: #f7efe0;
+  --text-muted: #b9c8d6;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-deep);
+  color: var(--text-main);
+  font-family: 'Avenir Next', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  user-select: none;
+}
+
+.hidden {
+  display: none !important;
+}
+
+#webgl-container {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+}
+
+#webgl-container canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+
+#webgl-container canvas:active {
+  cursor: grabbing;
+}
+
+/* Mode-Gated Sky Star Labels */
+#sky-labels-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.sky-star-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-size: 11.5px;
+  letter-spacing: 0.03em;
+  color: rgba(244, 234, 212, 0.88);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95);
+  white-space: nowrap;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(8, 16, 28, 0.36);
+}
+
+.sky-star-label.active-target-star {
+  color: #ffe299;
+  border: 1px solid rgba(255, 220, 138, 0.65);
+  background: rgba(28, 22, 10, 0.62);
+  font-weight: 600;
+}
+
+/* =========================================================================
+   SAILING HUD (STRICTLY ZERO COMPASS / ZERO DEGREES)
+   ========================================================================= */
+#sailing-hud {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px 22px;
+}
+
+.hud-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+.hud-voyage-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(9, 20, 34, 0.68);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--card-border);
+  padding: 8px 14px;
+  border-radius: 999px;
+}
+
+.hud-song-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--sand-warm);
+}
+
+.hud-difficulty-pill {
+  font-size: 11.5px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: rgba(231, 181, 99, 0.18);
+  color: var(--sand-gold);
+}
+
+.hud-corner-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.hud-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(9, 20, 34, 0.72);
+  backdrop-filter: blur(10px);
+  color: var(--text-main);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  padding: 7px 13px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.16s, border-color 0.16s, transform 0.12s;
+}
+
+.hud-icon-btn:hover {
+  background: rgba(24, 45, 68, 0.88);
+  border-color: var(--sand-gold);
+}
+
+.hud-icon-btn.active {
+  background: rgba(231, 181, 99, 0.26);
+  border-color: var(--sand-gold);
+  color: #ffe7b3;
+}
+
+.hud-chant-banner {
+  align-self: center;
+  max-width: 760px;
+  text-align: center;
+  background: rgba(8, 18, 30, 0.62);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(232, 198, 142, 0.24);
+  border-radius: 16px;
+  padding: 12px 22px;
+  margin-top: 8px;
+  pointer-events: auto;
+}
+
+.chant-verse-tag {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--sand-gold);
+  margin-bottom: 4px;
+}
+
+.chant-lyrics {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-style: italic;
+  font-size: 16.5px;
+  line-height: 1.45;
+  color: #fff6e5;
+}
+
+.chant-easy-hint {
+  margin-top: 7px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 12.5px;
+  color: var(--lapa-jade);
+}
+
+.hud-trim-bar {
+  margin-top: auto;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  pointer-events: auto;
+  background: rgba(8, 18, 30, 0.56);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(232, 198, 142, 0.22);
+  border-radius: 999px;
+  padding: 6px 12px;
+}
+
+.trim-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(232, 198, 142, 0.28);
+  color: var(--sand-warm);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.trim-btn:active {
+  background: rgba(231, 181, 99, 0.32);
+}
+
+.trim-status {
+  font-size: 12px;
+  color: var(--text-muted);
+  min-width: 175px;
+  text-align: center;
+}
+
+.hud-toast {
+  position: fixed;
+  bottom: 72px;
+  left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: rgba(14, 32, 48, 0.92);
+  border: 1px solid var(--sand-gold);
+  color: var(--sand-warm);
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  opacity: 0;
+  transition: opacity 0.25s, transform 0.25s;
+  pointer-events: none;
+}
+
+.hud-toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Modals, Sand Recall, Mist & Landfall Overlays */
+.modal-backdrop,
+.mist-overlay,
+.landfall-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(6, 13, 22, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+.mist-overlay {
+  background: radial-gradient(circle, rgba(176, 192, 204, 0.78), rgba(45, 62, 78, 0.92));
+}
+
+.sand-recall-card,
+.dialog-card,
+.mist-card,
+.landfall-card {
+  background: rgba(14, 28, 43, 0.95);
+  border: 1px solid var(--card-border);
+  border-radius: 20px;
+  padding: 24px 28px;
+  max-width: 620px;
+  width: 100%;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+
+.mist-card,
+.landfall-card {
+  text-align: center;
+}
+
+.mist-eyebrow,
+.recall-eyebrow {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--sand-gold);
+  margin-bottom: 6px;
+}
+
+.mist-reflection,
+#landfallBody {
+  margin: 14px 0 22px;
+  line-height: 1.55;
+  color: var(--sand-warm);
+  font-size: 15.5px;
+}
+
+.recall-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+#recallSandCanvas,
+#shoreSandCanvas {
+  width: 100%;
+  height: auto;
+  border-radius: 14px;
+  border: 2px solid rgba(231, 181, 99, 0.38);
+  display: block;
+}
+
+.recall-narration,
+.sand-narration-box {
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--sand-warm);
+}
+
+.mode-selector-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 16px 0 20px;
+}
+
+.mode-option-btn {
+  text-align: left;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--text-main);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mode-option-btn span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.mode-option-btn.selected {
+  border-color: var(--sand-gold);
+  background: rgba(231, 181, 99, 0.18);
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* =========================================================================
+   ISLAND HUB UI
+   ========================================================================= */
+#island-hub {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  overflow-y: auto;
+  background: linear-gradient(180deg, rgba(7, 17, 29, 0.56) 0%, rgba(7, 17, 29, 0.84) 100%);
+  backdrop-filter: blur(4px);
+  padding: 22px 28px 36px;
+}
+
+.island-hub-shell {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.hub-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(232, 198, 142, 0.22);
+}
+
+.hub-act-badge {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--lapa-jade);
+  margin-bottom: 4px;
+}
+
+.hub-island-name {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 32px;
+  color: var(--sand-warm);
+}
+
+.hub-island-sub {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.hub-mode-select-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--sand-gold);
+}
+
+.hub-mode-select-wrap select {
+  background: rgba(11, 24, 38, 0.92);
+  color: var(--text-main);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.hub-poi-tabs {
+  display: flex;
+  gap: 10px;
+  margin: 18px 0;
+  flex-wrap: wrap;
+}
+
+.poi-tab-btn {
+  background: rgba(13, 27, 42, 0.72);
+  color: var(--text-muted);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  padding: 9px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.poi-tab-btn.active {
+  background: rgba(231, 181, 99, 0.24);
+  border-color: var(--sand-gold);
+  color: var(--sand-warm);
+}
+
+.landing-grid,
+.sand-shore-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  gap: 18px;
+}
+
+@media (max-width: 880px) {
+  .landing-grid,
+  .sand-shore-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hub-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 18px;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.hub-card h3 {
+  color: var(--sand-warm);
+  font-size: 18px;
+}
+
+.vaka-tier-line {
+  font-size: 13px;
+  color: var(--sand-gold);
+}
+
+.condition-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.cond-chip {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cond-chip span {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.cond-chip strong {
+  font-size: 12.5px;
+  color: #e8f5e9;
+}
+
+.cargo-section,
+.crew-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.cargo-header,
+.ration-controls,
+.dep-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13.5px;
+}
+
+.ration-step-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.cargo-pill,
+.crew-pill {
+  background: rgba(231, 181, 99, 0.11);
+  border: 1px solid rgba(231, 181, 99, 0.25);
+  border-radius: 10px;
+  padding: 8px 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cargo-pill strong,
+.crew-pill strong {
+  font-size: 13px;
+  color: var(--sand-warm);
+}
+
+.cargo-pill span,
+.crew-pill span,
+.empty-note,
+.panel-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.careen-feedback {
+  font-size: 12.5px;
+  color: var(--lapa-jade);
+  min-height: 16px;
+}
+
+.route-list,
+.lesson-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.route-choice-btn,
+.lesson-choice-btn {
+  text-align: left;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--text-main);
+  border-radius: 12px;
+  padding: 11px 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.route-choice-btn.selected,
+.lesson-choice-btn.selected {
+  background: rgba(231, 181, 99, 0.2);
+  border-color: var(--sand-gold);
+}
+
+.route-choice-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.route-target-tag {
+  color: var(--lapa-jade);
+  font-weight: 600;
+}
+
+.route-choice-meta,
+.lesson-choice-btn span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.dep-buttons {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.dep-btn {
+  padding: 8px 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-main);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.dep-btn.recommended {
+  border-color: rgba(62, 240, 208, 0.55);
+}
+
+.dep-btn.selected {
+  background: rgba(231, 181, 99, 0.28);
+  border-color: var(--sand-gold);
+  font-weight: 600;
+}
+
+.song-preview-box {
+  background: rgba(6, 14, 24, 0.55);
+  border-radius: 12px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--sand-gold);
+}
+
+.preview-eyebrow {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--sand-gold);
+  margin-bottom: 5px;
+}
+
+.song-preview-box blockquote {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 14.5px;
+  line-height: 1.45;
+  color: #fff6e5;
+}
+
+.preview-easy-cue {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--lapa-jade);
+}
+
+.dep-warning {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #ffab82;
+}
+
+.primary-btn {
+  background: linear-gradient(135deg, #e7b563 0%, #c98636 100%);
+  color: #161006;
+  font-weight: 700;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 20px;
+  font-size: 14.5px;
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.1s;
+}
+
+.primary-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.primary-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.secondary-btn {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--sand-warm);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 9px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.secondary-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.small-btn {
+  padding: 5px 11px;
+  font-size: 12.5px;
+}
+
+.full-width-btn,
+.launch-voyage-btn {
+  width: 100%;
+}
+
+.sand-stage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sand-mentor-tag,
+.sanctuary-eyebrow {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--sand-gold);
+}
+
+.sanctuary-card {
+  max-width: 780px;
+  margin: 0 auto;
+}
+
+.sanctuary-speech {
+  font-family: Georgia, serif;
+  font-size: 17px;
+  line-height: 1.6;
+  color: #fff6e5;
+}
+
+.sanctuary-rewards {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--lapa-jade);
+  font-size: 14px;
+}
+
+.master-replay-box {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(232, 198, 142, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.replay-song-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kavenga: Songs of the Star Path</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three.module.min.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <!-- Full-bleed WebGL 3D Sky Dome, Ocean Swells & Twin-Hulled Vaka -->
+  <div id="webgl-container"></div>
+
+  <!-- Projected Sky Star Labels (strictly mode-gated; hidden in Master Navigator) -->
+  <div id="sky-labels-layer"></div>
+
+  <!-- Zero-Compass Open-Ocean Sailing HUD -->
+  <div id="sailing-hud" class="hidden"></div>
+
+  <!-- Scenic Island Hub & Stick-in-the-Sand Shore UI -->
+  <div id="island-hub"></div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
