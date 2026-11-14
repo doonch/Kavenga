@@ -366,6 +366,10 @@ export class SkyDomeRenderer {
   update(dtSec, elapsedSec, oceanSim, difficulty, camera, vigilOverrides = null) {
     if (!oceanSim) return;
 
+    if (camera) {
+      this.group.position.copy(camera.position);
+    }
+
     const headingDeg = oceanSim.headingDeg;
     const latDeg = oceanSim.latDeg ?? GameConstants.REFERENCE_LATITUDE_DEG;
     const sun = oceanSim.sunState;
@@ -559,9 +563,9 @@ export class SkyDomeRenderer {
         }
 
         this._projVec.set(
-          info.dir.x * STAR_RADIUS,
-          info.dir.y * STAR_RADIUS,
-          info.dir.z * STAR_RADIUS
+          this.group.position.x + info.dir.x * STAR_RADIUS,
+          this.group.position.y + info.dir.y * STAR_RADIUS,
+          this.group.position.z + info.dir.z * STAR_RADIUS
         );
         this._projVec.project(camera);
 

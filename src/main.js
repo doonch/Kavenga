@@ -21,11 +21,13 @@ import { GameState } from './core/gameState.js';
 import { ISLANDS } from './data/islandsData.js';
 import { buildReturnSong, SONGS } from './data/songsData.js';
 import { CameraController } from './rendering/CameraController.js';
+import { getIslandShoreRadiusM } from './rendering/IslandTerrainBuilder.js';
 import { OceanRenderer } from './rendering/OceanRenderer.js';
 import { SkyDomeRenderer } from './rendering/SkyDomeRenderer.js';
 import { StarRingRenderer } from './rendering/StarRingRenderer.js';
 import { VakaRenderer } from './rendering/VakaRenderer.js';
 import { WorldCuesRenderer } from './rendering/WorldCuesRenderer.js';
+import { sampleTwinHullState } from './simulation/hullPhysics.js';
 import { computeLeewayDeg, OceanSim, VoyageStatus } from './simulation/oceanSim.js';
 import { IslandHubUI } from './ui/IslandHubUI.js';
 import { SailingHUD } from './ui/SailingHUD.js';
@@ -62,6 +64,23 @@ class KavengaApp {
       startHeaveM: 0.0,
       startPitchRad: 0.0,
       startRollRad: 0.0,
+    };
+
+    // ~2.95s 3D Island Launch Departure Cinematic state (bird's-eye over island & leaving canoe -> 1st-person)
+    this.launchAnim = {
+      active: false,
+      finished: true,
+      justStarted: false,
+      elapsed: 0.0,
+      duration: 2.95,
+      rawT: 0.0,
+      glide: 0.0,
+      canoeStartZ: 24.0,
+      curCanoeZ: 0.0,
+      shoreGapM: 3.25,
+      startIslandZ: 70.0,
+      islandId: null,
+      sternBearingDeg: 180.0,
     };
 
     // 2. Three.js Renderer & Scene
@@ -114,6 +133,9 @@ class KavengaApp {
     this.sailingHud = new SailingHUD(this.hudRootEl, {
       getGameState: () => this.gameState,
       getOceanSim: () => this.oceanSim,
+      onToggleCameraView: () => {
+        this.cameraCtrl.toggleThirdPersonView();
+      },
       onToggleFreeLook: () => {
         if (this.cameraCtrl.isGazeOffset()) {
           this.cameraCtrl.recenterGaze();
@@ -148,6 +170,7 @@ class KavengaApp {
     // Direct URL boot support for instant testing:
     //   ?mode=sky_vigil&master=terai|akura&island=<id>&tab=lessons|atlas|quiz
     //   ?mode=landfall&island=<id>&window=dawn|midday|dusk|midnight&lead=<sec>
+    //   ?mode=launch&island=<id>&window=dawn|midday|dusk|midnight
     this._checkStartupUrlParams();
 
     window.addEventListener('resize', () => this._onResize());
@@ -165,6 +188,15 @@ class KavengaApp {
     const urlIsland = params.get('island');
     const urlMaster = params.get('master');
     const urlTab = params.get('tab');
+
+    if (urlMode === 'launch' || params.get('launch') === '1') {
+      this.previewLaunch({
+        islandId: urlIsland || undefined,
+        songId: params.get('song') || undefined,
+        windowId: params.get('window') || undefined,
+      });
+      return;
+    }
 
     if (urlMode === 'landfall' || params.get('landfall') === '1') {
       const rawLead = params.get('lead');
@@ -202,6 +234,55 @@ class KavengaApp {
         mode: urlTab || 'lessons',
       });
     }
+  }
+
+  /**
+   * Launches directly from any of the 16 campaign islands so the bird's-eye departure
+   * sweep into 1st-person sailing view can be previewed immediately via ?mode=launch.
+   */
+  previewLaunch(opts = {}) {
+    const windowMap = {
+      dawn: DepartureWindow.DAWN,
+      morning: DepartureWindow.DAWN,
+      midday: DepartureWindow.MIDDAY,
+      noon: DepartureWindow.MIDDAY,
+      afternoon: DepartureWindow.MIDDAY,
+      dusk: DepartureWindow.DUSK,
+      sunset: DepartureWindow.DUSK,
+      midnight: DepartureWindow.MIDNIGHT,
+      night: DepartureWindow.MIDNIGHT,
+    };
+
+    let song = opts.songId && SONGS[opts.songId] ? SONGS[opts.songId] : null;
+    const requestedOrigin =
+      opts.islandId && ISLANDS[opts.islandId] ? opts.islandId : null;
+
+    if (!song) {
+      const originId = requestedOrigin || this.gameState.currentIslandId || 'raiatea';
+      song = Object.values(SONGS).find((s) => s.fromIsland === originId) || null;
+      if (!song && ISLANDS[originId]) {
+        const sameBasinPeer = Object.values(ISLANDS).find(
+          (isl) => isl.id !== originId && isl.basinId === ISLANDS[originId].basinId
+        );
+        if (sameBasinPeer) {
+          song = buildReturnSong(originId, sameBasinPeer.id);
+        }
+      }
+      if (!song) song = SONGS.song_01;
+    }
+
+    const fromIsl = ISLANDS[song.fromIsland];
+    if (fromIsl) {
+      this.gameState.currentIslandId = fromIsl.id;
+      this.gameState.currentBasinId = fromIsl.basinId;
+    }
+
+    const explicitWin = opts.windowId
+      ? windowMap[String(opts.windowId).toLowerCase()]
+      : null;
+    const depWindow = explicitWin || song.recommendedDeparture || DepartureWindow.DAWN;
+
+    this.launchVoyage(song, depWindow);
   }
 
   /**
@@ -245,6 +326,7 @@ class KavengaApp {
     const depWindow = explicitWin || song.recommendedDeparture || DepartureWindow.DAWN;
 
     this.launchVoyage(song, depWindow);
+    this._resetLaunchAnimation();
 
     const sim = this.oceanSim;
     const targetId =
@@ -307,7 +389,59 @@ class KavengaApp {
     this.sailingHud.update(sim, this.gameState, this.cameraCtrl, true);
   }
 
+  _beginLaunchAnimation(islandId) {
+    const resolvedId = islandId || this.oceanSim.song?.fromIsland;
+    if (!resolvedId) return;
+
+    const islDef =
+      ISLANDS[resolvedId] || this.oceanSim.activeIslands?.[resolvedId];
+    const shoreRadiusM = getIslandShoreRadiusM(resolvedId, islDef?.archetype);
+    const startIslandZ =
+      this.launchAnim.canoeStartZ +
+      7.75 +
+      this.launchAnim.shoreGapM +
+      shoreRadiusM;
+
+    this.launchAnim.active = true;
+    this.launchAnim.finished = false;
+    this.launchAnim.justStarted = true;
+    this.launchAnim.elapsed = 0.0;
+    this.launchAnim.rawT = 0.0;
+    this.launchAnim.glide = 0.0;
+    this.launchAnim.curCanoeZ = this.launchAnim.canoeStartZ;
+    this.launchAnim.startIslandZ = startIslandZ;
+    this.launchAnim.islandId = resolvedId;
+    this.launchAnim.sternBearingDeg = posMod(
+      this.oceanSim.headingDeg + 180.0,
+      360.0
+    );
+
+    const hull = this.oceanSim.hullState;
+    this.vakaRenderer.root.position.set(
+      0.0,
+      hull ? hull.heaveM * 0.25 : 0.0,
+      this.launchAnim.canoeStartZ
+    );
+    this.cameraCtrl.startLaunchCamera(startIslandZ, this.launchAnim.canoeStartZ);
+  }
+
+  _resetLaunchAnimation() {
+    this.launchAnim.active = false;
+    this.launchAnim.finished = true;
+    this.launchAnim.justStarted = false;
+    this.launchAnim.elapsed = 0.0;
+    this.launchAnim.rawT = 0.0;
+    this.launchAnim.glide = 0.0;
+    this.launchAnim.curCanoeZ = 0.0;
+    this.launchAnim.islandId = null;
+    if (!this.landfallAnim.active) {
+      this.vakaRenderer.root.position.set(0.0, 0.0, 0.0);
+    }
+    this.cameraCtrl.resetLaunchCamera();
+  }
+
   _beginLandfallAnimation(islandId) {
+    this._resetLaunchAnimation();
     const resolvedId =
       islandId || this.oceanSim.arrivedIsland?.id || this.oceanSim.song?.toIsland;
     if (!resolvedId) return;
@@ -353,6 +487,7 @@ class KavengaApp {
   }
 
   enterSkyVigil(opts = {}) {
+    this._resetLaunchAnimation();
     this._resetLandfallAnimation();
     this.chantEngine.stop();
     this.spatialAudio.stop();
@@ -370,6 +505,7 @@ class KavengaApp {
   }
 
   exitSkyVigil() {
+    this._resetLaunchAnimation();
     this._resetLandfallAnimation();
     this.skyVigilUI.hide();
     this.starRing.setVisible(false);
@@ -399,7 +535,8 @@ class KavengaApp {
         this.oceanSim,
         this.gameState,
         this.cameraCtrl,
-        !this.landfallAnim.active || this.landfallAnim.finished
+        !this.landfallAnim.active || this.landfallAnim.finished,
+        this.launchAnim.active
       );
     }
   }
@@ -408,11 +545,13 @@ class KavengaApp {
     // Snapshot pre-voyage state so Lost at Sea / Return to Shore restores cleanly with zero loss!
     this.gameState.savePreVoyageSnapshot();
     this._resetLandfallAnimation();
+    this._resetLaunchAnimation();
 
     this.phase = 'sailing';
     this.skyVigilUI.hide();
     this.starRing.setVisible(false);
     this.cameraCtrl.setVigilMode(false);
+    this.cameraCtrl.setThirdPersonView(false, true);
     this.vakaRenderer.root.visible = true;
     this.worldCues.group.visible = true;
 
@@ -424,10 +563,18 @@ class KavengaApp {
     this.chantEngine.startVoyageSong(song, this.gameState.difficulty);
     this.spatialAudio.start();
 
-    this.sailingHud.update(this.oceanSim, this.gameState, this.cameraCtrl, true);
+    this._beginLaunchAnimation(song.fromIsland);
+    this.sailingHud.update(
+      this.oceanSim,
+      this.gameState,
+      this.cameraCtrl,
+      true,
+      this.launchAnim.active
+    );
   }
 
   restoreBeforeVoyage() {
+    this._resetLaunchAnimation();
     this._resetLandfallAnimation();
     this.chantEngine.stop();
     this.spatialAudio.stop();
@@ -443,6 +590,7 @@ class KavengaApp {
   completeLandfallTransition() {
     const arrivedId =
       this.oceanSim.arrivedIsland?.id || this.oceanSim.song?.toIsland;
+    this._resetLaunchAnimation();
     this._resetLandfallAnimation();
     this.chantEngine.stop();
     this.spatialAudio.stop();
@@ -480,7 +628,8 @@ class KavengaApp {
     const isActivelySailing =
       this.phase === 'sailing' &&
       this.oceanSim.status === VoyageStatus.SAILING &&
-      !this.sailingHud.pauseOpen;
+      !this.sailingHud.pauseOpen &&
+      !this.launchAnim.active;
 
     if (this.phase === 'sky_vigil') {
       this.skyVigilUI.update(dtSec, this.oceanSim, this.cameraCtrl);
@@ -555,6 +704,53 @@ class KavengaApp {
       this.oceanSim._refreshEnvironment(dtSec);
     }
 
+    if (this.launchAnim.active) {
+      if (this.launchAnim.justStarted) {
+        this.launchAnim.justStarted = false;
+      } else if (!this.sailingHud.pauseOpen) {
+        this.launchAnim.elapsed = Math.min(
+          this.launchAnim.duration,
+          this.launchAnim.elapsed + dtSec
+        );
+      }
+
+      const rawT = Math.min(
+        1.0,
+        this.launchAnim.elapsed / this.launchAnim.duration
+      );
+      const smoothT = rawT * rawT * (3.0 - 2.0 * rawT);
+      const easeOutT = 1.0 - Math.pow(1.0 - rawT, 2.5);
+      const glide = 0.45 * smoothT + 0.55 * easeOutT;
+
+      this.launchAnim.rawT = rawT;
+      this.launchAnim.glide = glide;
+      this.launchAnim.curCanoeZ = this.launchAnim.canoeStartZ * (1.0 - glide);
+
+      this.oceanSim._refreshEnvironment(0);
+      const liveHull = sampleTwinHullState({
+        elapsedSec: this.launchAnim.elapsed - this.launchAnim.duration,
+        bpm: this.oceanSim.song?.bpm ?? 60.0,
+        canoeHeadingDeg: this.oceanSim.headingDeg,
+        primarySwellFromAz: this.oceanSim.getPrimarySwellFromAz(),
+        secondaryChopFromAz: this.oceanSim.song?.secondaryChopFromAz ?? null,
+      });
+      const swellRamp = 0.25 + 0.75 * smoothT;
+      liveHull.heaveM *= swellRamp;
+      liveHull.pitchRad *= swellRamp;
+      liveHull.rollRad *= swellRamp;
+      this.oceanSim.hullState = liveHull;
+
+      this.vakaRenderer.root.position.x = 0.0;
+      this.vakaRenderer.root.position.z = this.launchAnim.curCanoeZ;
+
+      this.chantEngine.syncState({
+        difficulty: this.gameState.difficulty,
+        fastForward: false,
+        verseIndex: this.oceanSim.verseIndex,
+      });
+      this.spatialAudio.update(dtSec, this.oceanSim, this.gameState);
+    }
+
     if (this.landfallAnim.active) {
       if (!justStartedLandfall && !this.sailingHud.pauseOpen) {
         this.landfallAnim.elapsed = Math.min(
@@ -601,13 +797,16 @@ class KavengaApp {
       dtSec,
       this.oceanSim,
       isActivelySailing && !this.landfallAnim.active,
-      this.landfallAnim.active ? this.landfallAnim : null
+      this.landfallAnim.active ? this.landfallAnim : null,
+      this.launchAnim.active ? this.launchAnim : null
     );
     this.skyDome.update(
       dtSec,
       this._elapsedAppSec,
       this.oceanSim,
-      this.phase === 'sailing' && !this.landfallAnim.active
+      this.phase === 'sailing' &&
+        !this.landfallAnim.active &&
+        !this.launchAnim.active
         ? this.gameState.difficulty
         : 'master_navigator',
       this.cameraCtrl.camera
@@ -617,14 +816,20 @@ class KavengaApp {
       this._elapsedAppSec,
       this.oceanSim,
       false,
-      this.landfallAnim.active ? this.landfallAnim.rawT : 0.0
+      this.landfallAnim.active ? this.landfallAnim.rawT : 0.0,
+      {
+        canoeZ: this.vakaRenderer.root.position.z,
+        launchProgress01: this.launchAnim.active ? this.launchAnim.rawT : null,
+      }
     );
     this.vakaRenderer.update(
       dtSec,
       this._elapsedAppSec,
       this.oceanSim,
       this.gameState,
-      this.landfallAnim.active ? 0.0 : this.cameraCtrl.getSteeringNormalized()
+      this.landfallAnim.active || this.launchAnim.active
+        ? 0.0
+        : this.cameraCtrl.getSteeringNormalized()
     );
     if (this.landfallAnim.active) {
       // Ensure starlit / moonlight shore clarity even during deep-night arrivals
@@ -633,20 +838,34 @@ class KavengaApp {
         this.vakaRenderer.hemiLight.intensity,
         0.28 + nightLift
       );
+    } else if (this.launchAnim.active) {
+      // Ensure starlit / moonlight island & shore clarity during deep-night bird's-eye departures
+      const fadeOut = Math.max(0.0, (this.launchAnim.rawT - 0.55) / 0.45);
+      const launchNightLift = 0.38 * (1.0 - fadeOut);
+      this.vakaRenderer.hemiLight.intensity = Math.max(
+        this.vakaRenderer.hemiLight.intensity,
+        0.26 + launchNightLift
+      );
     }
     this.worldCues.update(
       dtSec,
       this._elapsedAppSec,
       this.oceanSim,
-      this.landfallAnim.active ? this.landfallAnim : null
+      this.landfallAnim.active ? this.landfallAnim : null,
+      this.launchAnim.active ? this.launchAnim : null
     );
+
+    if (this.launchAnim.active && this.launchAnim.rawT >= 0.999) {
+      this._resetLaunchAnimation();
+    }
 
     if (this.phase === 'sailing') {
       this.sailingHud.update(
         this.oceanSim,
         this.gameState,
         this.cameraCtrl,
-        !this.landfallAnim.active || this.landfallAnim.finished
+        !this.landfallAnim.active || this.landfallAnim.finished,
+        this.launchAnim.active
       );
     }
 

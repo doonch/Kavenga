@@ -37,9 +37,18 @@ export class SailingHUD {
         </div>
 
         <div class="hud-corner-controls">
+          <button class="hud-icon-btn" id="btnCameraView" title="Toggle between behind-canoe view and 1st-person deck view (V)">
+            <span class="btn-glyph hud-eye-glyph" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12z"/>
+                <circle cx="12" cy="12" r="3.2"/>
+              </svg>
+            </span>
+            <span class="btn-text" id="btnCameraViewLabel">Canoe View</span>
+          </button>
           <button class="hud-icon-btn" id="btnFreeLook" title="Drag sky to look around (or click to glance astern / recenter)">
-            <span class="btn-glyph">👁</span>
-            <span class="btn-text" id="btnFreeLookLabel">Free-Look</span>
+            <span class="btn-glyph">↩</span>
+            <span class="btn-text" id="btnFreeLookLabel">Look Astern</span>
           </button>
           <button class="hud-icon-btn" id="btnLookZenith" title="Tilt gaze straight up to the mast-top zenith">
             <span class="btn-glyph">✦</span>
@@ -149,6 +158,9 @@ export class SailingHUD {
     );
 
     // Wire buttons
+    this.rootEl.querySelector('#btnCameraView').addEventListener('click', () => {
+      this.callbacks.onToggleCameraView?.();
+    });
     this.rootEl.querySelector('#btnFreeLook').addEventListener('click', () => {
       this.callbacks.onToggleFreeLook?.();
     });
@@ -286,7 +298,13 @@ export class SailingHUD {
     }, 3600);
   }
 
-  update(oceanSim, gameState, cameraCtrl, landfallReady = true) {
+  update(
+    oceanSim,
+    gameState,
+    cameraCtrl,
+    landfallReady = true,
+    launchActive = false
+  ) {
     if (!oceanSim || !gameState) return;
 
     const diff = gameState.difficulty;
@@ -312,7 +330,15 @@ export class SailingHUD {
     const recallBtn = this.rootEl.querySelector('#btnRecall');
     recallBtn.style.display = allowsRecallAtSea(diff) ? 'inline-flex' : 'none';
 
-    // Fast Forward & Free-Look button states
+    // Camera perspective (Eye button), Fast Forward & Free-Look button states
+    const isThirdPerson = Boolean(cameraCtrl?.isThirdPersonView?.());
+    this.rootEl
+      .querySelector('#btnCameraView')
+      .classList.toggle('active', isThirdPerson);
+    this.rootEl.querySelector('#btnCameraViewLabel').textContent = isThirdPerson
+      ? 'Deck View'
+      : 'Canoe View';
+
     this.rootEl
       .querySelector('#btnFastForward')
       .classList.toggle('active', Boolean(oceanSim.fastForward));
@@ -382,10 +408,13 @@ export class SailingHUD {
       lostOverlay.classList.add('hidden');
     }
 
-    // Hide sailing chrome cleanly during the ~2s landfall pullback & shoreline arrival view
+    // Hide sailing chrome cleanly during bird's-eye launch departure & landfall arrival cinematics
     const isArrived =
       oceanSim.status === VoyageStatus.ARRIVED && Boolean(oceanSim.arrivedIsland);
-    this.rootEl.classList.toggle('landfall-cinematic-active', isArrived);
+    this.rootEl.classList.toggle(
+      'landfall-cinematic-active',
+      isArrived || Boolean(launchActive)
+    );
 
     // Landfall Celebration Overlay (revealed after the ~2s landfall animation stops at shore)
     const landOverlay = this.rootEl.querySelector('#landfallOverlay');

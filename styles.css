@@ -157,6 +157,13 @@ body {
   color: #ffe7b3;
 }
 
+.hud-eye-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
 .hud-chant-banner {
   align-self: center;
   max-width: 760px;

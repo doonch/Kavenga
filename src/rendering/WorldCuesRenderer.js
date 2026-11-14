@@ -365,7 +365,7 @@ export class WorldCuesRenderer {
     this.frondGroup.visible = false;
   }
 
-  update(dtSec, elapsedSec, oceanSim, landfallAnim = null) {
+  update(dtSec, elapsedSec, oceanSim, landfallAnim = null, launchAnim = null) {
     if (!oceanSim) return;
 
     // Reset transient fade states cleanly when launching a new voyage
@@ -402,6 +402,10 @@ export class WorldCuesRenderer {
     const targetTradeOpacity = isFog ? 0.08 : 0.65;
     this.tradeFogOpacity = easeToward(this.tradeFogOpacity, targetTradeOpacity, fadeDt, 1.15);
 
+    const launchTradeMask = launchAnim?.active
+      ? smoothstep(0.45, 0.95, launchAnim.rawT ?? 0.0)
+      : 1.0;
+
     for (const tc of this.tradeClouds) {
       tc.progress = (tc.progress + dtSec * 0.014) % 1.0;
       const along = (tc.progress - 0.5) * 860.0;
@@ -415,7 +419,7 @@ export class WorldCuesRenderer {
       const horizonEnv =
         smoothstep(0.0, 0.18, tc.progress) *
         smoothstep(0.0, 0.18, 1.0 - tc.progress);
-      const opacity = this.tradeFogOpacity * horizonEnv;
+      const opacity = this.tradeFogOpacity * horizonEnv * launchTradeMask;
       tc.mat.color.setRGB(cr, cg, cb);
       tc.mat.opacity = opacity;
       tc.mesh.scale.setScalar(0.82 + 0.18 * horizonEnv);
@@ -477,6 +481,42 @@ export class WorldCuesRenderer {
       }
     }
 
+    // Ensure departure island is bound to a slot during bird's-eye launch & early astern recession
+    const launchOriginId = launchAnim?.active
+      ? launchAnim.islandId
+      : oceanSim.elapsedRealSec < 60.0
+        ? oceanSim.song?.fromIsland
+        : null;
+    if (launchOriginId && oceanSim.activeIslands?.[launchOriginId]) {
+      const originDef = oceanSim.activeIslands[launchOriginId];
+      const dxO = originDef.simPos.x - oceanSim.pos.x;
+      const dyO = originDef.simPos.y - oceanSim.pos.y;
+      const distO = Math.hypot(dxO, dyO);
+      if (launchAnim?.active || distO <= r1) {
+        const hasLaunchSlot = this.islandSlots.some(
+          (s) => s.islandId === launchOriginId
+        );
+        if (!hasLaunchSlot) {
+          const freeSlot = this.islandSlots.find((s) => s.islandId === null);
+          if (freeSlot) {
+            this._detachDetailedIslandFromSlot(freeSlot);
+            freeSlot.islandId = launchOriginId;
+            freeSlot.islandDef = originDef;
+            freeSlot.peakAlpha = 0.0;
+            freeSlot.lapaAlpha = 0.0;
+            freeSlot.landAlpha = launchAnim?.active ? 1.0 : 0.0;
+            freeSlot.riseFactor = launchAnim?.active ? 1.0 : 0.0;
+            freeSlot.lastDistUnits = distO;
+            freeSlot.lastBearingDeg =
+              distO > 0.025
+                ? posMod((Math.atan2(dxO, dyO) * 180.0) / Math.PI, 360.0)
+                : launchAnim?.sternBearingDeg ?? posMod(headingDeg + 180.0, 360.0);
+            freeSlot.landfallStartVisualDist = null;
+          }
+        }
+      }
+    }
+
     for (const slot of this.islandSlots) {
       if (!slot.islandId) {
         slot.root.visible = false;
@@ -485,6 +525,9 @@ export class WorldCuesRenderer {
 
       const isLandfallTarget = Boolean(
         landfallAnim?.active && slot.islandId === landfallAnim.islandId
+      );
+      const isLaunchOrigin = Boolean(
+        launchAnim?.active && slot.islandId === launchAnim.islandId
       );
       if (!isLandfallTarget) {
         slot.landfallStartVisualDist = null;
@@ -497,68 +540,93 @@ export class WorldCuesRenderer {
       // Keep tracking true world bearing & distance even after leaving Ring 1 while fading out
       let distUnits = slot.lastDistUnits;
       let bearingDeg = slot.lastBearingDeg;
-      if (det) {
+      if (isLaunchOrigin) {
+        distUnits = 0.0;
+        bearingDeg =
+          launchAnim.sternBearingDeg ?? posMod(headingDeg + 180.0, 360.0);
+      } else if (det) {
         distUnits = det.distanceUnits;
         bearingDeg = det.bearingDeg;
       } else if (activeIsl?.simPos && oceanSim.pos) {
         const dx = activeIsl.simPos.x - oceanSim.pos.x;
         const dy = activeIsl.simPos.y - oceanSim.pos.y;
         distUnits = Math.hypot(dx, dy);
-        bearingDeg = posMod((Math.atan2(dx, dy) * 180.0) / Math.PI, 360.0);
+        if (distUnits > 0.025) {
+          bearingDeg = posMod((Math.atan2(dx, dy) * 180.0) / Math.PI, 360.0);
+        }
       }
       slot.lastDistUnits = distUnits;
       slot.lastBearingDeg = bearingDeg;
 
+      const isDepartedOrigin =
+        slot.islandId === oceanSim.song?.fromIsland &&
+        oceanSim.elapsedRealSec < 60.0 &&
+        distUnits <= r1;
+      const effectiveInRange = Boolean(det || isDepartedOrigin || isLaunchOrigin);
+
       // Target alphas ramp smoothly across ring boundaries rather than binary step cliffs
       const cloudDistEnv =
-        det && isl?.hasPeakCloud
+        effectiveInRange && isl?.hasPeakCloud
           ? smoothstep(r2 * 1.12, r2 * 0.78, distUnits)
           : 0.0;
       const targetPeakAlpha =
-        !isFog || Boolean(isl?.peaksPierceFog) || isLandfallTarget ? cloudDistEnv : 0.0;
+        !isFog || Boolean(isl?.peaksPierceFog) || isLandfallTarget || isLaunchOrigin
+          ? cloudDistEnv
+          : 0.0;
 
       const lapaDistEnv =
-        det && isl?.hasLapaGlow && (!isFog || isLandfallTarget)
+        effectiveInRange && isl?.hasLapaGlow && (!isFog || isLandfallTarget || isLaunchOrigin)
           ? smoothstep(r2 * 1.12, r2 * 0.78, distUnits)
           : 0.0;
 
       const landEntryDist = isl?.peaksPierceFog ? r2 * 1.04 : r3 * 1.1;
       const landFullAlphaDist = Math.max(r4, landEntryDist * 0.68);
-      const targetLandAlpha = isLandfallTarget
-        ? 1.0
-        : det
-          ? smoothstep(landEntryDist, landFullAlphaDist, distUnits)
-          : 0.0;
-      const targetRise = isLandfallTarget
-        ? 1.0
-        : det
-          ? smoothstep(landEntryDist, r4 * 1.12, distUnits)
-          : 0.0;
+      const targetLandAlpha =
+        isLandfallTarget || isLaunchOrigin
+          ? 1.0
+          : effectiveInRange
+            ? smoothstep(landEntryDist, landFullAlphaDist, distUnits)
+            : 0.0;
+      const targetRise =
+        isLandfallTarget || isLaunchOrigin
+          ? 1.0
+          : effectiveInRange
+            ? smoothstep(landEntryDist, r4 * 1.12, distUnits)
+            : 0.0;
 
-      slot.peakAlpha = easeToward(slot.peakAlpha, targetPeakAlpha, fadeDt, 1.35);
-      slot.lapaAlpha = easeToward(slot.lapaAlpha, lapaDistEnv, fadeDt, 1.35);
-      if (isLandfallTarget) {
-        const animFloor = smoothstep(0.0, 0.45, landfallAnim.rawT ?? 0.0);
-        slot.landAlpha = Math.max(
-          easeToward(slot.landAlpha, 1.0, fadeDt, 4.5),
-          animFloor
-        );
-        slot.riseFactor = Math.max(
-          easeToward(slot.riseFactor, 1.0, fadeDt, 4.5),
-          animFloor
-        );
+      if (isLaunchOrigin) {
+        const launchCloudMask = smoothstep(0.58, 1.0, launchAnim.rawT ?? 0.0);
+        slot.peakAlpha = targetPeakAlpha * launchCloudMask;
+        slot.lapaAlpha = lapaDistEnv * launchCloudMask;
+        slot.landAlpha = 1.0;
+        slot.riseFactor = 1.0;
       } else {
-        slot.landAlpha = easeToward(slot.landAlpha, targetLandAlpha, fadeDt, 1.45);
-        slot.riseFactor = easeToward(slot.riseFactor, targetRise, fadeDt, 1.45);
+        slot.peakAlpha = easeToward(slot.peakAlpha, targetPeakAlpha, fadeDt, 1.35);
+        slot.lapaAlpha = easeToward(slot.lapaAlpha, lapaDistEnv, fadeDt, 1.35);
+        if (isLandfallTarget) {
+          const animFloor = smoothstep(0.0, 0.45, landfallAnim.rawT ?? 0.0);
+          slot.landAlpha = Math.max(
+            easeToward(slot.landAlpha, 1.0, fadeDt, 4.5),
+            animFloor
+          );
+          slot.riseFactor = Math.max(
+            easeToward(slot.riseFactor, 1.0, fadeDt, 4.5),
+            animFloor
+          );
+        } else {
+          slot.landAlpha = easeToward(slot.landAlpha, targetLandAlpha, fadeDt, 1.45);
+          slot.riseFactor = easeToward(slot.riseFactor, targetRise, fadeDt, 1.45);
+        }
       }
 
       const anyVisible =
         isLandfallTarget ||
+        isLaunchOrigin ||
         slot.peakAlpha > 0.003 ||
         slot.lapaAlpha > 0.003 ||
         slot.landAlpha > 0.003;
 
-      if (!anyVisible && !det) {
+      if (!anyVisible && !effectiveInRange) {
         this._detachDetailedIslandFromSlot(slot);
         slot.islandId = null;
         slot.islandDef = null;
@@ -590,6 +658,15 @@ export class WorldCuesRenderer {
         visualDist =
           slot.landfallStartVisualDist +
           (endVisualDist - slot.landfallStartVisualDist) * glide;
+      } else if (isLaunchOrigin) {
+        const shoreRadiusM = getIslandShoreRadiusM(isl?.id, isl?.archetype);
+        const startVisualDist =
+          (launchAnim.canoeStartZ ?? 24.0) +
+          7.75 +
+          (launchAnim.shoreGapM ?? 3.25) +
+          shoreRadiusM;
+        const glide = Math.max(0.0, Math.min(1.0, launchAnim.glide ?? 0.0));
+        visualDist = startVisualDist + (baseVisualDist - startVisualDist) * glide;
       }
 
       const px = Math.sin(relAzRad) * visualDist;

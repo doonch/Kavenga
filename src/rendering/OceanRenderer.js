@@ -83,6 +83,8 @@ const OCEAN_FRAGMENT_SHADER = /* glsl */ `
   uniform float uTime;
   uniform float uLeewaySin;
   uniform float uShowWake;
+  uniform float uCanoeZ;
+  uniform float uWakeMaxLen;
   uniform vec2 uScrollOffset;
   uniform int uWaveZone;
 
@@ -154,8 +156,9 @@ const OCEAN_FRAGMENT_SHADER = /* glsl */ `
     col += glintTint * spec * (0.28 + 0.72 * max(uDaylight, uTwilight));
 
     // Foamy Astern Twin-Hull Wake (+Z astern; angles sideways by leeway when crosswind pushes canoe!)
-    if (uShowWake > 0.5 && vWorldPos.z > 4.2 && vWorldPos.z < 115.0) {
-      float zAft = vWorldPos.z - 4.2;
+    float wakeStartZ = uCanoeZ + 4.2;
+    if (uShowWake > 0.02 && vWorldPos.z > wakeStartZ && vWorldPos.z < wakeStartZ + uWakeMaxLen + 5.0) {
+      float zAft = vWorldPos.z - wakeStartZ;
       // Wake trails opposite Course Over Ground: if leeway > 0 (drifting starboard +X), wake trails port (-X)
       float wakeCenterX = -uLeewaySin * zAft * 2.4;
       float portWakeDist = abs(vWorldPos.x - (wakeCenterX - 2.35));
@@ -164,10 +167,10 @@ const OCEAN_FRAGMENT_SHADER = /* glsl */ `
       float foamN = noise2(vec2(vWorldPos.x * 1.4, vWorldPos.z * 0.65 - uTime * 3.8));
       float wakeMask =
         (smoothstep(spread, 0.08, portWakeDist) + smoothstep(spread, 0.08, stbdWakeDist)) *
-        (1.0 - smoothstep(12.0, 110.0, zAft)) *
+        (1.0 - smoothstep(max(2.0, uWakeMaxLen * 0.22), uWakeMaxLen, zAft)) *
         (0.55 + 0.45 * foamN);
       vec3 foamCol = mix(vec3(0.32, 0.44, 0.58), vec3(0.92, 0.97, 1.0), 0.25 + 0.75 * uDaylight);
-      col = mix(col, foamCol, clamp(wakeMask * 0.78, 0.0, 0.82));
+      col = mix(col, foamCol, clamp(wakeMask * 0.78 * uShowWake, 0.0, 0.82));
     }
 
     // Horizon mist & Act III sea-fog blend
@@ -207,6 +210,8 @@ export class OceanRenderer {
       uSeaFog: { value: 0.0 },
       uLeewaySin: { value: 0.0 },
       uShowWake: { value: 1.0 },
+      uCanoeZ: { value: 0.0 },
+      uWakeMaxLen: { value: 110.0 },
       uScrollOffset: { value: this.scrollOffset },
     };
 
@@ -225,15 +230,33 @@ export class OceanRenderer {
     this.scene.add(this.mesh);
   }
 
-  update(dtSec, elapsedSec, oceanSim, calmShoreMode = false, landfallProgress01 = 0.0) {
+  update(
+    dtSec,
+    elapsedSec,
+    oceanSim,
+    calmShoreMode = false,
+    landfallProgress01 = 0.0,
+    canoeOpts = null
+  ) {
     if (!oceanSim) return;
 
     const landfallT = Math.max(0.0, Math.min(1.0, landfallProgress01));
+    const isLaunching =
+      canoeOpts !== null &&
+      canoeOpts.launchProgress01 !== null &&
+      canoeOpts.launchProgress01 !== undefined;
+    const launchT = isLaunching
+      ? Math.max(0.0, Math.min(1.0, canoeOpts.launchProgress01))
+      : 1.0;
+    const accelLaunch = 0.35 + 0.65 * launchT;
+
     const decel = Math.pow(1.0 - landfallT, 2.0);
     const mult = oceanSim.fastForward ? 2.75 : 1.0;
-    const speed = calmShoreMode ? 0.35 : 5.4 * mult * decel;
+    const speed = calmShoreMode ? 0.35 : 5.4 * mult * decel * accelLaunch;
     const leewayRad = degToRad(
-      calmShoreMode ? 0.0 : (oceanSim.leewayDeg || 0.0) * (1.0 - landfallT)
+      calmShoreMode
+        ? 0.0
+        : (oceanSim.leewayDeg || 0.0) * (1.0 - landfallT) * launchT
     );
 
     // Scroll water texture astern (+Z) & sideways by leeway (decelerates to 0 on landfall stop)
@@ -248,7 +271,7 @@ export class OceanRenderer {
     const chopAz = calmShoreMode ? null : oceanSim.song?.secondaryChopFromAz;
     if (chopAz !== null && chopAz !== undefined) {
       const chopRel = degToRad(wrapDeg180(chopAz - headingDeg));
-      this.uniforms.uHasChop.value = 1.0 - landfallT;
+      this.uniforms.uHasChop.value = (1.0 - landfallT) * launchT;
       this.uniforms.uChopProp.value.set(-Math.sin(chopRel), Math.cos(chopRel));
     } else {
       this.uniforms.uHasChop.value = 0.0;
@@ -266,8 +289,18 @@ export class OceanRenderer {
       : waveZone === IslandWaveZone.CALM_WAVE_SHADOW
         ? 0.09
         : 0.62;
-    this.uniforms.uSwellAmp.value = baseSwellAmp + (0.055 - baseSwellAmp) * landfallT;
-    this.uniforms.uShowWake.value = calmShoreMode ? 0.0 : decel;
+    const launchSwellAmp = isLaunching
+      ? 0.12 + (baseSwellAmp - 0.12) * launchT
+      : baseSwellAmp;
+    this.uniforms.uSwellAmp.value =
+      launchSwellAmp + (0.055 - launchSwellAmp) * landfallT;
+    this.uniforms.uShowWake.value = calmShoreMode
+      ? 0.0
+      : decel * (0.45 + 0.55 * launchT);
+    this.uniforms.uCanoeZ.value = canoeOpts?.canoeZ ?? 0.0;
+    this.uniforms.uWakeMaxLen.value = isLaunching
+      ? 7.5 + 102.5 * launchT
+      : 110.0;
 
     if (nearestRing3) {
       const islRel = degToRad(wrapDeg180(nearestRing3.bearingDeg - headingDeg));
@@ -298,6 +331,6 @@ export class OceanRenderer {
     this.curSeaFog += (targetFog - this.curSeaFog) * Math.min(1.0, dtSec * fogRate);
     this.uniforms.uSeaFog.value = calmShoreMode
       ? 0.0
-      : this.curSeaFog * (1.0 - landfallT);
+      : this.curSeaFog * (1.0 - landfallT) * launchT;
   }
 }

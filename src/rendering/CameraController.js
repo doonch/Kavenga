@@ -28,6 +28,13 @@ export class CameraController {
     this.vigilEyePos = new THREE.Vector3(0.0, 2.15, 0.0);
     this.basePitchDeg = 13.5;
 
+    // 3rd-person behind-and-above chase view (frames canoe in bottom ~30% & sky across upper ~70%)
+    this.thirdPersonMode = false;
+    this.thirdPersonBlend = 0.0;
+    this.thirdPersonDist = 20.6;
+    this.thirdPersonHeight = 4.55;
+    this.thirdPersonPitchDeg = 11.8;
+
     // Gaze offsets relative to canoe forward (-Z) or Star-Stone Ring center
     this.lookYawDeg = 0.0;
     this.lookPitchOffsetDeg = 0.0;
@@ -54,6 +61,18 @@ export class CameraController {
     this._landfallLookMat = new THREE.Matrix4();
     this._landfallTargetQuat = new THREE.Quaternion();
 
+    // Island launch departure camera state (bird's-eye over island & departing canoe -> 1st-person view)
+    this._launchActive = false;
+    this._launchCanoeStartZ = 24.0;
+    this._launchP0 = new THREE.Vector3(7.5, 126.0, 64.0);
+    this._launchP1 = new THREE.Vector3(2.2, 16.5, 29.5);
+    this._launchP2 = new THREE.Vector3(0.0, 2.38, 3.45);
+    this._launchLookStart = new THREE.Vector3(0.0, 1.2, 46.0);
+    this._launchCurLook = new THREE.Vector3();
+    this._launchLookMat = new THREE.Matrix4();
+    this._launchLookQuat = new THREE.Quaternion();
+    this._launchEndQuat = new THREE.Quaternion();
+
     this._euler = new THREE.Euler(0, 0, 0, 'YXZ');
     this._bindEvents();
   }
@@ -66,6 +85,14 @@ export class CameraController {
       this.keysDown.add(e.code);
       if (e.code === 'Space' || e.code === 'KeyC') {
         this.recenterGaze();
+      } else if (
+        e.code === 'KeyV' &&
+        !e.repeat &&
+        !this.vigilMode &&
+        !this._landfallActive &&
+        !this._launchActive
+      ) {
+        this.toggleThirdPersonView();
       }
     };
 
@@ -120,6 +147,22 @@ export class CameraController {
     this.camera.updateProjectionMatrix();
   }
 
+  toggleThirdPersonView() {
+    this.thirdPersonMode = !this.thirdPersonMode;
+    return this.thirdPersonMode;
+  }
+
+  setThirdPersonView(enabled, instant = false) {
+    this.thirdPersonMode = Boolean(enabled);
+    if (instant) {
+      this.thirdPersonBlend = this.thirdPersonMode ? 1.0 : 0.0;
+    }
+  }
+
+  isThirdPersonView() {
+    return this.thirdPersonMode;
+  }
+
   togglePinnedFreeLook() {
     this.freeLookPinned = !this.freeLookPinned;
     if (!this.freeLookPinned) {
@@ -143,7 +186,10 @@ export class CameraController {
     this.steerVelocityDegPerSec = 0.0;
     this.isDraggingLook = false;
     this._panTarget = null;
-    if (!this.vigilMode) {
+    if (this.vigilMode) {
+      this.thirdPersonMode = false;
+      this.thirdPersonBlend = 0.0;
+    } else {
       this.freeLookPinned = false;
       this.lookYawDeg = 0.0;
       this.lookPitchOffsetDeg = 0.0;
@@ -216,9 +262,45 @@ export class CameraController {
   }
 
   /**
+   * Configures the bird's-eye departure camera high above the origin island & reef pass,
+   * framing the entire sculpted island and departing canoe before swooping into 1st-person view.
+   */
+  startLaunchCamera(startIslandZ = 70.0, canoeStartZ = 24.0) {
+    this._launchActive = true;
+    this._launchCanoeStartZ = canoeStartZ;
+    this.thirdPersonMode = false;
+    this.thirdPersonBlend = 0.0;
+    this.steerVelocityDegPerSec = 0.0;
+    this.isDraggingLook = false;
+    this.freeLookPinned = false;
+    this._panTarget = null;
+    this.lookYawDeg = 0.0;
+    this.lookPitchOffsetDeg = 0.0;
+
+    const startHeight = 122.0 + Math.max(0.0, startIslandZ - 62.0) * 1.15;
+    this._launchP0.set(7.5, startHeight, startIslandZ - 6.0);
+    this._launchP1.set(2.2, 16.5, canoeStartZ + 5.5);
+    this._launchLookStart.set(
+      0.0,
+      1.2,
+      0.5 * (startIslandZ + canoeStartZ) - 1.0
+    );
+  }
+
+  resetLaunchCamera() {
+    this._launchActive = false;
+  }
+
+  /**
    * Updates steering input, camera gaze spring-back, and couples camera subtly to hull heave/pitch/roll.
    */
-  update(dtSec, oceanSim, sailingActive = true, landfallAnim = null) {
+  update(
+    dtSec,
+    oceanSim,
+    sailingActive = true,
+    landfallAnim = null,
+    launchAnim = null
+  ) {
     const dt = Math.min(0.1, Math.max(0.001, dtSec));
 
     if (landfallAnim?.active) {
@@ -264,11 +346,92 @@ export class CameraController {
         this.camera.fov = targetFov;
         this.camera.updateProjectionMatrix();
       }
+      this.camera.updateMatrixWorld();
       return;
     }
 
     if (this._landfallActive) {
       this._landfallActive = false;
+    }
+
+    if (launchAnim?.active) {
+      if (!this._launchActive) {
+        this.startLaunchCamera(
+          launchAnim.startIslandZ ?? 70.0,
+          launchAnim.canoeStartZ ?? 24.0
+        );
+      }
+      this.steerVelocityDegPerSec = 0.0;
+
+      const hull = oceanSim?.hullState;
+      const heave = hull ? hull.heaveM * 0.85 : 0.0;
+      const hullPitch = hull ? hull.pitchRad * 0.42 : 0.0;
+      const hullRoll = hull ? hull.rollRad * 0.38 : 0.0;
+
+      this._launchP2.set(
+        this.baseEyePos.x - (hull ? hull.rollRad * 1.1 : 0.0),
+        this.baseEyePos.y + heave,
+        this.baseEyePos.z
+      );
+      this._euler.set(
+        degToRad(this.basePitchDeg) + hullPitch,
+        0.0,
+        -hullRoll,
+        'YXZ'
+      );
+      this._launchEndQuat.setFromEuler(this._euler);
+
+      const rawT = clamp(launchAnim.rawT ?? 0.0, 0.0, 1.0);
+      const u = rawT * rawT * (3.0 - 2.0 * rawT);
+      const oneMinusU = 1.0 - u;
+      const w0 = oneMinusU * oneMinusU;
+      const w1 = 2.0 * oneMinusU * u;
+      const w2 = u * u;
+
+      this.camera.position.set(
+        w0 * this._launchP0.x + w1 * this._launchP1.x + w2 * this._launchP2.x,
+        w0 * this._launchP0.y + w1 * this._launchP1.y + w2 * this._launchP2.y,
+        w0 * this._launchP0.z + w1 * this._launchP1.z + w2 * this._launchP2.z
+      );
+
+      const curCanoeZ =
+        launchAnim.curCanoeZ ??
+        this._launchCanoeStartZ * (1.0 - (launchAnim.glide ?? u));
+      const lookTrackU = clamp(rawT / 0.78, 0.0, 1.0);
+      const lookSmooth = lookTrackU * lookTrackU * (3.0 - 2.0 * lookTrackU);
+      this._launchCurLook.set(
+        0.0,
+        1.2 + 1.2 * lookSmooth,
+        this._launchLookStart.z +
+          (curCanoeZ - 14.0 - this._launchLookStart.z) * lookSmooth
+      );
+      this._launchLookMat.lookAt(
+        this.camera.position,
+        this._launchCurLook,
+        THREE.Object3D.DEFAULT_UP
+      );
+      this._launchLookQuat.setFromRotationMatrix(this._launchLookMat);
+
+      const slerpU = clamp((rawT - 0.5) / 0.5, 0.0, 1.0);
+      const slerpT = slerpU * slerpU * (3.0 - 2.0 * slerpU);
+      this.camera.quaternion.slerpQuaternions(
+        this._launchLookQuat,
+        this._launchEndQuat,
+        slerpT
+      );
+
+      const baseFov = GameConstants.DEFAULT_CAMERA_TOP_ALT_DEG + 14.0;
+      const targetFov = 64.0 + (baseFov - 64.0) * u;
+      if (Math.abs(this.camera.fov - targetFov) > 0.01) {
+        this.camera.fov = targetFov;
+        this.camera.updateProjectionMatrix();
+      }
+      this.camera.updateMatrixWorld();
+      return;
+    }
+
+    if (this._launchActive) {
+      this._launchActive = false;
     }
 
     // 1. Trim-Lock Steering (A / ArrowLeft = Port, D / ArrowRight = Starboard)
@@ -373,6 +536,20 @@ export class CameraController {
       if (Math.abs(this.lookPitchOffsetDeg) < 0.05) this.lookPitchOffsetDeg = 0.0;
     }
 
+    // Smoothly transition between 1st-person navigator bench (0) and 3rd-person behind-canoe view (1)
+    const tpTarget = !this.vigilMode && this.thirdPersonMode ? 1.0 : 0.0;
+    if (Math.abs(this.thirdPersonBlend - tpTarget) > 0.001) {
+      this.thirdPersonBlend +=
+        (tpTarget - this.thirdPersonBlend) * Math.min(1.0, 5.8 * dt);
+      if (Math.abs(this.thirdPersonBlend - tpTarget) <= 0.002) {
+        this.thirdPersonBlend = tpTarget;
+      }
+    }
+    const tpEase =
+      this.thirdPersonBlend *
+      this.thirdPersonBlend *
+      (3.0 - 2.0 * this.thirdPersonBlend);
+
     // 3. Position & Orientation: completely motionless ashore in Star-Stone Vigil; coupled to hull at sea
     if (this.vigilMode) {
       this.camera.position.copy(this.vigilEyePos);
@@ -386,29 +563,46 @@ export class CameraController {
       const hullPitch = hull ? hull.pitchRad * 0.42 : 0.0;
       const hullRoll = hull ? hull.rollRad * 0.38 : 0.0;
 
-      this.camera.position.set(
-        this.baseEyePos.x - (hull ? hull.rollRad * 1.1 : 0.0),
-        this.baseEyePos.y + heave,
-        this.baseEyePos.z
-      );
-
-      const totalPitchRad =
-        degToRad(this.basePitchDeg + this.lookPitchOffsetDeg) + hullPitch;
       const totalYawRad = degToRad(this.lookYawDeg);
 
-      this._euler.set(totalPitchRad, totalYawRad, -hullRoll, 'YXZ');
+      // 1st-person navigator bench vs 3rd-person behind-and-above chase orbit
+      const fpX = this.baseEyePos.x - (hull ? hull.rollRad * 1.1 : 0.0);
+      const fpY = this.baseEyePos.y + heave;
+      const fpZ = this.baseEyePos.z;
+
+      const tpX =
+        Math.sin(totalYawRad) * this.thirdPersonDist -
+        (hull ? hull.rollRad * 0.22 : 0.0);
+      const tpY = this.thirdPersonHeight + (hull ? hull.heaveM * 0.2 : 0.0);
+      const tpZ = Math.cos(totalYawRad) * this.thirdPersonDist;
+
+      this.camera.position.set(
+        fpX + (tpX - fpX) * tpEase,
+        fpY + (tpY - fpY) * tpEase,
+        fpZ + (tpZ - fpZ) * tpEase
+      );
+
+      const activeBasePitchDeg =
+        this.basePitchDeg + (this.thirdPersonPitchDeg - this.basePitchDeg) * tpEase;
+      const motionCoupling = 1.0 - 0.82 * tpEase;
+      const totalPitchRad =
+        degToRad(activeBasePitchDeg + this.lookPitchOffsetDeg) +
+        hullPitch * motionCoupling;
+
+      this._euler.set(totalPitchRad, totalYawRad, -hullRoll * motionCoupling, 'YXZ');
       this.camera.quaternion.setFromEuler(this._euler);
     }
 
-    // Subtle FOV breathing during 2.75x Fast Forward
+    // Subtle FOV breathing during 2.75x Fast Forward & 3rd-person framing
+    const baseViewFov =
+      GameConstants.DEFAULT_CAMERA_TOP_ALT_DEG + 14.0 + 2.0 * tpEase;
     const targetFov =
-      oceanSim?.fastForward && sailingActive
-        ? 59.5
-        : GameConstants.DEFAULT_CAMERA_TOP_ALT_DEG + 14.0;
+      oceanSim?.fastForward && sailingActive ? baseViewFov + 3.5 : baseViewFov;
     if (Math.abs(this.camera.fov - targetFov) > 0.05) {
       this.camera.fov += (targetFov - this.camera.fov) * Math.min(1.0, 5.0 * dt);
       this.camera.updateProjectionMatrix();
     }
+    this.camera.updateMatrixWorld();
   }
 
   getSteeringNormalized() {
