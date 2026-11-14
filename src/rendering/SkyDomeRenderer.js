@@ -6,6 +6,7 @@
 
 import * as THREE from 'three';
 import {
+  GameConstants,
   showsActiveStarShimmer,
   showsSkyAnnotations,
 } from '../core/gameConstants.js';
@@ -284,6 +285,22 @@ export class SkyDomeRenderer {
     this.constellationLines.renderOrder = -9;
     this.group.add(this.constellationLines);
 
+    // Highlighted Constellation Focus Lines (used in Star-Stone Vigil lessons, Atlas & Quiz reveal)
+    this.focusPositions = new Float32Array(this.constellationSegments.length * 6);
+    const focusGeo = new THREE.BufferGeometry();
+    focusGeo.setAttribute('position', new THREE.BufferAttribute(this.focusPositions, 3));
+    this.focusLineMaterial = new THREE.LineBasicMaterial({
+      color: 0xffdf88,
+      transparent: true,
+      opacity: 0.78,
+      depthWrite: false,
+    });
+    this.focusLines = new THREE.LineSegments(focusGeo, this.focusLineMaterial);
+    this.focusLines.frustumCulled = false;
+    this.focusLines.renderOrder = -8.5;
+    this.focusLines.visible = false;
+    this.group.add(this.focusLines);
+
     // 4. DOM Sky Labels for Named Stars (strictly mode-gated; zero degrees/cardinals)
     this.starLabelEls = {};
     if (this.labelLayerEl) {
@@ -346,18 +363,19 @@ export class SkyDomeRenderer {
     return Math.max(0.0, atten);
   }
 
-  update(dtSec, elapsedSec, oceanSim, difficulty, camera) {
+  update(dtSec, elapsedSec, oceanSim, difficulty, camera, vigilOverrides = null) {
     if (!oceanSim) return;
 
     const headingDeg = oceanSim.headingDeg;
+    const latDeg = oceanSim.latDeg ?? GameConstants.REFERENCE_LATITUDE_DEG;
     const sun = oceanSim.sunState;
     const verse = oceanSim.getCurrentVerse();
-    const weather = verse?.weather ?? 'clear';
+    const weather = vigilOverrides?.forceClearSky ? 'clear' : verse?.weather ?? 'clear';
 
     const targetCurtain = weather === 'forward_cloud_curtain' ? 1.0 : 0.0;
     const targetOvercast = weather === 'patchy_overcast' ? 1.0 : 0.0;
     const targetSeaFog = weather === 'sea_fog' ? 1.0 : 0.0;
-    const lerpRate = Math.min(1.0, dtSec * 1.4);
+    const lerpRate = vigilOverrides?.forceClearSky ? 1.0 : Math.min(1.0, dtSec * 1.4);
 
     this.curCurtain += (targetCurtain - this.curCurtain) * lerpRate;
     this.curOvercast += (targetOvercast - this.curOvercast) * lerpRate;
@@ -374,8 +392,8 @@ export class SkyDomeRenderer {
     this.skyUniforms.uTime.value = elapsedSec;
     this.starUniforms.uTime.value = elapsedSec;
 
-    // Rotate Milky Way galactic pole on the unified sphere
-    const galPoleAltAz = computeStarAltAz(192.8, 27.1, sun.lstDeg);
+    // Rotate Milky Way galactic pole on the unified sphere at the active island/voyage latitude
+    const galPoleAltAz = computeStarAltAz(192.8, 27.1, sun.lstDeg, latDeg);
     const galVec = altAzToDirectionVec3(
       galPoleAltAz.altDeg,
       galPoleAltAz.azDeg,
@@ -385,9 +403,13 @@ export class SkyDomeRenderer {
       .set(galVec.x, galVec.y, galVec.z)
       .normalize();
 
-    // Determine active guidance stars for Easy-mode shimmer & subtle label emphasis
+    // Determine active guidance stars for Easy-mode shimmer & Vigil tutorial focus
     const activeStarIds = new Set();
-    if (verse?.guidance) {
+    if (vigilOverrides) {
+      if (vigilOverrides.shimmerStarIds) {
+        for (const id of vigilOverrides.shimmerStarIds) activeStarIds.add(id);
+      }
+    } else if (verse?.guidance) {
       const g = verse.guidance;
       if (Array.isArray(g.stars)) {
         g.stars.forEach((id) => activeStarIds.add(id));
@@ -395,10 +417,17 @@ export class SkyDomeRenderer {
       if (g.sternStarId) activeStarIds.add(g.sternStarId);
       if (verse.zenithTriggerStarId) activeStarIds.add(verse.zenithTriggerStarId);
     }
-    const easyShimmer = showsActiveStarShimmer(difficulty);
-    const showAnnotations = showsSkyAnnotations(difficulty);
+    const easyShimmer = vigilOverrides
+      ? activeStarIds.size > 0
+      : showsActiveStarShimmer(difficulty);
+    const showLines = vigilOverrides
+      ? Boolean(vigilOverrides.showLines)
+      : showsSkyAnnotations(difficulty);
+    const showLabels = vigilOverrides
+      ? Boolean(vigilOverrides.showStarLabels)
+      : showsSkyAnnotations(difficulty);
 
-    // Update 31 Named Navigation Stars
+    // Update Named Navigation Stars
     const starVis = sun.starVisibility;
     const navWorldVecs = {};
 
@@ -424,12 +453,12 @@ export class SkyDomeRenderer {
         easyShimmer && activeStarIds.has(st.id) && alpha > 0.12 ? 1.0 : 0.0;
     });
 
-    // Update 480 Ambient Stars
+    // Update 480 Ambient Stars at the active latitude
     const navOffset = this.navStarList.length;
     for (let i = 0; i < this.ambientStars.length; i += 1) {
       const amb = this.ambientStars[i];
       const idx = navOffset + i;
-      const st = computeStarAltAz(amb.raDeg, amb.decDeg, sun.lstDeg);
+      const st = computeStarAltAz(amb.raDeg, amb.decDeg, sun.lstDeg, latDeg);
       const dir = altAzToDirectionVec3(st.altDeg, st.azDeg, headingDeg);
 
       this.starPositions[idx * 3] = dir.x * STAR_RADIUS;
@@ -452,10 +481,10 @@ export class SkyDomeRenderer {
     this.starPoints.geometry.attributes.aShimmer.needsUpdate = true;
 
     // Update Chalky Constellation Outlines
-    this.constellationLines.visible = showAnnotations && starVis > 0.08;
+    this.constellationLines.visible = showLines && starVis > 0.08;
     if (this.constellationLines.visible) {
       this.lineMaterial.opacity =
-        0.24 * starVis * (1.0 - 0.85 * this.curSeaFog);
+        (vigilOverrides ? 0.34 : 0.24) * starVis * (1.0 - 0.85 * this.curSeaFog);
       this.constellationSegments.forEach((seg, sIdx) => {
         const va = navWorldVecs[seg.aId];
         const vb = navWorldVecs[seg.bId];
@@ -474,15 +503,47 @@ export class SkyDomeRenderer {
       this.constellationLines.geometry.attributes.position.needsUpdate = true;
     }
 
+    // Update Focused Constellation Golden Outline (Vigil Atlas / Lesson / Quiz Reveal)
+    const focusConstId = vigilOverrides?.focusConstellationId || null;
+    this.focusLines.visible = Boolean(focusConstId) && starVis > 0.08;
+    if (this.focusLines.visible) {
+      this.focusLineMaterial.opacity = 0.65 + 0.2 * Math.sin(elapsedSec * 3.4);
+      this.constellationSegments.forEach((seg, sIdx) => {
+        const base = sIdx * 6;
+        const va = navWorldVecs[seg.aId];
+        const vb = navWorldVecs[seg.bId];
+        if (
+          seg.constellation.id === focusConstId &&
+          va &&
+          vb &&
+          va.altDeg > 0.5 &&
+          vb.altDeg > 0.5
+        ) {
+          this.focusPositions[base] = va.dir.x * (STAR_RADIUS - 4.0);
+          this.focusPositions[base + 1] = va.dir.y * (STAR_RADIUS - 4.0);
+          this.focusPositions[base + 2] = va.dir.z * (STAR_RADIUS - 4.0);
+          this.focusPositions[base + 3] = vb.dir.x * (STAR_RADIUS - 4.0);
+          this.focusPositions[base + 4] = vb.dir.y * (STAR_RADIUS - 4.0);
+          this.focusPositions[base + 5] = vb.dir.z * (STAR_RADIUS - 4.0);
+        } else {
+          for (let k = 0; k < 6; k += 1) this.focusPositions[base + k] = 0.0;
+        }
+      });
+      this.focusLines.geometry.attributes.position.needsUpdate = true;
+    }
+
     // Project Mode-Gated Sky Star Labels
     if (this.labelLayerEl && camera) {
       const width = window.innerWidth;
       const height = window.innerHeight;
+      const revealStarIds = vigilOverrides?.revealLabelStarIds || null;
       for (const st of this.navStarList) {
         const el = this.starLabelEls[st.id];
         if (!el) continue;
         const info = navWorldVecs[st.id];
-        if (!showAnnotations || !info || info.altDeg < 1.2 || starVis < 0.16) {
+        const allowThisLabel =
+          showLabels || (revealStarIds && revealStarIds.has(st.id));
+        if (!allowThisLabel || !info || info.altDeg < 1.2 || starVis < 0.16) {
           el.style.display = 'none';
           continue;
         }

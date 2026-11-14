@@ -7,7 +7,7 @@
  */
 
 import * as THREE from 'three';
-import { GameConstants, degToRad } from '../core/gameConstants.js';
+import { GameConstants, degToRad, wrapDeg180 } from '../core/gameConstants.js';
 
 function clamp(val, minVal, maxVal) {
   return Math.max(minVal, Math.min(maxVal, val));
@@ -25,13 +25,16 @@ export class CameraController {
       1800.0
     );
     this.baseEyePos = new THREE.Vector3(0.0, 2.38, 3.45);
+    this.vigilEyePos = new THREE.Vector3(0.0, 2.15, 0.0);
     this.basePitchDeg = 13.5;
 
-    // Gaze offsets relative to canoe forward (-Z)
+    // Gaze offsets relative to canoe forward (-Z) or Star-Stone Ring center
     this.lookYawDeg = 0.0;
     this.lookPitchOffsetDeg = 0.0;
     this.isDraggingLook = false;
     this.freeLookPinned = false; // If toggled via HUD button, holds gaze until recentered
+    this.vigilMode = false; // Grounded ashore mode: zero boat motion, gaze stays parked where aimed
+    this._panTarget = null; // { yawDeg, pitchOffsetDeg } for smooth Master-guided pans
     this._lastPointer = { x: 0, y: 0 };
 
     // Steering velocity (deg/sec)
@@ -74,6 +77,7 @@ export class CameraController {
       this._lastPointer.y = e.clientY;
 
       const sensitivity = 0.28;
+      this._panTarget = null;
       this.lookYawDeg -= dx * sensitivity;
       if (this.lookYawDeg > 180.0) this.lookYawDeg -= 360.0;
       if (this.lookYawDeg < -180.0) this.lookYawDeg += 360.0;
@@ -115,6 +119,48 @@ export class CameraController {
   recenterGaze() {
     this.freeLookPinned = false;
     this.isDraggingLook = false;
+    if (this.vigilMode) {
+      this._panTarget = { yawDeg: 0.0, pitchOffsetDeg: 2.5 };
+    } else {
+      this._panTarget = null;
+    }
+  }
+
+  setVigilMode(enabled) {
+    this.vigilMode = Boolean(enabled);
+    this.steerVelocityDegPerSec = 0.0;
+    this.isDraggingLook = false;
+    this._panTarget = null;
+    if (!this.vigilMode) {
+      this.freeLookPinned = false;
+      this.lookYawDeg = 0.0;
+      this.lookPitchOffsetDeg = 0.0;
+    }
+  }
+
+  /**
+   * Smoothly turns the camera to frame a world (altDeg, azDeg) direction.
+   */
+  panToAltAz(altDeg, azDeg, headingDeg = 0.0) {
+    const relAzDeg = azDeg - headingDeg;
+    const targetYawDeg = wrapDeg180(-relAzDeg);
+    const clampedAlt = clamp(altDeg, -18.0, 89.5);
+    const targetPitchOffsetDeg = clamp(
+      clampedAlt - this.basePitchDeg,
+      -37.5,
+      90.0 - this.basePitchDeg
+    );
+    this._panTarget = {
+      yawDeg: targetYawDeg,
+      pitchOffsetDeg: targetPitchOffsetDeg,
+    };
+  }
+
+  /**
+   * Returns unit world-space gaze vector of the camera center.
+   */
+  getGazeWorldDir(outVec = new THREE.Vector3()) {
+    return this.camera.getWorldDirection(outVec);
   }
 
   lookAstern() {
@@ -166,19 +212,32 @@ export class CameraController {
       oceanSim.steer(this.steerVelocityDegPerSec * dt);
     }
 
-    // 2. Keyboard Free-Look (I/J/K/L)
+    // 2. Keyboard Free-Look (I/J/K/L at sea; also W/A/S/D & Arrow keys in grounded Star-Stone Vigil)
     let keyLookActive = false;
-    if (sailingActive) {
+    if (sailingActive || this.vigilMode) {
       const keyLookSpeed = 85.0 * dt;
-      if (this.keysDown.has('KeyJ')) {
+      const leftKey =
+        this.keysDown.has('KeyJ') ||
+        (this.vigilMode && (this.keysDown.has('KeyA') || this.keysDown.has('ArrowLeft')));
+      const rightKey =
+        this.keysDown.has('KeyL') ||
+        (this.vigilMode && (this.keysDown.has('KeyD') || this.keysDown.has('ArrowRight')));
+      const upKey =
+        this.keysDown.has('KeyI') ||
+        (this.vigilMode && (this.keysDown.has('KeyW') || this.keysDown.has('ArrowUp')));
+      const downKey =
+        this.keysDown.has('KeyK') ||
+        (this.vigilMode && (this.keysDown.has('KeyS') || this.keysDown.has('ArrowDown')));
+
+      if (leftKey) {
         this.lookYawDeg += keyLookSpeed;
         keyLookActive = true;
       }
-      if (this.keysDown.has('KeyL')) {
+      if (rightKey) {
         this.lookYawDeg -= keyLookSpeed;
         keyLookActive = true;
       }
-      if (this.keysDown.has('KeyI')) {
+      if (upKey) {
         this.lookPitchOffsetDeg = clamp(
           this.lookPitchOffsetDeg + keyLookSpeed,
           -37.5,
@@ -186,7 +245,7 @@ export class CameraController {
         );
         keyLookActive = true;
       }
-      if (this.keysDown.has('KeyK')) {
+      if (downKey) {
         this.lookPitchOffsetDeg = clamp(
           this.lookPitchOffsetDeg - keyLookSpeed,
           -37.5,
@@ -194,12 +253,35 @@ export class CameraController {
         );
         keyLookActive = true;
       }
-      if (this.lookYawDeg > 180.0) this.lookYawDeg -= 360.0;
-      if (this.lookYawDeg < -180.0) this.lookYawDeg += 360.0;
+      if (keyLookActive) {
+        this._panTarget = null;
+      }
+      this.lookYawDeg = wrapDeg180(this.lookYawDeg);
     }
 
-    // Smooth snap-back to dead-ahead between twin prows when released and not pinned
-    if (!this.isDraggingLook && !this.freeLookPinned && !keyLookActive) {
+    // Smooth Master-guided pan when requested in Star-Stone Vigil
+    if (this._panTarget && !this.isDraggingLook && !keyLookActive) {
+      const panRate = Math.min(1.0, 5.4 * dt);
+      const dYaw = wrapDeg180(this._panTarget.yawDeg - this.lookYawDeg);
+      const dPitch = this._panTarget.pitchOffsetDeg - this.lookPitchOffsetDeg;
+      this.lookYawDeg = wrapDeg180(this.lookYawDeg + dYaw * panRate);
+      this.lookPitchOffsetDeg = clamp(
+        this.lookPitchOffsetDeg + dPitch * panRate,
+        -37.5,
+        90.0 - this.basePitchDeg
+      );
+      if (Math.abs(dYaw) < 0.2 && Math.abs(dPitch) < 0.2) {
+        this.lookYawDeg = this._panTarget.yawDeg;
+        this.lookPitchOffsetDeg = this._panTarget.pitchOffsetDeg;
+        this._panTarget = null;
+      }
+    } else if (
+      !this.vigilMode &&
+      !this.isDraggingLook &&
+      !this.freeLookPinned &&
+      !keyLookActive
+    ) {
+      // Smooth snap-back to dead-ahead between twin prows when released at sea and not pinned
       const spring = Math.min(1.0, 6.2 * dt);
       this.lookYawDeg *= 1.0 - spring;
       this.lookPitchOffsetDeg *= 1.0 - spring;
@@ -207,24 +289,32 @@ export class CameraController {
       if (Math.abs(this.lookPitchOffsetDeg) < 0.05) this.lookPitchOffsetDeg = 0.0;
     }
 
-    // 3. Apply hull heave & gentle horizon stabilization (navigator's inner ear keeps ~35% hull motion)
-    const hull = oceanSim?.hullState;
-    const heave = hull ? hull.heaveM * 0.85 : 0.0;
-    const hullPitch = hull ? hull.pitchRad * 0.42 : 0.0;
-    const hullRoll = hull ? hull.rollRad * 0.38 : 0.0;
+    // 3. Position & Orientation: completely motionless ashore in Star-Stone Vigil; coupled to hull at sea
+    if (this.vigilMode) {
+      this.camera.position.copy(this.vigilEyePos);
+      const totalPitchRad = degToRad(this.basePitchDeg + this.lookPitchOffsetDeg);
+      const totalYawRad = degToRad(this.lookYawDeg);
+      this._euler.set(totalPitchRad, totalYawRad, 0.0, 'YXZ');
+      this.camera.quaternion.setFromEuler(this._euler);
+    } else {
+      const hull = oceanSim?.hullState;
+      const heave = hull ? hull.heaveM * 0.85 : 0.0;
+      const hullPitch = hull ? hull.pitchRad * 0.42 : 0.0;
+      const hullRoll = hull ? hull.rollRad * 0.38 : 0.0;
 
-    this.camera.position.set(
-      this.baseEyePos.x - (hull ? hull.rollRad * 1.1 : 0.0),
-      this.baseEyePos.y + heave,
-      this.baseEyePos.z
-    );
+      this.camera.position.set(
+        this.baseEyePos.x - (hull ? hull.rollRad * 1.1 : 0.0),
+        this.baseEyePos.y + heave,
+        this.baseEyePos.z
+      );
 
-    const totalPitchRad =
-      degToRad(this.basePitchDeg + this.lookPitchOffsetDeg) + hullPitch;
-    const totalYawRad = degToRad(this.lookYawDeg);
+      const totalPitchRad =
+        degToRad(this.basePitchDeg + this.lookPitchOffsetDeg) + hullPitch;
+      const totalYawRad = degToRad(this.lookYawDeg);
 
-    this._euler.set(totalPitchRad, totalYawRad, -hullRoll, 'YXZ');
-    this.camera.quaternion.setFromEuler(this._euler);
+      this._euler.set(totalPitchRad, totalYawRad, -hullRoll, 'YXZ');
+      this.camera.quaternion.setFromEuler(this._euler);
+    }
 
     // Subtle FOV breathing during 2.75x Fast Forward
     const targetFov =

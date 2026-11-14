@@ -325,7 +325,7 @@ export class WorldCuesRenderer {
         slot.secondPeak.visible = isl.archetype === 'twin_peaks';
         slot.atollRing.visible = isAtoll;
         slot.lagoonDisc.visible = isAtoll;
-        slot.moaiGroup.visible = isl.id === 'rapa_nui' && det.ring >= 3;
+        slot.moaiGroup.visible = isl.id === 'hawaii' && det.ring >= 3;
 
         slot.mainPeakMat.color.setHex(
           isl.archetype === 'fortress_crag' ? 0x26292e : 0x2d5a36

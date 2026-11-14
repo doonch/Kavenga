@@ -17,24 +17,27 @@ import { SONGS } from './data/songsData.js';
 import { CameraController } from './rendering/CameraController.js';
 import { OceanRenderer } from './rendering/OceanRenderer.js';
 import { SkyDomeRenderer } from './rendering/SkyDomeRenderer.js';
+import { StarRingRenderer } from './rendering/StarRingRenderer.js';
 import { VakaRenderer } from './rendering/VakaRenderer.js';
 import { WorldCuesRenderer } from './rendering/WorldCuesRenderer.js';
 import { OceanSim, VoyageStatus } from './simulation/oceanSim.js';
 import { IslandHubUI } from './ui/IslandHubUI.js';
 import { SailingHUD } from './ui/SailingHUD.js';
+import { SkyVigilUI } from './ui/SkyVigilUI.js';
 
 class KavengaApp {
   constructor() {
     this.container = document.getElementById('webgl-container');
     this.skyLabelsEl = document.getElementById('sky-labels-layer');
     this.hudRootEl = document.getElementById('sailing-hud');
+    this.vigilRootEl = document.getElementById('sky-vigil-ui');
     this.hubRootEl = document.getElementById('island-hub');
 
     // 1. State & Simulation
     this.gameState = new GameState();
     const hasSavedProgress = this.gameState.loadFromLocalStorage();
     this.oceanSim = new OceanSim();
-    this.phase = 'shore'; // 'shore' | 'sailing'
+    this.phase = 'shore'; // 'shore' | 'sailing' | 'sky_vigil'
 
     // 2. Three.js Renderer & Scene
     this.renderer = new THREE.WebGLRenderer({
@@ -53,14 +56,16 @@ class KavengaApp {
     this.oceanRenderer = new OceanRenderer(this.scene);
     this.vakaRenderer = new VakaRenderer(this.scene);
     this.worldCues = new WorldCuesRenderer(this.scene);
+    this.starRing = new StarRingRenderer(this.scene, this.skyLabelsEl);
 
-    // Seed peaceful coastal preview state behind Island Hub
+    // Seed peaceful coastal preview state behind Island Hub at the current island's latitude
     this.oceanSim.startVoyage(
       SONGS.song_01,
       DepartureWindow.DUSK,
       this.gameState
     );
     this.oceanSim.status = VoyageStatus.IDLE;
+    this.oceanSim.setShoreIsland(this.gameState.currentIslandId);
 
     // 3. Web Audio Engines
     this.chantEngine = new ChantAndDrumEngine();
@@ -71,6 +76,14 @@ class KavengaApp {
       getGameState: () => this.gameState,
       onChangeDifficulty: (mode) => this.setDifficulty(mode),
       onLaunchVoyage: (song, depWindow) => this.launchVoyage(song, depWindow),
+      onOpenSkyVigil: (opts) => this.enterSkyVigil(opts),
+    });
+
+    this.skyVigilUI = new SkyVigilUI(this.vigilRootEl, {
+      getOceanSim: () => this.oceanSim,
+      getCameraCtrl: () => this.cameraCtrl,
+      onExitVigil: () => this.exitSkyVigil(),
+      onPlayChime: () => this.chantEngine.playStarSightedChime(),
     });
 
     this.sailingHud = new SailingHUD(this.hudRootEl, {
@@ -105,6 +118,10 @@ class KavengaApp {
 
     this.islandHub.show(hasSavedProgress ? 'landing' : 'sanctuary');
     this.sailingHud.hide();
+    this.skyVigilUI.hide();
+
+    // Direct URL boot support for instant testing: ?mode=sky_vigil&master=terai|akura&island=<id>&tab=lessons|atlas|quiz
+    this._checkStartupUrlParams();
 
     window.addEventListener('resize', () => this._onResize());
 
@@ -112,6 +129,67 @@ class KavengaApp {
     this._elapsedAppSec = 0.0;
     this._animate = this._animate.bind(this);
     window.requestAnimationFrame(this._animate);
+  }
+
+  _checkStartupUrlParams() {
+    if (typeof window === 'undefined' || !window.location?.search) return;
+    const params = new URLSearchParams(window.location.search);
+    const urlMode = params.get('mode');
+    const urlIsland = params.get('island');
+    const urlMaster = params.get('master');
+    const urlTab = params.get('tab');
+
+    if (urlIsland && ISLANDS[urlIsland]) {
+      this.gameState.currentIslandId = urlIsland;
+      this.gameState.currentBasinId = ISLANDS[urlIsland].basinId;
+      this.oceanSim.setShoreIsland(urlIsland);
+      this.islandHub.refresh();
+    }
+
+    if (urlMode === 'sky_vigil' || params.get('vigil') === '1') {
+      const islObj = urlIsland && ISLANDS[urlIsland] ? ISLANDS[urlIsland] : null;
+      const resolvedMaster =
+        urlMaster ||
+        islObj?.starMasterId ||
+        (islObj && islObj.latDeg > 0 ? 'akura' : 'terai');
+      this.enterSkyVigil({
+        masterId: resolvedMaster,
+        islandId: islObj ? islObj.id : undefined,
+        mode: urlTab || 'lessons',
+      });
+    }
+  }
+
+  enterSkyVigil(opts = {}) {
+    this.chantEngine.stop();
+    this.spatialAudio.stop();
+
+    this.phase = 'sky_vigil';
+    this.islandHub.hide();
+    this.sailingHud.hide();
+
+    this.vakaRenderer.root.visible = false;
+    this.worldCues.group.visible = false;
+    this.starRing.setVisible(true);
+    this.cameraCtrl.setVigilMode(true);
+
+    this.skyVigilUI.show(opts);
+  }
+
+  exitSkyVigil() {
+    this.skyVigilUI.hide();
+    this.starRing.setVisible(false);
+    this.cameraCtrl.setVigilMode(false);
+
+    this.vakaRenderer.root.visible = true;
+    this.worldCues.group.visible = true;
+    this.skyLabelsEl
+      .querySelectorAll('.sky-star-label')
+      .forEach((el) => (el.style.display = 'none'));
+
+    this.phase = 'shore';
+    this.oceanSim.setShoreIsland(this.gameState.currentIslandId);
+    this.islandHub.show('sand');
   }
 
   setDifficulty(mode) {
@@ -132,6 +210,12 @@ class KavengaApp {
     this.gameState.savePreVoyageSnapshot();
 
     this.phase = 'sailing';
+    this.skyVigilUI.hide();
+    this.starRing.setVisible(false);
+    this.cameraCtrl.setVigilMode(false);
+    this.vakaRenderer.root.visible = true;
+    this.worldCues.group.visible = true;
+
     this.islandHub.hide();
     this.sailingHud.show();
     this.cameraCtrl.recenterGaze();
@@ -196,6 +280,36 @@ class KavengaApp {
       this.oceanSim.status === VoyageStatus.SAILING &&
       !this.sailingHud.pauseOpen;
 
+    if (this.phase === 'sky_vigil') {
+      this.skyVigilUI.update(dtSec, this.oceanSim, this.cameraCtrl);
+      this.oceanSim._refreshEnvironment(0);
+      this.cameraCtrl.update(dtSec, this.oceanSim, false);
+
+      this.vakaRenderer.sunLight.intensity =
+        1.65 * this.oceanSim.sunState.daylightFactor;
+      this.vakaRenderer.hemiLight.intensity =
+        0.2 + 0.68 * this.oceanSim.sunState.daylightFactor;
+
+      this.skyDome.update(
+        dtSec,
+        this._elapsedAppSec,
+        this.oceanSim,
+        this.gameState.difficulty,
+        this.cameraCtrl.camera,
+        this.skyVigilUI.getSkyDomeOverrides()
+      );
+      this.oceanRenderer.update(dtSec, this._elapsedAppSec, this.oceanSim, true);
+      this.starRing.update(
+        this._elapsedAppSec,
+        this.cameraCtrl.camera,
+        this.skyVigilUI.getStarRingOverrides()
+      );
+
+      this.renderer.render(this.scene, this.cameraCtrl.camera);
+      window.requestAnimationFrame(this._animate);
+      return;
+    }
+
     if (isActivelySailing) {
       const events = this.oceanSim.step(dtSec);
       for (const ev of events) {
@@ -220,8 +334,10 @@ class KavengaApp {
       });
       this.spatialAudio.update(dtSec, this.oceanSim, this.gameState);
     } else if (this.phase === 'shore') {
-      // Gentle ambient lagoon bobbing behind the Island Hub UI
-      this.oceanSim.solarHour = (17.6 + Math.sin(this._elapsedAppSec * 0.03) * 0.35 + 24.0) % 24.0;
+      // Gentle ambient lagoon twilight behind Island Hub at the current island's exact latitude
+      this.oceanSim.setShoreIsland(this.gameState.currentIslandId);
+      this.oceanSim.solarHour =
+        (18.55 + Math.sin(this._elapsedAppSec * 0.03) * 0.25 + 24.0) % 24.0;
       this.oceanSim._refreshEnvironment(dtSec);
     }
 
@@ -233,7 +349,7 @@ class KavengaApp {
       this.phase === 'sailing' ? this.gameState.difficulty : 'master_navigator',
       this.cameraCtrl.camera
     );
-    this.oceanRenderer.update(dtSec, this._elapsedAppSec, this.oceanSim);
+    this.oceanRenderer.update(dtSec, this._elapsedAppSec, this.oceanSim, false);
     this.vakaRenderer.update(
       dtSec,
       this._elapsedAppSec,

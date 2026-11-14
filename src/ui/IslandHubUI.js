@@ -21,6 +21,7 @@ import {
   performBeachCareeningAndRestock,
 } from '../core/campaignManager.js';
 import { ISLANDS, OCEAN_BASINS } from '../data/islandsData.js';
+import { STAR_MASTERS } from '../data/skyVigilData.js';
 import { SONGS } from '../data/songsData.js';
 import { SandCanvas } from './SandCanvas.js';
 
@@ -141,8 +142,32 @@ export class IslandHubUI {
             </div>
           </section>
 
-          <!-- TAB 2: NAVIGATOR'S SHORE (ANIMATED STICK-IN-THE-SAND LESSONS) -->
+          <!-- TAB 2: NAVIGATOR'S SHORE (STAR-STONE VIGIL + ANIMATED STICK-IN-THE-SAND LESSONS) -->
           <section class="hub-panel hidden" id="panelSand">
+            <div class="hub-card vigil-launch-card" id="shoreSkyVigilCard">
+              <div class="vigil-launch-top">
+                <img class="vigil-launch-portrait" id="shoreVigilThumb" alt="" />
+                <div class="vigil-launch-copy">
+                  <span class="sand-mentor-tag" id="shoreVigilEyebrow">✦ Grounded Night-Sky Observatory · Ahu Feti'a</span>
+                  <h3 id="shoreVigilTitle">The Star-Stone Vigil</h3>
+                  <p id="shoreVigilDesc"></p>
+                </div>
+                <div class="vigil-launch-cta-col">
+                  <button class="primary-btn vigil-primary-launch-btn" id="btnLaunchLocalVigil" type="button">
+                    ✨ Enter Star-Stone Vigil
+                  </button>
+                  <div class="vigil-quick-masters">
+                    <button class="secondary-btn small-btn" id="btnQuickVigilTerai" type="button">
+                      🐢 First Master Tera'i · Maupiti
+                    </button>
+                    <button class="secondary-btn small-btn" id="btnQuickVigilAkura" type="button">
+                      ✦ Keeper Akura · Kiritimati
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div class="sand-shore-grid">
               <div class="hub-card sand-list-card">
                 <h3 id="sandPoiTitle">Stick-in-the-Sand Lessons</h3>
@@ -219,10 +244,10 @@ export class IslandHubUI {
                 </div>
               </div>
 
-              <!-- Unlocked after Rapa Nui Finale: Free Replay Any of the 17 Chants! -->
+              <!-- Unlocked after Hawai'i Finale: Free Replay Any of the 17 Chants! -->
               <div class="master-replay-box hidden" id="masterReplayBox">
                 <h3>Master Navigator Anthology — Replay Any of the 17 Chants</h3>
-                <p>Having reached Rapa Nui, you may launch any route chant across all three archipelagos directly.</p>
+                <p>Having reached Hawai'i, you may launch any route chant across all three archipelagos directly.</p>
                 <div class="replay-song-grid" id="masterReplayGrid"></div>
               </div>
             </div>
@@ -370,6 +395,36 @@ export class IslandHubUI {
     this.rootEl.querySelector('#btnRedrawSand').addEventListener('click', () => {
       this._renderSelectedShoreLesson(true);
     });
+
+    // Star-Stone Vigil Launchers inside Navigator's Shore
+    this.rootEl
+      .querySelector('#btnLaunchLocalVigil')
+      .addEventListener('click', () => {
+        const gs = this.callbacks.getGameState();
+        const isl = ISLANDS[gs?.currentIslandId] || ISLANDS.raiatea;
+        const masterId =
+          isl.starMasterId || (isl.latDeg > 0 ? 'akura' : 'terai');
+        this.callbacks.onOpenSkyVigil?.({
+          masterId,
+          islandId: isl.id,
+        });
+      });
+    this.rootEl
+      .querySelector('#btnQuickVigilTerai')
+      .addEventListener('click', () => {
+        this.callbacks.onOpenSkyVigil?.({
+          masterId: 'terai',
+          islandId: 'maupiti',
+        });
+      });
+    this.rootEl
+      .querySelector('#btnQuickVigilAkura')
+      .addEventListener('click', () => {
+        this.callbacks.onOpenSkyVigil?.({
+          masterId: 'akura',
+          islandId: 'kiritimati',
+        });
+      });
 
     // Speak with Mentor / Harvest Outpost button
     this.rootEl
@@ -688,6 +743,35 @@ export class IslandHubUI {
 
   _refreshSandLessonsList() {
     const gs = this.callbacks.getGameState();
+    const curIsl = ISLANDS[gs?.currentIslandId] || ISLANDS.raiatea;
+
+    // Populate the prominent Star-Stone Night-Sky Vigil banner in Navigator's Shore
+    const localMasterId =
+      curIsl.starMasterId || (curIsl.latDeg > 0 ? 'akura' : 'terai');
+    const master = STAR_MASTERS[localMasterId];
+    const thumbEl = this.rootEl.querySelector('#shoreVigilThumb');
+    thumbEl.src = master.portrait;
+    thumbEl.alt = master.mentorName;
+
+    const launchBtn = this.rootEl.querySelector('#btnLaunchLocalVigil');
+    if (curIsl.starMasterId) {
+      this.rootEl.querySelector('#shoreVigilEyebrow').textContent =
+        `✦ Home Star-Stone Ring · ${master.skyRealmLabel}`;
+      this.rootEl.querySelector('#shoreVigilTitle').textContent =
+        `${master.ringTitle} — ${master.mentorName}`;
+      this.rootEl.querySelector('#shoreVigilDesc').textContent =
+        master.welcomeIntro;
+      launchBtn.textContent = `✨ Enter Star-Stone Vigil with ${master.mentorName}`;
+    } else {
+      this.rootEl.querySelector('#shoreVigilEyebrow').textContent =
+        `✦ Grounded Night-Sky Observatory · ${master.skyRealmLabel}`;
+      this.rootEl.querySelector('#shoreVigilTitle').textContent =
+        `The Star-Stone Vigil — Observe Tonight's Sky From ${curIsl.name}`;
+      this.rootEl.querySelector('#shoreVigilDesc').textContent =
+        `Step into a calm, motionless stone circle ashore to study the constellations above ${curIsl.name} without a rocking hull, or jump straight to First Master Tera'i (Maupiti) or Keeper Akura (Kiritimati) below.`;
+      launchBtn.textContent = `✨ Observe ${curIsl.name} Night Sky (${master.mentorName})`;
+    }
+
     const lessons = getLearnedSandLessonsList(gs);
     const listEl = this.rootEl.querySelector('#hubLessonList');
     listEl.innerHTML = '';

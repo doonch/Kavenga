@@ -22,6 +22,11 @@ import {
 } from '../src/data/constellationsData.js';
 import { ISLANDS, OCEAN_BASINS } from '../src/data/islandsData.js';
 import { SAND_LESSONS } from '../src/data/sandDiagramsData.js';
+import {
+  CONSTELLATION_GUIDE,
+  STAR_MASTERS,
+  getQuizPromptsForMaster,
+} from '../src/data/skyVigilData.js';
 import { SONGS, buildReturnSong } from '../src/data/songsData.js';
 import {
   computeLstDeg,
@@ -69,12 +74,34 @@ logLine('=== Kavenga Phase 1 Native ES Module Test Suite ===');
 // ---------------------------------------------------------------------------
 logLine('\n[1/7] Verifying Declarative Data Catalogs & Difficulty Matrix...');
 assert(HORIZON_HOUSES.length === 12, 'Expected 12 Horizon Houses');
-assert(Object.keys(NAVIGATION_STARS).length === 31, 'Expected 31 Navigation Stars');
+assert(Object.keys(NAVIGATION_STARS).length === 34, 'Expected 34 Navigation Stars');
 assert(CONSTELLATIONS.length === 10, 'Expected 10 Animal Constellations');
+
+// Ensure every constellation line segment is geometrically compact (< 34 deg arc)
+for (const c of CONSTELLATIONS) {
+  for (const [idA, idB] of c.lines) {
+    const a = NAVIGATION_STARS[idA];
+    const b = NAVIGATION_STARS[idB];
+    assert(Boolean(a && b), `Constellation ${c.id} references valid stars ${idA}, ${idB}`);
+    const dRa = ((a.raDeg - b.raDeg) * Math.PI) / 180.0;
+    const dec1 = (a.decDeg * Math.PI) / 180.0;
+    const dec2 = (b.decDeg * Math.PI) / 180.0;
+    const cosArc = Math.max(
+      -1.0,
+      Math.min(1.0, Math.sin(dec1) * Math.sin(dec2) + Math.cos(dec1) * Math.cos(dec2) * Math.cos(dRa))
+    );
+    const arcDeg = (Math.acos(cosArc) * 180.0) / Math.PI;
+    assert(
+      arcDeg > 5.0 && arcDeg < 34.0,
+      `Constellation ${c.id} segment ${idA}->${idB} must be compact (got ${arcDeg.toFixed(1)} deg)`
+    );
+  }
+}
 assert(Object.keys(OCEAN_BASINS).length === 3, 'Expected 3 Regional Ocean Basins');
 assert(Object.keys(ISLANDS).length === 16, 'Expected 16 Islands across Acts I-III');
 assert(Object.keys(SONGS).length === 17, 'Expected 17 authored Songs (1-16 + 14R)');
 assert(Object.keys(SAND_LESSONS).length === 16, 'Expected 16 Sand Lessons');
+assert(Object.keys(STAR_MASTERS).length === 2, 'Expected exactly 2 Star Masters (Southern & Northern)');
 
 assert(showsActiveStarShimmer(Difficulty.EASY) === true, 'Easy shows active star shimmer');
 assert(showsActiveStarShimmer(Difficulty.MEDIUM) === false, 'Medium hides active shimmer');
@@ -130,9 +157,17 @@ for (const z of Object.values(LASHING_ZONES)) {
   auditText(z.label, `LashingZone ${z.id}`);
 }
 let mentorPortraitCount = 0;
+let starMasterIslandCount = 0;
 for (const [iid, isl] of Object.entries(ISLANDS)) {
   auditText(isl.name, `Island ${iid}.name`);
   auditText(isl.subtitle, `Island ${iid}.subtitle`);
+  assert(typeof isl.latDeg === 'number' && Number.isFinite(isl.latDeg), `Island ${iid} must define numeric latDeg`);
+  if (isl.act <= 2) {
+    assert(isl.hemisphere === 'southern' && isl.latDeg < 0, `Acts I-II island ${iid} must be Southern Hemisphere`);
+  } else {
+    assert(isl.hemisphere === 'northern' && isl.latDeg > 0, `Act III island ${iid} must be Northern Hemisphere`);
+  }
+  if (isl.starMasterId) starMasterIslandCount += 1;
   if (isl.inhabited) {
     assert(Boolean(isl.mentorName), `Inhabited island ${iid} must have mentorName`);
     assert(Boolean(isl.mentorRole), `Inhabited island ${iid} must have mentorRole`);
@@ -150,35 +185,90 @@ for (const [iid, isl] of Object.entries(ISLANDS)) {
   }
 }
 assert(mentorPortraitCount === 15, 'Expected 15 full-body mentor portraits across inhabited islands');
+assert(starMasterIslandCount === 2, 'Expected exactly 2 Star Master islands (Maupiti & Kiritimati)');
+
+// Audit all Star-Stone Vigil Master dialogues, Constellation Atlas notes & Quiz prompts
+for (const [mid, m] of Object.entries(STAR_MASTERS)) {
+  auditText(m.mentorName, `StarMaster ${mid}.mentorName`);
+  auditText(m.mentorRole, `StarMaster ${mid}.mentorRole`);
+  auditText(m.ringTitle, `StarMaster ${mid}.ringTitle`);
+  auditText(m.skyRealmLabel, `StarMaster ${mid}.skyRealmLabel`);
+  auditText(m.welcomeIntro, `StarMaster ${mid}.welcomeIntro`);
+  for (const ch of m.chapters) {
+    auditText(ch.title, `${mid} ${ch.id}.title`);
+    auditText(ch.speech, `${mid} ${ch.id}.speech`);
+    auditText(ch.hint, `${mid} ${ch.id}.hint`);
+    if (ch.promptTarget?.label) auditText(ch.promptTarget.label, `${mid} ${ch.id}.promptLabel`);
+  }
+  for (const q of getQuizPromptsForMaster(mid)) {
+    auditText(q.prompt, `Quiz ${q.id}.prompt`);
+    auditText(q.successNote, `Quiz ${q.id}.successNote`);
+  }
+}
+for (const [cid, cg] of Object.entries(CONSTELLATION_GUIDE)) {
+  auditText(cg.teraiStatus, `ConstellationGuide ${cid}.teraiStatus`);
+  auditText(cg.akuraStatus, `ConstellationGuide ${cid}.akuraStatus`);
+  auditText(cg.teraiNote, `ConstellationGuide ${cid}.teraiNote`);
+  auditText(cg.akuraNote, `ConstellationGuide ${cid}.akuraNote`);
+}
 
 // ---------------------------------------------------------------------------
-// 3. Spherical Astronomy & Polar/Zenith Checks
+// 3. Spherical Astronomy & Dual-Hemisphere Polar/Zenith Checks
 // ---------------------------------------------------------------------------
-logLine('[3/7] Verifying Spherical Astronomy (-12 deg latitude, Pivots & Zenith)...');
+logLine('[3/7] Verifying Spherical Astronomy (Southern vs Northern Hemisphere Latitudes)...');
 const geckoHeart = NAVIGATION_STARS.geckos_heart;
 const geckoTransit = computeStarAltAz(geckoHeart.raDeg, geckoHeart.decDeg, geckoHeart.raDeg);
-assertNear(geckoTransit.altDeg, 90.0, 0.05, "Gecko's Heart culminates straight overhead at 90 deg");
+assertNear(geckoTransit.altDeg, 90.0, 0.05, "Gecko's Heart culminates straight overhead at -12 deg");
 
 const horseCrown = NAVIGATION_STARS.horses_crown;
 let hoursSkimmingAboveHorizon = 0;
 for (let h = 0; h < 24; h += 0.25) {
   const lst = computeLstDeg(160.0, h);
-  const st = computeStarAltAz(horseCrown.raDeg, horseCrown.decDeg, lst);
-  if (st.altDeg > 0.0 && st.altDeg <= 8.5) {
+  const st = computeStarAltAz(horseCrown.raDeg, horseCrown.decDeg, lst, ISLANDS.nuku_hiva.latDeg);
+  if (st.altDeg > 0.0 && st.altDeg <= 10.5) {
     hoursSkimmingAboveHorizon += 0.25;
   }
 }
 assert(
   hoursSkimmingAboveHorizon >= 7.0,
-  `Horse's Crown skims low above horizon for >=7h (got ${hoursSkimmingAboveHorizon}h)`
+  `Horse's Crown skims low off Nuku Hiva for >=7h (got ${hoursSkimmingAboveHorizon}h)`
 );
 
 const shellCrown = NAVIGATION_STARS.shell_crown;
+const steadfastPeg = NAVIGATION_STARS.steadfast_peg;
+
+// Southern Star Master (Maupiti, -17.8 deg): Sea Turtle circumpolar; Steadfast Peg hidden below horizon!
 for (let h = 0; h < 24; h += 2) {
-  const st = computeStarAltAz(shellCrown.raDeg, shellCrown.decDeg, computeLstDeg(160.0, h));
+  const lst = computeLstDeg(160.0, h);
+  const stTurtle = computeStarAltAz(shellCrown.raDeg, shellCrown.decDeg, lst, ISLANDS.maupiti.latDeg);
+  const stPeg = computeStarAltAz(steadfastPeg.raDeg, steadfastPeg.decDeg, lst, ISLANDS.maupiti.latDeg);
   assert(
-    st.altDeg > 6.0 && st.altDeg < 18.0,
-    `Sea Turtle's Shell Crown remains circumpolar all night (alt=${st.altDeg.toFixed(1)})`
+    stTurtle.altDeg > 11.0 && stTurtle.altDeg < 24.0,
+    `Maupiti (-17.8): Sea Turtle remains circumpolar all night (alt=${stTurtle.altDeg.toFixed(1)})`
+  );
+  assert(
+    stPeg.altDeg < -16.0,
+    `Maupiti (-17.8): Steadfast Peg hidden below sea all night (alt=${stPeg.altDeg.toFixed(1)})`
+  );
+}
+
+// Northern Star Master (Kiritimati, +21.2 deg): Steadfast Peg & Horse circumpolar; Sea Turtle hidden below horizon!
+for (let h = 0; h < 24; h += 2) {
+  const lst = computeLstDeg(160.0, h);
+  const stPeg = computeStarAltAz(steadfastPeg.raDeg, steadfastPeg.decDeg, lst, ISLANDS.kiritimati.latDeg);
+  const stHorse = computeStarAltAz(horseCrown.raDeg, horseCrown.decDeg, lst, ISLANDS.kiritimati.latDeg);
+  const stTurtle = computeStarAltAz(shellCrown.raDeg, shellCrown.decDeg, lst, ISLANDS.kiritimati.latDeg);
+  assert(
+    stPeg.altDeg > 20.0 && stPeg.altDeg < 22.5,
+    `Kiritimati (+21.2): Steadfast Peg motionless ~21 deg all night (alt=${stPeg.altDeg.toFixed(1)})`
+  );
+  assert(
+    stHorse.altDeg > 0.5,
+    `Kiritimati (+21.2): Horse's Crown circumpolar all night (alt=${stHorse.altDeg.toFixed(1)})`
+  );
+  assert(
+    stTurtle.altDeg < -14.0,
+    `Kiritimati (+21.2): Sea Turtle hidden below sea all night (alt=${stTurtle.altDeg.toFixed(1)})`
   );
 }
 

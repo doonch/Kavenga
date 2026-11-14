@@ -303,4 +303,26 @@ export class ChantAndDrumEngine {
       osc.stop(now + i * 0.38 + 1.3);
     });
   }
+
+  /**
+   * Gentle rising pentatonic vivo nose-flute chime when sighting a star in the Star-Stone Vigil.
+   */
+  playStarSightedChime() {
+    const ctx = this.ensureContext();
+    if (!ctx || this.muted) return;
+    const now = ctx.currentTime + 0.01;
+    [440.0, 587.33].forEach((hz, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(hz, now + i * 0.14);
+      gain.gain.setValueAtTime(0.0001, now + i * 0.14);
+      gain.gain.linearRampToValueAtTime(0.075, now + i * 0.14 + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0005, now + i * 0.14 + 0.38);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(now + i * 0.14);
+      osc.stop(now + i * 0.14 + 0.42);
+    });
+  }
 }

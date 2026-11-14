@@ -2,7 +2,7 @@
 
 **Kavenga: Songs of the Star Path** is a contemplative first-person 3D Polynesian wayfinding game built with **Zero-Build ES2022 Modules**, **Three.js (`r170`)**, **Web Audio API**, and **HTML5 2D Canvas**.
 
-Sail a traditional double-hulled voyaging canoe (*vaka moana*) across **16 Pacific islands** and **17 ancestral route chants** from *Raʻiātea* to *Rapa Nui*—navigating strictly by rising and setting star paths (*kavenga*), stationary island peak clouds, turquoise coral-lagoon cloud reflections (*lapa*), dawn/dusk homing terns and boobies, solar sighting-post (*pou*) crossbeam shadows, and 4-beat ocean swells—with **zero maps, zero compasses, and zero degree numbers**.
+Sail a traditional double-hulled voyaging canoe (*vaka moana*) across **16 Pacific islands** and **17 ancestral route chants** from *Raʻiātea* across the Southern Hemisphere lagoons and high islands (Acts I–II) into the Northern Hemisphere *Hawaiʻi Mist Chain* (*Kauaʻi*, *Oʻahu*, *Kiritimati*, and *Hawaiʻi* in Act III)—navigating strictly by rising and setting star paths (*kavenga*), hemisphere-true polar stars (*The Sea Turtle* & *The Frigatebird* in the South; *Steadfast Peg* & *The Horse* in the North), stationary island peak clouds, turquoise coral-lagoon cloud reflections (*lapa*), dawn/dusk homing terns and boobies, solar sighting-post (*pou*) crossbeam shadows, and 4-beat ocean swells—with **zero maps, zero compasses, and zero degree numbers**.
 
 ---
 
@@ -15,6 +15,14 @@ python3 -m http.server 8123 --bind 127.0.0.1
 ```
 
 Then open **http://127.0.0.1:8123/** in any modern WebGL browser.
+
+### Instant Star-Stone Vigil Test Entry (Zero Playthrough Required)
+You can enter the grounded 3D night-sky observatory (**The Star-Stone Vigil / *Ahu Fetiʻa***) immediately without sailing through prior islands:
+- **In-Game (from Island 1):** Open the **`🐚 Navigator's Shore`** tab and click **Enter Star-Stone Vigil** (or jump directly to **First Master Teraʻi · Maupiti** or **Keeper Akura · Kiritimati**, and switch freely among all 16 island skies in the top bar).
+- **Direct URL Parameters:**
+  - Southern Hemisphere Star Master (*First Master Teraʻi* on Maupiti): `http://127.0.0.1:8123/?mode=sky_vigil&master=terai`
+  - Northern Hemisphere Star Master (*Keeper Akura* on Kiritimati): `http://127.0.0.1:8123/?mode=sky_vigil&master=akura`
+  - Specific Island Sky & Tab (`lessons`, `atlas`, or optional `quiz`): `http://127.0.0.1:8123/?mode=sky_vigil&island=hawaii&tab=atlas`
 
 ### Hosting on GitHub Pages
 Because all ES module imports and `<script type="importmap">` paths are strictly relative, this repository deploys directly to **GitHub Pages** with zero CI/build step:
@@ -64,19 +72,21 @@ Switch modes anytime from the Island Hub or in-voyage **Options** menu:
 │   │   ├── gameState.js             # Campaign progression, cargo slots, crew & pre-voyage snapshots
 │   │   └── campaignManager.js       # Full Acts I-III island quests, repairs, upgrades & route builder
 │   ├── data/
-│   │   ├── constellationsData.js    # 12 Horizon Houses, 31 navigation stars & 10 Animal Constellations
-│   │   ├── islandsData.js           # 3 regional ocean basins & all 16 Polynesian islands
+│   │   ├── constellationsData.js    # 12 Horizon Houses, 34 navigation stars & 10 Animal Constellations
+│   │   ├── islandsData.js           # 3 regional ocean basins & 16 islands with per-island latitudes
 │   │   ├── songsData.js             # 17 authored route chants (Songs 1-16 + 14R) & dynamic return songs
-│   │   └── sandDiagramsData.js      # 16 stick-and-shell shore teaching diagrams
+│   │   ├── sandDiagramsData.js      # 16 stick-and-shell shore teaching diagrams
+│   │   └── skyVigilData.js          # Dual-hemisphere Star Masters, Constellation Atlas & optional Eye Trial
 │   ├── simulation/
-│   │   ├── celestialSim.js          # Spherical astronomy (-12° reference latitude, twilight & relays)
+│   │   ├── celestialSim.js          # Spherical astronomy (per-island & voyage-interpolated latitudes)
 │   │   ├── shadowCraft.js           # Sighting post (pou) -> crossbeam (iako) solar shadow projection
 │   │   ├── hullPhysics.js           # Twin-hull 4-beat swell Doppler coupling & Ring 3 wave zones
 │   │   └── oceanSim.js              # 2D basin kinematics, leeway, Rings 1-4 & cue-relative mist reflections
 │   ├── rendering/
-│   │   ├── CameraController.js      # Trim-Lock steering & 360° Free-Look (-180° stern to +90° zenith)
+│   │   ├── CameraController.js      # Trim-Lock steering, 360° Free-Look & motionless Vigil shore gaze
 │   │   ├── SkyDomeRenderer.js       # Twilight scattering shader, Milky Way, stars, curtains & sea fog
-│   │   ├── OceanRenderer.js         # Swell/refraction/reflection water shader & foamy leeway wake
+│   │   ├── StarRingRenderer.js      # Grounded 3D Ahu Feti'a 12-stone coastal observatory & braziers
+│   │   ├── OceanRenderer.js         # Swell/refraction/reflection water shader & calm night shore mode
 │   │   ├── VakaRenderer.js          # Procedural double-hulled vaka, pou shadow & deck readiness props
 │   │   └── WorldCuesRenderer.js     # Clouds, Lapa lagoon glow, homing seabirds, bonito & 3D islands
 │   ├── audio/
@@ -85,10 +95,11 @@ Switch modes anytime from the Island Hub or in-voyage **Options** menu:
 │   └── ui/
 │       ├── SandCanvas.js            # Animated shore sand-drawing lessons & static Recall renderer
 │       ├── SailingHUD.js            # Strict Zero-Compass HUD, Landfall & Lost-at-Sea mist overlays
-│       └── IslandHubUI.js           # Coastal POI tabs, careening, provisioning & mentor dialogues
+│       ├── SkyVigilUI.js            # Guided Star-Stone Vigil lessons, Constellation Atlas & optional quiz
+│       └── IslandHubUI.js           # Coastal POI tabs, Star-Stone Vigil launcher & mentor dialogues
 └── tests/
-    ├── runPhase1Tests.mjs           # Astronomy, shadow, swell, zero-compass & 17-route autopilot suite
-    └── runCampaignWalkthroughTests.mjs # Full 17-leg Ra'iatea -> Rapa Nui campaign economy suite
+    ├── runPhase1Tests.mjs           # Astronomy, hemisphere poles, zero-compass & 17-route autopilot suite
+    └── runCampaignWalkthroughTests.mjs # Full 17-leg Ra'iatea -> Hawai'i campaign economy suite
 ```
 
 ---

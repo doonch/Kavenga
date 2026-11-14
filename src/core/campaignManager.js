@@ -47,12 +47,12 @@ export const CARGO_CATALOG = Object.freeze({
   miro_drum_wood: {
     id: 'miro_drum_wood',
     name: 'Sacred Miro Drum-Timber',
-    description: 'Resonant heartwood from foggy Tubuai needed by Swell Master Pohaku on Rapa Iti.',
+    description: "Resonant heartwood from foggy O'ahu needed by Swell Master Pohaku on Kaua'i.",
   },
   sacred_tridacna_shell: {
     id: 'sacred_tridacna_shell',
     name: 'Sacred Giant Tridacna Shell',
-    description: 'Ancient fluted lagoon shell carried from Tongareva to the Great Ancestral Ahu of Rapa Nui.',
+    description: "Ancient fluted lagoon shell carried from Kiritimati to the Great Ancestral Ahu of Hawai'i.",
   },
 });
 
@@ -97,7 +97,7 @@ export const POI_LABELS = Object.freeze({
   black_sand_cove: 'Fortress Crag Cove',
   barrier_beach: 'Fog-Shrouded Barrier Beach',
   coral_pass_landing: 'Sacred Coral Pass Landing',
-  anakena_golden_beach: 'Anakena Ancestral Sands',
+  kealakekua_golden_beach: 'Kealakekua Ancestral Sands',
 
   navigators_shore: "Navigator's Teaching Sand",
   master_terai_sand: "First Master Tera'i's Star-Ring Sand",
@@ -118,9 +118,9 @@ export const POI_LABELS = Object.freeze({
   high_crag_pa: "Pohaku's High Crag Sanctuary",
   miro_forest_grove: 'Misty Miro Timber Grove',
   fishers_hearth: "Elder Manu's Warm Hearth",
-  sacred_lagoon_shrine: "Keeper Akura's Lagoon Shrine",
+  sacred_lagoon_shrine: "Keeper Akura's Star-Mirror Shrine",
   drying_racks: 'Provisioning & Drying Racks',
-  great_ancestral_ahu: 'The Great Ancestral Moai Ahu',
+  great_ancestral_ahu: 'The Great Ancestral Heiau Ahu',
 });
 
 function grantCargoWithSlotSafety(gameState, itemId) {
@@ -160,19 +160,19 @@ export function onVoyageLandfall(gameState, islandId) {
     }
   }
 
-  // Rapa Iti immediately grants the initial fog-swell trial (Song 14 to Tubuai) on arrival
-  if (islandId === 'rapa_iti' && isl.rewards?.initialSong) {
+  // Kaua'i immediately grants the initial fog-swell trial (Song 14 to O'ahu) on arrival
+  if (islandId === 'kauai' && isl.rewards?.initialSong) {
     if (!gameState.learnedSongs[isl.rewards.initialSong]) {
       gameState.learnSong(isl.rewards.initialSong);
       notes.push(
-        'Swell Master Pohaku awaits on the black sand to teach the Four Swell Voices toward Tubuai.'
+        "Swell Master Pohaku awaits on the black sand to teach the Four Swell Voices toward O'ahu."
       );
     }
   }
 
-  // Rapa Nui Grand Finale unlock!
-  if (islandId === 'rapa_nui') {
-    gameState.completedQuests.rapa_nui_finale = true;
+  // Hawai'i Grand Finale unlock!
+  if (islandId === 'hawaii') {
+    gameState.completedQuests.hawaii_finale = true;
     if (!gameState.masterReplayUnlocked) {
       gameState.masterReplayUnlocked = true;
       notes.push(
@@ -470,7 +470,7 @@ export function interactWithIslandSanctuary(gameState) {
     return {
       title: "Tane's Pearl-Divers' Village",
       speech:
-        "Tane presses luminous pearl star discs into your palm. 'Rain-squalls often curtain your prows halfway to Hiva Oa. When forward stars vanish, look straight back over your steering sweep and hold the Setting Crab's Left Claw centered in your wake!'",
+        "Tane presses luminous pearl star discs into your palm. 'Rain-squalls often curtain your prows halfway to Hiva Oa. When forward stars vanish, look straight back over your steering sweep and hold the Setting Gecko's Tongue centered in your wake!'",
       rewardsList,
     };
   }
@@ -543,29 +543,29 @@ export function interactWithIslandSanctuary(gameState) {
       gameState.learnSandLesson('sand_mangareva_mist_warning');
       gameState.learnSong('song_13');
       gameState.loadedRations = gameState.maxCargoSlots - gameState.cargoItems.length;
-      rewardsList.push('Learned Song 13: Edge of the Grey Curtain (Rapa Iti — Act III)');
+      rewardsList.push("Learned Song 13: Edge of the Grey Curtain (Kaua'i — Act III)");
       gameState.saveToLocalStorage();
     }
     return {
       title: "Elder Rongo's Gateway Marae",
       speech:
-        "Elder Rongo points toward the pale mist-curtain brooding over the horizon. 'Follow the Setting Whale down at Dusk; when morning sea-fog blinds every star, hold your steering sweep locked without wavering until Rapa Iti's black crag pierces above the mist!'",
+        "Elder Rongo points toward the pale mist-curtain brooding over the horizon. 'Follow the Setting Horse at Dusk where the Sea Turtle sinks astern and the Steadfast Peg lifts ahead; when morning sea-fog blinds every star, hold your steering sweep locked without wavering until Kaua'i's black crag pierces above the mist!'",
       rewardsList,
     };
   }
 
-  // 13. RAPA ITI (Act III Swell Master Hub)
-  if (id === 'rapa_iti') {
+  // 13. KAUA'I (Act III Swell Master Hub)
+  if (id === 'kauai') {
     gameState.learnSong('song_14');
-    gameState.learnSandLesson('sand_rapa_iti_four_swell_voices');
-    gameState.learnSandLesson('sand_rapa_iti_refraction_lattice');
+    gameState.learnSandLesson('sand_kauai_four_swell_voices');
+    gameState.learnSandLesson('sand_kauai_refraction_lattice');
 
     if (
-      !gameState.completedQuests.rapa_iti_drum &&
+      !gameState.completedQuests.kauai_drum &&
       gameState.hasCargoItem('miro_drum_wood')
     ) {
       gameState.removeCargoItem('miro_drum_wood');
-      gameState.completedQuests.rapa_iti_drum = true;
+      gameState.completedQuests.kauai_drum = true;
       gameState.hullCondition = 100.0;
       gameState.sailCondition = 100.0;
       gameState.lashingsCondition = 100.0;
@@ -573,59 +573,59 @@ export function interactWithIslandSanctuary(gameState) {
       gameState.learnSong('song_16');
       gameState.loadedRations = gameState.maxCargoSlots - gameState.cargoItems.length;
       rewardsList.push('Carved the Sacred Pahu Swell-Drum & Restored Vaka to 100%!');
-      rewardsList.push('Learned Song 15 (Tongareva) & Song 16 (The Great Chant of Rapa Nui)!');
+      rewardsList.push("Learned Song 15 (Kiritimati) & Song 16 (The Great Chant of Hawai'i)!");
       gameState.saveToLocalStorage();
       return {
         title: "Swell Master Pohaku's High Crag Sanctuary",
         speech:
-          "Swell Master Pohaku hollows your Tubuai miro timber into a deep resonant Pahu drum! 'You sailed through blind mist by the feel of the ocean alone. Now cross to sacred Tongareva (Song 15) to provision for the Grand Voyage to ancestral Rapa Nui!'",
+          "Swell Master Pohaku hollows your O'ahu miro timber into a deep resonant Pahu drum! 'You sailed through blind mist by the feel of the ocean alone. Now cross to sacred Kiritimati (Song 15) to study the Steadfast Peg with Keeper Akura and provision for the Grand Voyage to ancestral Hawai'i!'",
         rewardsList,
       };
     }
 
-    if (gameState.completedQuests.rapa_iti_drum) {
+    if (gameState.completedQuests.kauai_drum) {
       return {
         title: "Swell Master Pohaku's High Crag Sanctuary",
         speech:
-          'Your Pahu drum beats true with the deep ocean ridge. Sail Dusk on Song 15 to Tongareva and follow the diamond swell refraction beneath its jade lagoon cloud.',
-        rewardsList: ['Song 15 (Tongareva) & Song 16 (Rapa Nui) unlocked.'],
+          'Your Pahu drum beats true with the deep ocean ridge. Sail Dusk on Song 15 to Kiritimati and follow the diamond swell refraction beneath its jade lagoon cloud.',
+        rewardsList: ["Song 15 (Kiritimati) & Song 16 (Hawai'i) unlocked."],
       };
     }
 
     return {
       title: "Swell Master Pohaku's Drum & Pebble Shore",
       speech:
-        "Swell Master Pohaku closes his eyes and presses his palm to the wet sand. 'In these mist-seas stars vanish, yet the Great Ocean Swell never lies. Sail at Dawn on Song 14—let the swell lift your port cheek every four drum-beats into Tubuai's calm wave-shadow, and bring back Sacred Miro Drum-Timber!'",
-      rewardsList: ['Active Trial: Sail Song 14 to Tubuai at Dawn and bring back Miro Drum-Timber.'],
+        "Swell Master Pohaku closes his eyes and presses his palm to the wet sand. 'In these mist-seas stars vanish, yet the Great Ocean Swell never lies. Sail at Dawn on Song 14—let the swell lift your port cheek every four drum-beats into O'ahu's calm wave-shadow, and bring back Sacred Miro Drum-Timber!'",
+      rewardsList: ["Active Trial: Sail Song 14 to O'ahu at Dawn and bring back Miro Drum-Timber."],
     };
   }
 
-  // 14. TUBUAI
-  if (id === 'tubuai') {
-    if (!gameState.completedQuests.tubuai_timber) {
-      gameState.completedQuests.tubuai_timber = true;
+  // 14. O'AHU
+  if (id === 'oahu') {
+    if (!gameState.completedQuests.oahu_timber) {
+      gameState.completedQuests.oahu_timber = true;
       grantCargoWithSlotSafety(gameState, 'miro_drum_wood');
-      gameState.learnSandLesson('sand_tubuai_return_swell');
+      gameState.learnSandLesson('sand_oahu_return_swell');
       gameState.learnSong('song_14r');
       gameState.loadedRations = gameState.maxCargoSlots - gameState.cargoItems.length;
-      rewardsList.push('Harvested Sacred Miro Drum-Timber (for Pohaku on Rapa Iti)');
-      rewardsList.push('Learned Song 14R: Echo of the Fortress Crag (Return to Rapa Iti)');
+      rewardsList.push("Harvested Sacred Miro Drum-Timber (for Pohaku on Kaua'i)");
+      rewardsList.push("Learned Song 14R: Echo of the Fortress Crag (Return to Kaua'i)");
       gameState.saveToLocalStorage();
     }
     return {
       title: 'Misty Miro Timber Grove & Hearth',
       speech:
-        "Elder Manu helps lash fragrant red miro timber onto your crossbeams. 'Sail back at Dusk on Return Chant 14R: hold the deep swell four beats upon your starboard cheek until Rapa Iti's black crag rises above the morning mist!'",
+        "Elder Manu helps lash fragrant red miro timber onto your crossbeams. 'Sail back at Dusk on Return Chant 14R: hold the deep swell four beats upon your starboard cheek until Kaua'i's black crag rises above the morning mist!'",
       rewardsList,
     };
   }
 
-  // 15. TONGAREVA
-  if (id === 'tongareva') {
-    if (!gameState.completedQuests.tongareva_prep) {
-      gameState.completedQuests.tongareva_prep = true;
+  // 15. KIRITIMATI (Northern Hemisphere Star Master & Shrine Keeper)
+  if (id === 'kiritimati') {
+    if (!gameState.completedQuests.kiritimati_prep) {
+      gameState.completedQuests.kiritimati_prep = true;
       grantCargoWithSlotSafety(gameState, 'sacred_tridacna_shell');
-      gameState.learnSandLesson('sand_tongareva_grand_voyage_prep');
+      gameState.learnSandLesson('sand_kiritimati_grand_voyage_prep');
       gameState.learnSong('song_16');
       gameState.hullCondition = 100.0;
       gameState.sailCondition = 100.0;
@@ -633,31 +633,31 @@ export function interactWithIslandSanctuary(gameState) {
       gameState.loadedRations = gameState.maxCargoSlots - gameState.cargoItems.length;
       rewardsList.push('Loaded Sacred Giant Tridacna Shell');
       rewardsList.push('Full Grand-Voyage Provisioning & 100% Careening');
-      rewardsList.push('Ready for Song 16: The Great Chant of Rapa Nui (Dawn Departure)');
+      rewardsList.push("Ready for Song 16: The Great Chant of Hawai'i (Dawn Departure)");
       gameState.saveToLocalStorage();
     }
     return {
-      title: "Keeper Akura's Sacred Lagoon Shrine",
+      title: "Keeper Akura's Sacred Star-Mirror Shrine",
       speech:
-        "Keeper Akura blesses your twin prows with lagoon water and loads dried fish, taro, and fresh gourds to the brim. 'At Dawn, sing Song 16—weave sun-shadow, blind fog-swell, three night stars, and cliff-bounced waves all the way to ancestral Rapa Nui!'",
+        "Keeper Akura cradles a still lagoon-water mirror reflecting the Steadfast Peg high above the sea. 'Here across the great waters, the Sea Turtle has sunk out of sight and the Steadfast Peg anchors our night sky! Study the Star-Stone Ring with me on Navigator's Shore, then sing Song 16 at Dawn all the way to ancestral Hawai'i!'",
       rewardsList,
     };
   }
 
-  // 16. RAPA NUI (Grand Finale!)
-  if (id === 'rapa_nui') {
+  // 16. HAWAI'I (Grand Finale!)
+  if (id === 'hawaii') {
     gameState.masterReplayUnlocked = true;
-    gameState.completedQuests.rapa_nui_finale = true;
+    gameState.completedQuests.hawaii_finale = true;
     if (gameState.hasCargoItem('sacred_tridacna_shell')) {
       gameState.removeCargoItem('sacred_tridacna_shell');
-      rewardsList.push('Placed Sacred Tridacna Shell upon the Great Ancestral Ahu!');
+      rewardsList.push('Placed Sacred Tridacna Shell upon the Great Ancestral Heiau Ahu!');
     }
     rewardsList.push('Master Navigator Mode Unlocked (Replay any of the 17 Chants!)');
     gameState.saveToLocalStorage();
     return {
-      title: 'Council of Ancestral Wayfinders — Great Moai Ahu',
+      title: 'Council of Ancestral Wayfinders — Great Heiau Ahu',
       speech:
-        'Stone Moai watch silently over Anakena Bay as conch shells echo from cliff to sea. Without map, needle, or chart, you read cloud, bird, crossbeam shadow, star-house, and four-beat ocean swell across the vast Pacific. You are named Tupaia-Nui — Master Navigator!',
+        'Carved stone guardians watch silently over Kealakekua Bay beneath snow-crowned peaks as conch shells echo from cliff to sea. Across both skies—from the spinning Sea Turtle to the unmoving Steadfast Peg—you read cloud, bird, crossbeam shadow, star-house, and four-beat ocean swell. You are named Tupaia-Nui — Master Navigator!',
       rewardsList,
     };
   }

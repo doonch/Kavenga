@@ -76,10 +76,10 @@ const CAMPAIGN_STEPS = [
   { expectedIsland: 'hiva_oa', sailSongId: 'song_11' },
   { expectedIsland: 'fatu_hiva', sailSongId: 'song_12' },
   { expectedIsland: 'mangareva', sailSongId: 'song_13' },
-  { expectedIsland: 'rapa_iti', sailSongId: 'song_14' }, // Unlocks Song 14 trial to Tubuai
-  { expectedIsland: 'tubuai', sailSongId: 'song_14r' },  // Harvests Miro wood -> unlocks Return 14R
-  { expectedIsland: 'rapa_iti', sailSongId: 'song_15' }, // Carves Pahu drum -> unlocks Song 15 & 16!
-  { expectedIsland: 'tongareva', sailSongId: 'song_16' }, // Grand Voyage prep -> sails to Rapa Nui!
+  { expectedIsland: 'kauai', sailSongId: 'song_14' },      // Unlocks Song 14 trial to O'ahu
+  { expectedIsland: 'oahu', sailSongId: 'song_14r' },      // Harvests Miro wood -> unlocks Return 14R
+  { expectedIsland: 'kauai', sailSongId: 'song_15' },      // Carves Pahu drum -> unlocks Song 15 & 16!
+  { expectedIsland: 'kiritimati', sailSongId: 'song_16' }, // Grand Voyage prep -> sails to Hawai'i!
 ];
 
 for (let i = 0; i < CAMPAIGN_STEPS.length; i += 1) {
@@ -136,17 +136,17 @@ for (let i = 0; i < CAMPAIGN_STEPS.length; i += 1) {
   );
 }
 
-// Final arrival interaction on Rapa Nui
-assert(gs.currentIslandId === 'rapa_nui', 'Reached Rapa Nui at end of Song 16');
+// Final arrival interaction on Hawai'i
+assert(gs.currentIslandId === 'hawaii', "Reached Hawai'i at end of Song 16");
 const finaleSanct = interactWithIslandSanctuary(gs);
-auditText(finaleSanct.title, 'Rapa Nui finale title');
-auditText(finaleSanct.speech, 'Rapa Nui finale speech');
+auditText(finaleSanct.title, "Hawai'i finale title");
+auditText(finaleSanct.speech, "Hawai'i finale speech");
 
 assert(
   Object.keys(gs.discoveredIslands).length === 16,
   `Expected all 16 islands discovered, got ${Object.keys(gs.discoveredIslands).length}`
 );
-assert(gs.masterReplayUnlocked === true, 'Master Navigator replay unlocked upon Rapa Nui finale');
+assert(gs.masterReplayUnlocked === true, "Master Navigator replay unlocked upon Hawai'i finale");
 assert(gs.vakaTier === 3 && gs.maxCargoSlots === 8, 'Upgraded to Tier 3 Vaka Moana (8 slots)');
 assert(
   gs.hasFisher() && gs.hasSailTender() && gs.hasHullWright(),

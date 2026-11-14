@@ -81,6 +81,11 @@ export class OceanSim {
     this.activeIslands = {};
 
     this.pos = { x: 0.0, y: 0.0 };
+    this.startPos = { x: 0.0, y: 0.0 };
+    this.totalRouteUnits = 6.0;
+    this.latDeg = ISLANDS.raiatea?.latDeg ?? GameConstants.REFERENCE_LATITUDE_DEG;
+    this.fromLatDeg = this.latDeg;
+    this.toLatDeg = this.latDeg;
     this.headingDeg = 0.0;
     this.courseOverGroundDeg = 0.0;
     this.leewayDeg = 0.0;
@@ -117,11 +122,24 @@ export class OceanSim {
     this.departedRecommendedWindow = true;
 
     // Cached per-frame readout for renderers, audio, and HUD
-    this.sunState = computeSunState(180.0, 6.0);
+    this.sunState = computeSunState(180.0, 6.0, this.latDeg);
     this.starsState = {};
     this.deckShadow = evaluateDeckShadow(0.0, 90.0, 0.0);
     this.hullState = null;
     this.events = [];
+  }
+
+  /**
+   * Aligns the sky dome and calm environment to a specific island's latitude when ashore or in a Star-Stone Vigil.
+   */
+  setShoreIsland(islandId) {
+    const isl = ISLANDS[islandId];
+    if (!isl) return;
+    this.basin = OCEAN_BASINS[isl.basinId] || this.basin;
+    this.latDeg = isl.latDeg ?? this.basin?.referenceLatDeg ?? GameConstants.REFERENCE_LATITUDE_DEG;
+    this.fromLatDeg = this.latDeg;
+    this.toLatDeg = this.latDeg;
+    this._refreshEnvironment(0.0);
   }
 
   /**
@@ -206,6 +224,12 @@ export class OceanSim {
     // Initial heading gently faces open water outside the departure bay
     const dx = this.activeIslands[toDef.id].simPos.x - this.pos.x;
     const dy = this.activeIslands[toDef.id].simPos.y - this.pos.y;
+    this.startPos = { x: this.pos.x, y: this.pos.y };
+    this.totalRouteUnits = Math.max(1.0, Math.hypot(dx, dy));
+    this.fromLatDeg = fromDef?.latDeg ?? GameConstants.REFERENCE_LATITUDE_DEG;
+    this.toLatDeg = toDef?.latDeg ?? this.fromLatDeg;
+    this.latDeg = this.fromLatDeg;
+
     const trueInitialAz = posMod(radToDeg(Math.atan2(dx, dy)), 360.0);
     this.headingDeg = posMod(trueInitialAz + 12.0, 360.0);
 
@@ -452,7 +476,8 @@ export class OceanSim {
           g.stars,
           false,
           this.solarRaDeg,
-          this.solarHour
+          this.solarHour,
+          this.latDeg
         );
         if (st && st.altDeg > -2.0) {
           desiredCog = st.azDeg;
@@ -462,7 +487,8 @@ export class OceanSim {
           g.stars,
           true,
           this.solarRaDeg,
-          this.solarHour
+          this.solarHour,
+          this.latDeg
         );
         if (st && st.altDeg > -2.0) {
           desiredCog = st.azDeg;
@@ -473,7 +499,8 @@ export class OceanSim {
           const st = computeStarAltAz(
             sDef.raDeg,
             sDef.decDeg,
-            computeLstDeg(this.solarRaDeg, this.solarHour)
+            computeLstDeg(this.solarRaDeg, this.solarHour),
+            this.latDeg
           );
           if (st.altDeg > 0.0) {
             desiredCog = posMod(st.azDeg + 180.0, 360.0);
@@ -502,8 +529,21 @@ export class OceanSim {
   }
 
   _refreshEnvironment(_simDtSec) {
-    this.sunState = computeSunState(this.solarRaDeg, this.solarHour);
-    this.starsState = evaluateAllNavigationStars(this.solarRaDeg, this.solarHour);
+    if (this.status === VoyageStatus.SAILING && this.song) {
+      const traveled = Math.hypot(
+        this.pos.x - this.startPos.x,
+        this.pos.y - this.startPos.y
+      );
+      const frac = Math.max(0.0, Math.min(1.0, traveled / this.totalRouteUnits));
+      this.latDeg = this.fromLatDeg + (this.toLatDeg - this.fromLatDeg) * frac;
+    }
+
+    this.sunState = computeSunState(this.solarRaDeg, this.solarHour, this.latDeg);
+    this.starsState = evaluateAllNavigationStars(
+      this.solarRaDeg,
+      this.solarHour,
+      this.latDeg
+    );
     this.deckShadow = evaluateDeckShadow(
       this.sunState.altDeg,
       this.sunState.azDeg,

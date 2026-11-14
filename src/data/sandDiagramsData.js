@@ -158,14 +158,14 @@ export const SAND_LESSONS = Object.freeze({
     mentor: 'Elder Rongo',
     islandId: 'mangareva',
     narration:
-      "Follow the Setting Whale until grey mist swallows the heavens; keep your steering sweep tied fast and trust Rapa Iti's high crag to pierce the morning fog.",
-    primitives: [{ type: 'shell_ring_12', radius: 0.78, highlightBand: 'band_5' }],
+      "Follow the Setting Horse across the great waters where the Sea Turtle drowns in your wake and the Steadfast Peg lifts ahead; when grey mist swallows the heavens, hold your sweep tied fast until Kaua'i's high crag pierces the morning fog.",
+    primitives: [{ type: 'shell_ring_12', radius: 0.78, highlightBand: 'band_1' }],
   },
-  sand_rapa_iti_four_swell_voices: {
-    id: 'sand_rapa_iti_four_swell_voices',
+  sand_kauai_four_swell_voices: {
+    id: 'sand_kauai_four_swell_voices',
     title: 'The Four Voices of the Deep Swell',
     mentor: 'Swell Master Pohaku',
-    islandId: 'rapa_iti',
+    islandId: 'kauai',
     narration:
       'Head-on rushes ahead of the pahu drum in a quick seesaw. Beam-on rolls your deck sideways. Following surges slow from astern. Only on your port or starboard cheek does the leading prow crest on every fourth beat of the drum!',
     primitives: [
@@ -173,11 +173,11 @@ export const SAND_LESSONS = Object.freeze({
       { type: 'canoe_mark', at: [0.0, 0.0], angleRad: 0.785, label: '4-Beat Cheek Trim' },
     ],
   },
-  sand_rapa_iti_refraction_lattice: {
-    id: 'sand_rapa_iti_refraction_lattice',
+  sand_kauai_refraction_lattice: {
+    id: 'sand_kauai_refraction_lattice',
     title: 'Island Wave Shadows & Diamond Ripples',
     mentor: 'Swell Master Pohaku',
-    islandId: 'rapa_iti',
+    islandId: 'kauai',
     narration:
       'Cliffs bounce swells back as white-tipped pyramids. Behind an island sits a flat Calm Wave Shadow, and farther leeward the bending swells cross into a diamond lattice.',
     primitives: [
@@ -187,25 +187,25 @@ export const SAND_LESSONS = Object.freeze({
       { type: 'pyramid_peaks', at: [0.0, 0.45], label: 'Reflected Cliffs' },
     ],
   },
-  sand_tubuai_return_swell: {
-    id: 'sand_tubuai_return_swell',
+  sand_oahu_return_swell: {
+    id: 'sand_oahu_return_swell',
     title: 'Holding the Return Ridge',
     mentor: 'Elder Manu',
-    islandId: 'tubuai',
+    islandId: 'oahu',
     narration:
-      "Keep the deep ocean swell striking your starboard cheek every four beats through the mist until Rapa Iti's black crag breaks above the fog.",
+      "Keep the deep ocean swell striking your starboard cheek every four beats through the mist until Kaua'i's black crag breaks above the fog.",
     primitives: [
       { type: 'parallel_swell_ridges', angleRad: 0.0 },
       { type: 'canoe_mark', at: [0.0, 0.0], angleRad: -0.785, label: 'Starboard Cheek' },
     ],
   },
-  sand_tongareva_grand_voyage_prep: {
-    id: 'sand_tongareva_grand_voyage_prep',
-    title: 'The Four Legs to Ancestral Rapa Nui',
+  sand_kiritimati_grand_voyage_prep: {
+    id: 'sand_kiritimati_grand_voyage_prep',
+    title: "The Four Legs to Ancestral Hawai'i",
     mentor: 'Keeper Akura',
-    islandId: 'tongareva',
+    islandId: 'kiritimati',
     narration:
-      'Unite every art: morning sun-shadow along your center deck, port-cheek swell through afternoon mist, the Rising Path of the Shark by night, and cliff-reflected pyramid waves at misty dawn.',
+      'Unite every art: morning sun-shadow along your center deck, port-cheek swell through afternoon mist, the Rising Path of the Shark with the Steadfast Peg shining off your port beam, and cliff-reflected pyramid waves at misty dawn.',
     primitives: [{ type: 'shell_ring_12', radius: 0.78, highlightBand: 'band_4' }],
   },
 });

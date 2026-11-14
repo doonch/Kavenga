@@ -5,7 +5,8 @@
  */
 
 export const StarDeclinations = Object.freeze({
-  NORTH_PIVOT: 70.0,   // Skims 2.5..8.0 deg above 0 deg horizon for >7 hours
+  NORTH_POLE: 89.2,    // Motionless Northern Pole Star (visible in Act III Northern Hemisphere; hidden below horizon in Acts I-II)
+  NORTH_PIVOT: 70.0,   // Skims low in Acts I-II; circumpolar all night in Act III
   BAND_1: 57.9,        // Rises 30 deg / Sets 330 deg (Path of the Horse)
   BAND_2: 29.28,       // Rises 60 deg / Sets 300 deg (Path of the Boar)
   BAND_3: 0.0,         // Rises 90 deg / Sets 270 deg (Path of the Bull / Sun Path)
@@ -31,7 +32,17 @@ export const HORIZON_HOUSES = Object.freeze([
 ]);
 
 export const NAVIGATION_STARS = Object.freeze({
-  // Northern Pivot
+  // Northern Celestial Pole & Pivot
+  steadfast_peg: {
+    id: 'steadfast_peg',
+    name: 'Steadfast Peg',
+    constellation: 'the_horse',
+    bandId: 'north_pivot',
+    raDeg: 38.0,
+    decDeg: StarDeclinations.NORTH_POLE,
+    magnitude: 0.95,
+    colorHex: '#fff5cc',
+  },
   horses_crown: {
     id: 'horses_crown',
     name: "Horse's Crown",
@@ -90,49 +101,49 @@ export const NAVIGATION_STARS = Object.freeze({
   },
 
   // Band 2: Path of the Boar (60 / 300 deg)
-  boars_tusk: {
-    id: 'boars_tusk',
-    name: "Boar's Tusk",
-    constellation: 'the_boar',
-    bandId: 'band_2',
-    relayOrder: 1,
-    raDeg: 235.0,
-    decDeg: StarDeclinations.BAND_2,
-    magnitude: 1.3,
-    colorHex: '#ffc285',
-  },
   geckos_tongue: {
     id: 'geckos_tongue',
     name: "Gecko's Tongue",
     constellation: 'the_gecko',
     bandId: 'band_2',
-    relayOrder: 2,
-    raDeg: 275.0,
+    relayOrder: 1,
+    raDeg: 322.0,
     decDeg: StarDeclinations.BAND_2,
     magnitude: 1.7,
     colorHex: '#c9f5d9',
-  },
-  crabs_left_claw: {
-    id: 'crabs_left_claw',
-    name: "Crab's Left Claw",
-    constellation: 'the_crab',
-    bandId: 'band_2',
-    relayOrder: 3,
-    raDeg: 315.0,
-    decDeg: StarDeclinations.BAND_2,
-    magnitude: 1.5,
-    colorHex: '#d8ecff',
   },
   horses_heart: {
     id: 'horses_heart',
     name: "Horse's Heart",
     constellation: 'the_horse',
     bandId: 'band_2',
-    relayOrder: 4,
-    raDeg: 355.0,
+    relayOrder: 2,
+    raDeg: 18.0,
     decDeg: StarDeclinations.BAND_2,
     magnitude: 1.6,
     colorHex: '#ffd49e',
+  },
+  boars_tusk: {
+    id: 'boars_tusk',
+    name: "Boar's Tusk",
+    constellation: 'the_boar',
+    bandId: 'band_2',
+    relayOrder: 3,
+    raDeg: 68.0,
+    decDeg: StarDeclinations.BAND_2,
+    magnitude: 1.3,
+    colorHex: '#ffc285',
+  },
+  crabs_left_claw: {
+    id: 'crabs_left_claw',
+    name: "Crab's Left Claw",
+    constellation: 'the_crab',
+    bandId: 'band_2',
+    relayOrder: 4,
+    raDeg: 108.0,
+    decDeg: StarDeclinations.BAND_2,
+    magnitude: 1.5,
+    colorHex: '#d8ecff',
   },
 
   // Band 3: Path of the Bull / Sun Path (90 / 270 deg)
@@ -187,19 +198,30 @@ export const NAVIGATION_STARS = Object.freeze({
     name: "Gecko's Heart",
     constellation: 'the_gecko',
     bandId: 'zenith',
-    raDeg: 352.0,
+    raDeg: 340.0,
     decDeg: StarDeclinations.ZENITH,
     magnitude: 1.3,
     colorHex: '#aef5c4',
   },
 
   // Band 4: Path of the Shark (120 / 240 deg)
+  geckos_tail: {
+    id: 'geckos_tail',
+    name: "Gecko's Tail",
+    constellation: 'the_gecko',
+    bandId: 'band_4',
+    relayOrder: 1,
+    raDeg: 328.0,
+    decDeg: StarDeclinations.BAND_4,
+    magnitude: 1.7,
+    colorHex: '#c9f5d9',
+  },
   bulls_hoof: {
     id: 'bulls_hoof',
     name: "Bull's Hoof",
     constellation: 'the_bull',
     bandId: 'band_4',
-    relayOrder: 1,
+    relayOrder: 2,
     raDeg: 0.0,
     decDeg: StarDeclinations.BAND_4,
     magnitude: 1.3,
@@ -210,7 +232,7 @@ export const NAVIGATION_STARS = Object.freeze({
     name: "Rat's Tail",
     constellation: 'the_rat',
     bandId: 'band_4',
-    relayOrder: 2,
+    relayOrder: 3,
     raDeg: 40.0,
     decDeg: StarDeclinations.BAND_4,
     magnitude: 1.6,
@@ -221,22 +243,11 @@ export const NAVIGATION_STARS = Object.freeze({
     name: "Shark's Fin",
     constellation: 'the_shark',
     bandId: 'band_4',
-    relayOrder: 3,
+    relayOrder: 4,
     raDeg: 80.0,
     decDeg: StarDeclinations.BAND_4,
     magnitude: 0.9,
     colorHex: '#a8dcff',
-  },
-  geckos_tail: {
-    id: 'geckos_tail',
-    name: "Gecko's Tail",
-    constellation: 'the_gecko',
-    bandId: 'band_4',
-    relayOrder: 4,
-    raDeg: 120.0,
-    decDeg: StarDeclinations.BAND_4,
-    magnitude: 1.7,
-    colorHex: '#c9f5d9',
   },
 
   // Band 5: Path of the Whale (150 / 210 deg)
@@ -363,10 +374,30 @@ export const NAVIGATION_STARS = Object.freeze({
     name: "Boar's Spine",
     constellation: 'the_boar',
     bandId: 'shape',
-    raDeg: 235.0,
-    decDeg: 42.0,
+    raDeg: 74.0,
+    decDeg: 43.6,
     magnitude: 2.1,
     colorHex: '#ffd4ad',
+  },
+  geckos_crest: {
+    id: 'geckos_crest',
+    name: "Gecko's Back",
+    constellation: 'the_gecko',
+    bandId: 'shape',
+    raDeg: 331.0,
+    decDeg: 8.5,
+    magnitude: 2.0,
+    colorHex: '#b8f5cf',
+  },
+  crabs_shell: {
+    id: 'crabs_shell',
+    name: "Crab's Carapace",
+    constellation: 'the_crab',
+    bandId: 'shape',
+    raDeg: 120.0,
+    decDeg: 29.0,
+    magnitude: 1.9,
+    colorHex: '#dceeff',
   },
   whales_brow: {
     id: 'whales_brow',
@@ -386,6 +417,7 @@ export const CONSTELLATIONS = Object.freeze([
     name: 'The Horse',
     actUnlocked: 2,
     lines: [
+      ['steadfast_peg', 'horses_crown'],
       ['horses_crown', 'horses_mane'],
       ['horses_mane', 'horses_heart'],
       ['horses_mane', 'horses_tail'],
@@ -405,7 +437,8 @@ export const CONSTELLATIONS = Object.freeze([
     name: 'The Gecko',
     actUnlocked: 2,
     lines: [
-      ['geckos_tongue', 'geckos_heart'],
+      ['geckos_tongue', 'geckos_crest'],
+      ['geckos_crest', 'geckos_heart'],
       ['geckos_heart', 'geckos_tail'],
     ],
   },
@@ -414,8 +447,9 @@ export const CONSTELLATIONS = Object.freeze([
     name: 'The Crab',
     actUnlocked: 2,
     lines: [
-      ['crabs_right_claw', 'crabs_eye'],
-      ['crabs_eye', 'crabs_left_claw'],
+      ['crabs_eye', 'crabs_shell'],
+      ['crabs_shell', 'crabs_right_claw'],
+      ['crabs_shell', 'crabs_left_claw'],
     ],
   },
   {

@@ -164,11 +164,23 @@ export class GameState {
 
   fromJSON(data) {
     if (!data) return;
+    const legacyIslandMap = {
+      rapa_iti: 'kauai',
+      tubuai: 'oahu',
+      tongareva: 'kiritimati',
+      rapa_nui: 'hawaii',
+    };
+    const mapIsl = (id) => legacyIslandMap[id] || id;
+    const migratedDiscovered = {};
+    for (const [k, v] of Object.entries(data.discoveredIslands ?? { raiatea: true })) {
+      migratedDiscovered[mapIsl(k)] = v;
+    }
+
     this.difficulty = data.difficulty ?? Difficulty.MEDIUM;
     this.masterReplayUnlocked = Boolean(data.masterReplayUnlocked);
     this.currentBasinId = data.currentBasinId ?? 'act1_raiatea';
-    this.currentIslandId = data.currentIslandId ?? 'raiatea';
-    this.discoveredIslands = { ...(data.discoveredIslands ?? { raiatea: true }) };
+    this.currentIslandId = mapIsl(data.currentIslandId ?? 'raiatea');
+    this.discoveredIslands = migratedDiscovered;
     this.learnedSongs = { ...(data.learnedSongs ?? { song_01: true }) };
     this.learnedSandLessons = { ...(data.learnedSandLessons ?? {}) };
     this.completedQuests = { ...(data.completedQuests ?? {}) };

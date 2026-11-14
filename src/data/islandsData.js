@@ -1,6 +1,9 @@
 /**
  * Declarative catalog of the 3 Regional Ocean Basins and all 16 Polynesian islands across Acts I-III.
+ * - Acts I & II lie in the Southern Hemisphere (-17.8 deg to -8.6 deg latitude: Sea Turtle & Frigatebird circumpolar; Steadfast Peg hidden).
+ * - Act III lies in the Northern Hemisphere (+19.8 deg to +22.4 deg latitude: Steadfast Peg & Horse circumpolar; Sea Turtle hidden).
  * Coordinates use { x: eastUnits, y: northUnits } in nominal 1x-minute sailing units.
+ * Player-facing strings strictly exclude cardinal words and degree symbols.
  */
 
 export const OCEAN_BASINS = Object.freeze({
@@ -8,6 +11,8 @@ export const OCEAN_BASINS = Object.freeze({
     id: 'act1_raiatea',
     name: "The Ra'iatea Lagoon Chain",
     act: 1,
+    hemisphere: 'southern',
+    referenceLatDeg: -16.8,
     referenceHopUnits: 6.0,
     defaultWindFromAz: 100.0,
     defaultSwellFromAz: 135.0,
@@ -16,14 +21,18 @@ export const OCEAN_BASINS = Object.freeze({
     id: 'act2_nuku_hiva',
     name: 'The Nuku Hiva Windward Chain',
     act: 2,
+    hemisphere: 'southern',
+    referenceLatDeg: -10.5,
     referenceHopUnits: 9.0,
     defaultWindFromAz: 95.0,
     defaultSwellFromAz: 135.0,
   },
   act3_mist_isles: {
     id: 'act3_mist_isles',
-    name: 'The Far Mist Isles',
+    name: "The Hawai'i Mist Chain",
     act: 3,
+    hemisphere: 'northern',
+    referenceLatDeg: 21.2,
     referenceHopUnits: 9.5,
     defaultWindFromAz: 110.0,
     defaultSwellFromAz: 270.0,
@@ -32,7 +41,7 @@ export const OCEAN_BASINS = Object.freeze({
 
 export const ISLANDS = Object.freeze({
   // =========================================================================
-  // ACT I: THE RA'IATEA LAGOON CHAIN (6 Islands — Verified Closed Loop)
+  // ACT I: THE RA'IATEA LAGOON CHAIN (6 Islands — Southern Hemisphere)
   // =========================================================================
   raiatea: {
     id: 'raiatea',
@@ -40,6 +49,8 @@ export const ISLANDS = Object.freeze({
     subtitle: 'Sacred High Island',
     basinId: 'act1_raiatea',
     act: 1,
+    hemisphere: 'southern',
+    latDeg: -16.9,
     pos: { x: 0.0, y: 0.0 },
     archetype: 'high_volcanic',
     peakHeightM: 88.0,
@@ -61,6 +72,8 @@ export const ISLANDS = Object.freeze({
     subtitle: 'Sheltered Lagoon Isle',
     basinId: 'act1_raiatea',
     act: 1,
+    hemisphere: 'southern',
+    latDeg: -16.6,
     pos: { x: 0.0, y: 3.8 },
     archetype: 'high_volcanic',
     peakHeightM: 64.0,
@@ -87,6 +100,8 @@ export const ISLANDS = Object.freeze({
     subtitle: "Twin-Peak Artisans' Isle",
     basinId: 'act1_raiatea',
     act: 1,
+    hemisphere: 'southern',
+    latDeg: -16.1,
     pos: { x: 1.1, y: 8.1 },
     archetype: 'twin_peaks',
     peakHeightM: 76.0,
@@ -112,6 +127,8 @@ export const ISLANDS = Object.freeze({
     subtitle: 'Uninhabited Coral Atoll',
     basinId: 'act1_raiatea',
     act: 1,
+    hemisphere: 'southern',
+    latDeg: -16.3,
     pos: { x: -5.3, y: 7.2 },
     archetype: 'coral_atoll',
     peakHeightM: 9.0,
@@ -135,6 +152,8 @@ export const ISLANDS = Object.freeze({
     subtitle: 'Jagged Volcanic Spire',
     basinId: 'act1_raiatea',
     act: 1,
+    hemisphere: 'southern',
+    latDeg: -17.3,
     pos: { x: -5.9, y: -0.55 },
     archetype: 'volcanic_spire',
     peakHeightM: 105.0,
@@ -162,6 +181,9 @@ export const ISLANDS = Object.freeze({
     subtitle: 'Outer Fortress Rock',
     basinId: 'act1_raiatea',
     act: 1,
+    hemisphere: 'southern',
+    latDeg: -17.8,
+    starMasterId: 'terai',
     pos: { x: -7.4, y: -4.3 },
     archetype: 'fortress_crag',
     peakHeightM: 96.0,
@@ -182,7 +204,7 @@ export const ISLANDS = Object.freeze({
   },
 
   // =========================================================================
-  // ACT II: THE NUKU HIVA WINDWARD CHAIN (6 Islands)
+  // ACT II: THE NUKU HIVA WINDWARD CHAIN (6 Islands — Southern Hemisphere)
   // =========================================================================
   nuku_hiva: {
     id: 'nuku_hiva',
@@ -190,6 +212,8 @@ export const ISLANDS = Object.freeze({
     subtitle: 'Towering Valley Hub',
     basinId: 'act2_nuku_hiva',
     act: 2,
+    hemisphere: 'southern',
+    latDeg: -11.4,
     pos: { x: 0.0, y: 0.0 },
     archetype: 'high_volcanic',
     peakHeightM: 112.0,
@@ -211,6 +235,8 @@ export const ISLANDS = Object.freeze({
     subtitle: 'Basalt Spire Isle',
     basinId: 'act2_nuku_hiva',
     act: 2,
+    hemisphere: 'southern',
+    latDeg: -10.1,
     pos: { x: 0.0, y: 7.5 },
     archetype: 'volcanic_spire',
     peakHeightM: 118.0,
@@ -236,6 +262,8 @@ export const ISLANDS = Object.freeze({
     subtitle: 'Immense Coral Atoll',
     basinId: 'act2_nuku_hiva',
     act: 2,
+    hemisphere: 'southern',
+    latDeg: -8.6,
     pos: { x: -4.25, y: 14.86 },
     archetype: 'coral_atoll',
     peakHeightM: 10.0,
@@ -261,6 +289,8 @@ export const ISLANDS = Object.freeze({
     subtitle: 'Volcanic Quarry Isle',
     basinId: 'act2_nuku_hiva',
     act: 2,
+    hemisphere: 'southern',
+    latDeg: -9.6,
     pos: { x: 3.98, y: 10.11 },
     archetype: 'fortress_crag',
     peakHeightM: 102.0,
@@ -287,6 +317,8 @@ export const ISLANDS = Object.freeze({
     subtitle: 'Cliff-Walled Forest Isle',
     basinId: 'act2_nuku_hiva',
     act: 2,
+    hemisphere: 'southern',
+    latDeg: -10.6,
     pos: { x: 8.48, y: 5.61 },
     archetype: 'high_volcanic',
     peakHeightM: 98.0,
@@ -312,6 +344,8 @@ export const ISLANDS = Object.freeze({
     subtitle: 'Outer Lagoon Gateway',
     basinId: 'act2_nuku_hiva',
     act: 2,
+    hemisphere: 'southern',
+    latDeg: -12.6,
     pos: { x: 13.48, y: -3.05 },
     archetype: 'twin_peaks',
     peakHeightM: 74.0,
@@ -329,14 +363,16 @@ export const ISLANDS = Object.freeze({
   },
 
   // =========================================================================
-  // ACT III: THE FAR MIST ISLES (4 Islands)
+  // ACT III: THE HAWAI'I MIST CHAIN (4 Islands — Northern Hemisphere)
   // =========================================================================
-  rapa_iti: {
-    id: 'rapa_iti',
-    name: 'Rapa Iti',
+  kauai: {
+    id: 'kauai',
+    name: "Kaua'i",
     subtitle: 'Mist-Ringed Fortress Crag',
     basinId: 'act3_mist_isles',
     act: 3,
+    hemisphere: 'northern',
+    latDeg: 21.8,
     pos: { x: 0.0, y: 0.0 },
     archetype: 'fortress_crag',
     peakHeightM: 124.0,
@@ -350,19 +386,21 @@ export const ISLANDS = Object.freeze({
     mentorRole: 'Master of the Four Swell Voices',
     mentorPortrait: './assets/mentors/swell_master_pohaku.webp',
     pois: ['black_sand_cove', 'master_pohaku_sand', 'high_crag_pa'],
-    sandLessons: ['sand_rapa_iti_four_swell_voices', 'sand_rapa_iti_refraction_lattice'],
+    sandLessons: ['sand_kauai_four_swell_voices', 'sand_kauai_refraction_lattice'],
     requiresItem: 'miro_drum_wood',
     rewards: {
       initialSong: 'song_14',
       unlocksSongs: ['song_15', 'song_16'],
     },
   },
-  tubuai: {
-    id: 'tubuai',
-    name: 'Tubuai',
+  oahu: {
+    id: 'oahu',
+    name: "O'ahu",
     subtitle: 'Fog-Banked Timber Isle',
     basinId: 'act3_mist_isles',
     act: 3,
+    hemisphere: 'northern',
+    latDeg: 22.4,
     pos: { x: -6.01, y: 6.01 },
     archetype: 'high_volcanic',
     peakHeightM: 58.0,
@@ -375,18 +413,21 @@ export const ISLANDS = Object.freeze({
     mentorRole: 'Miro Timber & Swell Elder',
     mentorPortrait: './assets/mentors/elder_manu.webp',
     pois: ['barrier_beach', 'miro_forest_grove', 'fishers_hearth'],
-    sandLessons: ['sand_tubuai_return_swell'],
+    sandLessons: ['sand_oahu_return_swell'],
     rewards: {
       harvestItems: ['miro_drum_wood'],
       unlocksSong: 'song_14r',
     },
   },
-  tongareva: {
-    id: 'tongareva',
-    name: 'Tongareva',
-    subtitle: 'Sacred Lagoon Atoll',
+  kiritimati: {
+    id: 'kiritimati',
+    name: 'Kiritimati',
+    subtitle: 'Sacred Star-Mirror Atoll',
     basinId: 'act3_mist_isles',
     act: 3,
+    hemisphere: 'northern',
+    latDeg: 21.2,
+    starMasterId: 'akura',
     pos: { x: 10.0, y: 0.0 },
     archetype: 'coral_atoll',
     peakHeightM: 10.0,
@@ -396,22 +437,24 @@ export const ISLANDS = Object.freeze({
     hasSteepCliffs: false,
     birdSpecies: 'brown_booby',
     mentorName: 'Keeper Akura',
-    mentorRole: 'Sacred Lagoon Shrine Keeper',
+    mentorRole: 'Star-Mirror Master & Shrine Keeper',
     mentorPortrait: './assets/mentors/keeper_akura.webp',
-    pois: ['coral_pass_landing', 'sacred_lagoon_shrine', 'drying_racks'],
-    sandLessons: ['sand_tongareva_grand_voyage_prep'],
+    pois: ['coral_pass_landing', 'navigators_shore', 'sacred_lagoon_shrine'],
+    sandLessons: ['sand_kiritimati_grand_voyage_prep'],
     rewards: {
       harvestItems: ['sacred_tridacna_shell'],
       maxRationsRefill: true,
     },
   },
-  rapa_nui: {
-    id: 'rapa_nui',
-    name: 'Rapa Nui',
-    subtitle: 'Ancestral Far Horizon',
+  hawaii: {
+    id: 'hawaii',
+    name: "Hawai'i",
+    subtitle: 'Ancestral Mauna Horizon',
     basinId: 'act3_mist_isles',
     act: 3,
-    pos: { x: 21.2, y: -3.0 },
+    hemisphere: 'northern',
+    latDeg: 19.8,
+    pos: { x: 20.6, y: -4.1 },
     archetype: 'fortress_crag',
     peakHeightM: 115.0,
     inhabited: true,
@@ -422,7 +465,7 @@ export const ISLANDS = Object.freeze({
     mentorName: 'Council of Ancestral Wayfinders',
     mentorRole: 'Ancestral Wayfinder Elders',
     mentorPortrait: './assets/mentors/council_ancestral_wayfinders.webp',
-    pois: ['anakena_golden_beach', 'great_ancestral_ahu'],
+    pois: ['kealakekua_golden_beach', 'great_ancestral_ahu'],
     sandLessons: [],
     rewards: {
       campaignComplete: true,

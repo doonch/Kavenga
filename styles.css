@@ -1087,3 +1087,566 @@ body {
   flex-direction: column;
   gap: 2px;
 }
+
+
+/* =========================================================================
+   NAVIGATOR'S SHORE: STAR-STONE VIGIL LAUNCH CARD
+   ========================================================================= */
+.vigil-launch-card {
+  margin-bottom: 18px;
+  background: linear-gradient(
+    135deg,
+    rgba(18, 34, 56, 0.92) 0%,
+    rgba(11, 22, 37, 0.94) 65%,
+    rgba(42, 31, 18, 0.88) 100%
+  );
+  border: 1.5px solid rgba(231, 181, 99, 0.52);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.36);
+}
+
+.vigil-launch-top {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 18px;
+  align-items: center;
+}
+
+.vigil-launch-portrait {
+  width: 78px;
+  height: 106px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: rgba(6, 14, 24, 0.78);
+  border: 1px solid rgba(231, 181, 99, 0.45);
+  padding: 3px;
+}
+
+.vigil-launch-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.vigil-launch-copy h3 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 21px;
+  color: #fff3d6;
+}
+
+.vigil-launch-copy p {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  max-width: 620px;
+}
+
+.vigil-launch-cta-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+  min-width: 268px;
+}
+
+.vigil-primary-launch-btn {
+  white-space: nowrap;
+  box-shadow: 0 6px 20px rgba(231, 181, 99, 0.25);
+}
+
+.vigil-quick-masters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.vigil-quick-masters .secondary-btn {
+  flex: 1;
+  text-align: center;
+  white-space: nowrap;
+}
+
+@media (max-width: 920px) {
+  .vigil-launch-top {
+    grid-template-columns: 1fr;
+  }
+  .vigil-launch-portrait {
+    display: none;
+  }
+  .vigil-launch-cta-col {
+    min-width: 0;
+  }
+}
+
+/* =========================================================================
+   THE STAR-STONE VIGIL (AHU FETI'A) — GROUNDED 3D SKY OBSERVATORY HUD
+   ========================================================================= */
+.vigil-stone-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: rgba(236, 219, 188, 0.84);
+  background: rgba(14, 18, 24, 0.68);
+  border: 1px solid rgba(231, 181, 99, 0.32);
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+}
+
+.vigil-stone-label.active-target-stone {
+  color: #ffe7ad;
+  background: rgba(44, 31, 12, 0.86);
+  border-color: var(--sand-gold);
+  font-weight: 600;
+  box-shadow: 0 0 14px rgba(231, 181, 99, 0.38);
+}
+
+#sky-vigil-ui {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 14px 20px 18px;
+}
+
+/* Subtle Centered Wayfinder Sighting Ring */
+.vigil-sight-reticle {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vigil-reticle-ring {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(243, 227, 195, 0.34);
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+.vigil-reticle-ring.aligned {
+  border-style: solid;
+  border-color: var(--lapa-jade);
+  transform: scale(1.08);
+  box-shadow: 0 0 20px rgba(62, 240, 208, 0.38);
+}
+
+.vigil-reticle-dot {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255, 232, 179, 0.65);
+}
+
+/* Top Bar */
+.vigil-top-bar {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: rgba(8, 17, 28, 0.76);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  padding: 9px 14px;
+}
+
+.vigil-title-cluster {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.vigil-ring-eyebrow,
+.vigil-eyebrow {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  color: var(--lapa-jade);
+}
+
+.vigil-ring-title {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 17px;
+  color: var(--sand-warm);
+}
+
+.vigil-switcher-cluster {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.vigil-master-pills,
+.vigil-mode-tabs {
+  display: inline-flex;
+  background: rgba(4, 10, 18, 0.65);
+  border: 1px solid rgba(232, 198, 142, 0.22);
+  border-radius: 999px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.vigil-pill-btn,
+.vigil-mode-btn {
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.vigil-pill-btn:hover,
+.vigil-mode-btn:hover {
+  color: var(--sand-warm);
+}
+
+.vigil-pill-btn.active,
+.vigil-mode-btn.active {
+  background: rgba(231, 181, 99, 0.26);
+  color: #ffe9ba;
+}
+
+.vigil-island-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--sand-gold);
+}
+
+.vigil-island-picker select {
+  background: rgba(10, 22, 36, 0.94);
+  color: var(--text-main);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+  max-width: 210px;
+}
+
+/* Bottom Deck */
+.vigil-bottom-deck {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(290px, 0.95fr);
+  gap: 14px;
+  align-items: end;
+}
+
+.vigil-main-card,
+.vigil-controls-card {
+  pointer-events: auto;
+  background: rgba(9, 19, 31, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  padding: 14px 18px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+.vigil-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.vigil-mentor-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.vigil-mentor-thumb-btn {
+  padding: 3px;
+  border-radius: 10px;
+  background: rgba(6, 14, 24, 0.85);
+  border: 1px solid rgba(231, 181, 99, 0.45);
+  cursor: zoom-in;
+  flex-shrink: 0;
+}
+
+.vigil-mentor-thumb {
+  width: 54px;
+  height: 74px;
+  object-fit: contain;
+  border-radius: 7px;
+  display: block;
+}
+
+.vigil-mentor-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.vigil-chapter-steps {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.vigil-step-dot {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.vigil-step-dot.active {
+  border-color: var(--sand-gold);
+  background: rgba(231, 181, 99, 0.24);
+  color: #ffe9ba;
+  font-weight: 600;
+}
+
+.vigil-step-dot.sighted {
+  border-color: rgba(62, 240, 208, 0.55);
+  color: var(--lapa-jade);
+}
+
+.vigil-card-heading {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 18px;
+  color: var(--sand-warm);
+}
+
+.vigil-mentor-byline {
+  font-size: 12px;
+  color: var(--sand-gold);
+}
+
+.vigil-speech {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: #fff6e5;
+}
+
+.vigil-hint-line {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.vigil-hint-line.sighted-ok {
+  color: var(--lapa-jade);
+  font-weight: 600;
+}
+
+.vigil-action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.vigil-action-btns {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.vigil-sight-status {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.vigil-sight-status.near {
+  color: var(--sand-gold);
+  border-color: rgba(231, 181, 99, 0.48);
+}
+
+.vigil-sight-status.sighted {
+  color: var(--lapa-jade);
+  border-color: rgba(62, 240, 208, 0.62);
+  background: rgba(62, 240, 208, 0.1);
+  font-weight: 600;
+}
+
+/* Constellation Atlas */
+.vigil-atlas-header,
+.vigil-quiz-top,
+.vigil-time-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.vigil-status-pill,
+.vigil-quiz-tally {
+  font-size: 11.5px;
+  color: #ffe6b0;
+  background: rgba(231, 181, 99, 0.16);
+  border: 1px solid rgba(231, 181, 99, 0.35);
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+.vigil-constellation-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.vigil-const-chip {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-main);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.vigil-const-chip.active {
+  background: rgba(231, 181, 99, 0.28);
+  border-color: var(--sand-gold);
+  color: #fff2cf;
+  font-weight: 600;
+}
+
+.vigil-star-roster {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.vigil-star-pill {
+  font-size: 11.5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--sand-warm);
+}
+
+.vigil-star-pill em {
+  font-style: normal;
+  font-size: 10.5px;
+  color: var(--lapa-jade);
+  margin-left: 3px;
+}
+
+.vigil-star-pill.below-sea {
+  opacity: 0.68;
+}
+
+.vigil-star-pill.below-sea em {
+  color: #ffab82;
+}
+
+.vigil-drag-tip {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+/* Optional Eye Trial Meter */
+.vigil-quiz-meter-wrap {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+  overflow: hidden;
+}
+
+.vigil-quiz-meter-bar {
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--sand-gold), var(--lapa-jade));
+  transition: width 0.08s linear;
+}
+
+.active-peek,
+.active-spin {
+  border-color: var(--lapa-jade) !important;
+  color: var(--lapa-jade) !important;
+}
+
+/* Right Controls Card: Nocturnal Time Scrubber & Layer Toggles */
+.vigil-controls-card {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.vigil-watch-label {
+  display: block;
+  font-size: 14.5px;
+  color: var(--sand-warm);
+  margin-top: 1px;
+}
+
+.vigil-time-slider {
+  width: 100%;
+  accent-color: var(--sand-gold);
+  cursor: pointer;
+}
+
+.vigil-slider-ends {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: -4px;
+}
+
+.vigil-layer-toggles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.vigil-toggle-chip {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9px;
+  padding: 6px 8px;
+  font-size: 11.5px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.vigil-toggle-chip.active {
+  background: rgba(231, 181, 99, 0.2);
+  border-color: rgba(231, 181, 99, 0.55);
+  color: var(--sand-warm);
+}
+
+@media (max-width: 960px) {
+  .vigil-bottom-deck {
+    grid-template-columns: 1fr;
+  }
+}
