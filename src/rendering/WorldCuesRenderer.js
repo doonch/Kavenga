@@ -12,6 +12,11 @@
 
 import * as THREE from 'three';
 import { degToRad, posMod, wrapDeg180 } from '../core/gameConstants.js';
+import {
+  applyDetailedIslandAlpha,
+  createDetailedIslandAssembly,
+  hasDetailedIslandModel,
+} from './IslandTerrainBuilder.js';
 
 function smoothstep(edge0, edge1, x) {
   if (Math.abs(edge1 - edge0) < 1e-6) {
@@ -43,6 +48,7 @@ export class WorldCuesRenderer {
     this._birdTargetColor = new THREE.Color(0xf7fbff);
     this.fishAlpha = 0.0;
     this.frondAlpha = 0.0;
+    this.detailedIslandPool = {};
 
     this._buildMarchingTradeClouds();
     this._buildIslandBeaconPools();
@@ -320,8 +326,23 @@ export class WorldCuesRenderer {
     }
   }
 
+  _getDetailedIslandAssembly(islandId) {
+    if (!this.detailedIslandPool[islandId]) {
+      this.detailedIslandPool[islandId] = createDetailedIslandAssembly(islandId);
+    }
+    return this.detailedIslandPool[islandId];
+  }
+
+  _detachDetailedIslandFromSlot(slot) {
+    if (slot.detailedAssembly) {
+      slot.landGroup.remove(slot.detailedAssembly.group);
+      slot.detailedAssembly = null;
+    }
+  }
+
   _resetVoyageTransitions() {
     for (const slot of this.islandSlots) {
+      this._detachDetailedIslandFromSlot(slot);
       slot.islandId = null;
       slot.islandDef = null;
       slot.peakAlpha = 0.0;
@@ -484,6 +505,7 @@ export class WorldCuesRenderer {
         slot.landAlpha > 0.003;
 
       if (!anyVisible && !det) {
+        this._detachDetailedIslandFromSlot(slot);
         slot.islandId = null;
         slot.islandDef = null;
         slot.root.visible = false;
@@ -529,27 +551,45 @@ export class WorldCuesRenderer {
       // 3D Island Landmass smooth horizon rise & sea-haze fade
       slot.landGroup.visible = slot.landAlpha > 0.003;
       if (slot.landGroup.visible && isl) {
-        const isAtoll = isl.archetype === 'coral_atoll';
-        slot.mainPeak.visible = !isAtoll;
-        slot.secondPeak.visible = isl.archetype === 'twin_peaks';
-        slot.atollRing.visible = isAtoll;
-        slot.lagoonDisc.visible = isAtoll;
-        slot.moaiGroup.visible = isl.id === 'hawaii';
+        if (hasDetailedIslandModel(isl.id)) {
+          slot.mainPeak.visible = false;
+          slot.secondPeak.visible = false;
+          slot.atollRing.visible = false;
+          slot.lagoonDisc.visible = false;
+          slot.moaiGroup.visible = false;
 
-        slot.mainPeakMat.color.setHex(
-          isl.archetype === 'fortress_crag' ? 0x26292e : 0x2d5a36
-        );
-        slot.mainPeakMat.opacity = slot.landAlpha;
-        slot.mainPeakMat.depthWrite = slot.landAlpha > 0.35;
-        slot.atollMat.opacity = slot.landAlpha;
-        slot.lagoonMat.opacity = slot.landAlpha;
-        slot.stoneMat.opacity = slot.landAlpha;
-        slot.stoneMat.depthWrite = slot.landAlpha > 0.35;
+          const detailed = this._getDetailedIslandAssembly(isl.id);
+          if (slot.detailedAssembly !== detailed) {
+            this._detachDetailedIslandFromSlot(slot);
+            slot.detailedAssembly = detailed;
+            slot.landGroup.add(detailed.group);
+          }
+          applyDetailedIslandAlpha(detailed, slot.landAlpha);
+          slot.landGroup.position.y = -detailed.sinkDepthM * (1.0 - slot.riseFactor);
+        } else {
+          this._detachDetailedIslandFromSlot(slot);
+          const isAtoll = isl.archetype === 'coral_atoll';
+          slot.mainPeak.visible = !isAtoll;
+          slot.secondPeak.visible = isl.archetype === 'twin_peaks';
+          slot.atollRing.visible = isAtoll;
+          slot.lagoonDisc.visible = isAtoll;
+          slot.moaiGroup.visible = isl.id === 'hawaii';
 
-        // Sink distant peaks smoothly below sea curvature (-58m hides the +60m summit at riseFactor = 0)
-        slot.landGroup.position.y = isAtoll
-          ? -9.5 * (1.0 - slot.riseFactor)
-          : -58.0 * (1.0 - slot.riseFactor);
+          slot.mainPeakMat.color.setHex(
+            isl.archetype === 'fortress_crag' ? 0x26292e : 0x2d5a36
+          );
+          slot.mainPeakMat.opacity = slot.landAlpha;
+          slot.mainPeakMat.depthWrite = slot.landAlpha > 0.35;
+          slot.atollMat.opacity = slot.landAlpha;
+          slot.lagoonMat.opacity = slot.landAlpha;
+          slot.stoneMat.opacity = slot.landAlpha;
+          slot.stoneMat.depthWrite = slot.landAlpha > 0.35;
+
+          // Sink distant peaks smoothly below sea curvature (-58m hides the +60m summit at riseFactor = 0)
+          slot.landGroup.position.y = isAtoll
+            ? -9.5 * (1.0 - slot.riseFactor)
+            : -58.0 * (1.0 - slot.riseFactor);
+        }
       }
     }
 

@@ -8,6 +8,10 @@ import * as THREE from 'three';
 import { ISLANDS } from './data/islandsData.js';
 import { GameState } from './core/gameState.js';
 import { OceanSim } from './simulation/oceanSim.js';
+import {
+  createDetailedIslandAssembly,
+  hasDetailedIslandModel,
+} from './rendering/IslandTerrainBuilder.js';
 import { VakaRenderer } from './rendering/VakaRenderer.js';
 import { WorldCuesRenderer } from './rendering/WorldCuesRenderer.js';
 
@@ -190,12 +194,13 @@ function buildAssetCatalog() {
   };
 
   for (const isl of Object.values(ISLANDS)) {
+    const detailed = hasDetailedIslandModel(isl.id);
     items.push({
       id: `island_${isl.id}`,
       category: actTitles[isl.act] || 'Islands',
       name: isl.name,
       subtitle: `${isl.subtitle} · ${ARCHETYPE_LABELS[isl.archetype] || isl.archetype}`,
-      tag: ARCHETYPE_LABELS[isl.archetype] || isl.archetype,
+      tag: detailed ? 'Sculpted' : ARCHETYPE_LABELS[isl.archetype] || isl.archetype,
       kind: 'island',
       island: isl,
     });
@@ -235,7 +240,7 @@ class AssetDebugViewer {
       swellMotion: false,
     };
     this.islandCtrl = {
-      showClouds: true,
+      showClouds: false,
     };
     this.animCtrl = {
       speed: 1.0,
@@ -899,18 +904,30 @@ class AssetDebugViewer {
     const lagoonDisc = landGroup.children[3];
     const moaiGroup = landGroup.children[4];
 
-    const isAtoll = isl.archetype === 'coral_atoll';
     landGroup.visible = true;
     landGroup.position.y = 0.0;
-    mainPeak.visible = !isAtoll;
-    secondPeak.visible = isl.archetype === 'twin_peaks';
-    atollRing.visible = isAtoll;
-    lagoonDisc.visible = isAtoll;
-    moaiGroup.visible = isl.id === 'hawaii';
 
-    const peakHex = isl.archetype === 'fortress_crag' ? 0x26292e : 0x2d5a36;
-    mainPeak.material.color.setHex(peakHex);
-    secondPeak.material.color.setHex(peakHex);
+    if (hasDetailedIslandModel(isl.id)) {
+      mainPeak.visible = false;
+      secondPeak.visible = false;
+      atollRing.visible = false;
+      lagoonDisc.visible = false;
+      moaiGroup.visible = false;
+
+      const detailed = createDetailedIslandAssembly(isl.id);
+      landGroup.add(detailed.group);
+    } else {
+      const isAtoll = isl.archetype === 'coral_atoll';
+      mainPeak.visible = !isAtoll;
+      secondPeak.visible = isl.archetype === 'twin_peaks';
+      atollRing.visible = isAtoll;
+      lagoonDisc.visible = isAtoll;
+      moaiGroup.visible = isl.id === 'hawaii';
+
+      const peakHex = isl.archetype === 'fortress_crag' ? 0x26292e : 0x2d5a36;
+      mainPeak.material.color.setHex(peakHex);
+      secondPeak.material.color.setHex(peakHex);
+    }
 
     peakCloud.visible = this.islandCtrl.showClouds && Boolean(isl.hasPeakCloud);
     lapaCloud.visible = this.islandCtrl.showClouds && Boolean(isl.hasLapaGlow);
