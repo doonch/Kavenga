@@ -511,7 +511,7 @@ export function interactWithIslandSanctuary(gameState) {
       if (!gameState.hasCargoItem('obsidian_adze_blanks')) {
         return {
           title: "Oihanu's Great Vaka Moana Shed",
-          speech: 'Bring Volcanic Obsidian Blanks from Hiva Oa so our builders can finish your deep-sea Vaka Moana.',
+          speech: 'Bring Volcanic Obsidian Blanks from Hiva Oa so our builders can step a second crab-claw mast and finish your double-sail Vaka Moana.',
           rewardsList: ['Requires: Volcanic Obsidian Blanks from Hiva Oa.'],
         };
       }
@@ -524,14 +524,14 @@ export function interactWithIslandSanctuary(gameState) {
       gameState.learnSandLesson('sand_fatu_hiva_band5_whale');
       gameState.learnSong('song_12');
       gameState.loadedRations = gameState.maxCargoSlots - gameState.cargoItems.length;
-      rewardsList.push('Upgraded to Deep-Ocean Vaka Moana (8 Cargo Slots, 100% Condition)!');
+      rewardsList.push('Upgraded to Double-Sail Vaka Moana (8 Cargo Slots, 100% Condition)!');
       rewardsList.push('Learned Song 12: Wake of the Great Whale (Mangareva)');
       gameState.saveToLocalStorage();
     }
     return {
       title: "Oihanu's Great Vaka Moana Shed",
       speech:
-        "Oihanu's builders lash twin deep-sea hulls capable of carrying eight full baskets across the mist seas! 'Follow the Rising Whale's Spout, Fluke, and Shark's Tail at Dusk to reach outer Mangareva.'",
+        "Oihanu's builders step a second pandanus crab-claw sail and lash twin deep-sea hulls capable of carrying eight full baskets across the mist seas! 'Follow the Rising Whale's Spout, Fluke, and Shark's Tail at Dusk to reach outer Mangareva.'",
       rewardsList,
     };
   }

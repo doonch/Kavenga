@@ -69,8 +69,8 @@ function buildAssetCatalog() {
     {
       id: 'vaka_tier3',
       category: 'Voyaging Canoe (Vaka)',
-      name: 'Canoe — Tier 3 (Full Vaka Moana)',
-      subtitle: 'Full expedition loadout: 8 rations, 3 cargo, all 3 crew',
+      name: 'Canoe — Tier 3 (Double-Sail Vaka Moana)',
+      subtitle: 'Fore-and-aft main & mizzen crab-claw sails, 8 rations, 3 cargo, 3 crew',
       tag: 'Tier 3',
       kind: 'vaka',
       preset: {
@@ -1150,9 +1150,9 @@ class AssetDebugViewer {
     box.getCenter(center);
     box.getSize(size);
 
-    // For canoe, center target nicely on deck rather than tall mast midpoint
+    // For canoe, center target between hulls and crab-claw sails
     if (this.activeItem?.kind === 'vaka') {
-      center.set(0.0, 1.85, -0.35);
+      center.set(0.0, 2.85, -0.15);
     }
 
     const maxDim = Math.max(0.8, size.x, size.y, size.z);

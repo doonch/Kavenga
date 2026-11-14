@@ -580,7 +580,7 @@ export class IslandHubUI {
     const tierNames = {
       1: 'Coastal Double-Hulled Vaka (4 Cargo Slots)',
       2: 'Raised-Strake Voyaging Vaka (6 Cargo Slots)',
-      3: 'Deep-Ocean Vaka Moana (8 Cargo Slots)',
+      3: 'Double-Sail Deep-Ocean Vaka Moana (8 Cargo Slots)',
     };
     this.rootEl.querySelector('#hubVakaTier').textContent =
       tierNames[gs.vakaTier] || tierNames[1];
@@ -594,9 +594,10 @@ export class IslandHubUI {
             ? 'Weathered'
             : 'Worn — Careen Before Sailing';
 
+    const sailLabel = gs.vakaTier >= 3 ? 'Twin Pandanus Sails' : 'Pandanus Sail';
     this.rootEl.querySelector('#hubConditionList').innerHTML = `
       <div class="cond-chip"><span>Twin Hulls</span><strong>${describeCond(gs.hullCondition)}</strong></div>
-      <div class="cond-chip"><span>Pandanus Sail</span><strong>${describeCond(gs.sailCondition)}</strong></div>
+      <div class="cond-chip"><span>${sailLabel}</span><strong>${describeCond(gs.sailCondition)}</strong></div>
       <div class="cond-chip"><span>Sennit Lashings</span><strong>${describeCond(gs.lashingsCondition)}</strong></div>
     `;
 

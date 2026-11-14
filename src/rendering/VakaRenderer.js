@@ -58,6 +58,10 @@ export class VakaRenderer {
       roughness: 0.88,
       side: THREE.DoubleSide,
     });
+    this.sailSeamMat = new THREE.MeshStandardMaterial({
+      color: 0xc9aa76,
+      roughness: 0.9,
+    });
 
     this.sennitBindMat = new THREE.MeshStandardMaterial({
       color: 0x4a2c16,
@@ -537,33 +541,298 @@ export class VakaRenderer {
     this.root.add(this.pouShadowBand);
   }
 
-  _buildMastAndCrabClawSail() {
-    // Stepped outboard on starboard hull beam so BOTH twin prows frame the forward sky unobstructed!
-    this.mastGroup = new THREE.Group();
-    this.mastGroup.position.set(2.18, 0.82, -1.65);
+  /**
+   * Evaluates a 3D point on a Hokule'a-style fore-and-aft Polynesian crab-claw sail (pe'a):
+   * - u in [0..1]: span from the low sharp forward tack apex (u = 0) aft to the two horns (u = 1)
+   * - v in [0..1]: chord from the upturned lower boom (ra lalo, v = 0) to the steep upper spar (ra luna, v = 1)
+   * - Sail plane runs longitudinally along +Z (aft) & +Y (up) so BOTH crab-claw crescents display
+   *   their full sweeping profile from the side, with smooth leeward (+X) trade-wind belly.
+   */
+  _evalCrabClawPoint(u, v, scale = 1.0) {
+    const invU = 1.0 - u;
 
-    const mastGeo = new THREE.CylinderGeometry(0.07, 0.11, 8.8, 10);
+    // Lower curved boom (ra lalo, v = 0): sweeps aft (+Z) and upward (+Y)
+    const boomZ = scale * (2.0 * invU * u * 2.15 + u * u * 4.25);
+    const boomY = scale * (2.0 * invU * u * 1.65 + u * u * 4.45);
+
+    // Upper curved spar (ra luna, v = 1): rises steeply up & aft past the masthead;
+    // 0.12m vertical throat offset at u = 0 avoids zero-area degenerate triangles at the tack
+    const yardZ = scale * (invU * invU * 0.02 + 2.0 * invU * u * 0.72 + u * u * 2.15);
+    const yardY = scale * (invU * invU * 0.12 + 2.0 * invU * u * 4.25 + u * u * 7.65);
+
+    // Deep scalloped crab-claw crescent hollow along the aft leech (u -> 1)
+    const leechHollow = 4.0 * v * (1.0 - v) * u * u * scale;
+    const z = (1.0 - v) * boomZ + v * yardZ - 0.74 * leechHollow;
+    const y = (1.0 - v) * boomY + v * yardY - 0.44 * leechHollow;
+
+    // Leeward (+X) spar bow & woven pandanus wind-belly draft
+    const sparX = 0.08 * scale * Math.sin(Math.PI * u);
+    const clothDraftX =
+      0.32 *
+      scale *
+      Math.sin(Math.PI * Math.pow(u, 0.75)) *
+      Math.sin(Math.PI * Math.pow(v, 0.85));
+
+    return new THREE.Vector3(sparX + clothDraftX, y, z);
+  }
+
+  _makeRiggingLine(p0, p1, radius = 0.013) {
+    const dir = new THREE.Vector3().subVectors(p1, p0);
+    const len = Math.max(0.05, dir.length());
+    const geo = new THREE.CylinderGeometry(radius, radius, len, 6);
+    const mesh = new THREE.Mesh(geo, this.sennitBindMat);
+    mesh.position.copy(p0).addScaledVector(dir, 0.5);
+    mesh.quaternion.setFromUnitVectors(
+      new THREE.Vector3(0, 1, 0),
+      dir.normalize()
+    );
+    return mesh;
+  }
+
+  _createCrabClawRig({
+    scale = 1.0,
+    mastHeight = 5.65,
+    yawRad = 0.3,
+    rakeRad = 0.055,
+  }) {
+    const rigGroup = new THREE.Group();
+
+    // 1. Carved ironwood mast-step partner block & sennit bindings on the pola deck rail
+    const stepBlock = new THREE.Mesh(
+      new THREE.BoxGeometry(0.44, 0.22, 0.58),
+      this.pouMat
+    );
+    stepBlock.position.set(0, -0.06, 0);
+    stepBlock.castShadow = true;
+    stepBlock.receiveShadow = true;
+    rigGroup.add(stepBlock);
+
+    const baseCollar = new THREE.Mesh(
+      new THREE.TorusGeometry(0.12 * scale + 0.02, 0.03, 7, 14),
+      this.sennitBindMat
+    );
+    baseCollar.position.set(0, 0.06, 0);
+    baseCollar.rotation.x = Math.PI / 2;
+    rigGroup.add(baseCollar);
+
+    // 2. Slightly aft-raked tapered honey-wood mast (kia / tira) + standing shrouds & forestay
+    const mastAssembly = new THREE.Group();
+    mastAssembly.rotation.x = rakeRad;
+
+    const mastGeo = new THREE.CylinderGeometry(
+      0.066 * scale,
+      0.108 * scale,
+      mastHeight,
+      10
+    );
     const mast = new THREE.Mesh(mastGeo, this.gunwaleMat);
-    mast.position.set(0, 4.4, 0);
-    this.mastGroup.add(mast);
+    mast.position.set(0, mastHeight * 0.5, 0);
+    mastAssembly.add(mast);
 
-    // Curved Crab-Claw Spars & Woven Pandanus Sail
-    this.sailPivot = new THREE.Group();
-    this.sailPivot.position.set(0, 1.1, 0);
+    const headLocalY = mastHeight - 0.28;
+    const headCollar = new THREE.Mesh(
+      new THREE.TorusGeometry(0.08 * scale, 0.024, 7, 14),
+      this.sennitBindMat
+    );
+    headCollar.position.set(0, headLocalY, 0);
+    headCollar.rotation.x = Math.PI / 2;
+    mastAssembly.add(headCollar);
+    rigGroup.add(mastAssembly);
 
-    const shape = new THREE.Shape();
-    shape.moveTo(0.0, 0.0);
-    shape.quadraticCurveTo(1.6, 2.8, 2.45, 6.8);
-    shape.quadraticCurveTo(1.05, 5.4, -0.35, 7.1);
-    shape.quadraticCurveTo(-0.2, 3.2, 0.0, 0.0);
+    const mastHeadPos = new THREE.Vector3(
+      0,
+      headLocalY * Math.cos(rakeRad),
+      headLocalY * Math.sin(rakeRad)
+    );
+    rigGroup.add(
+      // Forestay forward (-Z)
+      this._makeRiggingLine(
+        mastHeadPos,
+        new THREE.Vector3(0.22, -0.1, -2.05 * scale),
+        0.013
+      ),
+      // Starboard outboard hull shroud (+X)
+      this._makeRiggingLine(
+        mastHeadPos,
+        new THREE.Vector3(0.62, -0.16, 0.35 * scale),
+        0.013
+      ),
+      // Inboard pola deck shroud (-X)
+      this._makeRiggingLine(
+        mastHeadPos,
+        new THREE.Vector3(-0.52, -0.04, 0.28 * scale),
+        0.012
+      )
+    );
 
-    const sailGeo = new THREE.ShapeGeometry(shape, 14);
-    this.sailMesh = new THREE.Mesh(sailGeo, this.sailMat);
-    this.sailMesh.rotation.y = 0.42;
-    this.sailPivot.add(this.sailMesh);
+    // 3. Pivoting Hokule'a Fore-and-Aft Crab-Claw Sail moored at the low forward tack apex
+    const tackZ = -0.46 * scale;
+    const tackY = 0.5 * scale;
+    const sailPivot = new THREE.Group();
+    sailPivot.position.set(0, tackY, tackZ);
 
-    this.mastGroup.add(this.sailPivot);
+    // Tack lashing down to the deck rail
+    rigGroup.add(
+      this._makeRiggingLine(
+        new THREE.Vector3(0, tackY, tackZ),
+        new THREE.Vector3(0, -0.04, tackZ - 0.14 * scale),
+        0.016
+      )
+    );
+
+    const sailAssembly = new THREE.Group();
+    sailAssembly.rotation.y = yawRad;
+
+    const uSteps = 18;
+    const vSteps = 12;
+    const positions = [];
+    const indices = [];
+
+    for (let iu = 0; iu <= uSteps; iu += 1) {
+      const u = iu / uSteps;
+      for (let iv = 0; iv <= vSteps; iv += 1) {
+        const v = iv / vSteps;
+        const pt = this._evalCrabClawPoint(u, v, scale);
+        positions.push(pt.x, pt.y, pt.z);
+      }
+    }
+
+    const rowStride = vSteps + 1;
+    for (let iu = 0; iu < uSteps; iu += 1) {
+      for (let iv = 0; iv < vSteps; iv += 1) {
+        const a = iu * rowStride + iv;
+        const b = a + 1;
+        const c = (iu + 1) * rowStride + iv;
+        const d = c + 1;
+        indices.push(a, c, d, a, d, b);
+      }
+    }
+
+    const sailGeo = new THREE.BufferGeometry();
+    sailGeo.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute(positions, 3)
+    );
+    sailGeo.setIndex(indices);
+    sailGeo.computeVertexNormals();
+
+    const sailMesh = new THREE.Mesh(sailGeo, this.sailMat);
+    sailAssembly.add(sailMesh);
+
+    // Curved honey-wood lower boom (ra lalo, v = 0) & upper spar (ra luna, v = 1)
+    const boomPts = [];
+    const yardPts = [];
+    for (let k = 0; k <= 14; k += 1) {
+      const u = k / 14;
+      boomPts.push(this._evalCrabClawPoint(u, 0.0, scale));
+      yardPts.push(this._evalCrabClawPoint(u, 1.0, scale));
+    }
+    const boomSpar = new THREE.Mesh(
+      new THREE.TubeGeometry(
+        new THREE.CatmullRomCurve3(boomPts),
+        18,
+        0.034 * scale,
+        7,
+        false
+      ),
+      this.gunwaleMat
+    );
+    const yardSpar = new THREE.Mesh(
+      new THREE.TubeGeometry(
+        new THREE.CatmullRomCurve3(yardPts),
+        18,
+        0.031 * scale,
+        7,
+        false
+      ),
+      this.gunwaleMat
+    );
+    sailAssembly.add(boomSpar, yardSpar);
+
+    // Woven pandanus mat panel seam strips across the sail belly
+    for (const uSeam of [0.32, 0.54, 0.75, 0.91]) {
+      const seamPts = [];
+      for (let kv = 0; kv <= 10; kv += 1) {
+        seamPts.push(this._evalCrabClawPoint(uSeam, kv / 10, scale));
+      }
+      const seamTube = new THREE.Mesh(
+        new THREE.TubeGeometry(
+          new THREE.CatmullRomCurve3(seamPts),
+          12,
+          0.009 * scale,
+          5,
+          false
+        ),
+        this.sailSeamMat
+      );
+      sailAssembly.add(seamTube);
+    }
+
+    // Tack collar & taut sheet line from lower boom down toward the aft cleat
+    const tackBind = new THREE.Mesh(
+      new THREE.TorusGeometry(0.082 * scale, 0.025, 6, 12),
+      this.sennitBindMat
+    );
+    tackBind.position.set(0, 0.06 * scale, 0.02 * scale);
+    tackBind.rotation.x = 0.45;
+    sailAssembly.add(tackBind);
+
+    // Hoist halyard from masthead to upper spar (ra luna) + sheet line from lower boom to aft cleat
+    const hoistOnYard = this._evalCrabClawPoint(0.56, 1.0, scale);
+    const mastHeadInSailLocal = mastHeadPos
+      .clone()
+      .sub(new THREE.Vector3(0, tackY, tackZ))
+      .applyAxisAngle(new THREE.Vector3(0, 1, 0), -yawRad);
+    sailAssembly.add(
+      this._makeRiggingLine(mastHeadInSailLocal, hoistOnYard, 0.013)
+    );
+
+    const sheetAnchorOnBoom = this._evalCrabClawPoint(0.56, 0.0, scale);
+    sailAssembly.add(
+      this._makeRiggingLine(
+        sheetAnchorOnBoom,
+        new THREE.Vector3(-0.15 * scale, -tackY - 0.04, 2.85 * scale),
+        0.011
+      )
+    );
+
+    sailPivot.add(sailAssembly);
+    rigGroup.add(sailPivot);
+
+    return { rigGroup, sailPivot, sailMesh };
+  }
+
+  _buildMastAndCrabClawSail() {
+    // 1. Forward Mainmast & Main Crab-Claw Sail (Hokule'a foremast station, Tiers 1-3):
+    // Stepped forward along the starboard pola rail so both twin prows & central sky stay open,
+    // while sweeping its full crab-claw crescent aft (+Z) over midships with the upper horn soaring above the masthead.
+    const primary = this._createCrabClawRig({
+      scale: 1.0,
+      mastHeight: 5.65,
+      yawRad: 0.3,
+      rakeRad: 0.055,
+    });
+    this.mastGroup = primary.rigGroup;
+    this.mastGroup.position.set(1.92, 0.82, -2.65);
+    this.sailPivot = primary.sailPivot;
+    this.sailMesh = primary.sailMesh;
     this.root.add(this.mastGroup);
+
+    // 2. Aft Mizzenmast & Mizzen Crab-Claw Sail (Hokule'a aft station, Tier 3 Vaka Moana):
+    // Stepped 4.60m further back near the aft deck, sweeping its second crab-claw crescent
+    // aft over the stern so both sails appear clearly one behind the other from the side.
+    const secondary = this._createCrabClawRig({
+      scale: 0.82,
+      mastHeight: 4.65,
+      yawRad: 0.2,
+      rakeRad: 0.06,
+    });
+    this.secondMastGroup = secondary.rigGroup;
+    this.secondMastGroup.position.set(1.92, 0.82, 1.95);
+    this.secondMastGroup.visible = false;
+    this.secondSailPivot = secondary.sailPivot;
+    this.secondSailMesh = secondary.sailMesh;
+    this.root.add(this.secondMastGroup);
   }
 
   _buildSteeringSweep() {
@@ -811,13 +1080,18 @@ export class VakaRenderer {
       item.mat.emissive.setHex(hit ? 0x3b2408 : 0x000000);
     }
 
-    // 3. Pivot Aft Steering Sweep & Billow Crab-Claw Sail
+    // 3. Pivot Aft Steering Sweep & Billow Crab-Claw Sails
     this.sweepPivot.rotation.y = -steerNorm * 0.48;
-    const flutter =
-      gameState && gameState.sailCondition < 55.0
-        ? Math.sin(elapsedSec * 14.0) * 0.045
-        : Math.sin(elapsedSec * 2.2) * 0.015;
+    const isSailWorn = Boolean(gameState && gameState.sailCondition < 55.0);
+    const flutter = isSailWorn
+      ? Math.sin(elapsedSec * 14.0) * 0.045
+      : Math.sin(elapsedSec * 2.2) * 0.015;
     this.sailPivot.rotation.y = flutter;
+    if (this.secondSailPivot) {
+      this.secondSailPivot.rotation.y = isSailWorn
+        ? Math.sin(elapsedSec * 15.1 + 1.1) * 0.048
+        : Math.sin(elapsedSec * 2.05 + 1.25) * 0.016;
+    }
 
     // 4. Diegetic Readiness Readouts (Rations, Cargo, Crew, Condition, Vaka Tier)
     const visibleBaskets = Math.max(
@@ -833,6 +1107,9 @@ export class VakaRenderer {
         g.visible = gameState.vakaTier >= 2;
       });
       this.pahuDrum.visible = gameState.vakaTier >= 2;
+      if (this.secondMastGroup) {
+        this.secondMastGroup.visible = gameState.vakaTier >= 3;
+      }
 
       this.cargoBundles.forEach((b, idx) => {
         b.visible = idx < gameState.cargoItems.length;
@@ -843,9 +1120,8 @@ export class VakaRenderer {
       }
 
       // Visual wear tinting when neglected (<55%)
-      this.sailMat.color.setHex(
-        gameState.sailCondition < 55.0 ? 0xb59e78 : 0xe6cfa3
-      );
+      this.sailMat.color.setHex(isSailWorn ? 0xb59e78 : 0xe6cfa3);
+      this.sailSeamMat.color.setHex(isSailWorn ? 0x97805c : 0xc9aa76);
       this.hullMat.color.setHex(
         gameState.hullCondition < 55.0 ? 0x663d20 : 0x8d532b
       );

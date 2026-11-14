@@ -188,6 +188,20 @@ class KavengaApp {
     const urlIsland = params.get('island');
     const urlMaster = params.get('master');
     const urlTab = params.get('tab');
+    const rawTier = params.get('tier');
+    if (rawTier !== null) {
+      const parsedTier = Number(rawTier);
+      if ([1, 2, 3].includes(parsedTier)) {
+        this.gameState.vakaTier = parsedTier;
+        this.gameState.maxCargoSlots =
+          parsedTier >= 3 ? 8 : parsedTier === 2 ? 6 : 4;
+        this.gameState.loadedRations = Math.max(
+          1,
+          this.gameState.maxCargoSlots - this.gameState.cargoItems.length
+        );
+        this.islandHub.refresh();
+      }
+    }
 
     if (urlMode === 'launch' || params.get('launch') === '1') {
       this.previewLaunch({
