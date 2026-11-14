@@ -4,6 +4,13 @@
 
 Sail a traditional double-hulled voyaging canoe (*vaka moana*) across **16 Pacific islands** and **17 ancestral route chants** from *Raʻiātea* across the Southern Hemisphere lagoons and high islands (Acts I–II) into the Northern Hemisphere *Hawaiʻi Mist Chain* (*Kauaʻi*, *Oʻahu*, *Kiritimati*, and *Hawaiʻi* in Act III)—navigating strictly by rising and setting star paths (*kavenga*), hemisphere-true polar stars (*The Sea Turtle* & *The Frigatebird* in the South; *Steadfast Peg* & *The Horse* in the North), stationary island peak clouds, turquoise coral-lagoon cloud reflections (*lapa*), dawn/dusk homing terns and boobies, solar sighting-post (*pou*) crossbeam shadows, and 4-beat ocean swells—with **zero maps, zero compasses, and zero degree numbers**.
 
+## Live Deployment (GitHub Pages)
+
+* **Play the Game:** [https://doonch.github.io/Kavenga/](https://doonch.github.io/Kavenga/)
+* **Star-Stone Vigil (Southern Sky — *First Master Teraʻi*, Maupiti):** [https://doonch.github.io/Kavenga/?mode=sky_vigil&master=terai](https://doonch.github.io/Kavenga/?mode=sky_vigil&master=terai)
+* **Star-Stone Vigil (Northern Sky — *Keeper Akura*, Kiritimati):** [https://doonch.github.io/Kavenga/?mode=sky_vigil&master=akura](https://doonch.github.io/Kavenga/?mode=sky_vigil&master=akura)
+* **3D Asset Debug Viewer:** [https://doonch.github.io/Kavenga/asset-viewer.html](https://doonch.github.io/Kavenga/asset-viewer.html)
+
 ---
 
 ## Quick Start (Zero Build Required)
@@ -62,6 +69,7 @@ Switch modes anytime from the Island Hub or in-voyage **Options** menu:
 ```text
 ├── GAME_DESIGN_DOCUMENT.md          # Complete design specification & calibrated wayfinding blueprints
 ├── index.html                       # Zero-build entry point & Three.js importmap
+├── asset-viewer.html                # Standalone 3D asset orbit/zoom debug studio
 ├── styles.css                       # Island Hub & Zero-Compass Sailing HUD styling
 ├── assets/
 │   ├── mentors/                     # 15 full-body mentor, artisan & elder character portraits
@@ -70,6 +78,7 @@ Switch modes anytime from the Island Hub or in-voyage **Options** menu:
 │   └── three.module.min.js          # Locally vendored Three.js r170 ES module
 ├── src/
 │   ├── main.js                      # Application loop & Shore <-> Open-Ocean orchestrator
+│   ├── assetViewer.js               # Live 3D asset catalog & studio orbit inspector
 │   ├── core/
 │   │   ├── gameConstants.js         # Astronomical, ocean-ring, ration & difficulty constants
 │   │   ├── gameState.js             # Campaign progression, cargo slots, crew & pre-voyage snapshots
