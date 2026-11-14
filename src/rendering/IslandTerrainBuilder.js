@@ -15,6 +15,9 @@
  */
 
 import * as THREE from 'three';
+import { createAct1RemainIslandAssembly } from './IslandAct1RemainBuilder.js';
+import { createAct2IslandAssembly } from './IslandAct2Builder.js';
+import { createAct3IslandAssembly } from './IslandAct3Builder.js';
 
 function clamp01(v) {
   return Math.max(0.0, Math.min(1.0, v));
@@ -686,10 +689,18 @@ function addLagoonOutriggerCanoe(group, hullMat, trimMat, x, y, z, yawRad = 0.0,
 }
 
 /**
- * Builds a complete sculpted 3D island assembly for 'raiatea', 'tahaa', or 'manuae',
+ * Builds a complete sculpted 3D island assembly for all 16 campaign islands across Acts I-III,
  * returning { group, materials, sinkDepthM } so WorldCuesRenderer can fade & rise it seamlessly.
  */
 export function createDetailedIslandAssembly(islandId) {
+  const modularAssembly =
+    createAct1RemainIslandAssembly(islandId) ||
+    createAct2IslandAssembly(islandId) ||
+    createAct3IslandAssembly(islandId);
+  if (modularAssembly) {
+    return modularAssembly;
+  }
+
   const group = new THREE.Group();
   const materials = [];
   const trackMat = (m) => {
@@ -1543,8 +1554,27 @@ export function applyDetailedIslandAlpha(assembly, alpha) {
   }
 }
 
+const DETAILED_ISLAND_IDS = new Set([
+  'raiatea',
+  'tahaa',
+  'huahine',
+  'manuae',
+  'moorea',
+  'maupiti',
+  'nuku_hiva',
+  'ua_pou',
+  'rangiroa',
+  'hiva_oa',
+  'fatu_hiva',
+  'mangareva',
+  'kauai',
+  'oahu',
+  'kiritimati',
+  'hawaii',
+]);
+
 export function hasDetailedIslandModel(islandId) {
-  return islandId === 'raiatea' || islandId === 'tahaa' || islandId === 'manuae';
+  return DETAILED_ISLAND_IDS.has(islandId);
 }
 
 /**
@@ -1552,30 +1582,54 @@ export function hasDetailedIslandModel(islandId) {
  * and welcoming landing beach face +Z (toward the approaching canoe when root looks at origin).
  */
 export function getIslandApproachOrientationRad(islandId) {
-  if (islandId === 'raiatea') {
-    // Aligns Te Ava Mo'a sacred reef pass & golden cove beside Marae Taputapuatea toward +Z
-    return -0.44 - Math.PI * 0.5;
+  switch (islandId) {
+    case 'raiatea':
+      // Aligns Te Ava Mo'a sacred reef pass & golden cove beside Marae Taputapuatea toward +Z
+      return -0.44 - Math.PI * 0.5;
+    case 'tahaa': {
+      // Aligns open lagoon pass & sheltered cream-sand bay alongside the village jetty toward +Z
+      const bayTheta = (Math.PI - 0.55) / 5.0;
+      return bayTheta - 0.14 - Math.PI * 0.5;
+    }
+    case 'moorea':
+      // Aligns northern 'Opunohu reef pass, Vaihere's Canoe-Wright Shed & Mount Rotui toward +Z
+      return -0.35 - Math.PI * 0.5;
+    case 'hawaii':
+      // Frames Kealakekua Bay & Great Heiau ahead while showing glowing Kilauea lava rivers on starboard!
+      return -0.32 - Math.PI * 0.5;
+    default:
+      // All other sculpted islands center their primary reef pass / bay entrance on theta = 0
+      return -Math.PI * 0.5;
   }
-  if (islandId === 'tahaa') {
-    // Aligns open lagoon pass & sheltered cream-sand bay alongside the village jetty toward +Z
-    const bayTheta = (Math.PI - 0.55) / 5.0;
-    return bayTheta - 0.14 - Math.PI * 0.5;
-  }
-  if (islandId === 'manuae') {
-    // Aligns Te Ava navigable reef pass (theta = 0) & lagoon village sightline toward +Z
-    return -Math.PI * 0.5;
-  }
-  return 0.0;
 }
+
+const ISLAND_SHORE_RADIUS_M = Object.freeze({
+  raiatea: 39.8,
+  tahaa: 27.0,
+  huahine: 35.5,
+  manuae: 41.5,
+  moorea: 31.5,
+  maupiti: 39.5,
+  nuku_hiva: 28.5,
+  ua_pou: 33.5,
+  rangiroa: 41.5,
+  hiva_oa: 32.0,
+  fatu_hiva: 30.0,
+  mangareva: 34.5,
+  kauai: 35.5,
+  oahu: 34.5,
+  kiritimati: 36.5,
+  hawaii: 37.8,
+});
 
 /**
  * Returns the exact waterline shoreline radius (meters from island center along +Z approach)
  * so the arriving canoe stops cleanly right at the edge of the island without clipping terrain.
  */
 export function getIslandShoreRadiusM(islandId, archetype = 'volcanic_high') {
-  if (islandId === 'raiatea') return 39.8;
-  if (islandId === 'tahaa') return 27.0;
-  if (islandId === 'manuae') return 41.5;
+  if (ISLAND_SHORE_RADIUS_M[islandId] !== undefined) {
+    return ISLAND_SHORE_RADIUS_M[islandId];
+  }
   if (archetype === 'coral_atoll') return 50.0;
   return 37.1;
 }
