@@ -250,6 +250,19 @@ body {
   transform: translateX(-50%) translateY(0);
 }
 
+.hud-top-bar,
+.hud-chant-banner,
+.hud-trim-bar {
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+#sailing-hud.landfall-cinematic-active .hud-top-bar,
+#sailing-hud.landfall-cinematic-active .hud-chant-banner,
+#sailing-hud.landfall-cinematic-active .hud-trim-bar {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* Modals, Sand Recall, Mist & Landfall Overlays */
 .modal-backdrop,
 .mist-overlay,
@@ -264,6 +277,54 @@ body {
   padding: 20px;
   background: rgba(6, 13, 22, 0.72);
   backdrop-filter: blur(8px);
+}
+
+.landfall-overlay {
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 24px 28px;
+  background: linear-gradient(
+    180deg,
+    rgba(6, 13, 22, 0.02) 0%,
+    rgba(6, 13, 22, 0.14) 60%,
+    rgba(6, 13, 22, 0.45) 100%
+  );
+  backdrop-filter: none;
+  animation: landfallBackdropFadeIn 0.42s ease-out both;
+}
+
+.landfall-overlay .landfall-card {
+  max-width: 430px;
+  background: rgba(12, 25, 40, 0.88);
+  backdrop-filter: blur(10px);
+  animation: landfallCardRiseIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (max-width: 760px) {
+  .landfall-overlay {
+    justify-content: center;
+    padding: 18px;
+  }
+}
+
+@keyframes landfallBackdropFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes landfallCardRiseIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .mist-overlay {

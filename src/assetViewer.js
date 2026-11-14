@@ -10,6 +10,7 @@ import { GameState } from './core/gameState.js';
 import { OceanSim } from './simulation/oceanSim.js';
 import {
   createDetailedIslandAssembly,
+  getIslandApproachOrientationRad,
   hasDetailedIslandModel,
 } from './rendering/IslandTerrainBuilder.js';
 import { VakaRenderer } from './rendering/VakaRenderer.js';
@@ -915,6 +916,7 @@ class AssetDebugViewer {
       moaiGroup.visible = false;
 
       const detailed = createDetailedIslandAssembly(isl.id);
+      detailed.group.rotation.y = getIslandApproachOrientationRad(isl.id);
       landGroup.add(detailed.group);
     } else {
       const isAtoll = isl.archetype === 'coral_atoll';

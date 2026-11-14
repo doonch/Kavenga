@@ -31,6 +31,12 @@ You can enter the grounded 3D night-sky observatory (**The Star-Stone Vigil / *A
   - Northern Hemisphere Star Master (*Keeper Akura* on Kiritimati): `http://127.0.0.1:8123/?mode=sky_vigil&master=akura`
   - Specific Island Sky & Tab (`lessons`, `atlas`, or optional `quiz`): `http://127.0.0.1:8123/?mode=sky_vigil&island=hawaii&tab=atlas`
 
+### Instant Landfall Arrival Preview (Zero Playthrough Required)
+Preview the 3D Ring 4 shoreline glide and camera pullback on any of the 16 islands directly via URL parameters:
+- Default Tahaʻa Lagoon Arrival (~1.6s approach lead-in): `http://127.0.0.1:8123/?mode=landfall`
+- Any Island & Lighting Window (`dawn`, `midday`, `dusk`, `midnight`): `http://127.0.0.1:8123/?mode=landfall&island=raiatea&window=dusk` or `http://127.0.0.1:8123/?mode=landfall&island=hawaii`
+- Immediate Ring 4 Trigger (`lead=0` or `instant=1`): `http://127.0.0.1:8123/?mode=landfall&island=tahaa&lead=0`
+
 ### 3D Asset Debug Viewer
 Open **`http://127.0.0.1:8123/asset-viewer.html`** to inspect all procedural 3D assets in an interactive orbit/zoom studio (Canoe Tiers 1–3 with live upgrade/ration/cargo/crew/shadow toggles, flapping White Tern & Brown Booby seabirds, Trade-Wind / Peak / *Lapa* clouds, leaping Bonito fish, and all 16 campaign islands).
 

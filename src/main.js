@@ -10,17 +10,23 @@ import * as THREE from 'three';
 import { ChantAndDrumEngine } from './audio/ChantAndDrumEngine.js';
 import { SpatialSeaAudio } from './audio/SpatialSeaAudio.js';
 import { onVoyageLandfall } from './core/campaignManager.js';
-import { DepartureWindow } from './core/gameConstants.js';
+import {
+  DepartureWindow,
+  departureWindowToHour,
+  GameConstants,
+  posMod,
+  wrapDeg180,
+} from './core/gameConstants.js';
 import { GameState } from './core/gameState.js';
 import { ISLANDS } from './data/islandsData.js';
-import { SONGS } from './data/songsData.js';
+import { buildReturnSong, SONGS } from './data/songsData.js';
 import { CameraController } from './rendering/CameraController.js';
 import { OceanRenderer } from './rendering/OceanRenderer.js';
 import { SkyDomeRenderer } from './rendering/SkyDomeRenderer.js';
 import { StarRingRenderer } from './rendering/StarRingRenderer.js';
 import { VakaRenderer } from './rendering/VakaRenderer.js';
 import { WorldCuesRenderer } from './rendering/WorldCuesRenderer.js';
-import { OceanSim, VoyageStatus } from './simulation/oceanSim.js';
+import { computeLeewayDeg, OceanSim, VoyageStatus } from './simulation/oceanSim.js';
 import { IslandHubUI } from './ui/IslandHubUI.js';
 import { SailingHUD } from './ui/SailingHUD.js';
 import { SkyVigilUI } from './ui/SkyVigilUI.js';
@@ -38,6 +44,25 @@ class KavengaApp {
     const hasSavedProgress = this.gameState.loadFromLocalStorage();
     this.oceanSim = new OceanSim();
     this.phase = 'shore'; // 'shore' | 'sailing' | 'sky_vigil'
+
+    // ~2.15s 3D Landfall Arrival Cinematic state (canoe glides to island edge; camera pulls back & up)
+    this.landfallAnim = {
+      active: false,
+      finished: false,
+      elapsed: 0.0,
+      duration: 2.15,
+      rawT: 0.0,
+      glide: 0.0,
+      canoeTravelM: 22.0,
+      bowStopZAbs: 30.63,
+      shoreGapM: 3.2,
+      islandId: null,
+      startHeadingDeg: 0.0,
+      targetBearingDeg: 0.0,
+      startHeaveM: 0.0,
+      startPitchRad: 0.0,
+      startRollRad: 0.0,
+    };
 
     // 2. Three.js Renderer & Scene
     this.renderer = new THREE.WebGLRenderer({
@@ -120,7 +145,9 @@ class KavengaApp {
     this.sailingHud.hide();
     this.skyVigilUI.hide();
 
-    // Direct URL boot support for instant testing: ?mode=sky_vigil&master=terai|akura&island=<id>&tab=lessons|atlas|quiz
+    // Direct URL boot support for instant testing:
+    //   ?mode=sky_vigil&master=terai|akura&island=<id>&tab=lessons|atlas|quiz
+    //   ?mode=landfall&island=<id>&window=dawn|midday|dusk|midnight&lead=<sec>
     this._checkStartupUrlParams();
 
     window.addEventListener('resize', () => this._onResize());
@@ -138,6 +165,23 @@ class KavengaApp {
     const urlIsland = params.get('island');
     const urlMaster = params.get('master');
     const urlTab = params.get('tab');
+
+    if (urlMode === 'landfall' || params.get('landfall') === '1') {
+      const rawLead = params.get('lead');
+      const parsedLead = rawLead !== null ? Number(rawLead) : undefined;
+      this.previewLandfall({
+        islandId: urlIsland || undefined,
+        songId: params.get('song') || undefined,
+        windowId: params.get('window') || undefined,
+        leadSec:
+          params.get('instant') === '1'
+            ? 0.0
+            : Number.isFinite(parsedLead)
+              ? Math.max(0.0, parsedLead)
+              : 1.6,
+      });
+      return;
+    }
 
     if (urlIsland && ISLANDS[urlIsland]) {
       this.gameState.currentIslandId = urlIsland;
@@ -160,7 +204,156 @@ class KavengaApp {
     }
   }
 
+  /**
+   * Jumps directly onto final Ring 4 approach to any of the 16 campaign islands so the
+   * 3D landfall arrival pullback and shoreline glide can be previewed immediately.
+   */
+  previewLandfall(opts = {}) {
+    const windowMap = {
+      dawn: DepartureWindow.DAWN,
+      morning: DepartureWindow.DAWN,
+      midday: DepartureWindow.MIDDAY,
+      noon: DepartureWindow.MIDDAY,
+      afternoon: DepartureWindow.MIDDAY,
+      dusk: DepartureWindow.DUSK,
+      sunset: DepartureWindow.DUSK,
+      midnight: DepartureWindow.MIDNIGHT,
+      night: DepartureWindow.MIDNIGHT,
+    };
+
+    let song = opts.songId && SONGS[opts.songId] ? SONGS[opts.songId] : null;
+    const requestedIsland =
+      opts.islandId && ISLANDS[opts.islandId] ? opts.islandId : null;
+
+    if (!song) {
+      const targetId = requestedIsland || 'tahaa';
+      song =
+        Object.values(SONGS).find((s) => s.toIsland === targetId) ||
+        (targetId === 'raiatea' ? buildReturnSong('tahaa', 'raiatea') : null) ||
+        SONGS.song_01;
+    }
+
+    const fromIsl = ISLANDS[song.fromIsland];
+    if (fromIsl) {
+      this.gameState.currentIslandId = fromIsl.id;
+      this.gameState.currentBasinId = fromIsl.basinId;
+    }
+
+    const explicitWin = opts.windowId
+      ? windowMap[String(opts.windowId).toLowerCase()]
+      : null;
+    const depWindow = explicitWin || song.recommendedDeparture || DepartureWindow.DAWN;
+
+    this.launchVoyage(song, depWindow);
+
+    const sim = this.oceanSim;
+    const targetId =
+      requestedIsland && sim.activeIslands[requestedIsland]
+        ? requestedIsland
+        : song.toIsland;
+    const target = sim.activeIslands[targetId];
+    if (!target?.simPos) return;
+
+    let backX = sim.startPos.x - target.simPos.x;
+    let backY = sim.startPos.y - target.simPos.y;
+    let backLen = Math.hypot(backX, backY);
+    if (backLen < 1e-4) {
+      backX = 0.0;
+      backY = -1.0;
+      backLen = 1.0;
+    }
+
+    const leadSec = Number.isFinite(opts.leadSec) ? Math.max(0.0, opts.leadSec) : 1.6;
+    const speedUnitsPerSec =
+      (GameConstants.NOMINAL_SPEED_UNITS_PER_MIN * sim.speedConditionFactor) / 60.0;
+    const approachDist =
+      leadSec <= 0.001
+        ? Math.max(0.05, sim.ringRadii.ring4 - 0.02)
+        : sim.ringRadii.ring4 + speedUnitsPerSec * leadSec;
+
+    sim.pos.x = target.simPos.x + (backX / backLen) * approachDist;
+    sim.pos.y = target.simPos.y + (backY / backLen) * approachDist;
+    sim.verseIndex = Math.max(0, song.verses.length - 1);
+    sim.elapsedRealSec = Math.max(60.0, (song.expectedDurationMin ?? 4.0) * 60.0 * 0.9);
+
+    if (explicitWin) {
+      sim.solarHour = departureWindowToHour(explicitWin);
+    } else {
+      const hrsPerMin =
+        song.gameHoursPerRealMin ?? 60.0 / GameConstants.REAL_SECONDS_PER_GAME_HOUR;
+      sim.solarHour = posMod(
+        departureWindowToHour(depWindow) + (sim.elapsedRealSec / 60.0) * hrsPerMin,
+        24.0
+      );
+    }
+
+    const dx = target.simPos.x - sim.pos.x;
+    const dy = target.simPos.y - sim.pos.y;
+    const directBearingDeg = posMod((Math.atan2(dx, dy) * 180.0) / Math.PI, 360.0);
+
+    const estLeeway = computeLeewayDeg(
+      directBearingDeg,
+      sim.getWindFromAz(),
+      sim.hasSailTender,
+      Boolean(song.strongCrosswind)
+    );
+    sim.headingDeg = posMod(directBearingDeg - estLeeway, 360.0);
+    sim._refreshEnvironment(0.0);
+
+    // Pre-warm island beacon fade/rise so terrain, peak cloud, and fronds are settled at Frame 1
+    for (let i = 0; i < 24; i += 1) {
+      this.worldCues.update(0.1, 0.0, sim, null);
+    }
+    this.sailingHud.update(sim, this.gameState, this.cameraCtrl, true);
+  }
+
+  _beginLandfallAnimation(islandId) {
+    const resolvedId =
+      islandId || this.oceanSim.arrivedIsland?.id || this.oceanSim.song?.toIsland;
+    if (!resolvedId) return;
+
+    let bearingDeg = this.oceanSim.headingDeg;
+    const det = this.oceanSim.detections.find((d) => d.islandId === resolvedId);
+    const activeIsl = this.oceanSim.activeIslands?.[resolvedId];
+    if (det) {
+      bearingDeg = det.bearingDeg;
+    } else if (activeIsl?.simPos && this.oceanSim.pos) {
+      const dx = activeIsl.simPos.x - this.oceanSim.pos.x;
+      const dy = activeIsl.simPos.y - this.oceanSim.pos.y;
+      bearingDeg = posMod((Math.atan2(dx, dy) * 180.0) / Math.PI, 360.0);
+    }
+
+    const hull = this.oceanSim.hullState;
+    this.landfallAnim.active = true;
+    this.landfallAnim.finished = false;
+    this.landfallAnim.elapsed = 0.0;
+    this.landfallAnim.rawT = 0.0;
+    this.landfallAnim.glide = 0.0;
+    this.landfallAnim.islandId = resolvedId;
+    this.landfallAnim.startHeadingDeg = this.oceanSim.headingDeg;
+    this.landfallAnim.targetBearingDeg = bearingDeg;
+    this.landfallAnim.startHeaveM = hull ? hull.heaveM : 0.0;
+    this.landfallAnim.startPitchRad = hull ? hull.pitchRad : 0.0;
+    this.landfallAnim.startRollRad = hull ? hull.rollRad : 0.0;
+
+    this.vakaRenderer.root.position.set(0.0, hull ? hull.heaveM : 0.0, 0.0);
+    this.cameraCtrl.startLandfallCamera();
+    this.chantEngine.stop();
+  }
+
+  _resetLandfallAnimation() {
+    this.landfallAnim.active = false;
+    this.landfallAnim.finished = false;
+    this.landfallAnim.elapsed = 0.0;
+    this.landfallAnim.rawT = 0.0;
+    this.landfallAnim.glide = 0.0;
+    this.landfallAnim.islandId = null;
+    this.vakaRenderer.root.position.set(0.0, 0.0, 0.0);
+    this.cameraCtrl.resetLandfallCamera();
+  }
+
   enterSkyVigil(opts = {}) {
+    this._resetLandfallAnimation();
     this.chantEngine.stop();
     this.spatialAudio.stop();
 
@@ -177,6 +370,7 @@ class KavengaApp {
   }
 
   exitSkyVigil() {
+    this._resetLandfallAnimation();
     this.skyVigilUI.hide();
     this.starRing.setVisible(false);
     this.cameraCtrl.setVigilMode(false);
@@ -201,13 +395,19 @@ class KavengaApp {
         fastForward: this.oceanSim.fastForward,
         verseIndex: this.oceanSim.verseIndex,
       });
-      this.sailingHud.update(this.oceanSim, this.gameState, this.cameraCtrl);
+      this.sailingHud.update(
+        this.oceanSim,
+        this.gameState,
+        this.cameraCtrl,
+        !this.landfallAnim.active || this.landfallAnim.finished
+      );
     }
   }
 
   launchVoyage(song, departureWindow) {
     // Snapshot pre-voyage state so Lost at Sea / Return to Shore restores cleanly with zero loss!
     this.gameState.savePreVoyageSnapshot();
+    this._resetLandfallAnimation();
 
     this.phase = 'sailing';
     this.skyVigilUI.hide();
@@ -224,10 +424,11 @@ class KavengaApp {
     this.chantEngine.startVoyageSong(song, this.gameState.difficulty);
     this.spatialAudio.start();
 
-    this.sailingHud.update(this.oceanSim, this.gameState, this.cameraCtrl);
+    this.sailingHud.update(this.oceanSim, this.gameState, this.cameraCtrl, true);
   }
 
   restoreBeforeVoyage() {
+    this._resetLandfallAnimation();
     this.chantEngine.stop();
     this.spatialAudio.stop();
     this.gameState.restorePreVoyageSnapshot();
@@ -242,6 +443,7 @@ class KavengaApp {
   completeLandfallTransition() {
     const arrivedId =
       this.oceanSim.arrivedIsland?.id || this.oceanSim.song?.toIsland;
+    this._resetLandfallAnimation();
     this.chantEngine.stop();
     this.spatialAudio.stop();
 
@@ -310,6 +512,7 @@ class KavengaApp {
       return;
     }
 
+    let justStartedLandfall = false;
     if (isActivelySailing) {
       const events = this.oceanSim.step(dtSec);
       for (const ev of events) {
@@ -324,15 +527,26 @@ class KavengaApp {
           );
         } else if (ev.type === 'landfall') {
           this.chantEngine.playLandfallConch();
+          this._beginLandfallAnimation(ev.islandId);
+          justStartedLandfall = true;
         }
       }
 
-      this.chantEngine.syncState({
-        difficulty: this.gameState.difficulty,
-        fastForward: this.oceanSim.fastForward,
-        verseIndex: this.oceanSim.verseIndex,
-      });
-      this.spatialAudio.update(dtSec, this.oceanSim, this.gameState);
+      if (!this.landfallAnim.active) {
+        this.chantEngine.syncState({
+          difficulty: this.gameState.difficulty,
+          fastForward: this.oceanSim.fastForward,
+          verseIndex: this.oceanSim.verseIndex,
+        });
+        this.spatialAudio.update(dtSec, this.oceanSim, this.gameState);
+      }
+    } else if (
+      this.phase === 'sailing' &&
+      this.oceanSim.status === VoyageStatus.ARRIVED &&
+      !this.landfallAnim.active
+    ) {
+      this._beginLandfallAnimation(this.oceanSim.arrivedIsland?.id);
+      justStartedLandfall = true;
     } else if (this.phase === 'shore') {
       // Gentle ambient lagoon twilight behind Island Hub at the current island's exact latitude
       this.oceanSim.setShoreIsland(this.gameState.currentIslandId);
@@ -341,26 +555,99 @@ class KavengaApp {
       this.oceanSim._refreshEnvironment(dtSec);
     }
 
-    this.cameraCtrl.update(dtSec, this.oceanSim, isActivelySailing);
+    if (this.landfallAnim.active) {
+      if (!justStartedLandfall && !this.sailingHud.pauseOpen) {
+        this.landfallAnim.elapsed = Math.min(
+          this.landfallAnim.duration,
+          this.landfallAnim.elapsed + dtSec
+        );
+      }
+      const rawT = Math.min(
+        1.0,
+        this.landfallAnim.elapsed / this.landfallAnim.duration
+      );
+      const glide = 1.0 - Math.pow(1.0 - rawT, 3.0);
+      this.landfallAnim.rawT = rawT;
+      this.landfallAnim.glide = glide;
+      this.landfallAnim.finished = rawT >= 0.999;
+
+      // Smoothly align prows toward the arrived island over the opening ~0.95s
+      const turnU = Math.min(1.0, rawT / 0.45);
+      const turnT = turnU * turnU * (3.0 - 2.0 * turnU);
+      const deltaHeading = wrapDeg180(
+        this.landfallAnim.targetBearingDeg - this.landfallAnim.startHeadingDeg
+      );
+      this.oceanSim.headingDeg = posMod(
+        this.landfallAnim.startHeadingDeg + deltaHeading * turnT,
+        360.0
+      );
+      this.oceanSim._refreshEnvironment(0);
+
+      // Damp open-sea swell pitch/roll/heave smoothly to calm lagoon stillness
+      const calmDecay = 1.0 - glide;
+      if (this.oceanSim.hullState) {
+        this.oceanSim.hullState.heaveM = this.landfallAnim.startHeaveM * calmDecay;
+        this.oceanSim.hullState.pitchRad = this.landfallAnim.startPitchRad * calmDecay;
+        this.oceanSim.hullState.rollRad = this.landfallAnim.startRollRad * calmDecay;
+      }
+
+      // Glide double-hulled canoe forward across the lagoon to a dead stop at z = -22m
+      this.vakaRenderer.root.position.x = 0.0;
+      this.vakaRenderer.root.position.z = -this.landfallAnim.canoeTravelM * glide;
+      this.spatialAudio.stop();
+    }
+
+    this.cameraCtrl.update(
+      dtSec,
+      this.oceanSim,
+      isActivelySailing && !this.landfallAnim.active,
+      this.landfallAnim.active ? this.landfallAnim : null
+    );
     this.skyDome.update(
       dtSec,
       this._elapsedAppSec,
       this.oceanSim,
-      this.phase === 'sailing' ? this.gameState.difficulty : 'master_navigator',
+      this.phase === 'sailing' && !this.landfallAnim.active
+        ? this.gameState.difficulty
+        : 'master_navigator',
       this.cameraCtrl.camera
     );
-    this.oceanRenderer.update(dtSec, this._elapsedAppSec, this.oceanSim, false);
+    this.oceanRenderer.update(
+      dtSec,
+      this._elapsedAppSec,
+      this.oceanSim,
+      false,
+      this.landfallAnim.active ? this.landfallAnim.rawT : 0.0
+    );
     this.vakaRenderer.update(
       dtSec,
       this._elapsedAppSec,
       this.oceanSim,
       this.gameState,
-      this.cameraCtrl.getSteeringNormalized()
+      this.landfallAnim.active ? 0.0 : this.cameraCtrl.getSteeringNormalized()
     );
-    this.worldCues.update(dtSec, this._elapsedAppSec, this.oceanSim);
+    if (this.landfallAnim.active) {
+      // Ensure starlit / moonlight shore clarity even during deep-night arrivals
+      const nightLift = 0.34 * Math.min(1.0, this.landfallAnim.rawT / 0.65);
+      this.vakaRenderer.hemiLight.intensity = Math.max(
+        this.vakaRenderer.hemiLight.intensity,
+        0.28 + nightLift
+      );
+    }
+    this.worldCues.update(
+      dtSec,
+      this._elapsedAppSec,
+      this.oceanSim,
+      this.landfallAnim.active ? this.landfallAnim : null
+    );
 
     if (this.phase === 'sailing') {
-      this.sailingHud.update(this.oceanSim, this.gameState, this.cameraCtrl);
+      this.sailingHud.update(
+        this.oceanSim,
+        this.gameState,
+        this.cameraCtrl,
+        !this.landfallAnim.active || this.landfallAnim.finished
+      );
     }
 
     this.renderer.render(this.scene, this.cameraCtrl.camera);

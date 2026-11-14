@@ -286,7 +286,7 @@ export class SailingHUD {
     }, 3600);
   }
 
-  update(oceanSim, gameState, cameraCtrl) {
+  update(oceanSim, gameState, cameraCtrl, landfallReady = true) {
     if (!oceanSim || !gameState) return;
 
     const diff = gameState.difficulty;
@@ -382,12 +382,17 @@ export class SailingHUD {
       lostOverlay.classList.add('hidden');
     }
 
-    // Landfall Celebration Overlay
+    // Hide sailing chrome cleanly during the ~2s landfall pullback & shoreline arrival view
+    const isArrived =
+      oceanSim.status === VoyageStatus.ARRIVED && Boolean(oceanSim.arrivedIsland);
+    this.rootEl.classList.toggle('landfall-cinematic-active', isArrived);
+
+    // Landfall Celebration Overlay (revealed after the ~2s landfall animation stops at shore)
     const landOverlay = this.rootEl.querySelector('#landfallOverlay');
-    if (oceanSim.status === VoyageStatus.ARRIVED && oceanSim.arrivedIsland) {
+    if (isArrived && landfallReady) {
       landOverlay.classList.remove('hidden');
       const isl = oceanSim.arrivedIsland;
-      const isGrandFinale = isl.id === 'rapa_nui';
+      const isGrandFinale = isl.id === 'hawaii';
       const isIntended = isl.id === song?.toIsland;
 
       this.rootEl.querySelector('#landfallEyebrow').textContent = isGrandFinale
@@ -398,7 +403,7 @@ export class SailingHUD {
       this.rootEl.querySelector('#landfallTitle').textContent =
         `${isl.name} — ${isl.subtitle}`;
       this.rootEl.querySelector('#landfallBody').textContent = isGrandFinale
-        ? 'Through morning sun-shadow, blind sea-mist swells, three night star-houses, and cliff-bounced surf, your twin prows have reached ancestral Rapa Nui without map or needle!'
+        ? "Through morning sun-shadow, blind sea-mist swells, three night star-houses, and cliff-bounced surf, your twin prows have reached ancestral Hawai'i without map or needle!"
         : isIntended
           ? `Your twin hulls glide cleanly through the reef pass of ${isl.name} with ${oceanSim.rationsRemaining.toFixed(1)} ration baskets remaining.`
           : `Following the sea's living signs brought your canoe safely onto ${isl.name}'s shore.`;

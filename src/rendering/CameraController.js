@@ -42,6 +42,18 @@ export class CameraController {
     this.maxSteerDegPerSec = 24.0;
     this.keysDown = new Set();
 
+    // Landfall arrival pullback camera state (backward +Z & upward +Y framing canoe + island)
+    this._landfallActive = false;
+    this._landfallStartPos = new THREE.Vector3(0.0, 2.38, 3.45);
+    this._landfallStartQuat = new THREE.Quaternion();
+    this._landfallStartFov = 56.0;
+    this._landfallEndPos = new THREE.Vector3(-8.5, 21.5, 17.5);
+    this._landfallLookStart = new THREE.Vector3(0.0, 4.5, -36.0);
+    this._landfallLookEnd = new THREE.Vector3(0.0, 15.5, -48.0);
+    this._landfallCurLook = new THREE.Vector3();
+    this._landfallLookMat = new THREE.Matrix4();
+    this._landfallTargetQuat = new THREE.Quaternion();
+
     this._euler = new THREE.Euler(0, 0, 0, 'YXZ');
     this._bindEvents();
   }
@@ -182,10 +194,82 @@ export class CameraController {
   }
 
   /**
+   * Captures current live navigator eye pose at t=0 of landfall so the backward/upward
+   * pullback starts seamlessly without any orientation or position snap.
+   */
+  startLandfallCamera() {
+    this._landfallActive = true;
+    this._landfallStartPos.copy(this.camera.position);
+    this._landfallStartQuat.copy(this.camera.quaternion);
+    this._landfallStartFov = this.camera.fov;
+    this.steerVelocityDegPerSec = 0.0;
+    this.isDraggingLook = false;
+    this._panTarget = null;
+  }
+
+  resetLandfallCamera() {
+    this._landfallActive = false;
+    this.lookYawDeg = 0.0;
+    this.lookPitchOffsetDeg = 0.0;
+    this.camera.fov = GameConstants.DEFAULT_CAMERA_TOP_ALT_DEG + 14.0;
+    this.camera.updateProjectionMatrix();
+  }
+
+  /**
    * Updates steering input, camera gaze spring-back, and couples camera subtly to hull heave/pitch/roll.
    */
-  update(dtSec, oceanSim, sailingActive = true) {
+  update(dtSec, oceanSim, sailingActive = true, landfallAnim = null) {
     const dt = Math.min(0.1, Math.max(0.001, dtSec));
+
+    if (landfallAnim?.active) {
+      if (!this._landfallActive) {
+        this.startLandfallCamera();
+      }
+      this.steerVelocityDegPerSec = 0.0;
+
+      const rawT = clamp(landfallAnim.rawT ?? 0.0, 0.0, 1.0);
+      const smoothT = rawT * rawT * (3.0 - 2.0 * rawT);
+      const easeOutT = 1.0 - Math.pow(1.0 - rawT, 3.0);
+      const posT = 0.35 * smoothT + 0.65 * easeOutT;
+
+      this.camera.position.lerpVectors(
+        this._landfallStartPos,
+        this._landfallEndPos,
+        posT
+      );
+
+      this._landfallCurLook.lerpVectors(
+        this._landfallLookStart,
+        this._landfallLookEnd,
+        posT
+      );
+      this._landfallLookMat.lookAt(
+        this.camera.position,
+        this._landfallCurLook,
+        THREE.Object3D.DEFAULT_UP
+      );
+      this._landfallTargetQuat.setFromRotationMatrix(this._landfallLookMat);
+
+      const slerpU = clamp(rawT / 0.55, 0.0, 1.0);
+      const slerpT = slerpU * slerpU * (3.0 - 2.0 * slerpU);
+      this.camera.quaternion.slerpQuaternions(
+        this._landfallStartQuat,
+        this._landfallTargetQuat,
+        slerpT
+      );
+
+      const targetFov =
+        this._landfallStartFov + (62.0 - this._landfallStartFov) * posT;
+      if (Math.abs(this.camera.fov - targetFov) > 0.01) {
+        this.camera.fov = targetFov;
+        this.camera.updateProjectionMatrix();
+      }
+      return;
+    }
+
+    if (this._landfallActive) {
+      this._landfallActive = false;
+    }
 
     // 1. Trim-Lock Steering (A / ArrowLeft = Port, D / ArrowRight = Starboard)
     let steerInput = 0.0;

@@ -225,14 +225,18 @@ export class OceanRenderer {
     this.scene.add(this.mesh);
   }
 
-  update(dtSec, elapsedSec, oceanSim, calmShoreMode = false) {
+  update(dtSec, elapsedSec, oceanSim, calmShoreMode = false, landfallProgress01 = 0.0) {
     if (!oceanSim) return;
 
+    const landfallT = Math.max(0.0, Math.min(1.0, landfallProgress01));
+    const decel = Math.pow(1.0 - landfallT, 2.0);
     const mult = oceanSim.fastForward ? 2.75 : 1.0;
-    const speed = calmShoreMode ? 0.35 : 5.4 * mult;
-    const leewayRad = degToRad(calmShoreMode ? 0.0 : oceanSim.leewayDeg || 0.0);
+    const speed = calmShoreMode ? 0.35 : 5.4 * mult * decel;
+    const leewayRad = degToRad(
+      calmShoreMode ? 0.0 : (oceanSim.leewayDeg || 0.0) * (1.0 - landfallT)
+    );
 
-    // Scroll water texture astern (+Z) & sideways by leeway
+    // Scroll water texture astern (+Z) & sideways by leeway (decelerates to 0 on landfall stop)
     this.scrollOffset.x += Math.sin(leewayRad) * speed * dtSec * 0.14;
     this.scrollOffset.y -= Math.cos(leewayRad) * speed * dtSec * 0.14;
 
@@ -244,7 +248,7 @@ export class OceanRenderer {
     const chopAz = calmShoreMode ? null : oceanSim.song?.secondaryChopFromAz;
     if (chopAz !== null && chopAz !== undefined) {
       const chopRel = degToRad(wrapDeg180(chopAz - headingDeg));
-      this.uniforms.uHasChop.value = 1.0;
+      this.uniforms.uHasChop.value = 1.0 - landfallT;
       this.uniforms.uChopProp.value.set(-Math.sin(chopRel), Math.cos(chopRel));
     } else {
       this.uniforms.uHasChop.value = 0.0;
@@ -257,12 +261,13 @@ export class OceanRenderer {
         ? nearestRing3.waveZone
         : IslandWaveZone.OPEN_SEA;
     this.uniforms.uWaveZone.value = waveZone;
-    this.uniforms.uSwellAmp.value = calmShoreMode
+    const baseSwellAmp = calmShoreMode
       ? 0.05
       : waveZone === IslandWaveZone.CALM_WAVE_SHADOW
         ? 0.09
         : 0.62;
-    this.uniforms.uShowWake.value = calmShoreMode ? 0.0 : 1.0;
+    this.uniforms.uSwellAmp.value = baseSwellAmp + (0.055 - baseSwellAmp) * landfallT;
+    this.uniforms.uShowWake.value = calmShoreMode ? 0.0 : decel;
 
     if (nearestRing3) {
       const islRel = degToRad(wrapDeg180(nearestRing3.bearingDeg - headingDeg));
@@ -271,7 +276,9 @@ export class OceanRenderer {
 
     const hull = oceanSim.hullState;
     this.uniforms.uOmegaT.value =
-      !calmShoreMode && hull ? hull.wavePhase01 * Math.PI * 2.0 : elapsedSec * 0.65;
+      !calmShoreMode && hull && landfallT < 0.999
+        ? hull.wavePhase01 * Math.PI * 2.0
+        : elapsedSec * 0.65;
     this.uniforms.uTime.value = elapsedSec;
     this.uniforms.uLeewaySin.value = Math.sin(leewayRad);
 
@@ -282,8 +289,15 @@ export class OceanRenderer {
     this.uniforms.uTwilight.value = sun.twilightFactor;
 
     const targetFog =
-      !calmShoreMode && oceanSim.getCurrentVerse()?.weather === 'sea_fog' ? 1.0 : 0.0;
-    this.curSeaFog += (targetFog - this.curSeaFog) * Math.min(1.0, dtSec * 1.4);
-    this.uniforms.uSeaFog.value = calmShoreMode ? 0.0 : this.curSeaFog;
+      !calmShoreMode &&
+      landfallT <= 0.0 &&
+      oceanSim.getCurrentVerse()?.weather === 'sea_fog'
+        ? 1.0
+        : 0.0;
+    const fogRate = landfallT > 0.0 ? 3.5 : 1.4;
+    this.curSeaFog += (targetFog - this.curSeaFog) * Math.min(1.0, dtSec * fogRate);
+    this.uniforms.uSeaFog.value = calmShoreMode
+      ? 0.0
+      : this.curSeaFog * (1.0 - landfallT);
   }
 }
