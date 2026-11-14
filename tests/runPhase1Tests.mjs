@@ -129,6 +129,27 @@ for (const [lid, les] of Object.entries(SAND_LESSONS)) {
 for (const z of Object.values(LASHING_ZONES)) {
   auditText(z.label, `LashingZone ${z.id}`);
 }
+let mentorPortraitCount = 0;
+for (const [iid, isl] of Object.entries(ISLANDS)) {
+  auditText(isl.name, `Island ${iid}.name`);
+  auditText(isl.subtitle, `Island ${iid}.subtitle`);
+  if (isl.inhabited) {
+    assert(Boolean(isl.mentorName), `Inhabited island ${iid} must have mentorName`);
+    assert(Boolean(isl.mentorRole), `Inhabited island ${iid} must have mentorRole`);
+    assert(
+      typeof isl.mentorPortrait === 'string' &&
+        isl.mentorPortrait.startsWith('./assets/mentors/') &&
+        isl.mentorPortrait.endsWith('.webp'),
+      `Inhabited island ${iid} must have relative WebP mentorPortrait`
+    );
+    auditText(isl.mentorName, `Island ${iid}.mentorName`);
+    auditText(isl.mentorRole, `Island ${iid}.mentorRole`);
+    mentorPortraitCount += 1;
+  } else {
+    assert(isl.mentorPortrait === '', `Uninhabited island ${iid} should have empty mentorPortrait`);
+  }
+}
+assert(mentorPortraitCount === 15, 'Expected 15 full-body mentor portraits across inhabited islands');
 
 // ---------------------------------------------------------------------------
 // 3. Spherical Astronomy & Polar/Zenith Checks

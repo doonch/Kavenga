@@ -2,8 +2,8 @@
  * Scenic Island Hub & Coastal POI UI for Kavenga: Songs of the Star Path.
  * Presents the 3 ashore tabs / POIs for each of the 16 islands:
  *   1. Canoe Landing & Launch (Canoe Careening, Ration & Cargo Baskets, Crew, Departure Window, Set Sail)
- *   2. Navigator's Shore (Animated Stick-in-the-Sand Teaching Canvas & Mentor Narration)
- *   3. Village / Marae / Wild Outpost (Story Trades, Upgrades, Consecrations & Master Replay)
+ *   2. Navigator's Shore (Animated Stick-in-the-Sand Teaching Canvas, Mentor Portrait & Narration)
+ *   3. Village / Marae / Wild Outpost (Full-Body Mentor Encounter, Story Trades, Upgrades & Master Replay)
  */
 
 import {
@@ -33,6 +33,7 @@ export class IslandHubUI {
     this.selectedDeparture = DepartureWindow.DAWN;
     this.selectedLessonId = null;
     this.lastSanctuaryResult = null;
+    this._lightboxMentor = null;
 
     this._buildDOM();
   }
@@ -102,6 +103,19 @@ export class IslandHubUI {
               </div>
 
               <div class="hub-card">
+                <!-- Quick Mentor Encounter Card on Inhabited Islands -->
+                <div class="landing-mentor-banner hidden" id="landingMentorBanner">
+                  <img class="landing-mentor-thumb" id="landingMentorThumb" alt="" />
+                  <div class="landing-mentor-info">
+                    <span class="landing-mentor-eyebrow">Ashore Encounter</span>
+                    <strong id="landingMentorName"></strong>
+                    <span id="landingMentorRole"></span>
+                  </div>
+                  <button class="secondary-btn small-btn" id="btnMeetMentorFromLanding" type="button">
+                    Meet Ashore →
+                  </button>
+                </div>
+
                 <h3>Choose Route Chant &amp; Tide-Light</h3>
                 <div class="route-list" id="hubRouteList"></div>
 
@@ -133,6 +147,20 @@ export class IslandHubUI {
               <div class="hub-card sand-list-card">
                 <h3 id="sandPoiTitle">Stick-in-the-Sand Lessons</h3>
                 <p class="panel-hint">Select a beach diagram to watch the mentor carve grooves and place shells in damp sand.</p>
+
+                <!-- Full-Body Teaching Mentor Preview -->
+                <div class="sand-mentor-showcase hidden" id="sandMentorShowcase">
+                  <button class="sand-mentor-thumb-btn" id="btnEnlargeSandPortrait" type="button" title="Inspect full-body attire">
+                    <img class="sand-mentor-img" id="sandMentorImg" alt="" />
+                  </button>
+                  <div class="sand-mentor-meta">
+                    <span class="sand-mentor-tag">Teaching Mentor</span>
+                    <strong id="sandMentorCardName"></strong>
+                    <span id="sandMentorCardRole"></span>
+                    <span class="portrait-zoom-hint">Click portrait to enlarge</span>
+                  </div>
+                </div>
+
                 <div class="lesson-list" id="hubLessonList"></div>
               </div>
               <div class="hub-card sand-stage-card">
@@ -149,15 +177,46 @@ export class IslandHubUI {
             </div>
           </section>
 
-          <!-- TAB 3: VILLAGE / MARAE / WILD OUTPOST -->
+          <!-- TAB 3: VILLAGE / MARAE / WILD OUTPOST (FULL-BODY CHARACTER ENCOUNTER) -->
           <section class="hub-panel hidden" id="panelSanctuary">
-            <div class="hub-card sanctuary-card">
-              <div class="sanctuary-eyebrow" id="sanctuaryPoiLabel"></div>
-              <h2 id="sanctuaryTitle"></h2>
-              <p class="sanctuary-speech" id="sanctuarySpeech"></p>
-              <ul class="sanctuary-rewards" id="sanctuaryRewards"></ul>
-              <div class="sanctuary-actions">
-                <button class="primary-btn" id="btnSpeakMentor">Greet Mentor / Harvest Shore</button>
+            <div class="hub-card sanctuary-card" id="sanctuaryCard">
+              <div class="sanctuary-encounter-layout" id="sanctuaryEncounterLayout">
+                <aside class="mentor-portrait-panel" id="sanctuaryPortraitPanel">
+                  <button class="mentor-portrait-frame" id="btnEnlargeSanctuaryPortrait" type="button" title="Click to inspect full-body portrait">
+                    <img class="mentor-fullbody-img" id="sanctuaryMentorImg" alt="" />
+                  </button>
+                  <div class="mentor-portrait-caption">
+                    <strong id="sanctuaryMentorName"></strong>
+                    <span id="sanctuaryMentorRole"></span>
+                  </div>
+                </aside>
+
+                <div class="sanctuary-dialogue-col">
+                  <div class="sanctuary-eyebrow" id="sanctuaryPoiLabel"></div>
+                  <h2 id="sanctuaryTitle"></h2>
+                  <p class="sanctuary-speech" id="sanctuarySpeech"></p>
+                  <ul class="sanctuary-rewards" id="sanctuaryRewards"></ul>
+
+                  <!-- Voyaging Crewmate Encounter Card (Taha'a -> Tama, Ua Pou -> Moana, Hiva Oa -> Kahu) -->
+                  <div class="sanctuary-crew-card hidden" id="sanctuaryCrewCard">
+                    <button class="sanctuary-crew-thumb-btn" id="btnEnlargeSanctuaryCrew" type="button" title="Click to inspect full-body portrait">
+                      <img class="sanctuary-crew-img" id="sanctuaryCrewImg" alt="" />
+                    </button>
+                    <div class="sanctuary-crew-meta">
+                      <span class="sand-mentor-tag" id="sanctuaryCrewStatusTag">Voyaging Companion</span>
+                      <strong id="sanctuaryCrewName"></strong>
+                      <span id="sanctuaryCrewTrait"></span>
+                      <span class="portrait-zoom-hint">Click portrait to enlarge</span>
+                    </div>
+                  </div>
+
+                  <div class="sanctuary-actions">
+                    <button class="primary-btn" id="btnSpeakMentor">Greet Mentor / Harvest Shore</button>
+                    <button class="secondary-btn" id="btnGoToLandingFromSanctuary" type="button">
+                      Prepare Canoe &amp; Set Sail →
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <!-- Unlocked after Rapa Nui Finale: Free Replay Any of the 17 Chants! -->
@@ -170,6 +229,23 @@ export class IslandHubUI {
           </section>
         </main>
       </div>
+
+      <!-- Full-Body Character Portrait Lightbox Modal -->
+      <div class="modal-backdrop hidden" id="mentorPortraitModal">
+        <div class="mentor-lightbox-card">
+          <div class="mentor-lightbox-header">
+            <div>
+              <div class="sanctuary-eyebrow" id="lightboxIslandLabel"></div>
+              <h3 id="lightboxMentorName"></h3>
+              <p class="mentor-lightbox-role" id="lightboxMentorRole"></p>
+            </div>
+            <button class="secondary-btn small-btn" id="btnClosePortraitModal" type="button">Close</button>
+          </div>
+          <div class="mentor-lightbox-stage">
+            <img class="mentor-lightbox-img" id="lightboxMentorImg" alt="" />
+          </div>
+        </div>
+      </div>
     `;
 
     this.shoreSandCanvas = new SandCanvas(
@@ -181,6 +257,63 @@ export class IslandHubUI {
       btn.addEventListener('click', () => {
         this.switchTab(btn.getAttribute('data-tab'));
       });
+    });
+
+    // Quick jump between Landing <-> Mentor Sanctuary
+    this.rootEl
+      .querySelector('#btnMeetMentorFromLanding')
+      .addEventListener('click', () => {
+        this.switchTab('sanctuary');
+      });
+    this.rootEl
+      .querySelector('#btnGoToLandingFromSanctuary')
+      .addEventListener('click', () => {
+        this.switchTab('landing');
+      });
+
+    // Portrait Lightbox triggers
+    this.rootEl
+      .querySelector('#btnEnlargeSanctuaryPortrait')
+      .addEventListener('click', () => {
+        const gs = this.callbacks.getGameState();
+        const isl = ISLANDS[gs?.currentIslandId];
+        if (isl?.mentorPortrait) {
+          this.openPortraitModal(isl);
+        }
+      });
+    this.rootEl
+      .querySelector('#btnEnlargeSandPortrait')
+      .addEventListener('click', () => {
+        if (this._sandMentorIsland?.mentorPortrait) {
+          this.openPortraitModal(this._sandMentorIsland);
+        }
+      });
+    this.rootEl
+      .querySelector('#btnEnlargeSanctuaryCrew')
+      .addEventListener('click', () => {
+        const gs = this.callbacks.getGameState();
+        const isl = ISLANDS[gs?.currentIslandId];
+        const crewId = isl?.rewards?.recruitsCrew;
+        if (crewId) {
+          this.openCrewPortraitModal(crewId);
+        }
+      });
+    this.rootEl
+      .querySelector('#btnClosePortraitModal')
+      .addEventListener('click', () => {
+        this.closePortraitModal();
+      });
+    this.rootEl
+      .querySelector('#mentorPortraitModal')
+      .addEventListener('click', (e) => {
+        if (e.target.id === 'mentorPortraitModal') {
+          this.closePortraitModal();
+        }
+      });
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Escape' && !this.rootEl.classList.contains('hidden')) {
+        this.closePortraitModal();
+      }
     });
 
     // Difficulty selector
@@ -242,29 +375,75 @@ export class IslandHubUI {
     this.rootEl
       .querySelector('#btnSpeakMentor')
       .addEventListener('click', () => {
-        const gs = this.callbacks.getGameState();
-        this.lastSanctuaryResult = interactWithIslandSanctuary(gs);
-        // Auto-select newly unlocked song if available
-        const routes = getAvailableRoutesFromCurrentIsland(gs);
-        if (routes.length > 0) {
-          const newest = routes[routes.length - 1].song;
-          this.selectedSongId = newest.id;
-          this.selectedDeparture = newest.recommendedDeparture;
-        }
+        this._triggerSanctuaryInteraction();
         this.refresh();
       });
   }
 
-  show() {
+  _triggerSanctuaryInteraction() {
+    const gs = this.callbacks.getGameState();
+    if (!gs) return;
+    this.lastSanctuaryResult = interactWithIslandSanctuary(gs);
+    const routes = getAvailableRoutesFromCurrentIsland(gs);
+    if (routes.length > 0) {
+      const newest = routes[routes.length - 1].song;
+      this.selectedSongId = newest.id;
+      this.selectedDeparture = newest.recommendedDeparture;
+    }
+  }
+
+  _showCharacterLightbox({ eyebrow, name, role, portrait, alt }) {
+    if (!portrait) return;
+    this._lightboxMentor = { eyebrow, name, role, portrait };
+    this.rootEl.querySelector('#lightboxIslandLabel').textContent = eyebrow;
+    this.rootEl.querySelector('#lightboxMentorName').textContent = name;
+    this.rootEl.querySelector('#lightboxMentorRole').textContent = role;
+    const imgEl = this.rootEl.querySelector('#lightboxMentorImg');
+    imgEl.src = portrait;
+    imgEl.alt = alt || `${name} — full-body portrait in traditional attire`;
+    this.rootEl.querySelector('#mentorPortraitModal').classList.remove('hidden');
+  }
+
+  openPortraitModal(isl) {
+    if (!isl?.mentorPortrait) return;
+    this._showCharacterLightbox({
+      eyebrow: `${isl.name} · ${isl.subtitle}`,
+      name: isl.mentorName,
+      role: isl.mentorRole || 'Island Wayfinder',
+      portrait: isl.mentorPortrait,
+      alt: `${isl.mentorName} — full-body portrait in traditional attire on ${isl.name}`,
+    });
+  }
+
+  openCrewPortraitModal(crewId) {
+    const cr = CREW_CATALOG[crewId];
+    if (!cr?.portrait) return;
+    const homeIsl = ISLANDS[cr.homeIslandId];
+    this._showCharacterLightbox({
+      eyebrow: `Voyaging Companion${homeIsl ? ` · ${homeIsl.name}` : ''}`,
+      name: cr.name,
+      role: `${cr.role} — ${cr.traitText}`,
+      portrait: cr.portrait,
+      alt: `${cr.name} (${cr.role}) — full-body portrait in traditional attire`,
+    });
+  }
+
+  closePortraitModal() {
+    this._lightboxMentor = null;
+    this.rootEl.querySelector('#mentorPortraitModal')?.classList.add('hidden');
+  }
+
+  show(initialTab = 'landing') {
     this.rootEl.classList.remove('hidden');
+    this.closePortraitModal();
     this.lastSanctuaryResult = null;
     this.selectedSongId = null;
-    this.activeTab = 'landing';
-    this.refresh();
+    this.switchTab(initialTab);
   }
 
   hide() {
     this.shoreSandCanvas.stopAnimation();
+    this.closePortraitModal();
     this.rootEl.classList.add('hidden');
   }
 
@@ -284,10 +463,14 @@ export class IslandHubUI {
       .classList.toggle('hidden', tabId !== 'sanctuary');
 
     if (tabId === 'sand') {
+      this.refresh();
       this._renderSelectedShoreLesson(true);
-    } else if (tabId === 'sanctuary' && !this.lastSanctuaryResult) {
-      const gs = this.callbacks.getGameState();
-      this.lastSanctuaryResult = interactWithIslandSanctuary(gs);
+    } else if (tabId === 'sanctuary') {
+      if (!this.lastSanctuaryResult) {
+        this._triggerSanctuaryInteraction();
+      }
+      this.refresh();
+    } else {
       this.refresh();
     }
   }
@@ -323,6 +506,20 @@ export class IslandHubUI {
     this.rootEl.querySelector('#tabBtnSanctuary').textContent = isl.inhabited
       ? `🌺 ${POI_LABELS[sanctKey] || 'Village & Marae'}`
       : `🌴 ${POI_LABELS[sanctKey] || 'Wild Outpost'}`;
+
+    // Landing Mentor Banner (quick access to meet the mentor face-to-face)
+    const landingBanner = this.rootEl.querySelector('#landingMentorBanner');
+    if (isl.inhabited && isl.mentorPortrait) {
+      landingBanner.classList.remove('hidden');
+      const thumb = this.rootEl.querySelector('#landingMentorThumb');
+      thumb.src = isl.mentorPortrait;
+      thumb.alt = isl.mentorName;
+      this.rootEl.querySelector('#landingMentorName').textContent = isl.mentorName;
+      this.rootEl.querySelector('#landingMentorRole').textContent =
+        isl.mentorRole || POI_LABELS[sanctKey] || '';
+    } else {
+      landingBanner.classList.add('hidden');
+    }
 
     // Canoe Tier & Readiness Conditions (diegetic state descriptions rather than raw arcade meters)
     const tierNames = {
@@ -373,12 +570,33 @@ export class IslandHubUI {
       crewContainer.innerHTML =
         '<div class="empty-note">Sailing solo with your starter paddler (recruit specialists across the islands).</div>';
     } else {
-      crewContainer.innerHTML = gs.assignedCrew
-        .map((crId) => {
-          const cr = CREW_CATALOG[crId];
-          return `<div class="crew-pill"><strong>${cr.name} · ${cr.role}</strong><span>${cr.traitText}</span></div>`;
-        })
-        .join('');
+      crewContainer.innerHTML = '';
+      for (const crId of gs.assignedCrew) {
+        const cr = CREW_CATALOG[crId];
+        if (!cr) continue;
+        const pill = document.createElement('div');
+        pill.className = 'crew-pill crew-pill-with-portrait';
+        pill.innerHTML = `
+          ${
+            cr.portrait
+              ? `<button class="crew-pill-thumb-btn" type="button" title="Inspect ${cr.name}'s full-body portrait">
+                   <img class="crew-pill-thumb" src="${cr.portrait}" alt="${cr.name}" />
+                 </button>`
+              : ''
+          }
+          <div class="crew-pill-text">
+            <strong>${cr.name} · ${cr.role}</strong>
+            <span>${cr.traitText}</span>
+          </div>
+        `;
+        const thumbBtn = pill.querySelector('.crew-pill-thumb-btn');
+        if (thumbBtn) {
+          thumbBtn.addEventListener('click', () => {
+            this.openCrewPortraitModal(crId);
+          });
+        }
+        crewContainer.appendChild(pill);
+      }
     }
 
     this._refreshRoutePanel();
@@ -405,7 +623,7 @@ export class IslandHubUI {
 
     if (!routes.length) {
       listEl.innerHTML =
-        '<div class="empty-note">Visit the Village / Marae tab to learn the next route chant.</div>';
+        '<div class="empty-note">Visit the Village / Marae tab to meet the local mentor and learn the next route chant.</div>';
       this.rootEl.querySelector('#btnLaunchVoyage').disabled = true;
       return;
     }
@@ -474,7 +692,10 @@ export class IslandHubUI {
     const listEl = this.rootEl.querySelector('#hubLessonList');
     listEl.innerHTML = '';
 
+    const showcaseEl = this.rootEl.querySelector('#sandMentorShowcase');
     if (!lessons.length) {
+      showcaseEl.classList.add('hidden');
+      this._sandMentorIsland = null;
       return;
     }
     if (!this.selectedLessonId || !lessons.some((l) => l.id === this.selectedLessonId)) {
@@ -491,6 +712,24 @@ export class IslandHubUI {
         this._renderSelectedShoreLesson(true);
       });
       listEl.appendChild(btn);
+    }
+
+    const activeLesson =
+      lessons.find((l) => l.id === this.selectedLessonId) || lessons[0];
+    const mentorIsl = activeLesson ? ISLANDS[activeLesson.islandId] : null;
+    if (mentorIsl?.mentorPortrait) {
+      this._sandMentorIsland = mentorIsl;
+      showcaseEl.classList.remove('hidden');
+      const imgEl = this.rootEl.querySelector('#sandMentorImg');
+      imgEl.src = mentorIsl.mentorPortrait;
+      imgEl.alt = `${mentorIsl.mentorName} — ${mentorIsl.name}`;
+      this.rootEl.querySelector('#sandMentorCardName').textContent =
+        mentorIsl.mentorName;
+      this.rootEl.querySelector('#sandMentorCardRole').textContent =
+        `${mentorIsl.mentorRole} · ${mentorIsl.name}`;
+    } else {
+      this._sandMentorIsland = null;
+      showcaseEl.classList.add('hidden');
     }
 
     if (this.activeTab === 'sand') {
@@ -518,6 +757,29 @@ export class IslandHubUI {
     this.rootEl.querySelector('#sanctuaryPoiLabel').textContent =
       POI_LABELS[pSanct || isl.pois[isl.pois.length - 1]] || isl.name;
 
+    // Full-Body Character Portrait Column
+    const layoutEl = this.rootEl.querySelector('#sanctuaryEncounterLayout');
+    const portraitPanel = this.rootEl.querySelector('#sanctuaryPortraitPanel');
+    const speakBtn = this.rootEl.querySelector('#btnSpeakMentor');
+
+    if (isl.inhabited && isl.mentorPortrait) {
+      layoutEl.classList.remove('no-mentor');
+      portraitPanel.classList.remove('hidden');
+      const imgEl = this.rootEl.querySelector('#sanctuaryMentorImg');
+      imgEl.src = isl.mentorPortrait;
+      imgEl.alt = `${isl.mentorName} — full-body portrait in traditional attire on ${isl.name}`;
+      this.rootEl.querySelector('#sanctuaryMentorName').textContent = isl.mentorName;
+      this.rootEl.querySelector('#sanctuaryMentorRole').textContent =
+        isl.mentorRole || isl.subtitle;
+      speakBtn.textContent = this.lastSanctuaryResult
+        ? `Speak Again with ${isl.mentorName}`
+        : `Greet ${isl.mentorName}`;
+    } else {
+      layoutEl.classList.add('no-mentor');
+      portraitPanel.classList.add('hidden');
+      speakBtn.textContent = 'Harvest Wild Rookery & Shallows';
+    }
+
     const res = this.lastSanctuaryResult || {
       title: isl.mentorName ? `${isl.mentorName} Awaits` : 'Uninhabited Lagoon Outpost',
       speech: isl.inhabited
@@ -533,6 +795,27 @@ export class IslandHubUI {
     )
       .map((r) => `<li>✦ ${r}</li>`)
       .join('');
+
+    // Crewmate Encounter Card on islands that recruit a specialist companion (Taha'a, Ua Pou, Hiva Oa)
+    const crewCardEl = this.rootEl.querySelector('#sanctuaryCrewCard');
+    const crewId = isl.rewards?.recruitsCrew;
+    const crewObj = crewId ? CREW_CATALOG[crewId] : null;
+    if (crewObj?.portrait) {
+      crewCardEl.classList.remove('hidden');
+      const isAboard = gs.recruitedCrew.includes(crewId);
+      const crewImg = this.rootEl.querySelector('#sanctuaryCrewImg');
+      crewImg.src = crewObj.portrait;
+      crewImg.alt = `${crewObj.name} · ${crewObj.role}`;
+      this.rootEl.querySelector('#sanctuaryCrewStatusTag').textContent = isAboard
+        ? 'Voyaging Companion · Aboard Your Vaka'
+        : 'Voyaging Companion Ashore';
+      this.rootEl.querySelector('#sanctuaryCrewName').textContent =
+        `${crewObj.name} · ${crewObj.role}`;
+      this.rootEl.querySelector('#sanctuaryCrewTrait').textContent =
+        crewObj.traitText;
+    } else {
+      crewCardEl.classList.add('hidden');
+    }
 
     // Master Replay Anthology box once Rapa Nui is completed
     const replayBox = this.rootEl.querySelector('#masterReplayBox');

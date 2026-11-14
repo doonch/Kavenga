@@ -52,6 +52,9 @@ Switch modes anytime from the Island Hub or in-voyage **Options** menu:
 ├── GAME_DESIGN_DOCUMENT.md          # Complete design specification & calibrated wayfinding blueprints
 ├── index.html                       # Zero-build entry point & Three.js importmap
 ├── styles.css                       # Island Hub & Zero-Compass Sailing HUD styling
+├── assets/
+│   ├── mentors/                     # 15 full-body mentor, artisan & elder character portraits
+│   └── crew/                        # 3 full-body recruitable voyaging crewmate portraits
 ├── vendor/
 │   └── three.module.min.js          # Locally vendored Three.js r170 ES module
 ├── src/

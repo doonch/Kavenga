@@ -45,8 +45,15 @@ for (const [k, v] of Object.entries(CARGO_CATALOG)) {
   auditText(v.description, `Cargo ${k}.description`);
 }
 for (const [k, v] of Object.entries(CREW_CATALOG)) {
+  auditText(v.name, `Crew ${k}.name`);
   auditText(v.role, `Crew ${k}.role`);
   auditText(v.traitText, `Crew ${k}.traitText`);
+  assert(
+    typeof v.portrait === 'string' &&
+      v.portrait.startsWith('./assets/crew/') &&
+      v.portrait.endsWith('.webp'),
+    `Crew ${k} must have relative WebP portrait`
+  );
 }
 for (const [k, v] of Object.entries(POI_LABELS)) {
   auditText(v, `POI ${k}`);

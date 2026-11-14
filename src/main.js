@@ -12,6 +12,7 @@ import { SpatialSeaAudio } from './audio/SpatialSeaAudio.js';
 import { onVoyageLandfall } from './core/campaignManager.js';
 import { DepartureWindow } from './core/gameConstants.js';
 import { GameState } from './core/gameState.js';
+import { ISLANDS } from './data/islandsData.js';
 import { SONGS } from './data/songsData.js';
 import { CameraController } from './rendering/CameraController.js';
 import { OceanRenderer } from './rendering/OceanRenderer.js';
@@ -31,7 +32,7 @@ class KavengaApp {
 
     // 1. State & Simulation
     this.gameState = new GameState();
-    this.gameState.loadFromLocalStorage();
+    const hasSavedProgress = this.gameState.loadFromLocalStorage();
     this.oceanSim = new OceanSim();
     this.phase = 'shore'; // 'shore' | 'sailing'
 
@@ -102,7 +103,7 @@ class KavengaApp {
       onConfirmLandfall: () => this.completeLandfallTransition(),
     });
 
-    this.islandHub.show();
+    this.islandHub.show(hasSavedProgress ? 'landing' : 'sanctuary');
     this.sailingHud.hide();
 
     window.addEventListener('resize', () => this._onResize());
@@ -151,7 +152,7 @@ class KavengaApp {
       .querySelectorAll('.sky-star-label')
       .forEach((el) => (el.style.display = 'none'));
     this.sailingHud.hide();
-    this.islandHub.show();
+    this.islandHub.show('landing');
   }
 
   completeLandfallTransition() {
@@ -175,7 +176,7 @@ class KavengaApp {
       .querySelectorAll('.sky-star-label')
       .forEach((el) => (el.style.display = 'none'));
     this.sailingHud.hide();
-    this.islandHub.show();
+    this.islandHub.show(ISLANDS[arrivedId]?.inhabited ? 'sanctuary' : 'landing');
   }
 
   _onResize() {
