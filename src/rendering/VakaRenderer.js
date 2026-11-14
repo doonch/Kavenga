@@ -547,15 +547,6 @@ export class VakaRenderer {
     mast.position.set(0, 4.4, 0);
     this.mastGroup.add(mast);
 
-    // Overhead Masthead Zenith Pennant directly at (0, +10.2, 3.1) above navigator for Song 11 Zenith check!
-    const zenithArch = new THREE.Group();
-    const pennant = new THREE.Mesh(
-      new THREE.ConeGeometry(0.14, 0.55, 6),
-      new THREE.MeshStandardMaterial({ color: 0xd94e34, roughness: 0.6 })
-    );
-    pennant.position.set(0.0, 9.6, 3.45);
-    this.root.add(pennant);
-
     // Curved Crab-Claw Spars & Woven Pandanus Sail
     this.sailPivot = new THREE.Group();
     this.sailPivot.position.set(0, 1.1, 0);
