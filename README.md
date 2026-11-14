@@ -24,6 +24,9 @@ You can enter the grounded 3D night-sky observatory (**The Star-Stone Vigil / *A
   - Northern Hemisphere Star Master (*Keeper Akura* on Kiritimati): `http://127.0.0.1:8123/?mode=sky_vigil&master=akura`
   - Specific Island Sky & Tab (`lessons`, `atlas`, or optional `quiz`): `http://127.0.0.1:8123/?mode=sky_vigil&island=hawaii&tab=atlas`
 
+### 3D Asset Debug Viewer
+Open **`http://127.0.0.1:8123/asset-viewer.html`** to inspect all procedural 3D assets in an interactive orbit/zoom studio (Canoe Tiers 1–3 with live upgrade/ration/cargo/crew/shadow toggles, flapping White Tern & Brown Booby seabirds, Trade-Wind / Peak / *Lapa* clouds, leaping Bonito fish, and all 16 campaign islands).
+
 ### Hosting on GitHub Pages
 Because all ES module imports and `<script type="importmap">` paths are strictly relative, this repository deploys directly to **GitHub Pages** with zero CI/build step:
 1. Open **Settings → Pages** in your GitHub repository.

@@ -355,7 +355,9 @@ export class WorldCuesRenderer {
       const fSideX = -fDirZ;
       const fSideZ = fDirX;
 
-      const isBooby = nearestRing1.island.birdSpecies === 'booby';
+      const isBooby =
+        nearestRing1.island.birdSpecies === 'brown_booby' ||
+        nearestRing1.island.birdSpecies === 'booby';
       const birdHex = isBooby ? 0x8b6344 : 0xf7fbff;
 
       for (const b of this.homingBirds) {
