@@ -4,7 +4,7 @@
  *
  * Builds watertight, single-envelope 3D cumulus iso-surfaces (eliminating
  * overlapping-sphere transparency seams) across three marine cloud classes:
- *  - Marching Trade-Wind Cumulus (`trade_0` .. `trade_3` — 4 organic variants)
+ *  - Marching Trade-Wind Cumulus (`trade_0` .. `trade_5` — 6 organic variants)
  *  - Stationary High-Island Peak Cumulus (`peak` — towering cumulus congestus)
  *  - Coral Atoll Lapa Canopy Cloud (`lapa` — flat-bottomed turquoise lagoon-lit deck)
  */
@@ -212,6 +212,63 @@ const ARCHETYPE_SPECS = {
       makeLobe(4.2, 15.5, 10.5, 10.2, 8.8, 10.2, 0.84),
       // Trailing wake scud
       makeLobe(-1.0, -1.8, 22.5, 12.0, 6.5, 10.5, 0.70),
+    ],
+  },
+
+  trade_4: {
+    // Wind-streaked Cumulus Fractus cloud street: broken multi-cell scud chain + detached leading puff
+    baseY: -5.2,
+    heightSpan: 19.5,
+    noiseFreq1: 0.098,
+    noiseFreq2: 0.21,
+    seedOffset: [131.4, 27.6, 89.2],
+    gridRes: [30, 20, 36],
+    detailScale: 0.105,
+    lobes: [
+      // Rear windward broken cumulus cell (-Z)
+      makeLobe(-9.5, -2.0, -21.5, 14.5, 6.5, 12.5, 0.88),
+      makeLobe(-7.5, 3.2, -18.5, 11.5, 8.2, 10.8, 0.92),
+      makeLobe(-15.5, -1.5, -15.0, 10.5, 5.8, 9.5, 0.74),
+      // Pinched vapor bridge into central scud cluster
+      makeLobe(-2.0, -2.2, -8.5, 12.5, 5.8, 10.5, 0.72),
+      makeLobe(3.5, -2.0, -1.0, 17.5, 7.0, 14.5, 0.90),
+      makeLobe(4.5, 5.4, 1.0, 13.0, 9.6, 11.8, 0.98),
+      makeLobe(-5.5, 3.0, 3.5, 11.5, 8.0, 10.5, 0.84),
+      // Forward wind-sheared cell
+      makeLobe(9.5, -1.8, 14.0, 15.0, 6.4, 12.8, 0.86),
+      makeLobe(10.5, 3.8, 16.5, 11.2, 8.4, 10.8, 0.92),
+      makeLobe(2.0, -1.5, 18.0, 10.5, 5.8, 9.5, 0.74),
+      // Detached leading trade-scud puff floating ahead (+Z)
+      makeLobe(-8.0, -1.0, 30.5, 11.8, 6.2, 10.2, 0.94),
+      makeLobe(-6.5, 2.8, 32.0, 9.2, 6.8, 8.8, 0.88),
+    ],
+  },
+
+  trade_5: {
+    // Trade-Inversion Anvil-Cap Cumulus: curved feeder tail rising into a flat-topped spreading cap
+    baseY: -6.4,
+    heightSpan: 32.5,
+    noiseFreq1: 0.080,
+    noiseFreq2: 0.172,
+    seedOffset: [154.9, 41.3, 118.7],
+    gridRes: [34, 26, 34],
+    detailScale: 0.088,
+    lobes: [
+      // Curved windward feeder tail (-X, -Z) sweeping into main base
+      makeLobe(-19.5, -3.0, -17.0, 14.0, 6.5, 12.5, 0.86),
+      makeLobe(-17.0, 1.8, -15.0, 11.0, 7.8, 10.5, 0.84),
+      makeLobe(-10.5, -2.8, -8.5, 17.0, 7.2, 14.5, 0.88),
+      makeLobe(-8.5, 4.2, -6.5, 13.0, 9.6, 12.0, 0.90),
+      // Main condensation base & stout convective trunk
+      makeLobe(2.5, -2.8, 1.5, 22.5, 8.0, 18.0, 0.94),
+      makeLobe(14.5, -3.0, 3.5, 16.5, 7.0, 14.0, 0.82),
+      makeLobe(3.5, 7.5, 2.5, 16.0, 12.5, 14.5, 1.02),
+      makeLobe(5.5, 13.5, 6.5, 15.0, 11.5, 14.0, 1.04),
+      // Overhanging trade-inversion stratocumulus anvil shelf (+Z / lateral spread)
+      makeLobe(8.0, 18.2, 11.5, 18.5, 7.2, 15.5, 1.02),
+      makeLobe(-5.5, 17.2, 12.5, 15.5, 6.6, 13.5, 0.92),
+      makeLobe(19.5, 17.0, 13.5, 14.5, 6.4, 13.0, 0.90),
+      makeLobe(6.5, 17.6, 20.5, 15.0, 6.2, 12.5, 0.90),
     ],
   },
 
@@ -696,6 +753,15 @@ function buildCloudIsoGeometry(archetypeKey) {
 }
 
 const GEOMETRY_CACHE = new Map();
+
+export const TRADE_CLOUD_VARIANT_KEYS = [
+  'trade_0',
+  'trade_1',
+  'trade_2',
+  'trade_3',
+  'trade_4',
+  'trade_5',
+];
 
 export function getCloudArchetypeSpec(archetypeKey) {
   return ARCHETYPE_SPECS[archetypeKey] || ARCHETYPE_SPECS.trade_0;

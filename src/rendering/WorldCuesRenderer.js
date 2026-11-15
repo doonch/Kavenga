@@ -14,7 +14,10 @@ import * as THREE from 'three';
 import { degToRad, posMod, wrapDeg180 } from '../core/gameConstants.js';
 import { altAzToDirectionVec3 } from '../simulation/celestialSim.js';
 import {
+  TRADE_CLOUD_VARIANT_KEYS,
   createSculptedCloudMesh,
+  getCloudArchetypeGeometry,
+  getCloudArchetypeSpec,
   sampleCloudLocalRayOpticalDepth,
   updateCloudMaterialUniforms,
 } from './CloudSculptBuilder.js';
@@ -60,6 +63,9 @@ export class WorldCuesRenderer {
     this.detailedIslandPool = {};
     this._activeCloudOccluders = [];
     this._occluderPool = [];
+    this._tradeVariantBag = [];
+    this._lastDrawnTradeVariant = null;
+    this._cloudSpawnCounter = 0;
 
     this._buildMarchingTradeClouds();
     this._buildIslandBeaconPools();
@@ -68,34 +74,116 @@ export class WorldCuesRenderer {
     this._buildDriftingFronds();
   }
 
+  _drawNextTradeVariantKey() {
+    if (this._tradeVariantBag.length === 0) {
+      const deck = TRADE_CLOUD_VARIANT_KEYS.slice();
+      for (let i = deck.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = deck[i];
+        deck[i] = deck[j];
+        deck[j] = tmp;
+      }
+      // Prevent back-to-back seam repeat across bag boundaries
+      if (
+        deck.length > 1 &&
+        deck[deck.length - 1] === this._lastDrawnTradeVariant
+      ) {
+        const swapIdx = Math.floor(Math.random() * (deck.length - 1));
+        const tmp = deck[deck.length - 1];
+        deck[deck.length - 1] = deck[swapIdx];
+        deck[swapIdx] = tmp;
+      }
+      this._tradeVariantBag = deck;
+    }
+    const nextKey = this._tradeVariantBag.pop();
+    this._lastDrawnTradeVariant = nextKey;
+    return nextKey;
+  }
+
+  _assignMixedTradeCloudTraits(tc, laneIndex = null, laneCount = 5) {
+    const archetypeKey = this._drawNextTradeVariantKey();
+    const geo = getCloudArchetypeGeometry(archetypeKey);
+    const spec = getCloudArchetypeSpec(archetypeKey);
+
+    tc.archetypeKey = archetypeKey;
+    tc.spec = spec;
+    if (tc.cloudMesh.geometry !== geo) {
+      tc.cloudMesh.geometry = geo;
+    }
+    if (tc.mat?.uniforms?.uDetailScale) {
+      tc.mat.uniforms.uDetailScale.value = spec.detailScale;
+    }
+    tc.cloudMesh.userData.cloudArchetype = archetypeKey;
+
+    const slot =
+      laneIndex !== null
+        ? laneIndex % laneCount
+        : (this._cloudSpawnCounter++) % laneCount;
+    const spanWidth = 340.0;
+    const laneStep = spanWidth / laneCount;
+    const laneCenter = -spanWidth * 0.5 + (slot + 0.5) * laneStep;
+    tc.lateralOffset = laneCenter + (Math.random() - 0.5) * laneStep * 0.88;
+    tc.altY = 62.0 + Math.random() * 58.0;
+    tc.baseScale = 0.82 + Math.random() * 0.38;
+    tc.yawJitter = (Math.random() - 0.5) * 1.15;
+    tc.speedMul = 0.85 + Math.random() * 0.32;
+  }
+
+  _remixMarchingTradeClouds() {
+    const count = this.tradeClouds.length;
+    // Shuffle lateral lane assignments so initial spatial layout isn't sequential
+    const lanes = Array.from({ length: count }, (_, idx) => idx);
+    for (let i = lanes.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = lanes[i];
+      lanes[i] = lanes[j];
+      lanes[j] = tmp;
+    }
+    for (let i = 0; i < count; i += 1) {
+      const tc = this.tradeClouds[i];
+      this._assignMixedTradeCloudTraits(tc, lanes[i], 5);
+      const jitter = (Math.random() - 0.5) * (0.65 / count);
+      tc.progress = ((i + 0.5) / count + jitter + 1.0) % 1.0;
+    }
+  }
+
   _buildMarchingTradeClouds() {
     this.tradeCloudGroup = new THREE.Group();
     this.group.add(this.tradeCloudGroup);
 
-    this.tradeClouds = [];
-    const variantKeys = ['trade_0', 'trade_1', 'trade_2', 'trade_3'];
+    // Pre-warm all 6 trade-wind cumulus geometries so runtime variant swaps are zero-cost
+    for (const key of TRADE_CLOUD_VARIANT_KEYS) {
+      getCloudArchetypeGeometry(key);
+    }
 
-    for (let i = 0; i < 14; i += 1) {
-      const archetypeKey = variantKeys[i % variantKeys.length];
+    this.tradeClouds = [];
+    const cloudCount = 15;
+
+    for (let i = 0; i < cloudCount; i += 1) {
+      const archetypeKey = this._drawNextTradeVariantKey();
       const cluster = new THREE.Group();
       const sculpted = createSculptedCloudMesh(archetypeKey, { opacity: 1.0 });
       cluster.add(sculpted.mesh);
       this.tradeCloudGroup.add(cluster);
 
-      this.tradeClouds.push({
+      const tc = {
         mesh: cluster,
         cloudMesh: sculpted.mesh,
         mat: sculpted.material,
         archetypeKey,
         spec: sculpted.spec,
         opacity: 1.0,
-        baseScale: 0.90 + ((i * 37) % 5) * 0.055,
-        yawJitter: (((i * 53) % 7) - 3) * 0.14,
-        progress: i / 14.0,
-        lateralOffset: ((i * 73) % 280) - 140.0,
-        altY: 68.0 + (i % 4) * 14.5,
-      });
+        baseScale: 1.0,
+        yawJitter: 0.0,
+        speedMul: 1.0,
+        progress: i / cloudCount,
+        lateralOffset: 0.0,
+        altY: 80.0,
+      };
+      this.tradeClouds.push(tc);
     }
+
+    this._remixMarchingTradeClouds();
   }
 
   _buildIslandBeaconPools() {
@@ -1346,6 +1434,7 @@ export class WorldCuesRenderer {
     this.fishGroup.visible = false;
     this.frondAlpha = 0.0;
     this.frondGroup.visible = false;
+    this._remixMarchingTradeClouds();
   }
 
   update(dtSec, elapsedSec, oceanSim, landfallAnim = null, launchAnim = null) {
@@ -1387,7 +1476,15 @@ export class WorldCuesRenderer {
       : 1.0;
 
     for (const tc of this.tradeClouds) {
-      tc.progress = (tc.progress + dtSec * 0.014) % 1.0;
+      const nextProgress = tc.progress + dtSec * 0.014 * tc.speedMul;
+      if (nextProgress >= 1.0) {
+        tc.progress = nextProgress % 1.0;
+        // Re-shuffle cloud variation, lane, altitude, scale & yaw invisibly at horizon wrap
+        this._assignMixedTradeCloudTraits(tc);
+      } else {
+        tc.progress = nextProgress;
+      }
+
       const along = (tc.progress - 0.5) * 860.0;
       tc.mesh.position.set(
         marchDirX * along + perpX * tc.lateralOffset,

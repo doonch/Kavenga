@@ -13,7 +13,11 @@ import {
   getIslandApproachOrientationRad,
   hasDetailedIslandModel,
 } from './rendering/IslandTerrainBuilder.js';
-import { updateCloudMaterialUniforms } from './rendering/CloudSculptBuilder.js';
+import {
+  TRADE_CLOUD_VARIANT_KEYS,
+  createSculptedCloudMesh,
+  updateCloudMaterialUniforms,
+} from './rendering/CloudSculptBuilder.js';
 import { createRapaNuiMoaiShowcaseAssembly } from './rendering/IslandRapaNuiBuilder.js';
 import { VakaRenderer } from './rendering/VakaRenderer.js';
 import { WorldCuesRenderer } from './rendering/WorldCuesRenderer.js';
@@ -139,7 +143,7 @@ function buildAssetCatalog() {
       category: 'Clouds',
       name: 'Marching Trade-Wind Cloud',
       subtitle:
-        'Sculpted flat-bottomed marine cumulus with wind-sheared cauliflower turrets (4 variants)',
+        'Sculpted flat-bottomed marine cumulus, fractus scud streets & inversion caps (6 variants)',
       tag: 'Cloud',
       kind: 'cloud',
       cloudType: 'trade',
@@ -832,11 +836,15 @@ class AssetDebugViewer {
     const isLapa = item.cloudType === 'lapa';
 
     if (item.cloudType === 'trade') {
-      const idx = Math.max(0, Math.min(3, this.cloudCtrl.tradeVariant));
-      cloudClone = this.worldCues.tradeClouds[idx].mesh.clone(true);
-      cloudClone.visible = true;
-      cloudClone.rotation.set(0, 0, 0);
-      cloudClone.scale.setScalar(1.0);
+      const idx = Math.max(
+        0,
+        Math.min(TRADE_CLOUD_VARIANT_KEYS.length - 1, this.cloudCtrl.tradeVariant)
+      );
+      const sculpted = createSculptedCloudMesh(TRADE_CLOUD_VARIANT_KEYS[idx], {
+        opacity: 1.0,
+      });
+      cloudClone = new THREE.Group();
+      cloudClone.add(sculpted.mesh);
       cloudClone.position.set(0, 14, 0);
     } else if (item.cloudType === 'peak') {
       cloudClone = slot0.peakCloud.clone(true);
@@ -1291,6 +1299,8 @@ class AssetDebugViewer {
             <button class="tool-btn ${this.cloudCtrl.tradeVariant === 1 ? 'active' : ''}" data-cvar="1">2</button>
             <button class="tool-btn ${this.cloudCtrl.tradeVariant === 2 ? 'active' : ''}" data-cvar="2">3</button>
             <button class="tool-btn ${this.cloudCtrl.tradeVariant === 3 ? 'active' : ''}" data-cvar="3">4</button>
+            <button class="tool-btn ${this.cloudCtrl.tradeVariant === 4 ? 'active' : ''}" data-cvar="4">5</button>
+            <button class="tool-btn ${this.cloudCtrl.tradeVariant === 5 ? 'active' : ''}" data-cvar="5">6</button>
           </span>
         </div>`
           : '';
