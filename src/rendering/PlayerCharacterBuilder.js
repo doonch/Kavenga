@@ -394,32 +394,52 @@ export function createPlayerCharacterRig(difficulty = Difficulty.EASY) {
 
   const legs = {};
   for (const side of [-1, 1]) {
-    const legRoot = new THREE.Group();
+    const hipPivot = new THREE.Group();
     const zStanceOffset = side < 0 ? -0.055 : 0.065; // Left foot slightly forward, right foot braced aft
-    legRoot.position.set(side * stanceHalfX, 0.0, zStanceOffset);
-    legRoot.rotation.z = side * -0.045;
-    pelvisGroup.add(legRoot);
+    hipPivot.position.set(side * stanceHalfX, 0.0, zStanceOffset);
+    hipPivot.rotation.z = side * -0.045;
+    pelvisGroup.add(hipPivot);
 
-    // Upper & lower leg lofted from ankle (-hipY + ankleY) up to hip (0)
+    // Articulated thigh (hip -> knee) and shin (knee -> ankle)
     const rThigh = 0.066 * lt;
     const rKnee = 0.047 * lt;
     const rCalf = 0.051 * lt;
     const rAnkle = 0.032 * lt;
-    const legGeo = createLoftedBodyPartGeometry([
-      { y: -hipY + ankleY, rx: rAnkle, rz: rAnkle * 1.08 },
-      { y: -hipY + ankleY + shinLen * 0.56, rx: rCalf, rz: rCalf * 1.12, oz: 0.01 },
+
+    const thighGeo = createLoftedBodyPartGeometry([
       { y: -thighLen, rx: rKnee, rz: rKnee * 1.04, oz: -0.006 },
       { y: -thighLen * 0.45, rx: rThigh * 0.94, rz: rThigh * 1.02 },
       { y: 0.02, rx: rThigh, rz: rThigh * 1.06 },
     ]);
-    const legMesh = new THREE.Mesh(legGeo, skinMat);
-    legMesh.castShadow = true;
-    legMesh.receiveShadow = true;
-    legRoot.add(legMesh);
+    const thighMesh = new THREE.Mesh(thighGeo, skinMat);
+    thighMesh.castShadow = true;
+    thighMesh.receiveShadow = true;
+    hipPivot.add(thighMesh);
 
-    // Sculpted bare Polynesian foot planted on the woven pola deck (-Z toes)
+    const kneePivot = new THREE.Group();
+    kneePivot.position.set(0.0, -thighLen, 0.0);
+    hipPivot.add(kneePivot);
+
+    const kneeCap = new THREE.Mesh(
+      new THREE.SphereGeometry(rKnee * 0.96, 8, 8),
+      skinMat
+    );
+    kneePivot.add(kneeCap);
+
+    const shinBottomY = -hipY + ankleY + thighLen; // negative offset below kneePivot
+    const shinGeo = createLoftedBodyPartGeometry([
+      { y: shinBottomY, rx: rAnkle, rz: rAnkle * 1.08 },
+      { y: shinBottomY + shinLen * 0.56, rx: rCalf, rz: rCalf * 1.12, oz: 0.01 },
+      { y: 0.0, rx: rKnee, rz: rKnee * 1.04, oz: -0.006 },
+    ]);
+    const shinMesh = new THREE.Mesh(shinGeo, skinMat);
+    shinMesh.castShadow = true;
+    shinMesh.receiveShadow = true;
+    kneePivot.add(shinMesh);
+
+    // Sculpted bare Polynesian foot planted on the deck / sand (-Z toes)
     const footGrp = new THREE.Group();
-    footGrp.position.set(0.0, -hipY + 0.026, -0.038);
+    footGrp.position.set(0.0, -hipY + 0.026 + thighLen, -0.038);
     footGrp.rotation.y = side * -0.08;
     const footMesh = new THREE.Mesh(
       new THREE.BoxGeometry(0.076 * lt, 0.044, 0.195 * lt),
@@ -433,7 +453,7 @@ export function createPlayerCharacterRig(difficulty = Difficulty.EASY) {
     );
     heel.position.set(0, -0.003, 0.072 * lt);
     footGrp.add(heel);
-    legRoot.add(footGrp);
+    kneePivot.add(footGrp);
 
     // Difficulty-specific leg tatau & ankle bindings
     if (spec.id === Difficulty.EASY && side === 1) {
@@ -443,27 +463,31 @@ export function createPlayerCharacterRig(difficulty = Difficulty.EASY) {
         pandanusMat
       );
       anklet.rotation.x = Math.PI * 0.5;
-      anklet.position.y = -hipY + ankleY + 0.035;
-      legRoot.add(anklet);
+      anklet.position.y = shinBottomY + 0.035;
+      kneePivot.add(anklet);
     } else if (spec.id === Difficulty.MEDIUM && side === -1) {
       // First initiation calf tatau bands on left leg
       addTatauBands(
-        legRoot,
+        kneePivot,
         [
-          { y: -hipY + ankleY + shinLen * 0.48, r: rCalf * 1.05, h: 0.026 },
-          { y: -hipY + ankleY + shinLen * 0.62, r: rCalf * 1.04, h: 0.018 },
+          { y: shinBottomY + shinLen * 0.48, r: rCalf * 1.05, h: 0.026 },
+          { y: shinBottomY + shinLen * 0.62, r: rCalf * 1.04, h: 0.018 },
         ],
         tatauMat
       );
     } else if (spec.id === Difficulty.HARD || spec.id === Difficulty.MASTER_NAVIGATOR) {
       // Full seasoned navigator calf & lower-thigh tatau bands on both legs
       addTatauBands(
-        legRoot,
+        hipPivot,
+        [{ y: -thighLen * 0.72, r: rThigh * 0.92, h: 0.032 }],
+        tatauMat
+      );
+      addTatauBands(
+        kneePivot,
         [
-          { y: -hipY + ankleY + shinLen * 0.36, r: rCalf * 0.98, h: 0.026 },
-          { y: -hipY + ankleY + shinLen * 0.56, r: rCalf * 1.07, h: 0.034 },
-          { y: -hipY + ankleY + shinLen * 0.74, r: rKnee * 1.06, h: 0.022 },
-          { y: -thighLen * 0.72, r: rThigh * 0.92, h: 0.032 },
+          { y: shinBottomY + shinLen * 0.36, r: rCalf * 0.98, h: 0.026 },
+          { y: shinBottomY + shinLen * 0.56, r: rCalf * 1.07, h: 0.034 },
+          { y: shinBottomY + shinLen * 0.74, r: rKnee * 1.06, h: 0.022 },
         ],
         tatauMat
       );
@@ -473,12 +497,18 @@ export function createPlayerCharacterRig(difficulty = Difficulty.EASY) {
           sennitMat
         );
         sennitAnklet.rotation.x = Math.PI * 0.5;
-        sennitAnklet.position.y = -hipY + ankleY + 0.032;
-        legRoot.add(sennitAnklet);
+        sennitAnklet.position.y = shinBottomY + 0.032;
+        kneePivot.add(sennitAnklet);
       }
     }
 
-    legs[side < 0 ? 'left' : 'right'] = legRoot;
+    legs[side < 0 ? 'left' : 'right'] = {
+      hipPivot,
+      kneePivot,
+      footGrp,
+      baseZ: zStanceOffset,
+      side,
+    };
   }
 
   // -------------------------------------------------------------------------
@@ -1275,6 +1305,113 @@ export function animatePlayerCharacterRig(
     const windAmp = 0.012 + breeze * 0.042;
     rig.cloakData.pivot.rotation.x =
       0.045 + Math.sin(elapsedSec * windFreq) * windAmp;
+    rig.cloakData.pivot.rotation.z =
+      Math.cos(elapsedSec * (windFreq * 0.73)) * (windAmp * 0.45);
+  }
+}
+
+/**
+ * Animates the character on solid island ground (smoothly blending between an ashore
+ * idle stance and a barefoot walking stride with bent knees & counter-swinging arms).
+ */
+export function animatePlayerCharacterAshore(
+  rig,
+  elapsedSec,
+  {
+    walkAmount = 0.0, // [0..1] blend between idle and brisk walk
+    stridePhase = 0.0, // continuous radians driven by distance walked
+    windStrength = 0.5,
+    gestureWave = 0.0, // [0..1] optional welcoming hand gesture for ashore elders/artisans
+    holdsStaffRight = false,
+  } = {}
+) {
+  if (!rig) return;
+
+  const w = Math.max(0.0, Math.min(1.0, walkAmount));
+  const breath = Math.sin(elapsedSec * 2.0);
+
+  // Double-frequency vertical stride bounce while walking + gentle breathing when idle
+  const strideBounce = Math.abs(Math.sin(stridePhase)) * 0.036 * w;
+  const hipSwayZ = Math.sin(stridePhase) * 0.035 * w;
+
+  rig.pelvisGroup.position.y =
+    rig.spec.totalHeightM * 0.525 + breath * 0.004 * (1.0 - 0.5 * w) + strideBounce;
+  rig.pelvisGroup.rotation.z = hipSwayZ;
+  rig.pelvisGroup.rotation.y = Math.sin(stridePhase) * 0.06 * w;
+
+  // Natural leg stride: +rotation.x swings thigh forward (-Z); -rotation.x bends knee backward (+Z)
+  const leftSwing = Math.sin(stridePhase);
+  const rightSwing = -leftSwing;
+  const leftLift = Math.max(0.0, Math.cos(stridePhase));
+  const rightLift = Math.max(0.0, -Math.cos(stridePhase));
+
+  if (rig.legs?.left && rig.legs?.right) {
+    rig.legs.left.hipPivot.position.z = rig.legs.left.baseZ * (1.0 - w);
+    rig.legs.right.hipPivot.position.z = rig.legs.right.baseZ * (1.0 - w);
+
+    rig.legs.left.hipPivot.rotation.x = leftSwing * 0.52 * w;
+    rig.legs.right.hipPivot.rotation.x = rightSwing * 0.52 * w;
+
+    rig.legs.left.kneePivot.rotation.x = -(0.08 + leftLift * 0.62) * w;
+    rig.legs.right.kneePivot.rotation.x = -(0.08 + rightLift * 0.62) * w;
+
+    rig.legs.left.footGrp.rotation.x = leftSwing * 0.16 * w;
+    rig.legs.right.footGrp.rotation.x = rightSwing * 0.16 * w;
+  }
+
+  // Torso leans slightly forward into the walk and counter-rotates against hips
+  rig.torsoGroup.rotation.x = 0.02 + 0.065 * w + breath * 0.01;
+  rig.torsoGroup.rotation.y = -Math.sin(stridePhase) * 0.095 * w;
+  rig.torsoGroup.rotation.z = -hipSwayZ * 0.65;
+
+  // Head stays level, scanning gently when idle
+  rig.headGroup.rotation.y =
+    Math.sin(elapsedSec * 0.65) * 0.09 * (1.0 - w) +
+    Math.sin(stridePhase) * 0.03 * w;
+  rig.headGroup.rotation.x = -0.03 + Math.sin(elapsedSec * 1.25) * 0.018;
+
+  // Counter-swinging arms (left arm swings forward with right leg; right arm with left leg)
+  const leftArmSwing = rightSwing * 0.44 * w;
+  const rightArmSwing = leftSwing * 0.44 * w;
+
+  rig.arms.left.shoulderPivot.rotation.set(
+    0.04 * (1.0 - w) + leftArmSwing + gestureWave * (0.55 + Math.sin(elapsedSec * 3.4) * 0.14),
+    0.0,
+    -0.11 - 0.03 * w - gestureWave * 0.22
+  );
+  rig.arms.left.elbowPivot.rotation.set(
+    0.14 + Math.max(0.0, leftArmSwing) * 0.48 + gestureWave * 0.52,
+    0.0,
+    0.04
+  );
+
+  if (holdsStaffRight) {
+    rig.arms.right.shoulderPivot.rotation.set(
+      0.42 + breath * 0.015,
+      -0.08,
+      0.16
+    );
+    rig.arms.right.elbowPivot.rotation.set(0.62, 0.0, -0.1);
+  } else {
+    rig.arms.right.shoulderPivot.rotation.set(
+      0.04 * (1.0 - w) + rightArmSwing,
+      0.0,
+      0.11 + 0.03 * w
+    );
+    rig.arms.right.elbowPivot.rotation.set(
+      0.14 + Math.max(0.0, rightArmSwing) * 0.48,
+      0.0,
+      -0.04
+    );
+  }
+
+  // Ceremonial Kahu Tapa cloak flows behind when striding and ripples in the coastal breeze
+  if (rig.cloakData?.pivot) {
+    const breeze = windStrength + w * 0.55;
+    const windFreq = 2.2 + breeze * 3.0;
+    const windAmp = 0.014 + breeze * 0.038;
+    rig.cloakData.pivot.rotation.x =
+      0.05 + 0.16 * w + Math.sin(elapsedSec * windFreq) * windAmp;
     rig.cloakData.pivot.rotation.z =
       Math.cos(elapsedSec * (windFreq * 0.73)) * (windAmp * 0.45);
   }

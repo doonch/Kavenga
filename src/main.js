@@ -20,18 +20,21 @@ import {
 import { GameState } from './core/gameState.js';
 import { ISLANDS } from './data/islandsData.js';
 import { buildReturnSong, SONGS } from './data/songsData.js';
+import { isWalkableIsland } from './data/walkableIslandsData.js';
 import { CameraController } from './rendering/CameraController.js';
 import { getIslandShoreRadiusM } from './rendering/IslandTerrainBuilder.js';
 import { OceanRenderer } from './rendering/OceanRenderer.js';
 import { SkyDomeRenderer } from './rendering/SkyDomeRenderer.js';
 import { StarRingRenderer } from './rendering/StarRingRenderer.js';
 import { VakaRenderer } from './rendering/VakaRenderer.js';
+import { WalkableIslandScene } from './rendering/WalkableIslandScene.js';
 import { WorldCuesRenderer } from './rendering/WorldCuesRenderer.js';
 import { sampleTwinHullState } from './simulation/hullPhysics.js';
 import { computeLeewayDeg, OceanSim, VoyageStatus } from './simulation/oceanSim.js';
 import { IslandHubUI } from './ui/IslandHubUI.js';
 import { SailingHUD } from './ui/SailingHUD.js';
 import { SkyVigilUI } from './ui/SkyVigilUI.js';
+import { WalkableIslandUI } from './ui/WalkableIslandUI.js';
 
 class KavengaApp {
   constructor() {
@@ -39,6 +42,7 @@ class KavengaApp {
     this.skyLabelsEl = document.getElementById('sky-labels-layer');
     this.hudRootEl = document.getElementById('sailing-hud');
     this.vigilRootEl = document.getElementById('sky-vigil-ui');
+    this.walkableUiRootEl = document.getElementById('walkable-island-ui');
     this.hubRootEl = document.getElementById('island-hub');
 
     // 1. State & Simulation
@@ -101,6 +105,11 @@ class KavengaApp {
     this.vakaRenderer = new VakaRenderer(this.scene);
     this.worldCues = new WorldCuesRenderer(this.scene);
     this.starRing = new StarRingRenderer(this.scene, this.skyLabelsEl);
+    this.walkableIslandScene = new WalkableIslandScene(
+      this.scene,
+      this.vakaRenderer,
+      this.skyLabelsEl
+    );
 
     // Seed peaceful coastal preview state behind Island Hub at the current island's latitude
     this.oceanSim.startVoyage(
@@ -117,6 +126,13 @@ class KavengaApp {
 
     // 4. UI Layers
     this.islandHub = new IslandHubUI(this.hubRootEl, {
+      getGameState: () => this.gameState,
+      onChangeDifficulty: (mode) => this.setDifficulty(mode),
+      onLaunchVoyage: (song, depWindow) => this.launchVoyage(song, depWindow),
+      onOpenSkyVigil: (opts) => this.enterSkyVigil(opts),
+    });
+
+    this.walkableIslandUI = new WalkableIslandUI(this.walkableUiRootEl, {
       getGameState: () => this.gameState,
       onChangeDifficulty: (mode) => this.setDifficulty(mode),
       onLaunchVoyage: (song, depWindow) => this.launchVoyage(song, depWindow),
@@ -163,9 +179,12 @@ class KavengaApp {
       onConfirmLandfall: () => this.completeLandfallTransition(),
     });
 
-    this.islandHub.show(hasSavedProgress ? 'landing' : 'sanctuary');
     this.sailingHud.hide();
     this.skyVigilUI.hide();
+    this._enterShoreMode({
+      hubDefaultTab: hasSavedProgress ? 'landing' : 'sanctuary',
+      spawnMode: 'canoe',
+    });
 
     // Direct URL boot support for instant testing:
     //   ?mode=sky_vigil&master=terai|akura&island=<id>&tab=lessons|atlas|quiz
@@ -241,7 +260,7 @@ class KavengaApp {
       this.gameState.currentIslandId = urlIsland;
       this.gameState.currentBasinId = ISLANDS[urlIsland].basinId;
       this.oceanSim.setShoreIsland(urlIsland);
-      this.islandHub.refresh();
+      this._enterShoreMode({ hubDefaultTab: 'sanctuary', spawnMode: 'canoe' });
     }
 
     if (urlMode === 'sky_vigil' || params.get('vigil') === '1') {
@@ -516,9 +535,47 @@ class KavengaApp {
     this.cameraCtrl.resetLandfallCamera();
   }
 
+  /**
+   * Transitions into the appropriate shore interface for `this.gameState.currentIslandId`:
+   * - Walkable 3D Island (`raiatea`): player stands beside the moored canoe and walks to 3D POIs.
+   * - All other islands (`tahaa` .. `hawaii`): classic IslandHubUI window with tabs & buttons.
+   */
+  _enterShoreMode({ hubDefaultTab = 'landing', spawnMode = 'canoe' } = {}) {
+    this.phase = 'shore';
+    this.oceanSim.setShoreIsland(this.gameState.currentIslandId);
+    this.skyLabelsEl
+      .querySelectorAll('.sky-star-label')
+      .forEach((el) => (el.style.display = 'none'));
+    this.sailingHud.hide();
+    this.skyVigilUI.hide();
+    this.starRing.setVisible(false);
+    this.cameraCtrl.setVigilMode(false);
+
+    if (isWalkableIsland(this.gameState.currentIslandId)) {
+      this.islandHub.hide();
+      this.worldCues.group.visible = false;
+      this.cameraCtrl.shoreWalkMode = true;
+      this.walkableIslandScene.enter({
+        spawnMode,
+        gameState: this.gameState,
+      });
+      this.walkableIslandUI.show();
+    } else {
+      this.walkableIslandScene.exit();
+      this.walkableIslandUI.hide();
+      this.cameraCtrl.shoreWalkMode = false;
+      this.vakaRenderer.root.visible = true;
+      this.worldCues.group.visible = true;
+      this.islandHub.show(hubDefaultTab);
+    }
+  }
+
   enterSkyVigil(opts = {}) {
     this._resetLaunchAnimation();
     this._resetLandfallAnimation();
+    this.walkableIslandScene.exit();
+    this.walkableIslandUI.hide();
+    this.cameraCtrl.shoreWalkMode = false;
     this.chantEngine.stop();
     this.spatialAudio.stop();
 
@@ -537,19 +594,7 @@ class KavengaApp {
   exitSkyVigil() {
     this._resetLaunchAnimation();
     this._resetLandfallAnimation();
-    this.skyVigilUI.hide();
-    this.starRing.setVisible(false);
-    this.cameraCtrl.setVigilMode(false);
-
-    this.vakaRenderer.root.visible = true;
-    this.worldCues.group.visible = true;
-    this.skyLabelsEl
-      .querySelectorAll('.sky-star-label')
-      .forEach((el) => (el.style.display = 'none'));
-
-    this.phase = 'shore';
-    this.oceanSim.setShoreIsland(this.gameState.currentIslandId);
-    this.islandHub.show('sand');
+    this._enterShoreMode({ hubDefaultTab: 'sand', spawnMode: 'vigil' });
   }
 
   setDifficulty(mode) {
@@ -568,12 +613,21 @@ class KavengaApp {
         !this.landfallAnim.active || this.landfallAnim.finished,
         this.launchAnim.active
       );
+    } else if (this.phase === 'shore') {
+      if (this.walkableIslandScene.active) {
+        this.walkableIslandUI.refresh();
+      } else {
+        this.islandHub.refresh();
+      }
     }
   }
 
   launchVoyage(song, departureWindow) {
     // Snapshot pre-voyage state so Lost at Sea / Return to Shore restores cleanly with zero loss!
     this.gameState.savePreVoyageSnapshot();
+    this.walkableIslandScene.exit();
+    this.walkableIslandUI.hide();
+    this.cameraCtrl.shoreWalkMode = false;
     this._resetLandfallAnimation();
     this._resetLaunchAnimation();
 
@@ -609,12 +663,7 @@ class KavengaApp {
     this.chantEngine.stop();
     this.spatialAudio.stop();
     this.gameState.restorePreVoyageSnapshot();
-    this.phase = 'shore';
-    this.skyLabelsEl
-      .querySelectorAll('.sky-star-label')
-      .forEach((el) => (el.style.display = 'none'));
-    this.sailingHud.hide();
-    this.islandHub.show('landing');
+    this._enterShoreMode({ hubDefaultTab: 'landing', spawnMode: 'canoe' });
   }
 
   completeLandfallTransition() {
@@ -634,13 +683,10 @@ class KavengaApp {
       )
     );
     onVoyageLandfall(this.gameState, arrivedId);
-
-    this.phase = 'shore';
-    this.skyLabelsEl
-      .querySelectorAll('.sky-star-label')
-      .forEach((el) => (el.style.display = 'none'));
-    this.sailingHud.hide();
-    this.islandHub.show(ISLANDS[arrivedId]?.inhabited ? 'sanctuary' : 'landing');
+    this._enterShoreMode({
+      hubDefaultTab: ISLANDS[arrivedId]?.inhabited ? 'sanctuary' : 'landing',
+      spawnMode: 'canoe',
+    });
   }
 
   _onResize() {
@@ -660,6 +706,43 @@ class KavengaApp {
       this.oceanSim.status === VoyageStatus.SAILING &&
       !this.sailingHud.pauseOpen &&
       !this.launchAnim.active;
+
+    if (this.phase === 'shore' && this.walkableIslandScene.active) {
+      // Sun-drenched Polynesian morning light across walkable Ra'iatea & its turquoise lagoon
+      this.oceanSim.setShoreIsland(this.gameState.currentIslandId);
+      this.oceanSim.solarHour =
+        (8.75 + Math.sin(this._elapsedAppSec * 0.02) * 0.2 + 24.0) % 24.0;
+      this.oceanSim.headingDeg = 0.0;
+      this.oceanSim._refreshEnvironment(dtSec);
+
+      const nearPoi = this.walkableIslandScene.update(
+        dtSec,
+        this._elapsedAppSec,
+        {
+          gameState: this.gameState,
+          oceanSim: this.oceanSim,
+          camera: this.cameraCtrl.camera,
+          keysDown: this.cameraCtrl.keysDown,
+          inputBlocked: this.walkableIslandUI.isBlockingMovement(),
+        }
+      );
+      this.walkableIslandUI.updateActivePoi(nearPoi);
+
+      this.skyDome.update(
+        dtSec,
+        this._elapsedAppSec,
+        this.oceanSim,
+        'master_navigator',
+        this.cameraCtrl.camera,
+        null,
+        null
+      );
+      this.oceanRenderer.update(dtSec, this._elapsedAppSec, this.oceanSim, true);
+
+      this.renderer.render(this.scene, this.cameraCtrl.camera);
+      window.requestAnimationFrame(this._animate);
+      return;
+    }
 
     if (this.phase === 'sky_vigil') {
       this.skyVigilUI.update(dtSec, this.oceanSim, this.cameraCtrl);

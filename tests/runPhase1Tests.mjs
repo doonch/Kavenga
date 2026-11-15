@@ -33,6 +33,11 @@ import {
 } from '../src/data/skyVigilData.js';
 import { SONGS, buildReturnSong } from '../src/data/songsData.js';
 import {
+  RAIATEA_WALKABLE_SPEC,
+  WALKABLE_ISLAND_IDS,
+  isWalkableIsland,
+} from '../src/data/walkableIslandsData.js';
+import {
   computeLstDeg,
   computeStarAltAz,
   computeSunState,
@@ -138,6 +143,41 @@ assert(
   'Master Navigator character represents a 50 year old elder with a gray beard'
 );
 
+// Walkable 3D Island Scope Check (currently enabled exclusively for Ra'iatea)
+assert(
+  WALKABLE_ISLAND_IDS.size === 1 && isWalkableIsland('raiatea') === true,
+  "Only the first island (Ra'iatea) uses 3D Walkable Island mode"
+);
+for (const iid of Object.keys(ISLANDS)) {
+  if (iid !== 'raiatea') {
+    assert(
+      isWalkableIsland(iid) === false,
+      `Non-initial island ${iid} retains classic IslandHubUI mode`
+    );
+  }
+}
+assert(
+  RAIATEA_WALKABLE_SPEC.pois.length === 4,
+  "Walkable Ra'iatea defines 4 visual POIs (canoe, hut, observation circle, elder marae)"
+);
+const spawnToCanoeDist = Math.hypot(
+  RAIATEA_WALKABLE_SPEC.initialSpawn.x - RAIATEA_WALKABLE_SPEC.mooredCanoe.x,
+  RAIATEA_WALKABLE_SPEC.initialSpawn.z - RAIATEA_WALKABLE_SPEC.mooredCanoe.z
+);
+assert(
+  spawnToCanoeDist > 3.5 && spawnToCanoeDist < 8.5,
+  'Player spawns ashore right next to the moored canoe'
+);
+const canoePoi = RAIATEA_WALKABLE_SPEC.pois.find((p) => p.id === 'canoe_landing');
+const spawnToCanoeTrigger = Math.hypot(
+  RAIATEA_WALKABLE_SPEC.initialSpawn.x - canoePoi.x,
+  RAIATEA_WALKABLE_SPEC.initialSpawn.z - canoePoi.z
+);
+assert(
+  spawnToCanoeTrigger > canoePoi.triggerRadiusM,
+  'Initial spawn next to canoe leaves viewport clean until player steps onto boarding mat'
+);
+
 assert(showsActiveStarShimmer(Difficulty.EASY) === true, 'Easy shows active star shimmer');
 assert(showsActiveStarShimmer(Difficulty.MEDIUM) === false, 'Medium hides active shimmer');
 assert(showsEasyCueInstructions(Difficulty.EASY) === true, 'Easy shows cue instructions');
@@ -196,6 +236,12 @@ for (const [diffId, prof] of Object.entries(PLAYER_CHARACTER_PROFILES)) {
   auditText(prof.shortPersona, `PlayerCharacter ${diffId}.shortPersona`);
   auditText(prof.ageLabel, `PlayerCharacter ${diffId}.ageLabel`);
   auditText(prof.attireSummary, `PlayerCharacter ${diffId}.attireSummary`);
+}
+for (const poi of RAIATEA_WALKABLE_SPEC.pois) {
+  auditText(poi.label, `WalkablePOI ${poi.id}.label`);
+  auditText(poi.title, `WalkablePOI ${poi.id}.title`);
+  auditText(poi.subtitle, `WalkablePOI ${poi.id}.subtitle`);
+  auditText(poi.promptHint, `WalkablePOI ${poi.id}.promptHint`);
 }
 let mentorPortraitCount = 0;
 let starMasterIslandCount = 0;

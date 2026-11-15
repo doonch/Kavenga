@@ -41,6 +41,7 @@ export class CameraController {
     this.isDraggingLook = false;
     this.freeLookPinned = false; // If toggled via HUD button, holds gaze until recentered
     this.vigilMode = false; // Grounded ashore mode: zero boat motion, gaze stays parked where aimed
+    this.shoreWalkMode = false; // 3D Walkable Island mode: WalkableIslandScene controls camera & arrow keys
     this._panTarget = null; // { yawDeg, pitchOffsetDeg } for smooth Master-guided pans
     this._lastPointer = { x: 0, y: 0 };
 
@@ -82,7 +83,13 @@ export class CameraController {
       if (e.target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
         return;
       }
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+        e.preventDefault();
+      }
       this.keysDown.add(e.code);
+      if (this.shoreWalkMode) {
+        return;
+      }
       if (e.code === 'Space' || e.code === 'KeyC') {
         this.recenterGaze();
       } else if (
@@ -101,6 +108,7 @@ export class CameraController {
     };
 
     this._onPointerDown = (e) => {
+      if (this.shoreWalkMode) return;
       if (e.button !== undefined && e.button !== 0 && e.button !== 2) return;
       if (e.target !== this.domElement) return;
       this.isDraggingLook = true;
