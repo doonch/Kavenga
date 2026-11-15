@@ -47,6 +47,7 @@ export class WorldCuesRenderer {
     this.tradeFogOpacity = 0.65;
     this.birdFlockAlpha = 0.0;
     this._lastBirdWorldAz = 0.0;
+    this._activeBirdIsBooby = false;
     this._birdTargetColor = new THREE.Color(0xf7fbff);
     this.fishAlpha = 0.0;
     this.frondAlpha = 0.0;
@@ -238,36 +239,630 @@ export class WorldCuesRenderer {
     }
   }
 
+  /**
+   * Lofts a crisp-edged, cambered 3D feathered airfoil or tail fan with separate
+   * upper (+Y) and lower (-Y) vertex strips for sharp trailing edges & independent
+   * upperwing vs underwing coloration. Requires stations ordered with strictly increasing x.
+   */
+  _createSheetFoilGeometry(stations, colorFn) {
+    const positions = [];
+    const colors = [];
+    const indices = [];
+
+    const pushVC = (x, y, z, rgb) => {
+      const idx = positions.length / 3;
+      positions.push(x, y, z);
+      colors.push(rgb[0], rgb[1], rgb[2]);
+      return idx;
+    };
+
+    const chordFracs = [0.0, 0.26, 0.65, 1.0];
+    const upperRows = [];
+    const lowerRows = [];
+
+    for (let i = 0; i < stations.length; i += 1) {
+      const st = stations[i];
+      const chord = st.zTrail - st.zLead;
+      const uRow = [];
+      const lRow = [];
+
+      for (let k = 0; k < 4; k += 1) {
+        const cf = chordFracs[k];
+        const z = st.zLead + cf * chord;
+        let yUp = st.yBase;
+        let yLo = st.yBase;
+        if (k === 1) {
+          yUp = st.yBase + st.camber + st.thick;
+          yLo = st.yBase + 0.32 * st.camber - 0.55 * st.thick;
+        } else if (k === 2) {
+          yUp = st.yBase + 0.54 * st.camber + 0.46 * st.thick;
+          yLo = st.yBase + 0.18 * st.camber - 0.26 * st.thick;
+        }
+
+        uRow.push(
+          pushVC(
+            st.x,
+            yUp,
+            z,
+            colorFn({ isUpper: true, spanFrac: st.spanFrac, chordFrac: cf, x: st.x })
+          )
+        );
+        lRow.push(
+          pushVC(
+            st.x,
+            yLo,
+            z,
+            colorFn({ isUpper: false, spanFrac: st.spanFrac, chordFrac: cf, x: st.x })
+          )
+        );
+      }
+      upperRows.push(uRow);
+      lowerRows.push(lRow);
+    }
+
+    for (let i = 0; i < stations.length - 1; i += 1) {
+      for (let k = 0; k < 3; k += 1) {
+        // Upper surface (+Y outward normal as x increases with i and z increases with k)
+        const ua = upperRows[i][k];
+        const ub = upperRows[i][k + 1];
+        const uc = upperRows[i + 1][k];
+        const ud = upperRows[i + 1][k + 1];
+        indices.push(ua, ub, ud, ua, ud, uc);
+
+        // Lower surface (-Y outward normal)
+        const la = lowerRows[i][k];
+        const lb = lowerRows[i][k + 1];
+        const lc = lowerRows[i + 1][k];
+        const ld = lowerRows[i + 1][k + 1];
+        indices.push(la, lc, ld, la, ld, lb);
+      }
+    }
+
+    // Close left (-X, i = 0) & right (+X, i = last) airfoil root/tip caps
+    const u0 = upperRows[0];
+    const l0 = lowerRows[0];
+    indices.push(
+      u0[0], l0[1], u0[1],
+      u0[1], l0[1], u0[2],
+      u0[2], l0[1], l0[2],
+      u0[2], l0[2], u0[3]
+    );
+
+    const last = stations.length - 1;
+    const uL = upperRows[last];
+    const lL = lowerRows[last];
+    indices.push(
+      uL[0], uL[1], lL[1],
+      uL[1], uL[2], lL[1],
+      uL[2], lL[2], lL[1],
+      uL[2], uL[3], lL[2]
+    );
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  /**
+   * Lofts a manifold 3D seabird beak, head, neck, breast, and rump along Z
+   * (beak pointing dead ahead along -Z, tail root along +Z, dorsal up +Y).
+   */
+  _createBirdBodyGeometry(species) {
+    const isBooby = species === 'brown_booby';
+    const uSteps = 36;
+    const rSteps = 22;
+    const positions = [];
+    const colors = [];
+    const indices = [];
+
+    const pushVC = (x, y, z, r, g, b) => {
+      const idx = positions.length / 3;
+      positions.push(x, y, z);
+      colors.push(r, g, b);
+      return idx;
+    };
+
+    const evalStation = (u) => {
+      if (!isBooby) {
+        // WHITE TERN (Manu-o-Ku / Gygis alba): delicate dove-like head, slender needle bill, short neck, buoyant breast
+        const z = -0.365 + 0.65 * u;
+        let halfH;
+        let halfW;
+        let centerY;
+        if (u <= 0.17) {
+          const t = u / 0.17;
+          halfH = 0.0025 + 0.0175 * Math.pow(t, 0.82);
+          halfW = 0.002 + 0.0145 * Math.pow(t, 0.85);
+          centerY = 0.03 + 0.003 * t;
+        } else if (u <= 0.34) {
+          const t = (u - 0.17) / 0.17;
+          const crown = Math.sin(t * Math.PI);
+          halfH = 0.02 + 0.03 * Math.pow(crown, 0.58) + 0.021 * t;
+          halfW = 0.0165 + 0.029 * Math.pow(crown, 0.58) + 0.022 * t;
+          centerY = 0.033 + 0.013 * crown - 0.011 * t;
+        } else if (u <= 0.45) {
+          const t = (u - 0.34) / 0.11;
+          halfH = 0.041 + 0.021 * t;
+          halfW = 0.0385 + 0.0215 * t;
+          centerY = 0.022 - 0.019 * t;
+        } else if (u <= 0.82) {
+          const t = (u - 0.45) / 0.37;
+          const arch = Math.sin(t * Math.PI);
+          halfH = 0.062 + 0.012 * arch - 0.032 * t * t;
+          halfW = 0.06 + 0.01 * arch - 0.028 * t * t;
+          centerY = 0.003 - 0.009 * Math.sin(t * Math.PI * 0.85) + 0.007 * t;
+        } else {
+          const t = (u - 0.82) / 0.18;
+          halfH = 0.03 * (1.0 - 0.52 * t);
+          halfW = 0.032 * (1.0 - 0.34 * t);
+          centerY = 0.01 + 0.003 * t;
+        }
+        return { z, halfH, halfW, centerY };
+      }
+
+      // BROWN BOOBY (Kena / Sula leucogaster): heavy conical spear bill, wedge head, long outstretched neck, torpedo cigar torso
+      const z = -0.565 + 0.96 * u;
+      let halfH;
+      let halfW;
+      let centerY;
+      if (u <= 0.18) {
+        const t = u / 0.18;
+        halfH = 0.003 + 0.031 * Math.pow(t, 0.88);
+        halfW = 0.0028 + 0.026 * Math.pow(t, 0.88);
+        centerY = 0.014 + 0.005 * t;
+      } else if (u <= 0.3) {
+        const t = (u - 0.18) / 0.12;
+        const swell = Math.sin(t * Math.PI);
+        halfH = 0.034 + 0.015 * swell + 0.008 * t;
+        halfW = 0.0288 + 0.015 * swell + 0.009 * t;
+        centerY = 0.019 + 0.004 * swell;
+      } else if (u <= 0.48) {
+        const t = (u - 0.3) / 0.18;
+        halfH = 0.042 + 0.026 * Math.pow(t, 1.32);
+        halfW = 0.0378 + 0.028 * Math.pow(t, 1.32);
+        centerY = 0.019 - 0.014 * t;
+      } else if (u <= 0.82) {
+        const t = (u - 0.48) / 0.34;
+        const arch = Math.sin(t * Math.PI);
+        halfH = 0.068 + 0.018 * arch - 0.036 * t * t;
+        halfW = 0.0658 + 0.016 * arch - 0.032 * t * t;
+        centerY = 0.005 - 0.009 * arch + 0.005 * t;
+      } else {
+        const t = (u - 0.82) / 0.18;
+        halfH = 0.032 * (1.0 - 0.52 * t);
+        halfW = 0.0338 * (1.0 - 0.42 * t);
+        centerY = 0.01 + 0.002 * t;
+      }
+      return { z, halfH, halfW, centerY };
+    };
+
+    const evalBodyColor = (u, ny, nx, z) => {
+      if (!isBooby) {
+        // White Tern: black-tipped royal-cobalt-blue bill + luminous snow-white plumage + dark eye-ring halo
+        if (u <= 0.172) {
+          const bt = Math.max(0.0, Math.min(1.0, (u - 0.05) / 0.122));
+          return [
+            0.05 + 0.08 * bt,
+            0.06 + 0.2 * bt,
+            0.11 + 0.46 * bt,
+          ];
+        }
+        // Subtle dark eye-ring feathering around (z ~ -0.22, ny ~ +0.25, |nx| > 0.65)
+        const dzEye = (z - -0.222) / 0.022;
+        const dyEye = (ny - 0.22) / 0.34;
+        if (Math.abs(nx) > 0.64 && dzEye * dzEye + dyEye * dyEye < 1.0) {
+          return [0.14, 0.16, 0.2];
+        }
+        const shade = 0.92 + 0.075 * (0.5 + 0.5 * ny);
+        return [shade * 0.985, shade * 0.992, Math.min(1.0, shade * 1.01)];
+      }
+
+      // Brown Booby: sulfur-yellow conical spear bill, slate-blue facial gular mask,
+      // dark chocolate-sepia head/neck/back/hood, and razor-sharp snow-white belly!
+      if (u <= 0.162) {
+        const bt = u / 0.162;
+        return [0.91 - 0.05 * bt, 0.82 - 0.06 * bt, 0.45 - 0.04 * bt];
+      }
+      if (u <= 0.192) {
+        // Bare bluish-slate facial skin ring at base of bill
+        return [0.29, 0.4, 0.51];
+      }
+
+      // Tuxedo breast demarcation: crisp horizontal cut-off across mid-breast onto snow-white belly
+      const cutU = 0.555 + 0.055 * (ny + 1.0);
+      const bellyMask =
+        smoothstep(cutU - 0.018, cutU + 0.018, u) *
+        smoothstep(-0.04, -0.28, ny);
+
+      const dorsalWarmth = 0.5 + 0.5 * ny;
+      const chocR = 0.22 + 0.075 * dorsalWarmth;
+      const chocG = 0.135 + 0.052 * dorsalWarmth;
+      const chocB = 0.085 + 0.036 * dorsalWarmth;
+
+      const whiteR = 0.94;
+      const whiteG = 0.955;
+      const whiteB = 0.97;
+
+      return [
+        chocR * (1.0 - bellyMask) + whiteR * bellyMask,
+        chocG * (1.0 - bellyMask) + whiteG * bellyMask,
+        chocB * (1.0 - bellyMask) + whiteB * bellyMask,
+      ];
+    };
+
+    const rings = [];
+    for (let i = 0; i <= uSteps; i += 1) {
+      const u = 0.01 + 0.98 * (i / uSteps);
+      const { z, halfH, halfW, centerY } = evalStation(u);
+      const ring = [];
+      for (let j = 0; j < rSteps; j += 1) {
+        const theta = (j / rSteps) * Math.PI * 2.0;
+        const cosT = Math.cos(theta);
+        const sinT = Math.sin(theta);
+        // Flatten underside slightly on torso for natural keel/belly contour
+        const vScale = cosT < 0.0 && u > 0.42 ? 0.92 : 1.0;
+        const x = halfW * sinT;
+        const y = centerY + halfH * cosT * vScale;
+        const [cr, cg, cb] = evalBodyColor(u, cosT, sinT, z);
+        ring.push(pushVC(x, y, z, cr, cg, cb));
+      }
+      rings.push(ring);
+    }
+
+    for (let i = 0; i < rings.length - 1; i += 1) {
+      for (let j = 0; j < rSteps; j += 1) {
+        const jNext = (j + 1) % rSteps;
+        const a = rings[i][j];
+        const b = rings[i][jNext];
+        const c = rings[i + 1][j];
+        const d = rings[i + 1][jNext];
+        indices.push(a, c, d, a, d, b);
+      }
+    }
+
+    // Closed manifold beak tip (-Z) & rump tip (+Z)
+    const frontTip = isBooby
+      ? pushVC(0.0, 0.013, -0.572, 0.92, 0.83, 0.46)
+      : pushVC(0.0, 0.03, -0.372, 0.05, 0.06, 0.1);
+    const backTip = isBooby
+      ? pushVC(0.0, 0.012, 0.402, 0.25, 0.16, 0.1)
+      : pushVC(0.0, 0.013, 0.292, 0.95, 0.97, 0.99);
+
+    const last = rings.length - 1;
+    for (let j = 0; j < rSteps; j += 1) {
+      const jNext = (j + 1) % rSteps;
+      indices.push(frontTip, rings[0][j], rings[0][jNext]);
+      indices.push(backTip, rings[last][jNext], rings[last][j]);
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  _ensureSeabirdAssets() {
+    if (this._seabirdGeos) return;
+
+    const mirrorWingStations = (rightStations) =>
+      rightStations
+        .slice()
+        .reverse()
+        .map((s) => ({ ...s, x: -s.x }));
+
+    // -----------------------------------------------------------------------
+    // 1. WHITE TERN (Manu-o-Ku) Geometries: delicate arched wings & forked swallow tail
+    // -----------------------------------------------------------------------
+    const ternWingColor = ({ isUpper, spanFrac, chordFrac }) => {
+      // Luminous angel-white feathers with delicate pearl-silver primary shaft & translucent trailing edge
+      const tipTint = spanFrac > 0.55 ? (spanFrac - 0.55) * 0.09 : 0.0;
+      const base = isUpper ? 0.975 - tipTint * 0.45 : 0.935 - tipTint * 0.35;
+      const trailIvory = chordFrac > 0.75 ? 0.02 : 0.0;
+      return [base - trailIvory * 0.3, base - trailIvory * 0.15, Math.min(1.0, base + 0.02)];
+    };
+
+    const ternInnerRightSt = [
+      { x: 0.0, zLead: -0.095, zTrail: 0.135, yBase: 0.0, camber: 0.016, thick: 0.016, spanFrac: 0.0 },
+      { x: 0.12, zLead: -0.115, zTrail: 0.115, yBase: 0.008, camber: 0.015, thick: 0.013, spanFrac: 0.14 },
+      { x: 0.24, zLead: -0.138, zTrail: 0.088, yBase: 0.014, camber: 0.014, thick: 0.01, spanFrac: 0.28 },
+      { x: 0.35, zLead: -0.155, zTrail: 0.058, yBase: 0.016, camber: 0.012, thick: 0.008, spanFrac: 0.4 },
+    ];
+    const ternOuterRightSt = [
+      { x: 0.0, zLead: -0.155, zTrail: 0.058, yBase: 0.016, camber: 0.012, thick: 0.008, spanFrac: 0.4 },
+      { x: 0.16, zLead: -0.12, zTrail: 0.075, yBase: 0.012, camber: 0.01, thick: 0.006, spanFrac: 0.58 },
+      { x: 0.33, zLead: -0.045, zTrail: 0.105, yBase: 0.006, camber: 0.007, thick: 0.004, spanFrac: 0.78 },
+      { x: 0.47, zLead: 0.048, zTrail: 0.138, yBase: 0.002, camber: 0.004, thick: 0.0022, spanFrac: 0.93 },
+      { x: 0.54, zLead: 0.118, zTrail: 0.152, yBase: 0.0, camber: 0.002, thick: 0.001, spanFrac: 1.0 },
+    ];
+
+    // Deeply forked swallow tail (outer streamers z = +0.53, central V-notch z = +0.355)
+    const ternTailGeo = this._createSheetFoilGeometry(
+      [
+        { x: -0.118, zLead: 0.46, zTrail: 0.535, yBase: 0.018, camber: 0.003, thick: 0.0015, spanFrac: 1.0 },
+        { x: -0.075, zLead: 0.31, zTrail: 0.475, yBase: 0.015, camber: 0.004, thick: 0.0025, spanFrac: 0.65 },
+        { x: -0.032, zLead: 0.255, zTrail: 0.395, yBase: 0.013, camber: 0.005, thick: 0.0035, spanFrac: 0.28 },
+        { x: 0.0, zLead: 0.25, zTrail: 0.355, yBase: 0.012, camber: 0.005, thick: 0.004, spanFrac: 0.0 },
+        { x: 0.032, zLead: 0.255, zTrail: 0.395, yBase: 0.013, camber: 0.005, thick: 0.0035, spanFrac: 0.28 },
+        { x: 0.075, zLead: 0.31, zTrail: 0.475, yBase: 0.015, camber: 0.004, thick: 0.0025, spanFrac: 0.65 },
+        { x: 0.118, zLead: 0.46, zTrail: 0.535, yBase: 0.018, camber: 0.003, thick: 0.0015, spanFrac: 1.0 },
+      ],
+      ternWingColor
+    );
+
+    // -----------------------------------------------------------------------
+    // 2. BROWN BOOBY (Kena) Geometries: long narrow pelagic wings & pointed diamond wedge tail
+    // -----------------------------------------------------------------------
+    const boobyWingColor = ({ isUpper, spanFrac, chordFrac }) => {
+      // Upperwing: dark chocolate-umber darkening to sepia-black primaries
+      const tipDark = 1.0 - 0.28 * spanFrac;
+      const choc = [0.27 * tipDark, 0.172 * tipDark, 0.11 * tipDark];
+      if (isUpper) return choc;
+
+      // Underwing: bright snow-white central underwing coverts framed by dark brown margins & dark primary tips!
+      const inWhiteCoverts =
+        spanFrac < 0.72 && chordFrac > 0.18 && chordFrac < 0.78;
+      if (inWhiteCoverts) {
+        const edgeFade =
+          smoothstep(0.72, 0.56, spanFrac) *
+          smoothstep(0.18, 0.28, chordFrac) *
+          smoothstep(0.78, 0.66, chordFrac);
+        return [
+          choc[0] * (1.0 - edgeFade) + 0.93 * edgeFade,
+          choc[1] * (1.0 - edgeFade) + 0.945 * edgeFade,
+          choc[2] * (1.0 - edgeFade) + 0.96 * edgeFade,
+        ];
+      }
+      return choc;
+    };
+
+    const boobyInnerRightSt = [
+      { x: 0.0, zLead: -0.105, zTrail: 0.145, yBase: 0.0, camber: 0.018, thick: 0.019, spanFrac: 0.0 },
+      { x: 0.15, zLead: -0.122, zTrail: 0.122, yBase: 0.006, camber: 0.016, thick: 0.015, spanFrac: 0.14 },
+      { x: 0.3, zLead: -0.14, zTrail: 0.095, yBase: 0.01, camber: 0.014, thick: 0.012, spanFrac: 0.28 },
+      { x: 0.44, zLead: -0.152, zTrail: 0.068, yBase: 0.012, camber: 0.012, thick: 0.009, spanFrac: 0.4 },
+    ];
+    const boobyOuterRightSt = [
+      { x: 0.0, zLead: -0.152, zTrail: 0.068, yBase: 0.012, camber: 0.012, thick: 0.009, spanFrac: 0.4 },
+      { x: 0.22, zLead: -0.108, zTrail: 0.088, yBase: 0.009, camber: 0.01, thick: 0.0065, spanFrac: 0.6 },
+      { x: 0.44, zLead: -0.025, zTrail: 0.122, yBase: 0.005, camber: 0.007, thick: 0.004, spanFrac: 0.8 },
+      { x: 0.58, zLead: 0.068, zTrail: 0.162, yBase: 0.002, camber: 0.004, thick: 0.0022, spanFrac: 0.93 },
+      { x: 0.66, zLead: 0.148, zTrail: 0.185, yBase: 0.0, camber: 0.002, thick: 0.001, spanFrac: 1.0 },
+    ];
+
+    // Pointed diamond / wedge tail tapering to a single central spear tip at z = +0.675
+    const boobyTailGeo = this._createSheetFoilGeometry(
+      [
+        { x: -0.084, zLead: 0.43, zTrail: 0.5, yBase: 0.01, camber: 0.003, thick: 0.0015, spanFrac: 1.0 },
+        { x: -0.048, zLead: 0.365, zTrail: 0.585, yBase: 0.011, camber: 0.004, thick: 0.003, spanFrac: 0.88 },
+        { x: 0.0, zLead: 0.355, zTrail: 0.675, yBase: 0.012, camber: 0.005, thick: 0.0042, spanFrac: 0.82 },
+        { x: 0.048, zLead: 0.365, zTrail: 0.585, yBase: 0.011, camber: 0.004, thick: 0.003, spanFrac: 0.88 },
+        { x: 0.084, zLead: 0.43, zTrail: 0.5, yBase: 0.01, camber: 0.003, thick: 0.0015, spanFrac: 1.0 },
+      ],
+      ({ isUpper }) => (isUpper ? [0.22, 0.14, 0.09] : [0.26, 0.17, 0.11])
+    );
+
+    const makeUniformColorSphere = (radius, r, g, b) => {
+      const sGeo = new THREE.SphereGeometry(radius, 8, 8);
+      const count = sGeo.attributes.position.count;
+      const cols = new Float32Array(count * 3);
+      for (let i = 0; i < count; i += 1) {
+        cols[i * 3] = r;
+        cols[i * 3 + 1] = g;
+        cols[i * 3 + 2] = b;
+      }
+      sGeo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+      return sGeo;
+    };
+
+    const makeUniformColorFoot = (len, r, g, b) => {
+      const fGeo = new THREE.ConeGeometry(0.014, len, 5);
+      fGeo.rotateX(Math.PI * 0.5);
+      const count = fGeo.attributes.position.count;
+      const cols = new Float32Array(count * 3);
+      for (let i = 0; i < count; i += 1) {
+        cols[i * 3] = r;
+        cols[i * 3 + 1] = g;
+        cols[i * 3 + 2] = b;
+      }
+      fGeo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+      return fGeo;
+    };
+
+    this._seabirdGeos = {
+      white_tern: {
+        bodyGeo: this._createBirdBodyGeometry('white_tern'),
+        tailGeo: ternTailGeo,
+        innerRightGeo: this._createSheetFoilGeometry(ternInnerRightSt, ternWingColor),
+        innerLeftGeo: this._createSheetFoilGeometry(
+          mirrorWingStations(ternInnerRightSt),
+          ternWingColor
+        ),
+        outerRightGeo: this._createSheetFoilGeometry(ternOuterRightSt, ternWingColor),
+        outerLeftGeo: this._createSheetFoilGeometry(
+          mirrorWingStations(ternOuterRightSt),
+          ternWingColor
+        ),
+        eyeGeo: makeUniformColorSphere(0.0105, 0.04, 0.05, 0.07),
+        footGeo: makeUniformColorFoot(0.065, 0.24, 0.3, 0.42),
+        shoulderX: 0.048,
+        shoulderY: 0.022,
+        shoulderZ: -0.008,
+        wristX: 0.35,
+        eyePos: { x: 0.035, y: 0.041, z: -0.222 },
+        footPos: { x: 0.022, y: -0.032, z: 0.225 },
+      },
+      brown_booby: {
+        bodyGeo: this._createBirdBodyGeometry('brown_booby'),
+        tailGeo: boobyTailGeo,
+        innerRightGeo: this._createSheetFoilGeometry(boobyInnerRightSt, boobyWingColor),
+        innerLeftGeo: this._createSheetFoilGeometry(
+          mirrorWingStations(boobyInnerRightSt),
+          boobyWingColor
+        ),
+        outerRightGeo: this._createSheetFoilGeometry(boobyOuterRightSt, boobyWingColor),
+        outerLeftGeo: this._createSheetFoilGeometry(
+          mirrorWingStations(boobyOuterRightSt),
+          boobyWingColor
+        ),
+        irisGeo: makeUniformColorSphere(0.011, 0.86, 0.82, 0.44),
+        eyeGeo: makeUniformColorSphere(0.0072, 0.04, 0.05, 0.07),
+        footGeo: makeUniformColorFoot(0.085, 0.84, 0.74, 0.34),
+        shoulderX: 0.056,
+        shoulderY: 0.026,
+        shoulderZ: -0.015,
+        wristX: 0.44,
+        eyePos: { x: 0.035, y: 0.024, z: -0.358 },
+        footPos: { x: 0.026, y: -0.036, z: 0.31 },
+      },
+    };
+  }
+
+  /**
+   * Instantiates an articulated, vertex-colored 3D White Tern ('white_tern') or
+   * Brown Booby ('brown_booby') with 2-joint wings (shoulder + carpal wrist),
+   * species-accurate bill, eyes, tucked webbed feet, and tail.
+   */
+  createSeabird(species = 'white_tern', { opaque = false } = {}) {
+    this._ensureSeabirdAssets();
+    const key = species === 'brown_booby' ? 'brown_booby' : 'white_tern';
+    const spec = this._seabirdGeos[key];
+    const isBooby = key === 'brown_booby';
+
+    const mat = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: isBooby ? 0.62 : 0.52,
+      metalness: 0.04,
+      emissive: isBooby ? 0x3b281a : 0xdce6f2,
+      emissiveIntensity: isBooby ? 0.16 : 0.22,
+      transparent: !opaque,
+      opacity: 1.0,
+    });
+
+    const root = new THREE.Group();
+    const body = new THREE.Mesh(spec.bodyGeo, mat);
+    const tail = new THREE.Mesh(spec.tailGeo, mat);
+    root.add(body, tail);
+
+    // Eyes & tucked webbed feet
+    for (const side of [-1, 1]) {
+      if (spec.irisGeo) {
+        const iris = new THREE.Mesh(spec.irisGeo, mat);
+        iris.position.set(side * spec.eyePos.x, spec.eyePos.y, spec.eyePos.z);
+        iris.scale.set(0.55, 1.0, 1.0);
+        root.add(iris);
+      }
+      const eye = new THREE.Mesh(spec.eyeGeo, mat);
+      eye.position.set(
+        side * (spec.eyePos.x + (spec.irisGeo ? 0.003 : 0.0)),
+        spec.eyePos.y,
+        spec.eyePos.z
+      );
+      eye.scale.set(0.6, 1.0, 1.0);
+      root.add(eye);
+
+      const foot = new THREE.Mesh(spec.footGeo, mat);
+      foot.position.set(side * spec.footPos.x, spec.footPos.y, spec.footPos.z);
+      root.add(foot);
+    }
+
+    // Two-joint articulated right (+X) & left (-X) wings
+    const rightInnerWing = new THREE.Group();
+    rightInnerWing.position.set(spec.shoulderX, spec.shoulderY, spec.shoulderZ);
+    rightInnerWing.add(new THREE.Mesh(spec.innerRightGeo, mat));
+
+    const rightOuterWing = new THREE.Group();
+    rightOuterWing.position.set(spec.wristX, 0.0, 0.0);
+    rightOuterWing.add(new THREE.Mesh(spec.outerRightGeo, mat));
+    rightInnerWing.add(rightOuterWing);
+
+    const leftInnerWing = new THREE.Group();
+    leftInnerWing.position.set(-spec.shoulderX, spec.shoulderY, spec.shoulderZ);
+    leftInnerWing.add(new THREE.Mesh(spec.innerLeftGeo, mat));
+
+    const leftOuterWing = new THREE.Group();
+    leftOuterWing.position.set(-spec.wristX, 0.0, 0.0);
+    leftOuterWing.add(new THREE.Mesh(spec.outerLeftGeo, mat));
+    leftInnerWing.add(leftOuterWing);
+
+    root.add(rightInnerWing, leftInnerWing);
+
+    const entry = {
+      root,
+      species: key,
+      mat,
+      leftInnerWing,
+      leftOuterWing,
+      rightInnerWing,
+      rightOuterWing,
+      bobY: 0.0,
+    };
+    root.userData.seabird = entry;
+    return entry;
+  }
+
+  /**
+   * Animates species-distinct 2-joint wingbeats:
+   * - White Tern: buoyant, airy elastic stroke with graceful gull/tern carpal wrist arch
+   * - Brown Booby: brisker, stiffer pelagic commuting stroke with shallower crossbow dihedral
+   */
+  animateSeabird(entry, elapsedSec, phaseOffset = 0.0, speedScale = 1.0) {
+    if (!entry) return;
+    if (entry.species === 'brown_booby') {
+      const theta = elapsedSec * 9.0 * speedScale + phaseOffset;
+      const sinT = Math.sin(theta);
+      const cosT = Math.cos(theta);
+      const wave = sinT + 0.16 * Math.sin(2.0 * theta);
+      const innerAngle = wave * 0.36 + 0.04;
+      const wristFold = -0.2 * Math.max(0.0, wave) - 0.14 * cosT - 0.04;
+
+      entry.rightInnerWing.rotation.z = innerAngle;
+      entry.leftInnerWing.rotation.z = -innerAngle;
+      entry.rightOuterWing.rotation.z = wristFold;
+      entry.leftOuterWing.rotation.z = -wristFold;
+      entry.bobY = -wave * 0.022;
+    } else {
+      const theta = elapsedSec * 7.6 * speedScale + phaseOffset;
+      const sinT = Math.sin(theta);
+      const cosT = Math.cos(theta);
+      const innerAngle = sinT * 0.48 + 0.09;
+      const wristFold = -0.34 * Math.max(0.0, sinT) - 0.24 * cosT - 0.07;
+
+      entry.rightInnerWing.rotation.z = innerAngle;
+      entry.leftInnerWing.rotation.z = -innerAngle;
+      entry.rightOuterWing.rotation.z = wristFold;
+      entry.leftOuterWing.rotation.z = -wristFold;
+      entry.bobY = -sinT * 0.034;
+    }
+  }
+
   _buildHomingBirdFlocks() {
-    // 8 homing sea birds flying in purposeful straight rays along nearest Ring 1+ island bearing
+    // 8 homing seabird slots flying in purposeful straight rays along nearest Ring 1+ island bearing,
+    // each carrying distinct sculpted White Tern and Brown Booby assemblies.
     this.homingBirds = [];
     this.birdFlockGroup = new THREE.Group();
     this.group.add(this.birdFlockGroup);
 
-    const wingGeo = new THREE.BoxGeometry(0.95, 0.05, 0.32);
-    wingGeo.translate(0.47, 0, 0);
-
     for (let i = 0; i < 8; i += 1) {
       const bird = new THREE.Group();
-      const mat = new THREE.MeshBasicMaterial({
-        color: 0xfafcff,
-        transparent: true,
-        opacity: 1.0,
-        depthWrite: false,
-      });
-      const leftWing = new THREE.Mesh(wingGeo, mat);
-      leftWing.scale.x = -1;
-      const rightWing = new THREE.Mesh(wingGeo, mat);
-      const body = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.95, 6), mat);
-      body.rotation.x = -Math.PI / 2; // Beak points along -Z local
-      bird.add(leftWing, rightWing, body);
+      const ternEntry = this.createSeabird('white_tern', { opaque: false });
+      const boobyEntry = this.createSeabird('brown_booby', { opaque: false });
+      boobyEntry.root.visible = false;
+
+      bird.add(ternEntry.root, boobyEntry.root);
       this.birdFlockGroup.add(bird);
 
       this.homingBirds.push({
         bird,
-        leftWing,
-        rightWing,
-        mat,
+        ternEntry,
+        boobyEntry,
+        leftWing: ternEntry.leftInnerWing,
+        rightWing: ternEntry.rightInnerWing,
+        mat: ternEntry.mat,
         phase: i * 0.78,
         offsetSide: (i - 3.5) * 5.2,
         offsetHeight: 9.5 + (i % 3) * 3.4,
@@ -1168,16 +1763,15 @@ export class WorldCuesRenderer {
       const distEnv = smoothstep(r1 * 1.02, r1 * 0.82, nearestRing1.distanceUnits);
       targetFlockAlpha = timeEnv * distEnv;
 
-      // Update homing flight azimuth & plumage color while active
+      // Update homing flight azimuth & active seabird species while active
       this._lastBirdWorldAz =
         dawnEnv >= duskEnv
           ? posMod(nearestRing1.bearingDeg + 180.0, 360.0)
           : nearestRing1.bearingDeg;
 
-      const isBooby =
+      this._activeBirdIsBooby =
         nearestRing1.island.birdSpecies === 'brown_booby' ||
         nearestRing1.island.birdSpecies === 'booby';
-      this._birdTargetColor.setHex(isBooby ? 0x8b6344 : 0xf7fbff);
     }
 
     this.birdFlockAlpha = easeToward(
@@ -1194,15 +1788,20 @@ export class WorldCuesRenderer {
       const fDirZ = -Math.cos(flightRelRad);
       const fSideX = -fDirZ;
       const fSideZ = fDirX;
-      const colorLerp = Math.min(1.0, fadeDt * 3.0);
 
       for (const b of this.homingBirds) {
-        b.mat.color.lerp(this._birdTargetColor, colorLerp);
+        const activeEntry = this._activeBirdIsBooby ? b.boobyEntry : b.ternEntry;
+        const inactiveEntry = this._activeBirdIsBooby ? b.ternEntry : b.boobyEntry;
+        inactiveEntry.root.visible = false;
+        activeEntry.root.visible = true;
+
+        this.animateSeabird(activeEntry, elapsedSec, b.phase, 1.0);
+
         b.progress = (b.progress + dtSec * 0.12) % 1.0;
         const along = (b.progress - 0.5) * 145.0;
         b.bird.position.set(
           fDirX * along + fSideX * b.offsetSide,
-          b.offsetHeight,
+          b.offsetHeight + activeEntry.bobY,
           fDirZ * along + fSideZ * b.offsetSide
         );
         b.bird.rotation.y = -flightRelRad;
@@ -1212,13 +1811,15 @@ export class WorldCuesRenderer {
           smoothstep(0.0, 0.18, b.progress) *
           smoothstep(0.0, 0.18, 1.0 - b.progress);
         const birdAlpha = this.birdFlockAlpha * rayEnv;
-        b.mat.opacity = birdAlpha;
+        const useTrans = birdAlpha < 0.995;
+        activeEntry.mat.opacity = birdAlpha;
+        activeEntry.mat.depthWrite = birdAlpha > 0.25;
+        if (activeEntry.mat.transparent !== useTrans) {
+          activeEntry.mat.transparent = useTrans;
+          activeEntry.mat.needsUpdate = true;
+        }
         b.bird.scale.setScalar(0.76 + 0.24 * rayEnv);
         b.bird.visible = birdAlpha > 0.004;
-
-        const flap = Math.sin(elapsedSec * 9.5 + b.phase) * 0.52;
-        b.leftWing.rotation.z = -flap;
-        b.rightWing.rotation.z = flap;
       }
     } else {
       this.birdFlockGroup.visible = false;

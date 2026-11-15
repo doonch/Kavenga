@@ -107,26 +107,26 @@ function buildAssetCatalog() {
     {
       id: 'bird_white_tern',
       category: 'Seabirds (Flapping)',
-      name: 'White Tern (Single Bird)',
-      subtitle: 'Close-up homing sea tern with continuous wing-flapping stroke',
-      tag: 'Bird',
+      name: 'White Tern — Manu-o-Kū (Single Bird)',
+      subtitle: 'Snow-white pelagic tern with cobalt-black needle bill, forked swallow tail & 2-joint wings',
+      tag: 'Tern',
       kind: 'bird_single',
       species: 'white_tern',
     },
     {
       id: 'bird_brown_booby',
       category: 'Seabirds (Flapping)',
-      name: 'Brown Booby (Single Bird)',
-      subtitle: 'Close-up brown booby (0x8b6344 plumage) flapping in flight',
-      tag: 'Bird',
+      name: 'Brown Booby — Kenā (Single Bird)',
+      subtitle: 'Chocolate-and-white tuxedo plunge-diver with yellow spear bill, wedge tail & long glider wings',
+      tag: 'Booby',
       kind: 'bird_single',
       species: 'brown_booby',
     },
     {
       id: 'bird_homing_flock',
       category: 'Seabirds (Flapping)',
-      name: 'Homing Flock (8 Birds Flapping)',
-      subtitle: 'Full 8-bird dawn/dusk homing ray with staggered wing phases',
+      name: 'Homing Flock (8 Seabirds Flapping)',
+      subtitle: '8-bird dawn/dusk homing formation showcasing White Terns & Brown Boobies',
       tag: 'Flock',
       kind: 'bird_flock',
     },
@@ -739,29 +739,16 @@ class AssetDebugViewer {
     );
   }
 
-  _cloneBirdEntry(hexColor, phase = 0.0) {
-    const template = this.worldCues.homingBirds[0];
-    const bird = template.bird.clone(true);
-    const mat = new THREE.MeshBasicMaterial({ color: hexColor });
-    bird.traverse((c) => {
-      if (c.isMesh) c.material = mat;
-    });
-    const leftWing = bird.children[0];
-    const rightWing = bird.children[1];
-    return { bird, leftWing, rightWing, phase };
-  }
-
   _mountSingleBirdAsset(item) {
-    const hex = item.species === 'brown_booby' ? 0x8b6344 : 0xf7fbff;
-    const entry = this._cloneBirdEntry(hex, 0.0);
-    entry.bird.position.set(0, 0.55, 0);
-    this.stageGroup.add(entry.bird);
+    const species =
+      item.species === 'brown_booby' ? 'brown_booby' : 'white_tern';
+    const entry = this.worldCues.createSeabird(species, { opaque: true });
+    entry.root.position.set(0, 0.52, 0);
+    this.stageGroup.add(entry.root);
 
     const applyFlap = (elapsed) => {
-      const flap = Math.sin(elapsed * 9.5 * this.animCtrl.speed) * 0.52;
-      entry.leftWing.rotation.z = -flap;
-      entry.rightWing.rotation.z = flap;
-      entry.bird.position.y = 0.55 + Math.sin(elapsed * 9.5 * this.animCtrl.speed + Math.PI) * 0.035;
+      this.worldCues.animateSeabird(entry, elapsed, 0.0, this.animCtrl.speed);
+      entry.root.position.y = 0.52 + entry.bobY;
     };
     applyFlap(this.animElapsedSec);
     this.activeTickFn = (_dt, elapsed) => applyFlap(elapsed);
@@ -770,24 +757,32 @@ class AssetDebugViewer {
   _mountBirdFlockAsset() {
     const flockEntries = [];
     for (let i = 0; i < 8; i += 1) {
-      const isLeadBooby = i % 3 === 0;
-      const entry = this._cloneBirdEntry(isLeadBooby ? 0x8b6344 : 0xf7fbff, i * 0.78);
+      const isBooby = i % 2 === 1;
+      const entry = this.worldCues.createSeabird(
+        isBooby ? 'brown_booby' : 'white_tern',
+        { opaque: true }
+      );
       const row = Math.floor((i + 1) / 2);
       const side = i === 0 ? 0 : i % 2 === 1 ? -1 : 1;
-      entry.bird.position.set(
-        side * row * 1.65,
-        1.4 + (i % 3) * 0.45,
-        row * 1.55 - 2.2
+      const baseY = 1.4 + (i % 3) * 0.45;
+      entry.root.position.set(
+        side * row * 1.85,
+        baseY,
+        row * 1.65 - 2.2
       );
-      this.stageGroup.add(entry.bird);
-      flockEntries.push(entry);
+      this.stageGroup.add(entry.root);
+      flockEntries.push({ entry, phase: i * 0.78, baseY });
     }
 
     const applyFlap = (elapsed) => {
-      for (const e of flockEntries) {
-        const flap = Math.sin(elapsed * 9.5 * this.animCtrl.speed + e.phase) * 0.52;
-        e.leftWing.rotation.z = -flap;
-        e.rightWing.rotation.z = flap;
+      for (const f of flockEntries) {
+        this.worldCues.animateSeabird(
+          f.entry,
+          elapsed,
+          f.phase,
+          this.animCtrl.speed
+        );
+        f.entry.root.position.y = f.baseY + f.entry.bobY;
       }
     };
     applyFlap(this.animElapsedSec);
