@@ -13,6 +13,8 @@ import {
   getIslandApproachOrientationRad,
   hasDetailedIslandModel,
 } from './rendering/IslandTerrainBuilder.js';
+import { updateCloudMaterialUniforms } from './rendering/CloudSculptBuilder.js';
+import { createRapaNuiMoaiShowcaseAssembly } from './rendering/IslandRapaNuiBuilder.js';
 import { VakaRenderer } from './rendering/VakaRenderer.js';
 import { WorldCuesRenderer } from './rendering/WorldCuesRenderer.js';
 
@@ -136,7 +138,8 @@ function buildAssetCatalog() {
       id: 'cloud_trade',
       category: 'Clouds',
       name: 'Marching Trade-Wind Cloud',
-      subtitle: '3-puff drifting trade-wind cumulus cluster',
+      subtitle:
+        'Sculpted flat-bottomed marine cumulus with wind-sheared cauliflower turrets (4 variants)',
       tag: 'Cloud',
       kind: 'cloud',
       cloudType: 'trade',
@@ -145,7 +148,8 @@ function buildAssetCatalog() {
       id: 'cloud_peak',
       category: 'Clouds',
       name: 'Stationary Island Peak Cumulus',
-      subtitle: '3-tier towering white cumulus anchored above high volcanic peaks',
+      subtitle:
+        'Towering orographic cumulus congestus column anchored above high volcanic peaks',
       tag: 'Cloud',
       kind: 'cloud',
       cloudType: 'peak',
@@ -154,7 +158,8 @@ function buildAssetCatalog() {
       id: 'cloud_lapa',
       category: 'Clouds',
       name: 'Coral Atoll Lapa Glow Cloud',
-      subtitle: 'Low flat atoll cloud with turquoise lagoon-reflected underside',
+      subtitle:
+        'Stratified marine canopy deck with turquoise lagoon-reflected underside (Te Lapa)',
       tag: 'Lapa',
       kind: 'cloud',
       cloudType: 'lapa',
@@ -187,7 +192,32 @@ function buildAssetCatalog() {
     },
   ];
 
-  // 5. All 16 Islands grouped by Act I, Act II, Act III
+  // 5. Secret Island — Rapa Nui (Wide Low-Shield Island + Close-Up Moai & Ahu Inspection)
+  if (ISLANDS.rapa_nui) {
+    items.push(
+      {
+        id: 'island_rapa_nui',
+        category: 'Secret Island — Rapa Nui',
+        name: 'Rapa Nui (Secret Island)',
+        subtitle:
+          'Wide low-shield triangular three-volcano island: Terevaka, Poike, Rano Kau caldera & Motu, Rano Raraku, Anakena & upright ocean-facing Moai',
+        tag: 'Secret Isle',
+        kind: 'island',
+        island: ISLANDS.rapa_nui,
+      },
+      {
+        id: 'rapa_nui_moai_ahu',
+        category: 'Secret Island — Rapa Nui',
+        name: 'Moai Guardians & Ahu (Close-Up)',
+        subtitle:
+          'Detailed Rapa Nui Moai study: awakened coral/obsidian eyes, red scoria Pukao, Rano Raraku quarry head & Hare Paenga',
+        tag: 'Moai Study',
+        kind: 'moai_showcase',
+      }
+    );
+  }
+
+  // 6. All 16 Campaign Islands grouped by Act I, Act II, Act III
   const actTitles = {
     1: "Islands — Act I (Ra'iatea Chain)",
     2: 'Islands — Act II (Nuku Hiva Chain)',
@@ -195,6 +225,7 @@ function buildAssetCatalog() {
   };
 
   for (const isl of Object.values(ISLANDS)) {
+    if (isl.isSecret) continue;
     const detailed = hasDetailedIslandModel(isl.id);
     items.push({
       id: `island_${isl.id}`,
@@ -246,6 +277,10 @@ class AssetDebugViewer {
     this.animCtrl = {
       speed: 1.0,
       fishLeapSingle: false,
+    };
+    this.cloudCtrl = {
+      tradeVariant: 0,
+      lighting: 'day',
     };
 
     // Viewer display flags
@@ -661,6 +696,8 @@ class AssetDebugViewer {
       this._mountFishSchoolAsset();
     } else if (item.kind === 'fronds') {
       this._mountFrondsAsset();
+    } else if (item.kind === 'moai_showcase') {
+      this._mountMoaiShowcaseAsset();
     } else if (item.kind === 'island') {
       this._mountIslandAsset(item.island);
     }
@@ -792,25 +829,65 @@ class AssetDebugViewer {
   _mountCloudAsset(item) {
     const slot0 = this.worldCues.islandSlots[0];
     let cloudClone = null;
+    const isLapa = item.cloudType === 'lapa';
+
     if (item.cloudType === 'trade') {
-      cloudClone = this.worldCues.tradeClouds[0].mesh.clone(true);
+      const idx = Math.max(0, Math.min(3, this.cloudCtrl.tradeVariant));
+      cloudClone = this.worldCues.tradeClouds[idx].mesh.clone(true);
+      cloudClone.visible = true;
+      cloudClone.rotation.set(0, 0, 0);
+      cloudClone.scale.setScalar(1.0);
       cloudClone.position.set(0, 14, 0);
     } else if (item.cloudType === 'peak') {
       cloudClone = slot0.peakCloud.clone(true);
       cloudClone.visible = true;
-      cloudClone.position.set(0, 26, 0);
+      cloudClone.scale.setScalar(1.0);
+      cloudClone.position.set(0, 22, 0);
     } else {
       cloudClone = slot0.lapaCloud.clone(true);
       cloudClone.visible = true;
-      // Shift down slightly so lapaTop (~42) and turquoise lapaBelly (~36.5) sit nicely over waterline
-      cloudClone.position.set(0, -16, 0);
+      cloudClone.scale.setScalar(1.0);
+      // Shift down so the sculpted canopy (~35m..55m) sits cleanly above the reference ocean disc
+      cloudClone.position.set(0, -24, 0);
     }
 
-    // Clone materials so wireframe toggle stays isolated
+    const cloudMats = [];
     cloudClone.traverse((c) => {
-      if (c.isMesh && c.material) c.material = c.material.clone();
+      if (c.isMesh && c.material) {
+        c.material = c.material.clone();
+        cloudMats.push(c.material);
+      }
     });
     this.stageGroup.add(cloudClone);
+
+    const applyCloudLighting = (elapsed) => {
+      const mode = this.cloudCtrl.lighting;
+      let sunDir = { x: 0.52, y: 0.68, z: 0.52 };
+      let daylight = 0.96;
+      let twilight = 0.10;
+      if (mode === 'twilight') {
+        sunDir = { x: 0.78, y: 0.14, z: 0.61 };
+        daylight = 0.34;
+        twilight = 0.95;
+      } else if (mode === 'night') {
+        sunDir = { x: -0.45, y: -0.65, z: 0.61 };
+        daylight = 0.0;
+        twilight = 0.0;
+      }
+      for (const m of cloudMats) {
+        updateCloudMaterialUniforms(m, {
+          sunDir,
+          daylight,
+          twilight,
+          opacity: 1.0,
+          lapaGlow: isLapa ? 1.0 : 0.0,
+          elapsedSec: elapsed,
+        });
+      }
+    };
+
+    applyCloudLighting(this.animElapsedSec);
+    this.activeTickFn = (_dt, elapsed) => applyCloudLighting(elapsed);
   }
 
   _mountSingleFishAsset() {
@@ -894,6 +971,11 @@ class AssetDebugViewer {
     this.stageGroup.add(group);
   }
 
+  _mountMoaiShowcaseAsset() {
+    const showcase = createRapaNuiMoaiShowcaseAssembly();
+    this.stageGroup.add(showcase.group);
+  }
+
   _mountIslandAsset(isl) {
     // Clone one full island beacon slot from WorldCuesRenderer and apply exact per-island visibility rules
     const srcSlot = this.worldCues.islandSlots[0];
@@ -926,7 +1008,8 @@ class AssetDebugViewer {
       moaiGroup.visible = false;
 
       const detailed = createDetailedIslandAssembly(isl.id);
-      detailed.group.rotation.y = getIslandApproachOrientationRad(isl.id);
+      detailed.group.rotation.y =
+        isl.id === 'rapa_nui' ? 0.0 : getIslandApproachOrientationRad(isl.id);
       landGroup.add(detailed.group);
     } else {
       const isAtoll = isl.archetype === 'coral_atoll';
@@ -1051,6 +1134,7 @@ class AssetDebugViewer {
 
     if (item.kind === 'island') {
       const isl = item.island;
+      const isRapaNui = isl.id === 'rapa_nui';
       this.contextCardEl.classList.remove('hidden');
       this.contextCardEl.innerHTML = `
         <div class="context-heading">Island Cue &amp; Landmass Inspector</div>
@@ -1059,9 +1143,30 @@ class AssetDebugViewer {
             <input id="chk-isl-cloud" type="checkbox" ${this.islandCtrl.showClouds ? 'checked' : ''} />
             Show Overhead Cloud (${isl.hasPeakCloud ? 'Peak Cumulus' : ''}${isl.hasPeakCloud && isl.hasLapaGlow ? ' + ' : ''}${isl.hasLapaGlow ? 'Lapa Glow' : !isl.hasPeakCloud ? 'None on this Isle' : ''})
           </label>
+          ${
+            isRapaNui
+              ? `<label>
+                  <input id="chk-isl-scale-ring" type="checkbox" />
+                  Show 1x Standard Island Footprint Ring (~76m dia)
+                </label>`
+              : ''
+          }
         </div>
+        ${
+          isRapaNui
+            ? `<div class="ctrl-row" style="flex-wrap:wrap;gap:4px;margin-top:6px;">
+                <button class="tool-btn" data-rfocus="overview">Full Isle</button>
+                <button class="tool-btn" data-rfocus="tongariki">Ahu Tongariki (15 Moai)</button>
+                <button class="tool-btn" data-rfocus="raraku">Rano Raraku Quarry</button>
+                <button class="tool-btn" data-rfocus="anakena">Anakena &amp; Nau Nau</button>
+                <button class="tool-btn" data-rfocus="ranokau">Rano Kau &amp; Motu</button>
+                <button class="tool-btn" data-rfocus="tahai">Ahu Tahai</button>
+                <button class="tool-btn" data-rfocus="akivi">Ahu Akivi</button>
+              </div>`
+            : ''
+        }
         <div class="stats-row">
-          <span class="stat-pill">Act ${isl.act}</span>
+          <span class="stat-pill">${isl.isSecret ? 'Secret Isle (Wide Scale)' : `Act ${isl.act}`}</span>
           <span class="stat-pill">Data Peak: ${isl.peakHeightM}m</span>
           <span class="stat-pill">Birds: ${isl.birdSpecies}</span>
           <span class="stat-pill">Cliffs: ${isl.hasSteepCliffs ? 'Yes' : 'No'}</span>
@@ -1080,6 +1185,59 @@ class AssetDebugViewer {
           this._rebuildEdgeOverlay();
         }
       });
+
+      if (isRapaNui) {
+        const scaleRingChk = document.getElementById('chk-isl-scale-ring');
+        if (scaleRingChk) {
+          scaleRingChk.addEventListener('change', (e) => {
+            if (!this.rapaScaleRing) {
+              const rGeo = new THREE.RingGeometry(37.4, 38.6, 64);
+              rGeo.rotateX(-Math.PI * 0.5);
+              this.rapaScaleRing = new THREE.Mesh(
+                rGeo,
+                new THREE.MeshBasicMaterial({
+                  color: 0xffb347,
+                  side: THREE.DoubleSide,
+                  transparent: true,
+                  opacity: 0.85,
+                  depthWrite: false,
+                })
+              );
+              this.rapaScaleRing.position.y = 1.2;
+            }
+            if (e.target.checked) {
+              this.stageGroup.add(this.rapaScaleRing);
+            } else {
+              this.stageGroup.remove(this.rapaScaleRing);
+            }
+          });
+        }
+
+        const focusTargets = {
+          overview: null,
+          tongariki: { target: [72.3, 4.8, 6.3], theta: 0.52, phi: 0.18, dist: 38.0 },
+          raraku: { target: [57.5, 11.5, 9.5], theta: 0.62, phi: 0.22, dist: 36.0 },
+          anakena: { target: [29.0, 4.5, -59.0], theta: 2.52, phi: 0.18, dist: 32.0 },
+          ranokau: { target: [-76.0, 14.0, 58.0], theta: 2.35, phi: 0.48, dist: 78.0 },
+          tahai: { target: [-66.0, 4.8, -3.8], theta: -1.88, phi: 0.18, dist: 32.0 },
+          akivi: { target: [-32.25, 14.0, -29.25], theta: -1.86, phi: 0.18, dist: 28.0 },
+        };
+
+        this.contextCardEl.querySelectorAll('[data-rfocus]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const key = btn.getAttribute('data-rfocus');
+            const preset = focusTargets[key];
+            if (!preset) {
+              this._applyCameraPreset('reset');
+              return;
+            }
+            this.orbit.target.set(preset.target[0], preset.target[1], preset.target[2]);
+            this.orbit.theta = preset.theta;
+            this.orbit.phi = preset.phi;
+            this._setOrbitDistance(preset.dist);
+          });
+        });
+      }
       return;
     }
 
@@ -1118,6 +1276,55 @@ class AssetDebugViewer {
           this.animCtrl.fishLeapSingle = e.target.checked;
         });
       }
+      return;
+    }
+
+    if (item.kind === 'cloud') {
+      this.contextCardEl.classList.remove('hidden');
+      const variantRow =
+        item.cloudType === 'trade'
+          ? `
+        <div class="ctrl-row">
+          <span>Cumulus Variant:</span>
+          <span>
+            <button class="tool-btn ${this.cloudCtrl.tradeVariant === 0 ? 'active' : ''}" data-cvar="0">1</button>
+            <button class="tool-btn ${this.cloudCtrl.tradeVariant === 1 ? 'active' : ''}" data-cvar="1">2</button>
+            <button class="tool-btn ${this.cloudCtrl.tradeVariant === 2 ? 'active' : ''}" data-cvar="2">3</button>
+            <button class="tool-btn ${this.cloudCtrl.tradeVariant === 3 ? 'active' : ''}" data-cvar="3">4</button>
+          </span>
+        </div>`
+          : '';
+      this.contextCardEl.innerHTML = `
+        <div class="context-heading">Cloud Lighting &amp; Form Inspector</div>
+        ${variantRow}
+        <div class="ctrl-row">
+          <span>Sky Lighting:</span>
+          <span>
+            <button class="tool-btn ${this.cloudCtrl.lighting === 'day' ? 'active' : ''}" data-clight="day">Day</button>
+            <button class="tool-btn ${this.cloudCtrl.lighting === 'twilight' ? 'active' : ''}" data-clight="twilight">Twilight</button>
+            <button class="tool-btn ${this.cloudCtrl.lighting === 'night' ? 'active' : ''}" data-clight="night">Night</button>
+          </span>
+        </div>
+      `;
+
+      this.contextCardEl.querySelectorAll('[data-cvar]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          this.cloudCtrl.tradeVariant = Number(btn.dataset.cvar);
+          this.selectAsset(item.id);
+        });
+      });
+
+      this.contextCardEl.querySelectorAll('[data-clight]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          this.cloudCtrl.lighting = btn.dataset.clight;
+          this.contextCardEl.querySelectorAll('[data-clight]').forEach((b) => {
+            b.classList.toggle('active', b.dataset.clight === this.cloudCtrl.lighting);
+          });
+          if (this.activeTickFn) {
+            this.activeTickFn(0.0, this.animElapsedSec);
+          }
+        });
+      });
       return;
     }
 

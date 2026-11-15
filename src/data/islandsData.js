@@ -472,4 +472,31 @@ export const ISLANDS = Object.freeze({
       unlocksMasterNavigator: true,
     },
   },
+
+  // =========================================================================
+  // SECRET SOUTHERN OCEAN ISLAND (Unlisted in Lore & Songs; 2x Scale)
+  // =========================================================================
+  rapa_nui: {
+    id: 'rapa_nui',
+    name: 'Rapa Nui',
+    subtitle: 'Te Pito o Te Henua · Isle of Stone Guardians',
+    isSecret: true,
+    scaleMultiplier: 3.0,
+    basinId: 'act2_nuku_hiva',
+    act: 2,
+    hemisphere: 'southern',
+    latDeg: -27.1,
+    pos: { x: 26.5, y: -22.5 },
+    archetype: 'high_volcanic',
+    peakHeightM: 69.0,
+    inhabited: false,
+    hasPeakCloud: true,
+    hasLapaGlow: false,
+    hasSteepCliffs: true,
+    birdSpecies: 'white_tern',
+    mentorPortrait: '',
+    pois: ['anakena_cove', 'ahu_tongariki', 'rano_raraku_quarry', 'rano_kau_caldera'],
+    sandLessons: [],
+    rewards: {},
+  },
 });

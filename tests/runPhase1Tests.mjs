@@ -98,7 +98,13 @@ for (const c of CONSTELLATIONS) {
   }
 }
 assert(Object.keys(OCEAN_BASINS).length === 3, 'Expected 3 Regional Ocean Basins');
-assert(Object.keys(ISLANDS).length === 16, 'Expected 16 Islands across Acts I-III');
+const campaignIslandList = Object.values(ISLANDS).filter((isl) => !isl.isSecret);
+const secretIslandList = Object.values(ISLANDS).filter((isl) => isl.isSecret);
+assert(campaignIslandList.length === 16, 'Expected 16 Campaign Islands across Acts I-III');
+assert(
+  secretIslandList.length === 1 && ISLANDS.rapa_nui?.isSecret === true && ISLANDS.rapa_nui?.inhabited === false,
+  'Expected Secret Island Rapa Nui unlisted from campaign elders'
+);
 assert(Object.keys(SONGS).length === 17, 'Expected 17 authored Songs (1-16 + 14R)');
 assert(Object.keys(SAND_LESSONS).length === 16, 'Expected 16 Sand Lessons');
 assert(Object.keys(STAR_MASTERS).length === 2, 'Expected exactly 2 Star Masters (Southern & Northern)');

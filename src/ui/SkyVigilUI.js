@@ -87,6 +87,7 @@ export class SkyVigilUI {
     const act12Options = [];
     const act3Options = [];
     for (const isl of Object.values(ISLANDS)) {
+      if (isl.isSecret) continue;
       const basin = OCEAN_BASINS[isl.basinId];
       const starBadge = isl.starMasterId ? ' ✦ Star Ring' : '';
       const optHtml = `<option value="${isl.id}">${isl.name}${starBadge} (Act ${basin.act})</option>`;

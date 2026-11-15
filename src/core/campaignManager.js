@@ -662,6 +662,15 @@ export function interactWithIslandSanctuary(gameState) {
     };
   }
 
+  if (id === 'rapa_nui') {
+    return {
+      title: 'Te Pito o Te Henua — Silent Ahu of the Ancestors',
+      speech:
+        'Colossal carved stone guardians stand watch along windswept basalt cliffs and golden quarry slopes, their backs to the crashing surf.',
+      rewardsList,
+    };
+  }
+
   return {
     title: isl.name,
     speech: 'The ocean breeze stirs the palms along the shore.',
@@ -691,7 +700,7 @@ export function getAvailableRoutesFromCurrentIsland(gameState) {
     for (const [islId, discovered] of Object.entries(gameState.discoveredIslands)) {
       if (!discovered || islId === fromId || coveredTargets.has(islId)) continue;
       const dst = ISLANDS[islId];
-      if (dst && dst.basinId === curIsl.basinId) {
+      if (dst && !dst.isSecret && dst.basinId === curIsl.basinId) {
         const retSong = buildReturnSong(fromId, islId);
         if (retSong) {
           routes.push({ song: retSong, isReturn: true });

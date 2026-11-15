@@ -102,18 +102,30 @@ const SKY_FRAGMENT_SHADER = /* glsl */ `
     // Song 10 Forward Rain-Cloud Curtain (veils forward -Z bow sector, leaving +Z stern clear!)
     if (uForwardCurtain > 0.01) {
       float bowAlign = clamp(-dir.z, 0.0, 1.0);
-      float n = noise2(vec2(dir.x * 5.0 + uTime * 0.02, dir.y * 7.0));
-      float curtainMask = smoothstep(0.18, 0.62, bowAlign) * smoothstep(0.72, 0.08, dir.y + n * 0.12);
-      vec3 rainCol = mix(vec3(0.06, 0.07, 0.10), vec3(0.28, 0.31, 0.36), uDaylight);
-      col = mix(col, rainCol, curtainMask * uForwardCurtain * 0.95);
+      float n1 = noise2(vec2(dir.x * 4.6 + uTime * 0.022, dir.y * 6.2));
+      float n2 = noise2(vec2(dir.x * 10.5 - uTime * 0.014, dir.y * 13.0 + 3.7));
+      float fbmCurtain = 0.68 * n1 + 0.32 * n2;
+      float curtainMask = smoothstep(0.16, 0.58, bowAlign) *
+        smoothstep(0.74, 0.08, dir.y + (fbmCurtain - 0.5) * 0.18);
+      vec3 rainBase = mix(vec3(0.022, 0.032, 0.058), vec3(0.24, 0.28, 0.34), uDaylight);
+      vec3 rainFold = mix(vec3(0.048, 0.068, 0.115), vec3(0.42, 0.47, 0.54), uDaylight);
+      vec3 rainCol = mix(rainBase, rainFold, smoothstep(0.25, 0.80, fbmCurtain) * smoothstep(0.02, 0.55, dir.y));
+      col = mix(col, rainCol, clamp(curtainMask * uForwardCurtain * 0.98, 0.0, 0.99));
     }
 
-    // Song 15 Patchy Overcast cloud veil
-    if (uOvercast > 0.01 && dir.y > 0.0) {
-      float cloudN = noise2(dir.xz / (dir.y + 0.28) * 1.6 + vec2(uTime * 0.015, 0.0));
-      float patchMask = smoothstep(0.38, 0.75, cloudN) * smoothstep(0.0, 0.18, dir.y);
-      vec3 ovCol = mix(vec3(0.07, 0.08, 0.12), vec3(0.46, 0.50, 0.56), uDaylight);
-      col = mix(col, ovCol, patchMask * uOvercast * 0.86);
+    // Song 15 Patchy Overcast multi-scale cloud deck (opaque cloud patches with clear sky rifts!)
+    if (uOvercast > 0.01 && dir.y > -0.02) {
+      vec2 skyUv = dir.xz / (max(0.0, dir.y) + 0.26);
+      float c1 = noise2(skyUv * 1.55 + vec2(uTime * 0.015, 0.0));
+      float c2 = noise2(skyUv * 3.45 + vec2(uTime * 0.024, 4.3));
+      float cloudField = 0.68 * c1 + 0.32 * c2;
+      float patchMask = smoothstep(0.38, 0.66, cloudField) * smoothstep(-0.01, 0.14, dir.y);
+      float billowLight = smoothstep(0.42, 0.82, c2) * smoothstep(0.04, 0.45, dir.y);
+      vec3 ovBase = mix(vec3(0.020, 0.030, 0.055), vec3(0.40, 0.46, 0.55), uDaylight);
+      vec3 ovCrown = mix(vec3(0.050, 0.074, 0.128), vec3(0.76, 0.82, 0.89), uDaylight);
+      vec3 ovCol = mix(ovBase, ovCrown, billowLight);
+      ovCol = mix(ovCol, vec3(0.88, 0.52, 0.38), uTwilight * billowLight * 0.55);
+      col = mix(col, ovCol, clamp(patchMask * uOvercast * 0.97, 0.0, 0.985));
     }
 
     // Act III Sea Fog (shrouds horizon & sky while leaving a faint upper glow)
@@ -166,6 +178,65 @@ const STAR_FRAGMENT_SHADER = /* glsl */ `
     gl_FragColor = vec4(vColor * (0.75 + 0.65 * spark), core * vAlpha);
   }
 `;
+
+const CONSTELLATION_LINE_VERTEX_SHADER = /* glsl */ `
+  attribute float aLineAlpha;
+  varying float vLineAlpha;
+  void main() {
+    vLineAlpha = aLineAlpha;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const CONSTELLATION_LINE_FRAGMENT_SHADER = /* glsl */ `
+  uniform vec3 uColor;
+  uniform float uBaseOpacity;
+  varying float vLineAlpha;
+  void main() {
+    float a = uBaseOpacity * vLineAlpha;
+    if (a <= 0.008) discard;
+    gl_FragColor = vec4(uColor, a);
+  }
+`;
+
+function fractJs(v) {
+  return v - Math.floor(v);
+}
+
+function clampJs(v, lo, hi) {
+  return v < lo ? lo : v > hi ? hi : v;
+}
+
+function smoothstepJs(edge0, edge1, x) {
+  const t = clampJs((x - edge0) / (edge1 - edge0), 0.0, 1.0);
+  return t * t * (3.0 - 2.0 * t);
+}
+
+// Exact match to SKY_FRAGMENT_SHADER hash21 / noise2 so overcast & squall patches occlude stars & labels accurately
+function hash21Js(px, py) {
+  let x = fractJs(px * 123.34);
+  let y = fractJs(py * 456.21);
+  const d = x * (x + 45.32) + y * (y + 45.32);
+  x += d;
+  y += d;
+  return fractJs(x * y);
+}
+
+function noise2Js(px, py) {
+  const ix = Math.floor(px);
+  const iy = Math.floor(py);
+  let fx = px - ix;
+  let fy = py - iy;
+  fx = fx * fx * (3.0 - 2.0 * fx);
+  fy = fy * fy * (3.0 - 2.0 * fy);
+  const a = hash21Js(ix, iy);
+  const b = hash21Js(ix + 1.0, iy);
+  const c = hash21Js(ix, iy + 1.0);
+  const d = hash21Js(ix + 1.0, iy + 1.0);
+  const nx0 = a + (b - a) * fx;
+  const nx1 = c + (d - c) * fx;
+  return nx0 + (nx1 - nx0) * fy;
+}
 
 function seededRandom(seed) {
   let s = seed >>> 0;
@@ -272,12 +343,19 @@ export class SkyDomeRenderer {
       }
     }
     this.linePositions = new Float32Array(this.constellationSegments.length * 6);
+    this.lineAlphas = new Float32Array(this.constellationSegments.length * 2);
     const lineGeo = new THREE.BufferGeometry();
     lineGeo.setAttribute('position', new THREE.BufferAttribute(this.linePositions, 3));
-    this.lineMaterial = new THREE.LineBasicMaterial({
-      color: 0xdbe9ff,
+    lineGeo.setAttribute('aLineAlpha', new THREE.BufferAttribute(this.lineAlphas, 1));
+    this.lineUniforms = {
+      uColor: { value: new THREE.Color(0xdbe9ff) },
+      uBaseOpacity: { value: 0.28 },
+    };
+    this.lineMaterial = new THREE.ShaderMaterial({
+      vertexShader: CONSTELLATION_LINE_VERTEX_SHADER,
+      fragmentShader: CONSTELLATION_LINE_FRAGMENT_SHADER,
+      uniforms: this.lineUniforms,
       transparent: true,
-      opacity: 0.28,
       depthWrite: false,
     });
     this.constellationLines = new THREE.LineSegments(lineGeo, this.lineMaterial);
@@ -319,6 +397,7 @@ export class SkyDomeRenderer {
     this.curOvercast = 0.0;
     this.curSeaFog = 0.0;
     this._projVec = new THREE.Vector3();
+    this._probeDir = { x: 0.0, y: 1.0, z: 0.0 };
   }
 
   _generateAmbientStars(count) {
@@ -348,27 +427,73 @@ export class SkyDomeRenderer {
     return list;
   }
 
-  _weatherAttenuationForDir(dir, curCurtain, curOvercast, curSeaFog) {
+  _weatherAttenuationForDir(dir, curCurtain, curOvercast, curSeaFog, elapsedSec = 0.0) {
     let atten = 1.0;
-    if (curCurtain > 0.02 && dir.z < -0.15 && dir.y < 0.65) {
-      const bowMask = Math.min(1.0, (-dir.z - 0.15) * 2.2);
-      atten *= 1.0 - 0.96 * curCurtain * bowMask;
+    if (curCurtain > 0.01 && dir.z < -0.14 && dir.y < 0.78) {
+      const bowAlign = clampJs(-dir.z, 0.0, 1.0);
+      const n1 = noise2Js(dir.x * 4.6 + elapsedSec * 0.022, dir.y * 6.2);
+      const n2 = noise2Js(dir.x * 10.5 - elapsedSec * 0.014, dir.y * 13.0 + 3.7);
+      const fbmCurtain = 0.68 * n1 + 0.32 * n2;
+      const curtainMask =
+        smoothstepJs(0.16, 0.58, bowAlign) *
+        smoothstepJs(0.74, 0.08, dir.y + (fbmCurtain - 0.5) * 0.18);
+      atten *= 1.0 - Math.min(1.0, curtainMask * curCurtain * 1.04);
     }
-    if (curOvercast > 0.02) {
-      atten *= 1.0 - 0.55 * curOvercast;
+    if (curOvercast > 0.01 && dir.y > -0.02) {
+      const denom = Math.max(0.0, dir.y) + 0.26;
+      const uvX = dir.x / denom;
+      const uvY = dir.z / denom;
+      const c1 = noise2Js(uvX * 1.55 + elapsedSec * 0.015, uvY * 1.55);
+      const c2 = noise2Js(uvX * 3.45 + elapsedSec * 0.024, uvY * 3.45 + 4.3);
+      const cloudField = 0.68 * c1 + 0.32 * c2;
+      const patchMask =
+        smoothstepJs(0.36, 0.64, cloudField) *
+        smoothstepJs(-0.01, 0.14, dir.y);
+      atten *= 1.0 - Math.min(1.0, patchMask * curOvercast * 1.04);
     }
-    if (curSeaFog > 0.02) {
-      atten *= 1.0 - 0.94 * curSeaFog;
+    if (curSeaFog > 0.01) {
+      const fogN = noise2Js(dir.x * 4.0 + elapsedSec * 0.025, dir.y * 6.0);
+      const fogHeightMask = smoothstepJs(
+        0.68,
+        0.04,
+        dir.y + (fogN - 0.5) * 0.08
+      );
+      atten *= 1.0 - Math.min(1.0, curSeaFog * (0.76 + 0.24 * fogHeightMask));
     }
     return Math.max(0.0, atten);
   }
 
-  update(dtSec, elapsedSec, oceanSim, difficulty, camera, vigilOverrides = null) {
+  _skyClearanceForDir(dir, camOrigin, cloudOccluder, elapsedSec) {
+    const weatherAtten = this._weatherAttenuationForDir(
+      dir,
+      this.curCurtain,
+      this.curOvercast,
+      this.curSeaFog,
+      elapsedSec
+    );
+    if (weatherAtten <= 0.01) return 0.0;
+    const cloudTrans =
+      cloudOccluder && camOrigin
+        ? cloudOccluder.getCloudTransmittance(camOrigin, dir)
+        : 1.0;
+    return weatherAtten * cloudTrans;
+  }
+
+  update(
+    dtSec,
+    elapsedSec,
+    oceanSim,
+    difficulty,
+    camera,
+    vigilOverrides = null,
+    cloudOccluder = null
+  ) {
     if (!oceanSim) return;
 
     if (camera) {
       this.group.position.copy(camera.position);
     }
+    const camOrigin = camera ? camera.position : this.group.position;
 
     const headingDeg = oceanSim.headingDeg;
     const latDeg = oceanSim.latDeg ?? GameConstants.REFERENCE_LATITUDE_DEG;
@@ -431,7 +556,7 @@ export class SkyDomeRenderer {
       ? Boolean(vigilOverrides.showStarLabels)
       : showsSkyAnnotations(difficulty);
 
-    // Update Named Navigation Stars
+    // Update Named Navigation Stars (occluded by both 3D clouds & weather cloud patches)
     const starVis = sun.starVisibility;
     const navWorldVecs = {};
 
@@ -439,25 +564,36 @@ export class SkyDomeRenderer {
       const state = oceanSim.starsState[st.id];
       if (!state) return;
       const dir = altAzToDirectionVec3(state.altDeg, state.azDeg, headingDeg);
-      navWorldVecs[st.id] = { dir, altDeg: state.altDeg, state };
 
       this.starPositions[idx * 3] = dir.x * STAR_RADIUS;
       this.starPositions[idx * 3 + 1] = dir.y * STAR_RADIUS;
       this.starPositions[idx * 3 + 2] = dir.z * STAR_RADIUS;
 
-      const weatherAtten = this._weatherAttenuationForDir(
-        dir,
-        this.curCurtain,
-        this.curOvercast,
-        this.curSeaFog
-      );
-      const alpha = state.extinctionFactor * starVis * weatherAtten;
+      let skyClearance = 0.0;
+      if (starVis > 0.005 && state.altDeg > -0.8) {
+        skyClearance = this._skyClearanceForDir(
+          dir,
+          camOrigin,
+          cloudOccluder,
+          elapsedSec
+        );
+      }
+      navWorldVecs[st.id] = { dir, altDeg: state.altDeg, state, skyClearance };
+
+      const cleanClearance =
+        skyClearance < 0.08 ? 0.0 : smoothstepJs(0.08, 0.45, skyClearance) * skyClearance;
+      const alpha = state.extinctionFactor * starVis * cleanClearance;
       this.starAlphas[idx] = alpha;
       this.starShimmers[idx] =
-        easyShimmer && activeStarIds.has(st.id) && alpha > 0.12 ? 1.0 : 0.0;
+        easyShimmer &&
+        activeStarIds.has(st.id) &&
+        alpha > 0.14 &&
+        skyClearance > 0.28
+          ? 1.0
+          : 0.0;
     });
 
-    // Update 480 Ambient Stars at the active latitude
+    // Update 480 Ambient Stars at the active latitude (occluded by 3D clouds & weather patches)
     const navOffset = this.navStarList.length;
     for (let i = 0; i < this.ambientStars.length; i += 1) {
       const amb = this.ambientStars[i];
@@ -469,14 +605,22 @@ export class SkyDomeRenderer {
       this.starPositions[idx * 3 + 1] = dir.y * STAR_RADIUS;
       this.starPositions[idx * 3 + 2] = dir.z * STAR_RADIUS;
 
-      const weatherAtten = this._weatherAttenuationForDir(
+      if (starVis <= 0.005 || st.altDeg <= -0.5) {
+        this.starAlphas[idx] = 0.0;
+        this.starShimmers[idx] = 0.0;
+        continue;
+      }
+
+      const skyClearance = this._skyClearanceForDir(
         dir,
-        this.curCurtain,
-        this.curOvercast,
-        this.curSeaFog
+        camOrigin,
+        cloudOccluder,
+        elapsedSec
       );
+      const cleanClearance =
+        skyClearance < 0.08 ? 0.0 : smoothstepJs(0.08, 0.45, skyClearance) * skyClearance;
       this.starAlphas[idx] =
-        st.extinctionFactor * starVis * amb.baseAlpha * weatherAtten;
+        st.extinctionFactor * starVis * amb.baseAlpha * cleanClearance;
       this.starShimmers[idx] = 0.0;
     }
 
@@ -484,15 +628,16 @@ export class SkyDomeRenderer {
     this.starPoints.geometry.attributes.aAlpha.needsUpdate = true;
     this.starPoints.geometry.attributes.aShimmer.needsUpdate = true;
 
-    // Update Chalky Constellation Outlines
+    // Update Chalky Constellation Outlines (per-vertex alpha occluded by clouds)
     this.constellationLines.visible = showLines && starVis > 0.08;
     if (this.constellationLines.visible) {
-      this.lineMaterial.opacity =
+      this.lineUniforms.uBaseOpacity.value =
         (vigilOverrides ? 0.34 : 0.24) * starVis * (1.0 - 0.85 * this.curSeaFog);
       this.constellationSegments.forEach((seg, sIdx) => {
         const va = navWorldVecs[seg.aId];
         const vb = navWorldVecs[seg.bId];
         const base = sIdx * 6;
+        const aBase = sIdx * 2;
         if (va && vb && va.altDeg > 0.5 && vb.altDeg > 0.5) {
           this.linePositions[base] = va.dir.x * (STAR_RADIUS - 2.0);
           this.linePositions[base + 1] = va.dir.y * (STAR_RADIUS - 2.0);
@@ -500,11 +645,34 @@ export class SkyDomeRenderer {
           this.linePositions[base + 3] = vb.dir.x * (STAR_RADIUS - 2.0);
           this.linePositions[base + 4] = vb.dir.y * (STAR_RADIUS - 2.0);
           this.linePositions[base + 5] = vb.dir.z * (STAR_RADIUS - 2.0);
+
+          // Also check segment midpoint so a cloud crossing between two stars breaks the line cleanly
+          const mx = va.dir.x + vb.dir.x;
+          const my = va.dir.y + vb.dir.y;
+          const mz = va.dir.z + vb.dir.z;
+          const mLen = Math.hypot(mx, my, mz) || 1.0;
+          this._probeDir.x = mx / mLen;
+          this._probeDir.y = my / mLen;
+          this._probeDir.z = mz / mLen;
+          const midClearance = this._skyClearanceForDir(
+            this._probeDir,
+            camOrigin,
+            cloudOccluder,
+            elapsedSec
+          );
+          const midFactor = smoothstepJs(0.14, 0.55, midClearance);
+          this.lineAlphas[aBase] =
+            smoothstepJs(0.12, 0.50, va.skyClearance) * midFactor;
+          this.lineAlphas[aBase + 1] =
+            smoothstepJs(0.12, 0.50, vb.skyClearance) * midFactor;
         } else {
           for (let k = 0; k < 6; k += 1) this.linePositions[base + k] = 0.0;
+          this.lineAlphas[aBase] = 0.0;
+          this.lineAlphas[aBase + 1] = 0.0;
         }
       });
       this.constellationLines.geometry.attributes.position.needsUpdate = true;
+      this.constellationLines.geometry.attributes.aLineAlpha.needsUpdate = true;
     }
 
     // Update Focused Constellation Golden Outline (Vigil Atlas / Lesson / Quiz Reveal)
@@ -536,7 +704,7 @@ export class SkyDomeRenderer {
       this.focusLines.geometry.attributes.position.needsUpdate = true;
     }
 
-    // Project Mode-Gated Sky Star Labels
+    // Project Mode-Gated Sky Star Labels (strictly hidden whenever occluded by any cloud!)
     if (this.labelLayerEl && camera) {
       const width = window.innerWidth;
       const height = window.innerHeight;
@@ -551,13 +719,29 @@ export class SkyDomeRenderer {
           el.style.display = 'none';
           continue;
         }
-        const weatherAtten = this._weatherAttenuationForDir(
-          info.dir,
-          this.curCurtain,
-          this.curOvercast,
-          this.curSeaFog
+
+        // Check both the star's line of sight AND the label offset slightly above the star (sy - 16px)
+        if (info.skyClearance < 0.34) {
+          el.style.display = 'none';
+          continue;
+        }
+
+        const upShift = 0.028;
+        const px = info.dir.x;
+        const py = info.dir.y + upShift;
+        const pz = info.dir.z;
+        const pLen = Math.hypot(px, py, pz) || 1.0;
+        this._probeDir.x = px / pLen;
+        this._probeDir.y = py / pLen;
+        this._probeDir.z = pz / pLen;
+        const labelOffsetClearance = this._skyClearanceForDir(
+          this._probeDir,
+          camOrigin,
+          cloudOccluder,
+          elapsedSec
         );
-        if (weatherAtten < 0.22) {
+        const labelClearance = Math.min(info.skyClearance, labelOffsetClearance);
+        if (labelClearance < 0.34) {
           el.style.display = 'none';
           continue;
         }
@@ -583,11 +767,15 @@ export class SkyDomeRenderer {
         const sx = (this._projVec.x * 0.5 + 0.5) * width;
         const sy = (-this._projVec.y * 0.5 + 0.5) * height;
         const isTarget = activeStarIds.has(st.id);
+        const cloudFade = smoothstepJs(0.34, 0.78, labelClearance);
 
         el.style.display = 'block';
         el.style.transform = `translate3d(${sx.toFixed(1)}px, ${(sy - 16).toFixed(1)}px, 0) translateX(-50%)`;
         el.style.opacity = String(
-          Math.min(0.95, starVis * weatherAtten * (isTarget ? 0.98 : 0.62))
+          Math.min(
+            0.95,
+            starVis * cloudFade * (isTarget ? 0.98 : 0.62)
+          )
         );
         el.classList.toggle('active-target-star', easyShimmer && isTarget);
       }

@@ -12,6 +12,12 @@
 
 import * as THREE from 'three';
 import { degToRad, posMod, wrapDeg180 } from '../core/gameConstants.js';
+import { altAzToDirectionVec3 } from '../simulation/celestialSim.js';
+import {
+  createSculptedCloudMesh,
+  sampleCloudLocalRayOpticalDepth,
+  updateCloudMaterialUniforms,
+} from './CloudSculptBuilder.js';
 import {
   applyDetailedIslandAlpha,
   createDetailedIslandAssembly,
@@ -44,7 +50,7 @@ export class WorldCuesRenderer {
     this._lastSong = null;
     this._lastSimElapsed = 0.0;
 
-    this.tradeFogOpacity = 0.65;
+    this.tradeFogOpacity = 1.0;
     this.birdFlockAlpha = 0.0;
     this._lastBirdWorldAz = 0.0;
     this._activeBirdIsBooby = false;
@@ -52,6 +58,8 @@ export class WorldCuesRenderer {
     this.fishAlpha = 0.0;
     this.frondAlpha = 0.0;
     this.detailedIslandPool = {};
+    this._activeCloudOccluders = [];
+    this._occluderPool = [];
 
     this._buildMarchingTradeClouds();
     this._buildIslandBeaconPools();
@@ -65,30 +73,27 @@ export class WorldCuesRenderer {
     this.group.add(this.tradeCloudGroup);
 
     this.tradeClouds = [];
-    const puffGeo = new THREE.SphereGeometry(1.0, 10, 8);
-    this.tradeCloudMat = new THREE.MeshBasicMaterial({
-      color: 0xf4f7fb,
-      transparent: true,
-      opacity: 0.72,
-      depthWrite: false,
-    });
+    const variantKeys = ['trade_0', 'trade_1', 'trade_2', 'trade_3'];
 
     for (let i = 0; i < 14; i += 1) {
+      const archetypeKey = variantKeys[i % variantKeys.length];
       const cluster = new THREE.Group();
-      const mat = this.tradeCloudMat.clone();
-      for (let p = 0; p < 3; p += 1) {
-        const puff = new THREE.Mesh(puffGeo, mat);
-        puff.position.set((p - 1) * 16.0, p === 1 ? 5.0 : 0.0, 0.0);
-        puff.scale.set(22.0, 9.5, 16.0);
-        cluster.add(puff);
-      }
+      const sculpted = createSculptedCloudMesh(archetypeKey, { opacity: 1.0 });
+      cluster.add(sculpted.mesh);
       this.tradeCloudGroup.add(cluster);
+
       this.tradeClouds.push({
         mesh: cluster,
-        mat,
+        cloudMesh: sculpted.mesh,
+        mat: sculpted.material,
+        archetypeKey,
+        spec: sculpted.spec,
+        opacity: 1.0,
+        baseScale: 0.90 + ((i * 37) % 5) * 0.055,
+        yawJitter: (((i * 53) % 7) - 3) * 0.14,
         progress: i / 14.0,
-        lateralOffset: ((i * 73) % 260) - 130.0,
-        altY: 68.0 + (i % 4) * 14.0,
+        lateralOffset: ((i * 73) % 280) - 140.0,
+        altY: 68.0 + (i % 4) * 14.5,
       });
     }
   }
@@ -100,52 +105,20 @@ export class WorldCuesRenderer {
       const root = new THREE.Group();
       root.visible = false;
 
-      // 1. Tall Stationary Cumulus Peak Cloud (High Volcanic Islands)
+      // 1. Tall Stationary Cumulus Peak Cloud (High Volcanic Islands — Cumulus Congestus)
       const peakCloud = new THREE.Group();
-      const cloudMat = new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: 0.9,
-        depthWrite: false,
-      });
-      const basePuff = new THREE.Mesh(new THREE.SphereGeometry(26, 12, 10), cloudMat);
-      basePuff.scale.set(1.35, 0.65, 1.1);
-      const midPuff = new THREE.Mesh(new THREE.SphereGeometry(22, 12, 10), cloudMat);
-      midPuff.position.set(0, 20, 0);
-      const crownPuff = new THREE.Mesh(new THREE.SphereGeometry(16, 12, 10), cloudMat);
-      crownPuff.position.set(0, 38, 0);
-      peakCloud.add(basePuff, midPuff, crownPuff);
+      const peakSculpt = createSculptedCloudMesh('peak', { opacity: 1.0 });
+      peakCloud.add(peakSculpt.mesh);
       peakCloud.position.y = 56.0;
       root.add(peakCloud);
 
-      // 2. Coral Atoll Lapa Cloud (flat low cloud with unmistakable pale jade/turquoise belly!)
+      // 2. Coral Atoll Lapa Cloud (flat low canopy with pale jade/turquoise lagoon underside glow!)
       const lapaCloud = new THREE.Group();
-      const lapaTopMat = new THREE.MeshBasicMaterial({
-        color: 0xeef4f8,
-        transparent: true,
-        opacity: 0.85,
-        depthWrite: false,
+      const lapaSculpt = createSculptedCloudMesh('lapa', {
+        isLapa: true,
+        opacity: 1.0,
       });
-      const lapaTop = new THREE.Mesh(
-        new THREE.SphereGeometry(32, 14, 10),
-        lapaTopMat
-      );
-      lapaTop.scale.set(1.6, 0.35, 1.3);
-      lapaTop.position.y = 42.0;
-
-      const lapaBellyMat = new THREE.MeshBasicMaterial({
-        color: 0x3ef0d0,
-        transparent: true,
-        opacity: 0.82,
-        depthWrite: false,
-      });
-      const lapaBelly = new THREE.Mesh(
-        new THREE.SphereGeometry(30, 14, 10),
-        lapaBellyMat
-      );
-      lapaBelly.scale.set(1.55, 0.18, 1.25);
-      lapaBelly.position.y = 36.5;
-      lapaCloud.add(lapaTop, lapaBelly);
+      lapaCloud.add(lapaSculpt.mesh);
       root.add(lapaCloud);
 
       // 3. 3D Island Landmass Variants (Volcanic Peak, Twin Peaks, Atoll Ring, Ancestral Monoliths)
@@ -221,10 +194,13 @@ export class WorldCuesRenderer {
         landfallStartVisualDist: null,
         root,
         peakCloud,
-        cloudMat,
+        peakCloudMesh: peakSculpt.mesh,
+        peakCloudSpec: peakSculpt.spec,
+        cloudMat: peakSculpt.material,
         lapaCloud,
-        lapaTopMat,
-        lapaBellyMat,
+        lapaCloudMesh: lapaSculpt.mesh,
+        lapaCloudSpec: lapaSculpt.spec,
+        lapaMat: lapaSculpt.material,
         landGroup,
         mainPeak,
         mainPeakMat,
@@ -1388,6 +1364,7 @@ export class WorldCuesRenderer {
     const fadeDt = Math.min(0.1, Math.max(0.001, dtSec));
     const headingDeg = oceanSim.headingDeg;
     const sun = oceanSim.sunState;
+    const sunVec = altAzToDirectionVec3(sun.altDeg, sun.azDeg, headingDeg);
     const weather = oceanSim.getCurrentVerse()?.weather ?? 'clear';
     const isFog = weather === 'sea_fog';
 
@@ -1400,13 +1377,9 @@ export class WorldCuesRenderer {
     const marchDirZ = -Math.cos(downwindRelRad);
     const perpX = -marchDirZ;
     const perpZ = marchDirX;
+    const marchYawRad = Math.atan2(marchDirX, marchDirZ);
 
-    const cloudBrightness = 0.16 + 0.82 * sun.daylightFactor;
-    const cr = cloudBrightness;
-    const cg = cloudBrightness * 0.99;
-    const cb = Math.min(1.0, cloudBrightness * 1.04);
-
-    const targetTradeOpacity = isFog ? 0.08 : 0.65;
+    const targetTradeOpacity = isFog ? 0.12 : 1.0;
     this.tradeFogOpacity = easeToward(this.tradeFogOpacity, targetTradeOpacity, fadeDt, 1.15);
 
     const launchTradeMask = launchAnim?.active
@@ -1421,16 +1394,27 @@ export class WorldCuesRenderer {
         tc.altY,
         marchDirZ * along + perpZ * tc.lateralOffset
       );
+      tc.mesh.rotation.y = marchYawRad + tc.yawJitter;
 
-      // Smooth horizon fade-in (0.0 -> 0.18) and fade-out (0.82 -> 1.0) so wrap-around is invisible
+      // Smooth horizon fade-in (0.0 -> 0.16) and fade-out (0.84 -> 1.0) so wrap-around is invisible
       const horizonEnv =
-        smoothstep(0.0, 0.18, tc.progress) *
-        smoothstep(0.0, 0.18, 1.0 - tc.progress);
+        smoothstep(0.0, 0.16, tc.progress) *
+        smoothstep(0.0, 0.16, 1.0 - tc.progress);
       const opacity = this.tradeFogOpacity * horizonEnv * launchTradeMask;
-      tc.mat.color.setRGB(cr, cg, cb);
-      tc.mat.opacity = opacity;
-      tc.mesh.scale.setScalar(0.82 + 0.18 * horizonEnv);
+      tc.opacity = opacity;
+      tc.mesh.scale.setScalar(tc.baseScale * (0.84 + 0.16 * horizonEnv));
       tc.mesh.visible = opacity > 0.004;
+
+      if (tc.mesh.visible) {
+        updateCloudMaterialUniforms(tc.mat, {
+          sunDir: sunVec,
+          daylight: sun.daylightFactor,
+          twilight: sun.twilightFactor,
+          opacity,
+          lapaGlow: 0.0,
+          elapsedSec,
+        });
+      }
     }
 
     // -----------------------------------------------------------------------
@@ -1649,14 +1633,15 @@ export class WorldCuesRenderer {
 
       const relAzRad = degToRad(wrapDeg180(bearingDeg - headingDeg));
       const normDist = Math.min(1.0, Math.max(0.0, distUnits / r1));
-      const baseVisualDist = 92.0 + normDist * 460.0;
+      const shoreRadiusM = getIslandShoreRadiusM(isl?.id, isl?.archetype);
+      const minOpenSeaDist = Math.max(92.0, shoreRadiusM + 50.0);
+      const baseVisualDist = minOpenSeaDist + normDist * 460.0;
       let visualDist = baseVisualDist;
 
       if (isLandfallTarget) {
         if (slot.landfallStartVisualDist === null) {
           slot.landfallStartVisualDist = baseVisualDist;
         }
-        const shoreRadiusM = getIslandShoreRadiusM(isl?.id, isl?.archetype);
         const endVisualDist =
           (landfallAnim.bowStopZAbs ?? 30.63) +
           shoreRadiusM +
@@ -1666,7 +1651,6 @@ export class WorldCuesRenderer {
           slot.landfallStartVisualDist +
           (endVisualDist - slot.landfallStartVisualDist) * glide;
       } else if (isLaunchOrigin) {
-        const shoreRadiusM = getIslandShoreRadiusM(isl?.id, isl?.archetype);
         const startVisualDist =
           (launchAnim.canoeStartZ ?? 24.0) +
           7.75 +
@@ -1686,21 +1670,28 @@ export class WorldCuesRenderer {
       // Peak Cloud ease-in / fade-out
       slot.peakCloud.visible = slot.peakAlpha > 0.003;
       if (slot.peakCloud.visible) {
-        slot.cloudMat.color.setRGB(
-          0.22 + 0.78 * sun.daylightFactor,
-          0.22 + 0.77 * sun.daylightFactor,
-          0.26 + 0.74 * sun.daylightFactor
-        );
-        slot.cloudMat.opacity = 0.9 * slot.peakAlpha;
+        updateCloudMaterialUniforms(slot.cloudMat, {
+          sunDir: sunVec,
+          daylight: sun.daylightFactor,
+          twilight: sun.twilightFactor,
+          opacity: slot.peakAlpha,
+          lapaGlow: 0.0,
+          elapsedSec,
+        });
         slot.peakCloud.scale.setScalar(0.84 + 0.16 * slot.peakAlpha);
       }
 
       // Coral Atoll Lapa Cloud ease-in / fade-out
       slot.lapaCloud.visible = slot.lapaAlpha > 0.003;
       if (slot.lapaCloud.visible) {
-        slot.lapaTopMat.opacity = 0.85 * slot.lapaAlpha;
-        slot.lapaBellyMat.opacity =
-          (0.42 + 0.45 * sun.daylightFactor) * slot.lapaAlpha;
+        updateCloudMaterialUniforms(slot.lapaMat, {
+          sunDir: sunVec,
+          daylight: sun.daylightFactor,
+          twilight: sun.twilightFactor,
+          opacity: slot.lapaAlpha,
+          lapaGlow: 1.0,
+          elapsedSec,
+        });
         slot.lapaCloud.scale.setScalar(0.86 + 0.14 * slot.lapaAlpha);
       }
 
@@ -1910,5 +1901,157 @@ export class WorldCuesRenderer {
     } else {
       this.frondGroup.visible = false;
     }
+
+    // Refresh active 3D cloud world transforms for exact star & star-label occlusion
+    this._refreshActiveCloudOccluders();
+  }
+
+  _pushCloudOccluder(count, cloudMesh, archetypeKey, spec, opacity) {
+    cloudMesh.updateWorldMatrix(true, false);
+    const mw = cloudMesh.matrixWorld;
+    const e = mw.elements;
+
+    let entry = this._occluderPool[count];
+    if (!entry) {
+      entry = {
+        archetypeKey: 'trade_0',
+        opacity: 1.0,
+        wx: 0.0,
+        wy: 0.0,
+        wz: 0.0,
+        wRadiusSq: 1.0,
+        invMat: new THREE.Matrix4(),
+      };
+      this._occluderPool.push(entry);
+    }
+
+    const bs = spec.boundingSphere;
+    entry.archetypeKey = archetypeKey;
+    entry.opacity = opacity;
+    entry.wx = e[0] * bs.cx + e[4] * bs.cy + e[8] * bs.cz + e[12];
+    entry.wy = e[1] * bs.cx + e[5] * bs.cy + e[9] * bs.cz + e[13];
+    entry.wz = e[2] * bs.cx + e[6] * bs.cy + e[10] * bs.cz + e[14];
+
+    const scaleX = Math.hypot(e[0], e[1], e[2]);
+    const scaleY = Math.hypot(e[4], e[5], e[6]);
+    const scaleZ = Math.hypot(e[8], e[9], e[10]);
+    const maxScale = Math.max(scaleX, scaleY, scaleZ);
+    const wRad = bs.radius * maxScale + 1.5;
+    entry.wRadiusSq = wRad * wRad;
+    entry.invMat.copy(mw).invert();
+
+    this._activeCloudOccluders.push(entry);
+    return count + 1;
+  }
+
+  _refreshActiveCloudOccluders() {
+    this._activeCloudOccluders.length = 0;
+    if (!this.group.visible) return;
+
+    let count = 0;
+    if (this.tradeCloudGroup.visible) {
+      for (const tc of this.tradeClouds) {
+        if (tc.mesh.visible && tc.opacity > 0.025) {
+          count = this._pushCloudOccluder(
+            count,
+            tc.cloudMesh,
+            tc.archetypeKey,
+            tc.spec,
+            tc.opacity
+          );
+        }
+      }
+    }
+
+    for (const slot of this.islandSlots) {
+      if (!slot.root.visible) continue;
+      if (slot.peakCloud.visible && slot.peakAlpha > 0.025) {
+        count = this._pushCloudOccluder(
+          count,
+          slot.peakCloudMesh,
+          'peak',
+          slot.peakCloudSpec,
+          slot.peakAlpha
+        );
+      }
+      if (slot.lapaCloud.visible && slot.lapaAlpha > 0.025) {
+        count = this._pushCloudOccluder(
+          count,
+          slot.lapaCloudMesh,
+          'lapa',
+          slot.lapaCloudSpec,
+          slot.lapaAlpha
+        );
+      }
+    }
+  }
+
+  /**
+   * Computes exact optical transmittance in [0.0, 1.0] along a world-space ray
+   * from `rayOrigin` (`{x, y, z}`) along unit `rayDir` (`{x, y, z}`) across all
+   * active 3D clouds (`tradeClouds`, `peakCloud`, `lapaCloud`).
+   *  - 1.0 = completely clear of 3D clouds
+   *  - 0.0 = blocked by a cloud body (hides stars, constellation lines & star labels)
+   */
+  getCloudTransmittance(rayOrigin, rayDir) {
+    const occluders = this._activeCloudOccluders;
+    const n = occluders.length;
+    if (n === 0 || !this.group.visible) return 1.0;
+
+    const ox = rayOrigin.x;
+    const oy = rayOrigin.y;
+    const oz = rayOrigin.z;
+    const dx = rayDir.x;
+    const dy = rayDir.y;
+    const dz = rayDir.z;
+
+    let totalTau = 0.0;
+
+    for (let i = 0; i < n; i += 1) {
+      const oc = occluders[i];
+      const vx = oc.wx - ox;
+      const vy = oc.wy - oy;
+      const vz = oc.wz - oz;
+      const distSq = vx * vx + vy * vy + vz * vz;
+      const tProj = vx * dx + vy * dy + vz * dz;
+
+      if (distSq > oc.wRadiusSq && tProj <= 0.0) continue;
+      const perpSq = distSq - tProj * tProj;
+      if (perpSq >= oc.wRadiusSq) continue;
+
+      const m = oc.invMat.elements;
+      const lox = m[0] * ox + m[4] * oy + m[8] * oz + m[12];
+      const loy = m[1] * ox + m[5] * oy + m[9] * oz + m[13];
+      const loz = m[2] * ox + m[6] * oy + m[10] * oz + m[14];
+
+      let ldx = m[0] * dx + m[4] * dy + m[8] * dz;
+      let ldy = m[1] * dx + m[5] * dy + m[9] * dz;
+      let ldz = m[2] * dx + m[6] * dy + m[10] * dz;
+      const lLen = Math.hypot(ldx, ldy, ldz);
+      if (lLen < 1e-7) continue;
+      const invLen = 1.0 / lLen;
+      ldx *= invLen;
+      ldy *= invLen;
+      ldz *= invLen;
+
+      const tau =
+        sampleCloudLocalRayOpticalDepth(
+          oc.archetypeKey,
+          lox,
+          loy,
+          loz,
+          ldx,
+          ldy,
+          ldz
+        ) * oc.opacity;
+
+      if (tau > 0.0) {
+        totalTau += tau;
+        if (totalTau >= 5.2) return 0.0;
+      }
+    }
+
+    if (totalTau <= 0.001) return 1.0;
+    return Math.exp(-totalTau);
   }
 }

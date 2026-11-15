@@ -322,9 +322,17 @@ class KavengaApp {
 
     if (!song) {
       const targetId = requestedIsland || 'tahaa';
+      const targetBasinId = ISLANDS[targetId]?.basinId;
       song =
         Object.values(SONGS).find((s) => s.toIsland === targetId) ||
         (targetId === 'raiatea' ? buildReturnSong('tahaa', 'raiatea') : null) ||
+        (targetBasinId
+          ? Object.values(SONGS).find(
+              (s) =>
+                ISLANDS[s.fromIsland]?.basinId === targetBasinId &&
+                ISLANDS[s.toIsland]?.basinId === targetBasinId
+            )
+          : null) ||
         SONGS.song_01;
     }
 
@@ -814,6 +822,13 @@ class KavengaApp {
       this.landfallAnim.active ? this.landfallAnim : null,
       this.launchAnim.active ? this.launchAnim : null
     );
+    this.worldCues.update(
+      dtSec,
+      this._elapsedAppSec,
+      this.oceanSim,
+      this.landfallAnim.active ? this.landfallAnim : null,
+      this.launchAnim.active ? this.launchAnim : null
+    );
     this.skyDome.update(
       dtSec,
       this._elapsedAppSec,
@@ -823,7 +838,9 @@ class KavengaApp {
         !this.launchAnim.active
         ? this.gameState.difficulty
         : 'master_navigator',
-      this.cameraCtrl.camera
+      this.cameraCtrl.camera,
+      null,
+      this.worldCues
     );
     this.oceanRenderer.update(
       dtSec,
@@ -861,13 +878,6 @@ class KavengaApp {
         0.26 + launchNightLift
       );
     }
-    this.worldCues.update(
-      dtSec,
-      this._elapsedAppSec,
-      this.oceanSim,
-      this.landfallAnim.active ? this.landfallAnim : null,
-      this.launchAnim.active ? this.launchAnim : null
-    );
 
     if (this.launchAnim.active && this.launchAnim.rawT >= 0.999) {
       this._resetLaunchAnimation();

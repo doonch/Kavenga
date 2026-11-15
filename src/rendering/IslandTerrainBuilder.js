@@ -18,6 +18,7 @@ import * as THREE from 'three';
 import { createAct1RemainIslandAssembly } from './IslandAct1RemainBuilder.js';
 import { createAct2IslandAssembly } from './IslandAct2Builder.js';
 import { createAct3IslandAssembly } from './IslandAct3Builder.js';
+import { createRapaNuiIslandAssembly } from './IslandRapaNuiBuilder.js';
 
 function clamp01(v) {
   return Math.max(0.0, Math.min(1.0, v));
@@ -696,7 +697,8 @@ export function createDetailedIslandAssembly(islandId) {
   const modularAssembly =
     createAct1RemainIslandAssembly(islandId) ||
     createAct2IslandAssembly(islandId) ||
-    createAct3IslandAssembly(islandId);
+    createAct3IslandAssembly(islandId) ||
+    createRapaNuiIslandAssembly(islandId);
   if (modularAssembly) {
     return modularAssembly;
   }
@@ -1571,6 +1573,7 @@ const DETAILED_ISLAND_IDS = new Set([
   'oahu',
   'kiritimati',
   'hawaii',
+  'rapa_nui',
 ]);
 
 export function hasDetailedIslandModel(islandId) {
@@ -1597,6 +1600,9 @@ export function getIslandApproachOrientationRad(islandId) {
     case 'hawaii':
       // Frames Kealakekua Bay & Great Heiau ahead while showing glowing Kilauea lava rivers on starboard!
       return -0.32 - Math.PI * 0.5;
+    case 'rapa_nui':
+      // Aligns the grand upright Moai coastline (Ahu Tongariki, Rano Raraku, Akahanga & Vaihu) toward +Z
+      return -0.409;
     default:
       // All other sculpted islands center their primary reef pass / bay entrance on theta = 0
       return -Math.PI * 0.5;
@@ -1620,6 +1626,7 @@ const ISLAND_SHORE_RADIUS_M = Object.freeze({
   oahu: 34.5,
   kiritimati: 36.5,
   hawaii: 37.8,
+  rapa_nui: 55.0,
 });
 
 /**
