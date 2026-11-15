@@ -188,6 +188,14 @@ class KavengaApp {
     const urlIsland = params.get('island');
     const urlMaster = params.get('master');
     const urlTab = params.get('tab');
+    const urlDiff = params.get('difficulty');
+    if (
+      urlDiff &&
+      ['easy', 'medium', 'hard', 'master_navigator'].includes(urlDiff)
+    ) {
+      this.setDifficulty(urlDiff);
+    }
+
     const rawTier = params.get('tier');
     if (rawTier !== null) {
       const parsedTier = Number(rawTier);
@@ -853,6 +861,13 @@ class KavengaApp {
         launchProgress01: this.launchAnim.active ? this.launchAnim.rawT : null,
       }
     );
+    const showPlayerOnCanoe =
+      this.phase === 'sailing' &&
+      (this.cameraCtrl.thirdPersonBlend >= 0.22 ||
+        (this.launchAnim.active && this.launchAnim.rawT < 0.72) ||
+        (this.landfallAnim.active &&
+          (this.cameraCtrl.isThirdPersonView() || this.landfallAnim.rawT > 0.22)));
+
     this.vakaRenderer.update(
       dtSec,
       this._elapsedAppSec,
@@ -860,7 +875,11 @@ class KavengaApp {
       this.gameState,
       this.landfallAnim.active || this.launchAnim.active
         ? 0.0
-        : this.cameraCtrl.getSteeringNormalized()
+        : this.cameraCtrl.getSteeringNormalized(),
+      {
+        showPlayerOnCanoe,
+        lookYawDeg: this.cameraCtrl.lookYawDeg,
+      }
     );
     if (this.landfallAnim.active) {
       // Ensure starlit / moonlight shore clarity even during deep-night arrivals

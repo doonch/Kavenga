@@ -21,6 +21,7 @@ import {
   performBeachCareeningAndRestock,
 } from '../core/campaignManager.js';
 import { ISLANDS, OCEAN_BASINS } from '../data/islandsData.js';
+import { getPlayerCharacterProfile } from '../data/playerCharactersData.js';
 import { STAR_MASTERS } from '../data/skyVigilData.js';
 import { SONGS } from '../data/songsData.js';
 import { SandCanvas } from './SandCanvas.js';
@@ -52,10 +53,10 @@ export class IslandHubUI {
             <label class="hub-mode-select-wrap">
               <span>Guidance Mode</span>
               <select id="hubDifficultySelect">
-                <option value="easy">Easy · Apprentice (Lyrics + Cue Hints + Shimmer)</option>
-                <option value="medium">Medium · Wayfinder (Lyrics + Sky Outlines)</option>
-                <option value="hard">Hard · Navigator (Audio + Sky Outlines Only)</option>
-                <option value="master_navigator">Master Navigator (Pure Silence &amp; Raw Stars)</option>
+                <option value="easy">Easy · 12–14 yr Apprentice (Lyrics + Cue Hints + Shimmer)</option>
+                <option value="medium">Medium · 18–20 yr Wayfinder (Lyrics + Sky Outlines)</option>
+                <option value="hard">Hard · 30 yr Navigator (Audio + Sky Outlines Only)</option>
+                <option value="master_navigator">Master Navigator · 50 yr Elder (Pure Silence &amp; Raw Stars)</option>
               </select>
             </label>
           </div>
@@ -620,13 +621,27 @@ export class IslandHubUI {
         .join('');
     }
 
-    // Crew List
+    // Crew List (starts with the player's helm character for the active difficulty)
     const crewContainer = this.rootEl.querySelector('#hubCrewList');
+    crewContainer.innerHTML = '';
+    const playerProfile = getPlayerCharacterProfile(gs.difficulty);
+    const playerPill = document.createElement('div');
+    playerPill.className = 'crew-pill';
+    playerPill.innerHTML = `
+      <div class="crew-pill-text">
+        <strong>You · ${playerProfile.title} (${playerProfile.ageLabel})</strong>
+        <span>At the Helm: ${playerProfile.attireSummary}</span>
+      </div>
+    `;
+    crewContainer.appendChild(playerPill);
+
     if (gs.assignedCrew.length === 0) {
-      crewContainer.innerHTML =
-        '<div class="empty-note">Sailing solo with your starter paddler (recruit specialists across the islands).</div>';
+      const note = document.createElement('div');
+      note.className = 'empty-note';
+      note.textContent =
+        'Sailing with your starter paddler (recruit specialist crewmates across the islands).';
+      crewContainer.appendChild(note);
     } else {
-      crewContainer.innerHTML = '';
       for (const crId of gs.assignedCrew) {
         const cr = CREW_CATALOG[crId];
         if (!cr) continue;

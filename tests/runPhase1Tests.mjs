@@ -21,6 +21,10 @@ import {
   NAVIGATION_STARS,
 } from '../src/data/constellationsData.js';
 import { ISLANDS, OCEAN_BASINS } from '../src/data/islandsData.js';
+import {
+  PLAYER_CHARACTER_PROFILES,
+  getPlayerCharacterProfile,
+} from '../src/data/playerCharactersData.js';
 import { SAND_LESSONS } from '../src/data/sandDiagramsData.js';
 import {
   CONSTELLATION_GUIDE,
@@ -108,6 +112,31 @@ assert(
 assert(Object.keys(SONGS).length === 17, 'Expected 17 authored Songs (1-16 + 14R)');
 assert(Object.keys(SAND_LESSONS).length === 16, 'Expected 16 Sand Lessons');
 assert(Object.keys(STAR_MASTERS).length === 2, 'Expected exactly 2 Star Masters (Southern & Northern)');
+assert(
+  Object.keys(PLAYER_CHARACTER_PROFILES).length === 4,
+  'Expected 4 Player Character designs (Easy, Medium, Hard, Master Navigator)'
+);
+assert(
+  getPlayerCharacterProfile(Difficulty.EASY).ageLabel.includes('12') &&
+    getPlayerCharacterProfile(Difficulty.EASY).totalHeightM < 1.55,
+  'Apprentice (Easy) character represents a 12-14 year old youth'
+);
+assert(
+  getPlayerCharacterProfile(Difficulty.MEDIUM).ageLabel.includes('18') &&
+    getPlayerCharacterProfile(Difficulty.MEDIUM).totalHeightM > 1.6,
+  'Wayfinder (Medium) character represents an 18-20 year old young adult'
+);
+assert(
+  getPlayerCharacterProfile(Difficulty.HARD).ageLabel.includes('30'),
+  'Navigator (Hard) character represents a 30 year old adult'
+);
+assert(
+  getPlayerCharacterProfile(Difficulty.MASTER_NAVIGATOR).ageLabel.includes('50') &&
+    getPlayerCharacterProfile(Difficulty.MASTER_NAVIGATOR).attireSummary
+      .toLowerCase()
+      .includes('gray beard'),
+  'Master Navigator character represents a 50 year old elder with a gray beard'
+);
 
 assert(showsActiveStarShimmer(Difficulty.EASY) === true, 'Easy shows active star shimmer');
 assert(showsActiveStarShimmer(Difficulty.MEDIUM) === false, 'Medium hides active shimmer');
@@ -161,6 +190,12 @@ for (const [lid, les] of Object.entries(SAND_LESSONS)) {
 }
 for (const z of Object.values(LASHING_ZONES)) {
   auditText(z.label, `LashingZone ${z.id}`);
+}
+for (const [diffId, prof] of Object.entries(PLAYER_CHARACTER_PROFILES)) {
+  auditText(prof.title, `PlayerCharacter ${diffId}.title`);
+  auditText(prof.shortPersona, `PlayerCharacter ${diffId}.shortPersona`);
+  auditText(prof.ageLabel, `PlayerCharacter ${diffId}.ageLabel`);
+  auditText(prof.attireSummary, `PlayerCharacter ${diffId}.attireSummary`);
 }
 let mentorPortraitCount = 0;
 let starMasterIslandCount = 0;

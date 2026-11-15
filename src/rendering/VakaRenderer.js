@@ -9,7 +9,12 @@
  */
 
 import * as THREE from 'three';
+import { Difficulty } from '../core/gameConstants.js';
 import { altAzToDirectionVec3 } from '../simulation/celestialSim.js';
+import {
+  animatePlayerCharacterRig,
+  createPlayerCharacterRig,
+} from './PlayerCharacterBuilder.js';
 
 export class VakaRenderer {
   constructor(scene) {
@@ -26,7 +31,7 @@ export class VakaRenderer {
     this.sunLight.shadow.mapSize.set(1024, 1024);
     this.sunLight.shadow.camera.near = 1.0;
     this.sunLight.shadow.camera.far = 45.0;
-    const d = 6.5;
+    const d = 8.5;
     this.sunLight.shadow.camera.left = -d;
     this.sunLight.shadow.camera.right = d;
     this.sunLight.shadow.camera.top = d;
@@ -72,6 +77,8 @@ export class VakaRenderer {
     this.rationBaskets = [];
     this.cargoBundles = [];
     this.crewMeshes = {};
+    this.playerRigs = {};
+    this.activePlayerRig = null;
 
     this._buildTwinHulls();
     this._buildCrossbeamsAndDeck();
@@ -79,6 +86,7 @@ export class VakaRenderer {
     this._buildMastAndCrabClawSail();
     this._buildSteeringSweep();
     this._buildDeckReadinessProps();
+    this._buildPlayerHelmStation();
   }
 
   /**
@@ -1033,7 +1041,34 @@ export class VakaRenderer {
     }
   }
 
-  update(dtSec, elapsedSec, oceanSim, gameState, steerNorm = 0.0) {
+  _buildPlayerHelmStation() {
+    // Aft navigator's helm station on the woven Pola deck (y = 0.85m), positioned just port & forward
+    // of the Hoe Uli steering sweep tiller (0.0, 1.49m, 4.01m) so the player's right hand tends the sweep.
+    this.playerHelmGroup = new THREE.Group();
+    this.playerHelmGroup.position.set(-0.3, 0.85, 3.86);
+    this.playerHelmGroup.visible = false;
+    this.root.add(this.playerHelmGroup);
+  }
+
+  _getOrCreatePlayerRig(difficulty) {
+    const key = difficulty || Difficulty.EASY;
+    if (!this.playerRigs[key]) {
+      const rig = createPlayerCharacterRig(key);
+      rig.root.visible = false;
+      this.playerHelmGroup.add(rig.root);
+      this.playerRigs[key] = rig;
+    }
+    return this.playerRigs[key];
+  }
+
+  update(
+    dtSec,
+    elapsedSec,
+    oceanSim,
+    gameState,
+    steerNorm = 0.0,
+    viewOpts = null
+  ) {
     if (!oceanSim) return;
 
     // 1. Apply Twin-Hull Pitch, Roll & Heave from HullPhysics
@@ -1052,7 +1087,7 @@ export class VakaRenderer {
       oceanSim.headingDeg
     );
     this.sunLight.position.set(sunDir.x * 18.0, sunDir.y * 18.0, sunDir.z * 18.0);
-    this.sunLight.target.position.set(0, 0.8, -3.15);
+    this.sunLight.target.position.set(0, 0.8, -0.2);
     this.sunLight.intensity = 1.65 * sun.daylightFactor;
     this.hemiLight.intensity = 0.26 + 0.68 * sun.daylightFactor;
 
@@ -1125,6 +1160,29 @@ export class VakaRenderer {
       this.hullMat.color.setHex(
         gameState.hullCondition < 55.0 ? 0x663d20 : 0x8d532b
       );
+    }
+
+    // 5. Standing Player Character at the Aft Helm (visible at sea ONLY when not in 1st-person Deck View)
+    const showPlayerOnCanoe = Boolean(viewOpts?.showPlayerOnCanoe);
+    this.playerHelmGroup.visible = showPlayerOnCanoe;
+    if (showPlayerOnCanoe) {
+      const targetDiff =
+        viewOpts?.difficultyOverride || gameState?.difficulty || Difficulty.EASY;
+      const activeRig = this._getOrCreatePlayerRig(targetDiff);
+      if (this.activePlayerRig !== activeRig) {
+        for (const r of Object.values(this.playerRigs)) {
+          r.root.visible = r === activeRig;
+        }
+        this.activePlayerRig = activeRig;
+      } else {
+        activeRig.root.visible = true;
+      }
+      animatePlayerCharacterRig(activeRig, elapsedSec, {
+        steerNorm,
+        hullState: hull,
+        fastForward: Boolean(oceanSim.fastForward),
+        lookYawDeg: viewOpts?.lookYawDeg ?? 0.0,
+      });
     }
   }
 }

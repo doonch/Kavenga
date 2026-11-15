@@ -108,20 +108,20 @@ export class SailingHUD {
           <p class="dialog-sub">Switch guidance mode at any time or return to shore before departure.</p>
           <div class="mode-selector-grid" id="hudModeGrid">
             <button class="mode-option-btn" data-mode="easy">
-              <strong>Easy (Apprentice)</strong>
-              <span>Chant audio, lyrics, cue hints &amp; active star shimmer</span>
+              <strong>Easy · Apprentice (12–14 yrs)</strong>
+              <span>Youth apprentice at the helm · Chant audio, lyrics, cue hints &amp; active star shimmer</span>
             </button>
             <button class="mode-option-btn" data-mode="medium">
-              <strong>Medium (Wayfinder)</strong>
-              <span>Chant audio, poetic lyrics &amp; constellation sky</span>
+              <strong>Medium · Wayfinder (18–20 yrs)</strong>
+              <span>Young wayfinder at the helm · Chant audio, poetic lyrics &amp; constellation sky</span>
             </button>
             <button class="mode-option-btn" data-mode="hard">
-              <strong>Hard (Navigator)</strong>
-              <span>Chant audio &amp; constellation sky — zero on-screen text</span>
+              <strong>Hard · Navigator (30 yrs)</strong>
+              <span>Seasoned navigator at the helm · Chant audio &amp; constellation sky — zero on-screen text</span>
             </button>
             <button class="mode-option-btn" data-mode="master_navigator" id="btnHudMasterMode">
-              <strong>Master Navigator</strong>
-              <span>Pure sea silence, raw starfield &amp; no Recall at sea</span>
+              <strong>Master Navigator (50 yrs, Gray Beard)</strong>
+              <span>Elder master at the helm · Pure sea silence, raw starfield &amp; no Recall at sea</span>
             </button>
           </div>
           <div class="dialog-actions">

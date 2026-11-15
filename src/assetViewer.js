@@ -5,6 +5,7 @@
  */
 
 import * as THREE from 'three';
+import { Difficulty } from './core/gameConstants.js';
 import { ISLANDS } from './data/islandsData.js';
 import { GameState } from './core/gameState.js';
 import { OceanSim } from './simulation/oceanSim.js';
@@ -19,6 +20,11 @@ import {
   updateCloudMaterialUniforms,
 } from './rendering/CloudSculptBuilder.js';
 import { createRapaNuiMoaiShowcaseAssembly } from './rendering/IslandRapaNuiBuilder.js';
+import {
+  animatePlayerCharacterRig,
+  createPlayerCharacterRig,
+  getPlayerCharacterProfile,
+} from './rendering/PlayerCharacterBuilder.js';
 import { VakaRenderer } from './rendering/VakaRenderer.js';
 import { WorldCuesRenderer } from './rendering/WorldCuesRenderer.js';
 
@@ -52,6 +58,7 @@ function buildAssetCatalog() {
         steer: 0.0,
         solarHour: 9.2,
         swellMotion: false,
+        helmMode: Difficulty.EASY,
       },
     },
     {
@@ -70,6 +77,7 @@ function buildAssetCatalog() {
         steer: 0.25,
         solarHour: 15.0,
         swellMotion: false,
+        helmMode: Difficulty.MEDIUM,
       },
     },
     {
@@ -88,6 +96,7 @@ function buildAssetCatalog() {
         steer: -0.2,
         solarHour: 8.5,
         swellMotion: false,
+        helmMode: Difficulty.MASTER_NAVIGATOR,
       },
     },
     {
@@ -106,7 +115,46 @@ function buildAssetCatalog() {
         steer: 0.0,
         solarHour: 16.2,
         swellMotion: true,
+        helmMode: Difficulty.HARD,
       },
+    },
+
+    // 1b. Player Characters (4 Difficulty Designs)
+    {
+      id: 'player_apprentice',
+      category: 'Player Characters (By Difficulty)',
+      name: 'Apprentice (Easy · 12–14 yrs)',
+      subtitle: getPlayerCharacterProfile(Difficulty.EASY).attireSummary,
+      tag: 'Easy',
+      kind: 'player_char',
+      difficulty: Difficulty.EASY,
+    },
+    {
+      id: 'player_wayfinder',
+      category: 'Player Characters (By Difficulty)',
+      name: 'Wayfinder (Medium · 18–20 yrs)',
+      subtitle: getPlayerCharacterProfile(Difficulty.MEDIUM).attireSummary,
+      tag: 'Medium',
+      kind: 'player_char',
+      difficulty: Difficulty.MEDIUM,
+    },
+    {
+      id: 'player_navigator',
+      category: 'Player Characters (By Difficulty)',
+      name: 'Navigator (Hard · 30 yrs)',
+      subtitle: getPlayerCharacterProfile(Difficulty.HARD).attireSummary,
+      tag: 'Hard',
+      kind: 'player_char',
+      difficulty: Difficulty.HARD,
+    },
+    {
+      id: 'player_master',
+      category: 'Player Characters (By Difficulty)',
+      name: 'Master Navigator (50 yrs · Gray Beard)',
+      subtitle: getPlayerCharacterProfile(Difficulty.MASTER_NAVIGATOR).attireSummary,
+      tag: 'Master',
+      kind: 'player_char',
+      difficulty: Difficulty.MASTER_NAVIGATOR,
     },
 
     // 2. Seabirds (Flapping)
@@ -274,6 +322,11 @@ class AssetDebugViewer {
       steer: 0.0,
       solarHour: 9.2,
       swellMotion: false,
+      helmMode: Difficulty.EASY,
+    };
+    this.playerCtrl = {
+      steer: 0.0,
+      wind: 0.65,
     };
     this.islandCtrl = {
       showClouds: false,
@@ -688,6 +741,8 @@ class AssetDebugViewer {
 
     if (item.kind === 'vaka') {
       this._mountVakaAsset(item);
+    } else if (item.kind === 'player_char') {
+      this._mountPlayerCharacterAsset(item);
     } else if (item.kind === 'bird_single') {
       this._mountSingleBirdAsset(item);
     } else if (item.kind === 'bird_flock') {
@@ -740,6 +795,7 @@ class AssetDebugViewer {
     this.vakaCtrl.steer = p.steer;
     this.vakaCtrl.solarHour = p.solarHour;
     this.vakaCtrl.swellMotion = p.swellMotion;
+    this.vakaCtrl.helmMode = p.helmMode || Difficulty.EASY;
 
     this.studioLights.visible = false;
     this.stageGroup.add(this.vakaRenderer.root);
@@ -753,6 +809,9 @@ class AssetDebugViewer {
 
   _syncAndTickVaka(dt, elapsed) {
     this.gameState.vakaTier = this.vakaCtrl.tier;
+    if (this.vakaCtrl.helmMode && this.vakaCtrl.helmMode !== 'hidden') {
+      this.gameState.difficulty = this.vakaCtrl.helmMode;
+    }
     this.gameState.cargoItems = Array.from(
       { length: this.vakaCtrl.cargo },
       (_, idx) => `debug_cargo_${idx}`
@@ -776,8 +835,37 @@ class AssetDebugViewer {
       elapsed,
       this.oceanSim,
       this.gameState,
-      this.vakaCtrl.steer
+      this.vakaCtrl.steer,
+      { showPlayerOnCanoe: this.vakaCtrl.helmMode !== 'hidden' }
     );
+  }
+
+  _mountPlayerCharacterAsset(item) {
+    const rig = createPlayerCharacterRig(item.difficulty);
+    // Rotate 180 deg around Y in standalone studio so character faces the front camera (+Z)
+    rig.root.rotation.y = Math.PI;
+
+    // Subtle woven pandanus deck plinth underfoot
+    const plinth = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.54, 0.58, 0.05, 32),
+      new THREE.MeshStandardMaterial({
+        color: 0xc29e65,
+        roughness: 0.88,
+        metalness: 0.02,
+      })
+    );
+    plinth.position.y = -0.025;
+    this.stageGroup.add(plinth);
+    this.stageGroup.add(rig.root);
+
+    const applyPose = (elapsed) => {
+      animatePlayerCharacterRig(rig, elapsed * this.animCtrl.speed, {
+        steerNorm: this.playerCtrl.steer,
+        windStrength: this.playerCtrl.wind,
+      });
+    };
+    applyPose(this.animElapsedSec);
+    this.activeTickFn = (_dt, elapsed) => applyPose(elapsed);
   }
 
   _mountSingleBirdAsset(item) {
@@ -1057,6 +1145,16 @@ class AssetDebugViewer {
             <button class="tool-btn ${this.vakaCtrl.tier === 3 ? 'active' : ''}" data-vtier="3">Tier 3</button>
           </span>
         </div>
+        <div class="ctrl-row" style="flex-wrap:wrap;gap:4px;">
+          <span>Helm Character:</span>
+          <span>
+            <button class="tool-btn ${this.vakaCtrl.helmMode === 'easy' ? 'active' : ''}" data-vhelm="easy">12–14y</button>
+            <button class="tool-btn ${this.vakaCtrl.helmMode === 'medium' ? 'active' : ''}" data-vhelm="medium">18–20y</button>
+            <button class="tool-btn ${this.vakaCtrl.helmMode === 'hard' ? 'active' : ''}" data-vhelm="hard">30y</button>
+            <button class="tool-btn ${this.vakaCtrl.helmMode === 'master_navigator' ? 'active' : ''}" data-vhelm="master_navigator">50y</button>
+            <button class="tool-btn ${this.vakaCtrl.helmMode === 'hidden' ? 'active' : ''}" data-vhelm="hidden" title="First-Person Deck View hides player mesh">Deck View</button>
+          </span>
+        </div>
         <div class="ctrl-row">
           <span>Ration Baskets (<strong id="lbl-rations">${this.vakaCtrl.rations}</strong>):</span>
           <input id="inp-rations" type="range" min="0" max="8" step="1" value="${this.vakaCtrl.rations}" />
@@ -1136,6 +1234,53 @@ class AssetDebugViewer {
       });
       document.getElementById('chk-swell').addEventListener('change', (e) => {
         this.vakaCtrl.swellMotion = e.target.checked;
+      });
+      this.contextCardEl.querySelectorAll('[data-vhelm]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          this.vakaCtrl.helmMode = btn.dataset.vhelm;
+          this.contextCardEl.querySelectorAll('[data-vhelm]').forEach((b) => {
+            b.classList.toggle('active', b.dataset.vhelm === this.vakaCtrl.helmMode);
+          });
+          this._syncAndTickVaka(0.0, this.animElapsedSec);
+          this._updateInfoCard();
+          this._rebuildEdgeOverlay();
+        });
+      });
+      return;
+    }
+
+    if (item.kind === 'player_char') {
+      const prof = getPlayerCharacterProfile(item.difficulty);
+      this.contextCardEl.classList.remove('hidden');
+      this.contextCardEl.innerHTML = `
+        <div class="context-heading">Wayfinder Character Inspector</div>
+        <div class="ctrl-row">
+          <span>Helm Trim (<strong id="lbl-psteer">${this.playerCtrl.steer.toFixed(2)}</strong>):</span>
+          <input id="inp-psteer" type="range" min="-1" max="1" step="0.05" value="${this.playerCtrl.steer}" />
+        </div>
+        <div class="ctrl-row">
+          <span>Trade Breeze (<strong id="lbl-pwind">${this.playerCtrl.wind.toFixed(2)}</strong>):</span>
+          <input id="inp-pwind" type="range" min="0" max="1.4" step="0.05" value="${this.playerCtrl.wind}" />
+        </div>
+        <div class="stats-row">
+          <span class="stat-pill">${prof.title}</span>
+          <span class="stat-pill">${prof.ageLabel}</span>
+          <span class="stat-pill">Height: ${prof.totalHeightM.toFixed(2)}m</span>
+        </div>
+      `;
+
+      const inpSteer = document.getElementById('inp-psteer');
+      const lblSteer = document.getElementById('lbl-psteer');
+      inpSteer.addEventListener('input', () => {
+        this.playerCtrl.steer = Number(inpSteer.value);
+        lblSteer.textContent = this.playerCtrl.steer.toFixed(2);
+      });
+
+      const inpWind = document.getElementById('inp-pwind');
+      const lblWind = document.getElementById('lbl-pwind');
+      inpWind.addEventListener('input', () => {
+        this.playerCtrl.wind = Number(inpWind.value);
+        lblWind.textContent = this.playerCtrl.wind.toFixed(2);
       });
       return;
     }
