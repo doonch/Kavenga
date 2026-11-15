@@ -276,24 +276,436 @@ export class WorldCuesRenderer {
     }
   }
 
+  _createHydrofoilFinGeometry(stations) {
+    // stations ordered with strictly increasing Y from bottom/root (0) to top/tip (n-1)
+    const positions = [];
+    const indices = [];
+    const pushV = (x, y, z) => {
+      const idx = positions.length / 3;
+      positions.push(x, y, z);
+      return idx;
+    };
+
+    const rings = [];
+    for (let i = 0; i < stations.length; i += 1) {
+      const { leadX, leadY, trailX, trailY, halfZ } = stations[i];
+      const hz = Math.max(0.0008, halfZ);
+      const sx1 = 0.72 * leadX + 0.28 * trailX;
+      const sy1 = 0.72 * leadY + 0.28 * trailY;
+      const sx2 = 0.28 * leadX + 0.72 * trailX;
+      const sy2 = 0.28 * leadY + 0.72 * trailY;
+
+      rings.push([
+        pushV(leadX, leadY, 0.0),
+        pushV(sx1, sy1, hz),
+        pushV(sx2, sy2, hz * 0.42),
+        pushV(trailX, trailY, 0.0),
+        pushV(sx2, sy2, -hz * 0.42),
+        pushV(sx1, sy1, -hz),
+      ]);
+    }
+
+    for (let i = 0; i < rings.length - 1; i += 1) {
+      for (let k = 0; k < 6; k += 1) {
+        const kNext = (k + 1) % 6;
+        const a = rings[i][k];
+        const b = rings[i][kNext];
+        const c = rings[i + 1][k];
+        const d = rings[i + 1][kNext];
+        indices.push(a, c, d, a, d, b);
+      }
+    }
+
+    // Close bottom & top fin caps
+    const bot = rings[0];
+    const top = rings[rings.length - 1];
+    indices.push(
+      bot[0], bot[1], bot[5],
+      bot[5], bot[1], bot[2],
+      bot[5], bot[2], bot[4],
+      bot[4], bot[2], bot[3],
+      top[0], top[5], top[1],
+      top[5], top[2], top[1],
+      top[5], top[4], top[2],
+      top[4], top[3], top[2]
+    );
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  _createBonitoBodyGeometry() {
+    // Fusiform Pacific Bonito / Skipjack Tuna (Atu / Aku) body along X:
+    // Nose at +0.485m (+X), dorsal back +Y, caudal peduncle wrist at -0.385m (-X)
+    const uSteps = 32;
+    const rSteps = 24;
+    const positions = [];
+    const colors = [];
+    const indices = [];
+
+    const pushVC = (x, y, z, r, g, b) => {
+      const idx = positions.length / 3;
+      positions.push(x, y, z);
+      colors.push(r, g, b);
+      return idx;
+    };
+
+    const evalProfile = (u) => {
+      const x = 0.48 - 0.86 * u;
+      let halfH;
+      if (u <= 0.34) {
+        const s = u / 0.34;
+        halfH = 0.126 * Math.pow(Math.sin(s * Math.PI * 0.5), 0.78);
+      } else {
+        const t = (u - 0.34) / 0.66;
+        halfH = 0.017 + 0.109 * Math.pow(Math.cos(t * Math.PI * 0.5), 1.48);
+      }
+      const dorsalY = halfH * (1.0 + 0.06 * Math.sin(Math.PI * Math.min(1.0, u / 0.56)));
+      const ventralY = halfH * (1.0 + 0.09 * Math.sin(Math.PI * Math.min(1.0, u / 0.68)));
+      const operculumFlare = 1.0 + 0.055 * Math.exp(-Math.pow((u - 0.225) / 0.028, 2.0));
+      const keelFlare = 0.022 * Math.exp(-Math.pow((u - 0.925) / 0.045, 2.0));
+      return { x, halfH, dorsalY, ventralY, operculumFlare, keelFlare };
+    };
+
+    const evalCountershading = (u, ny) => {
+      // Authentic pelagic countershading: deep indigo-blue back, iridescent teal lateral band,
+      // gleaming pearl-silver belly with dark longitudinal skipjack/bonito stripes
+      let r;
+      let g;
+      let b;
+      if (ny > 0.24) {
+        const t = Math.min(1.0, (ny - 0.24) / 0.76);
+        r = 0.22 * (1.0 - t) + 0.055 * t;
+        g = 0.56 * (1.0 - t) + 0.16 * t;
+        b = 0.78 * (1.0 - t) + 0.36 * t;
+        // Wavy dark mackerel/bonito dorsal bars along aft back
+        if (u > 0.35 && u < 0.86 && ny > 0.36) {
+          const bar = Math.sin(u * 56.0 - ny * 6.2);
+          if (bar > 0.18) {
+            const shade = 1.0 - 0.32 * Math.min(1.0, (bar - 0.18) / 0.6);
+            r *= shade;
+            g *= shade;
+            b *= shade;
+          }
+        }
+      } else if (ny >= -0.06) {
+        // Iridescent cyan-silver lateral line
+        const t = (ny + 0.06) / 0.3;
+        r = 0.88 * (1.0 - t) + 0.24 * t;
+        g = 0.94 * (1.0 - t) + 0.62 * t;
+        b = 0.98 * (1.0 - t) + 0.82 * t;
+      } else {
+        // Mirror-silver belly with 4 longitudinal skipjack stripes
+        const bellyT = Math.min(1.0, (-ny - 0.06) / 0.94);
+        r = 0.9 + 0.06 * bellyT;
+        g = 0.95 + 0.03 * bellyT;
+        b = 0.99;
+        if (u > 0.27 && u < 0.89 && ny > -0.82 && ny < -0.13) {
+          const envU = Math.sin(Math.PI * ((u - 0.27) / 0.62));
+          const stripe = Math.sin(ny * 28.0 + u * 2.4);
+          if (stripe > 0.32) {
+            const sAmt = Math.min(1.0, (stripe - 0.32) / 0.5) * envU * 0.68;
+            r = r * (1.0 - sAmt) + 0.14 * sAmt;
+            g = g * (1.0 - sAmt) + 0.21 * sAmt;
+            b = b * (1.0 - sAmt) + 0.33 * sAmt;
+          }
+        }
+      }
+
+      // Subtle curved operculum (gill-plate) shadow seam
+      const gillCurveU = 0.225 + 0.024 * (1.0 - ny * ny);
+      const gillDist = Math.abs(u - gillCurveU);
+      if (gillDist < 0.012 && Math.abs(ny) < 0.66) {
+        const gShade = 1.0 - 0.28 * (1.0 - gillDist / 0.012);
+        r *= gShade;
+        g *= gShade;
+        b *= gShade;
+      }
+
+      return [r, g, b];
+    };
+
+    const rings = [];
+    for (let i = 0; i <= uSteps; i += 1) {
+      const u = 0.014 + 0.972 * (i / uSteps);
+      const { x, halfH, dorsalY, ventralY, operculumFlare, keelFlare } = evalProfile(u);
+      const ring = [];
+      for (let j = 0; j < rSteps; j += 1) {
+        const theta = (j / rSteps) * Math.PI * 2.0;
+        const cosT = Math.cos(theta);
+        const sinT = Math.sin(theta);
+
+        let y = cosT >= 0.0 ? dorsalY * cosT : ventralY * cosT;
+        const keelFactor = Math.pow(Math.max(0.0, 1.0 - Math.abs(cosT) * 3.4), 2.0);
+        let z = sinT * (halfH * 0.68 * operculumFlare + keelFlare * keelFactor);
+
+        // Subtle mouth cleft groove near snout
+        if (u < 0.095 && Math.abs(cosT + 0.14) < 0.16) {
+          const mIndent = 1.0 - 0.14 * (1.0 - u / 0.095);
+          z *= mIndent;
+          y -= 0.002 * (1.0 - u / 0.095);
+        }
+
+        const ny = Math.max(-1.0, Math.min(1.0, y / Math.max(0.016, halfH)));
+        const [cr, cg, cb] = evalCountershading(u, ny);
+        ring.push(pushVC(x, y, z, cr, cg, cb));
+      }
+      rings.push(ring);
+    }
+
+    for (let i = 0; i < rings.length - 1; i += 1) {
+      for (let j = 0; j < rSteps; j += 1) {
+        const jNext = (j + 1) % rSteps;
+        const a = rings[i][j];
+        const b = rings[i][jNext];
+        const c = rings[i + 1][j];
+        const d = rings[i + 1][jNext];
+        indices.push(a, c, d, a, d, b);
+      }
+    }
+
+    // Closed manifold snout tip (+X) & caudal peduncle tip (-X)
+    const snoutIdx = pushVC(0.486, -0.004, 0.0, 0.16, 0.34, 0.56);
+    const tailIdx = pushVC(-0.386, 0.0, 0.0, 0.18, 0.36, 0.54);
+    const last = rings.length - 1;
+    for (let j = 0; j < rSteps; j += 1) {
+      const jNext = (j + 1) % rSteps;
+      indices.push(snoutIdx, rings[0][j], rings[0][jNext]);
+      indices.push(tailIdx, rings[last][jNext], rings[last][j]);
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  _ensureBonitoAssets() {
+    if (this._bonitoGeos) return;
+
+    const bodyGeo = this._createBonitoBodyGeometry();
+
+    // 1. Spiny First Dorsal Fin (sickle hydrofoil rising from +Y back)
+    const dorsal1Geo = this._createHydrofoilFinGeometry([
+      { leadX: 0.175, leadY: 0.105, trailX: -0.075, trailY: 0.095, halfZ: 0.008 },
+      { leadX: 0.125, leadY: 0.165, trailX: -0.045, trailY: 0.135, halfZ: 0.005 },
+      { leadX: 0.065, leadY: 0.218, trailX: 0.005, trailY: 0.185, halfZ: 0.003 },
+      { leadX: 0.015, leadY: 0.248, trailX: -0.008, trailY: 0.242, halfZ: 0.0012 },
+    ]);
+
+    // 2. Second Dorsal Fin
+    const dorsal2Geo = this._createHydrofoilFinGeometry([
+      { leadX: -0.105, leadY: 0.082, trailX: -0.205, trailY: 0.064, halfZ: 0.006 },
+      { leadX: -0.145, leadY: 0.138, trailX: -0.195, trailY: 0.112, halfZ: 0.0035 },
+      { leadX: -0.178, leadY: 0.172, trailX: -0.194, trailY: 0.166, halfZ: 0.0012 },
+    ]);
+
+    // 3. Ventral Anal Fin (ordered from bottom tip -Y up to body root so Y increases)
+    const analGeo = this._createHydrofoilFinGeometry([
+      { leadX: -0.192, leadY: -0.166, trailX: -0.208, trailY: -0.16, halfZ: 0.0012 },
+      { leadX: -0.158, leadY: -0.132, trailX: -0.208, trailY: -0.108, halfZ: 0.0035 },
+      { leadX: -0.12, leadY: -0.08, trailX: -0.218, trailY: -0.06, halfZ: 0.006 },
+    ]);
+
+    // 4. Swept Wing-like Pectoral Blade (built upright along +Y, then rotated onto port/starboard flanks)
+    const pectoralGeo = this._createHydrofoilFinGeometry([
+      { leadX: 0.035, leadY: 0.0, trailX: -0.025, trailY: 0.0, halfZ: 0.005 },
+      { leadX: 0.005, leadY: 0.085, trailX: -0.048, trailY: 0.072, halfZ: 0.0035 },
+      { leadX: -0.045, leadY: 0.168, trailX: -0.078, trailY: 0.152, halfZ: 0.002 },
+      { leadX: -0.095, leadY: 0.215, trailX: -0.11, trailY: 0.208, halfZ: 0.001 },
+    ]);
+
+    // 5. Ventral Pelvic Stabilizer Fin
+    const pelvicGeo = this._createHydrofoilFinGeometry([
+      { leadX: 0.102, leadY: -0.162, trailX: 0.088, trailY: -0.156, halfZ: 0.001 },
+      { leadX: 0.138, leadY: -0.132, trailX: 0.105, trailY: -0.122, halfZ: 0.0028 },
+      { leadX: 0.165, leadY: -0.102, trailX: 0.118, trailY: -0.098, halfZ: 0.0045 },
+    ]);
+
+    // 6. Signature Tuna/Bonito Dorsal & Ventral Finlet
+    const finletGeo = this._createHydrofoilFinGeometry([
+      { leadX: 0.012, leadY: 0.0, trailX: -0.014, trailY: 0.0, halfZ: 0.0025 },
+      { leadX: -0.008, leadY: 0.024, trailX: -0.018, trailY: 0.02, halfZ: 0.001 },
+    ]);
+
+    // 7. Deeply Forked Lunate Crescent Caudal Tail Fin (local origin at peduncle wrist x = 0)
+    const caudalGeo = this._createHydrofoilFinGeometry([
+      { leadX: -0.168, leadY: -0.222, trailX: -0.184, trailY: -0.214, halfZ: 0.0012 },
+      { leadX: -0.108, leadY: -0.145, trailX: -0.146, trailY: -0.128, halfZ: 0.0032 },
+      { leadX: -0.042, leadY: -0.068, trailX: -0.092, trailY: -0.052, halfZ: 0.0055 },
+      { leadX: 0.012, leadY: 0.0, trailX: -0.052, trailY: 0.0, halfZ: 0.0075 },
+      { leadX: -0.042, leadY: 0.068, trailX: -0.092, trailY: 0.052, halfZ: 0.0055 },
+      { leadX: -0.108, leadY: 0.145, trailX: -0.146, trailY: 0.128, halfZ: 0.0032 },
+      { leadX: -0.168, leadY: 0.222, trailX: -0.184, trailY: 0.214, halfZ: 0.0012 },
+    ]);
+
+    const eyeIrisGeo = new THREE.SphereGeometry(0.02, 10, 10);
+    const eyePupilGeo = new THREE.SphereGeometry(0.0125, 8, 8);
+
+    this._bonitoGeos = {
+      bodyGeo,
+      dorsal1Geo,
+      dorsal2Geo,
+      analGeo,
+      pectoralGeo,
+      pelvicGeo,
+      finletGeo,
+      caudalGeo,
+      eyeIrisGeo,
+      eyePupilGeo,
+    };
+
+    this.fishBodyMat = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      metalness: 0.52,
+      roughness: 0.22,
+      transparent: true,
+      opacity: 1.0,
+    });
+    this.fishFinMat = new THREE.MeshStandardMaterial({
+      color: 0x2c4d6e,
+      metalness: 0.38,
+      roughness: 0.32,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 1.0,
+    });
+    this.fishFinletMat = new THREE.MeshStandardMaterial({
+      color: 0xc8b44a,
+      metalness: 0.42,
+      roughness: 0.3,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 1.0,
+    });
+    this.fishEyeIrisMat = new THREE.MeshStandardMaterial({
+      color: 0xdce6b8,
+      metalness: 0.6,
+      roughness: 0.18,
+      transparent: true,
+      opacity: 1.0,
+    });
+    this.fishEyePupilMat = new THREE.MeshStandardMaterial({
+      color: 0x070b10,
+      metalness: 0.1,
+      roughness: 0.08,
+      transparent: true,
+      opacity: 1.0,
+    });
+
+    this.fishMaterials = [
+      this.fishBodyMat,
+      this.fishFinMat,
+      this.fishFinletMat,
+      this.fishEyeIrisMat,
+      this.fishEyePupilMat,
+    ];
+    // Backwards-compatible alias
+    this.fishMat = this.fishBodyMat;
+  }
+
+  /**
+   * Builds an articulated 3D Pacific Bonito / Skipjack Tuna (Atu / Aku) group:
+   * - Nose oriented along +X, dorsal up +Y, lateral flanks +-Z
+   * - Exposes fishGroup.userData.tailPivot for live caudal tail-wag animation
+   */
+  createBonitoFish({ cloneMaterials = false } = {}) {
+    this._ensureBonitoAssets();
+    const g = this._bonitoGeos;
+
+    const pickMat = (baseMat) => {
+      if (!cloneMaterials) return baseMat;
+      const m = baseMat.clone();
+      m.transparent = false;
+      m.opacity = 1.0;
+      return m;
+    };
+
+    const bodyMat = pickMat(this.fishBodyMat);
+    const finMat = pickMat(this.fishFinMat);
+    const finletMat = pickMat(this.fishFinletMat);
+    const irisMat = pickMat(this.fishEyeIrisMat);
+    const pupilMat = pickMat(this.fishEyePupilMat);
+
+    const fish = new THREE.Group();
+    fish.rotation.order = 'YXZ';
+
+    const body = new THREE.Mesh(g.bodyGeo, bodyMat);
+    const dorsal1 = new THREE.Mesh(g.dorsal1Geo, finMat);
+    const dorsal2 = new THREE.Mesh(g.dorsal2Geo, finMat);
+    const anal = new THREE.Mesh(g.analGeo, finMat);
+    fish.add(body, dorsal1, dorsal2, anal);
+
+    // Paired pectoral & pelvic fins on port (-Z) & starboard (+Z) flanks
+    for (const side of [-1, 1]) {
+      const pect = new THREE.Mesh(g.pectoralGeo, finMat);
+      pect.position.set(0.205, -0.02, side * 0.072);
+      pect.rotation.order = 'XYZ';
+      pect.rotation.set(side * 1.88, -side * 0.22, -0.34);
+      fish.add(pect);
+
+      const pelv = new THREE.Mesh(g.pelvicGeo, finMat);
+      pelv.position.set(0.0, 0.0, side * 0.018);
+      pelv.rotation.x = -side * 0.24;
+      fish.add(pelv);
+
+      // Glossy lateral eyes behind the snout
+      const iris = new THREE.Mesh(g.eyeIrisGeo, irisMat);
+      iris.position.set(0.352, 0.026, side * 0.044);
+      iris.scale.set(1.05, 1.0, 0.38);
+      const pupil = new THREE.Mesh(g.eyePupilGeo, pupilMat);
+      pupil.position.set(0.355, 0.026, side * 0.0485);
+      pupil.scale.set(1.05, 1.0, 0.42);
+      fish.add(iris, pupil);
+    }
+
+    // Dorsal & ventral metallic yellow-gold tuna finlets along the caudal wrist
+    const finletStations = [
+      { x: -0.235, y: 0.052 },
+      { x: -0.272, y: 0.04 },
+      { x: -0.306, y: 0.03 },
+      { x: -0.338, y: 0.022 },
+    ];
+    for (const fs of finletStations) {
+      const topFl = new THREE.Mesh(g.finletGeo, finletMat);
+      topFl.position.set(fs.x, fs.y, 0.0);
+      const botFl = new THREE.Mesh(g.finletGeo, finletMat);
+      botFl.position.set(fs.x, -fs.y, 0.0);
+      botFl.rotation.x = Math.PI;
+      fish.add(topFl, botFl);
+    }
+
+    // Articulated lunate caudal tail fin pivoting at the peduncle wrist
+    const tailPivot = new THREE.Group();
+    tailPivot.position.set(-0.368, 0.0, 0.0);
+    const caudal = new THREE.Mesh(g.caudalGeo, finMat);
+    tailPivot.add(caudal);
+    fish.add(tailPivot);
+
+    fish.userData.tailPivot = tailPivot;
+    return fish;
+  }
+
   _buildMiddayFishSchool() {
     this.fishGroup = new THREE.Group();
     this.fishGroup.visible = false;
     this.group.add(this.fishGroup);
 
-    this.fishMat = new THREE.MeshStandardMaterial({
-      color: 0xb8d8ef,
-      metalness: 0.55,
-      roughness: 0.25,
-      transparent: true,
-      opacity: 1.0,
-    });
+    this._ensureBonitoAssets();
     this.leapingFish = [];
     for (let i = 0; i < 10; i += 1) {
-      const mesh = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.85, 6), this.fishMat);
+      const mesh = this.createBonitoFish({ cloneMaterials: false });
+      const scale = 0.88 + (i % 4) * 0.08;
+      mesh.scale.setScalar(scale);
       this.fishGroup.add(mesh);
       this.leapingFish.push({
         mesh,
+        tailPivot: mesh.userData.tailPivot,
         angle: (i / 10.0) * Math.PI * 2.0,
         radius: 2.2 + (i % 3) * 1.6,
         phase: i * 0.62,
@@ -838,16 +1250,31 @@ export class WorldCuesRenderer {
     this.fishAlpha = easeToward(this.fishAlpha, targetFishAlpha, fadeDt, 2.0);
     if (this.fishAlpha > 0.004) {
       this.fishGroup.visible = true;
-      this.fishMat.opacity = this.fishAlpha;
+      const useTransparent = this.fishAlpha < 0.995;
+      for (const fm of this.fishMaterials) {
+        fm.opacity = this.fishAlpha;
+        if (fm.transparent !== useTransparent) {
+          fm.transparent = useTransparent;
+          fm.needsUpdate = true;
+        }
+      }
       for (const lf of this.leapingFish) {
         const t = (elapsedSec * 2.4 + lf.phase) % (Math.PI * 2.0);
-        const arcY = Math.max(-0.4, Math.sin(t) * 1.85);
+        const sinT = Math.sin(t);
+        const arcY = Math.max(-0.42, sinT * 1.85);
+        const swimAngle = lf.angle + elapsedSec * 0.62;
         lf.mesh.position.set(
-          Math.cos(lf.angle + elapsedSec * 0.5) * lf.radius,
+          Math.cos(swimAngle) * lf.radius,
           arcY,
-          Math.sin(lf.angle + elapsedSec * 0.5) * lf.radius
+          Math.sin(swimAngle) * lf.radius
         );
-        lf.mesh.rotation.z = Math.cos(t) * 0.9;
+        lf.mesh.rotation.y = -swimAngle - Math.PI * 0.5;
+        lf.mesh.rotation.z = sinT > -0.22 ? Math.cos(t) * 0.68 : 0.0;
+        lf.mesh.rotation.x = -0.16;
+        if (lf.tailPivot) {
+          lf.tailPivot.rotation.y =
+            Math.sin(elapsedSec * 16.0 + lf.phase * 3.1) * 0.28;
+        }
       }
     } else {
       this.fishGroup.visible = false;

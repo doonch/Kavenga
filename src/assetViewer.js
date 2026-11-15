@@ -165,7 +165,7 @@ function buildAssetCatalog() {
       id: 'fish_bonito_single',
       category: 'Fish & Sea Cues',
       name: 'Bonito Fish (Single Close-Up)',
-      subtitle: 'Metallic silver-blue bonito mesh (toggle stationary or leaping)',
+      subtitle: 'Countershaded Pacific bonito (Atu) with dorsal/pectoral fins, finlets & live lunate tail',
       tag: 'Fish',
       kind: 'fish_single',
     },
@@ -819,21 +819,27 @@ class AssetDebugViewer {
   }
 
   _mountSingleFishAsset() {
-    const src = this.worldCues.leapingFish[0].mesh;
-    const fish = src.clone(true);
-    fish.material = src.material.clone();
-    fish.position.set(0, 0.55, 0);
-    fish.rotation.z = -Math.PI * 0.42;
+    const fish = this.worldCues.createBonitoFish({ cloneMaterials: true });
+    const tailPivot = fish.userData.tailPivot;
+    fish.position.set(0, 0.36, 0);
     this.stageGroup.add(fish);
 
     this.activeTickFn = (_dt, elapsed) => {
+      const scaled = elapsed * this.animCtrl.speed;
       if (this.animCtrl.fishLeapSingle) {
-        const t = (elapsed * 2.4 * this.animCtrl.speed) % (Math.PI * 2.0);
-        fish.position.y = Math.max(-0.25, Math.sin(t) * 1.45);
-        fish.rotation.z = Math.cos(t) * 0.9;
+        const t = (scaled * 2.4) % (Math.PI * 2.0);
+        const sinT = Math.sin(t);
+        fish.position.y = Math.max(-0.25, sinT * 1.45);
+        fish.rotation.z = sinT > -0.22 ? Math.cos(t) * 0.68 : 0.0;
+        if (tailPivot) {
+          tailPivot.rotation.y = Math.sin(scaled * 16.0) * 0.3;
+        }
       } else {
-        fish.position.y = 0.55;
-        fish.rotation.z = -Math.PI * 0.42;
+        fish.position.y = 0.36;
+        fish.rotation.set(0, 0, 0);
+        if (tailPivot) {
+          tailPivot.rotation.y = Math.sin(scaled * 8.5) * 0.16;
+        }
       }
     };
   }
@@ -842,11 +848,12 @@ class AssetDebugViewer {
     const schoolGroup = new THREE.Group();
     const entries = [];
     for (const lf of this.worldCues.leapingFish) {
-      const mesh = lf.mesh.clone(true);
-      mesh.material = lf.mesh.material.clone();
+      const mesh = this.worldCues.createBonitoFish({ cloneMaterials: true });
+      mesh.scale.copy(lf.mesh.scale);
       schoolGroup.add(mesh);
       entries.push({
         mesh,
+        tailPivot: mesh.userData.tailPivot,
         angle: lf.angle,
         radius: lf.radius,
         phase: lf.phase,
@@ -858,13 +865,21 @@ class AssetDebugViewer {
       const scaled = elapsed * this.animCtrl.speed;
       for (const lf of entries) {
         const t = (scaled * 2.4 + lf.phase) % (Math.PI * 2.0);
-        const arcY = Math.max(-0.4, Math.sin(t) * 1.85);
+        const sinT = Math.sin(t);
+        const arcY = Math.max(-0.42, sinT * 1.85);
+        const swimAngle = lf.angle + scaled * 0.62;
         lf.mesh.position.set(
-          Math.cos(lf.angle + scaled * 0.5) * lf.radius,
+          Math.cos(swimAngle) * lf.radius,
           arcY,
-          Math.sin(lf.angle + scaled * 0.5) * lf.radius
+          Math.sin(swimAngle) * lf.radius
         );
-        lf.mesh.rotation.z = Math.cos(t) * 0.9;
+        lf.mesh.rotation.y = -swimAngle - Math.PI * 0.5;
+        lf.mesh.rotation.z = sinT > -0.22 ? Math.cos(t) * 0.68 : 0.0;
+        lf.mesh.rotation.x = -0.16;
+        if (lf.tailPivot) {
+          lf.tailPivot.rotation.y =
+            Math.sin(scaled * 16.0 + lf.phase * 3.1) * 0.28;
+        }
       }
     };
     tickSchool(this.animElapsedSec);
