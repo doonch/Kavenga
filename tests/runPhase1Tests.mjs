@@ -10,6 +10,7 @@ import {
   allowsRecallAtSea,
   playsSongAtSea,
   showsActiveStarShimmer,
+  showsEasyConstellationCutout,
   showsEasyCueInstructions,
   showsSkyAnnotations,
   showsSongLyrics,
@@ -213,6 +214,13 @@ assert(allowsRecallAtSea(Difficulty.HARD) === true, 'Hard allows static Sand Rec
 assert(allowsRecallAtSea(Difficulty.MASTER_NAVIGATOR) === false, 'Master disables Recall at sea');
 assert(playsSongAtSea(Difficulty.MASTER_NAVIGATOR) === false, 'Master disables song at sea');
 assert(showsSkyAnnotations(Difficulty.MASTER_NAVIGATOR) === false, 'Master shows raw starfield');
+assert(
+  showsEasyConstellationCutout(Difficulty.EASY) === true &&
+    showsEasyConstellationCutout(Difficulty.MEDIUM) === false &&
+    showsEasyConstellationCutout(Difficulty.HARD) === false &&
+    showsEasyConstellationCutout(Difficulty.MASTER_NAVIGATOR) === false,
+  'Sea Turtle constellation cut-out is strictly enabled in Easy difficulty only'
+);
 
 // ---------------------------------------------------------------------------
 // 2. Inviolable Zero-Compass & Zero-Degree Player String Audit

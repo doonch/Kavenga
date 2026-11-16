@@ -1751,6 +1751,10 @@ body {
   color: var(--sand-warm);
 }
 
+.vigil-toggle-chip-wide {
+  grid-column: 1 / -1;
+}
+
 @media (max-width: 960px) {
   .vigil-bottom-deck {
     grid-template-columns: 1fr;

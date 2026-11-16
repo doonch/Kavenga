@@ -166,6 +166,7 @@ class KavengaApp {
     });
 
     this.skyVigilUI = new SkyVigilUI(this.vigilRootEl, {
+      getGameState: () => this.gameState,
       getOceanSim: () => this.oceanSim,
       getCameraCtrl: () => this.cameraCtrl,
       onExitVigil: () => this.exitSkyVigil(),
@@ -714,6 +715,7 @@ class KavengaApp {
   setDifficulty(mode) {
     this.gameState.difficulty = mode;
     this.gameState.saveToLocalStorage();
+    this.skyVigilUI.syncDifficultyDefault(mode);
     if (this.phase === 'sailing') {
       this.chantEngine.syncState({
         difficulty: mode,

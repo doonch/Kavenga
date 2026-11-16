@@ -100,6 +100,10 @@ export function showsEasyCueInstructions(difficulty) {
   return difficulty === Difficulty.EASY;
 }
 
+export function showsEasyConstellationCutout(difficulty) {
+  return difficulty === Difficulty.EASY;
+}
+
 export function posMod(value, mod) {
   return ((value % mod) + mod) % mod;
 }

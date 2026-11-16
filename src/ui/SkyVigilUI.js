@@ -12,6 +12,7 @@
  */
 
 import * as THREE from 'three';
+import { showsEasyConstellationCutout } from '../core/gameConstants.js';
 import {
   CONSTELLATIONS,
   HORIZON_HOUSES,
@@ -71,6 +72,10 @@ export class SkyVigilUI {
     this.showLines = true;
     this.showStarLabels = true;
     this.showStoneLabels = true;
+    this.showAnimalSilhouettes = showsEasyConstellationCutout(
+      this.callbacks?.getGameState?.()?.difficulty
+    );
+    this._userToggledAnimals = false;
     this.spinMode = 0; // 0 = still, 1 = gentle wheel, 2 = swift wheel
     this.sliderHour = 20.3;
 
@@ -272,7 +277,10 @@ export class SkyVigilUI {
             <button class="vigil-toggle-chip active" id="btnToggleVigilStones" type="button">
               ✦ Stone Houses
             </button>
-            <button class="vigil-toggle-chip" id="btnVigilLookZenith" type="button" title="Tilt gaze straight overhead to inspect zenith stars">
+            <button class="vigil-toggle-chip" id="btnToggleVigilAnimals" type="button" title="Show or hide constellation animal silhouettes on the night dome">
+              🐢 Animal Silhouettes
+            </button>
+            <button class="vigil-toggle-chip vigil-toggle-chip-wide" id="btnVigilLookZenith" type="button" title="Tilt gaze straight overhead to inspect zenith stars">
               ↑ Mast-Top Zenith
             </button>
           </div>
@@ -431,6 +439,16 @@ export class SkyVigilUI {
         this._refreshControlsDOM();
       });
     this.rootEl
+      .querySelector('#btnToggleVigilAnimals')
+      .addEventListener('click', () => {
+        this.showAnimalSilhouettes = !this.showAnimalSilhouettes;
+        this._userToggledAnimals = true;
+        if (this.mode === 'quiz' && this.showAnimalSilhouettes) {
+          this.quizPeekHints = true;
+        }
+        this._refreshControlsDOM();
+      });
+    this.rootEl
       .querySelector('#btnVigilLookZenith')
       .addEventListener('click', () => {
         const camCtrl = this.callbacks.getCameraCtrl?.();
@@ -484,7 +502,18 @@ export class SkyVigilUI {
     }
   }
 
+  syncDifficultyDefault(difficulty) {
+    this._userToggledAnimals = false;
+    this.showAnimalSilhouettes = showsEasyConstellationCutout(difficulty);
+    this._refreshControlsDOM();
+  }
+
   show({ masterId = 'terai', islandId = null, mode = 'lessons', chapterIndex = 0 } = {}) {
+    if (!this._userToggledAnimals) {
+      this.showAnimalSilhouettes = showsEasyConstellationCutout(
+        this.callbacks?.getGameState?.()?.difficulty
+      );
+    }
     this.rootEl.classList.remove('hidden');
     this.rootEl.querySelector('#vigilPortraitModal').classList.add('hidden');
     const resolvedMaster = STAR_MASTERS[masterId] ? masterId : 'terai';
@@ -856,6 +885,10 @@ export class SkyVigilUI {
       this.mode === 'quiz'
         ? this.quizPeekHints && this.showStoneLabels
         : this.showStoneLabels;
+    const effectiveAnimals =
+      this.mode === 'quiz'
+        ? this.quizPeekHints && this.showAnimalSilhouettes
+        : this.showAnimalSilhouettes;
 
     this.rootEl
       .querySelector('#btnToggleVigilLines')
@@ -866,6 +899,9 @@ export class SkyVigilUI {
     this.rootEl
       .querySelector('#btnToggleVigilStones')
       .classList.toggle('active', effectiveStones);
+    this.rootEl
+      .querySelector('#btnToggleVigilAnimals')
+      ?.classList.toggle('active', effectiveAnimals);
   }
 
   /**
@@ -1010,6 +1046,7 @@ export class SkyVigilUI {
         forceClearSky: true,
         showLines: this.showLines,
         showStarLabels: this.showStarLabels,
+        showAnimalSilhouettes: this.showAnimalSilhouettes,
         shimmerStarIds,
         focusConstellationId,
         revealLabelStarIds,
@@ -1028,6 +1065,7 @@ export class SkyVigilUI {
         forceClearSky: true,
         showLines: this.showLines,
         showStarLabels: this.showStarLabels,
+        showAnimalSilhouettes: this.showAnimalSilhouettes,
         shimmerStarIds,
         focusConstellationId,
         revealLabelStarIds,
@@ -1047,6 +1085,9 @@ export class SkyVigilUI {
       forceClearSky: true,
       showLines: this.quizPeekHints && this.showLines,
       showStarLabels: this.quizPeekHints && this.showStarLabels,
+      showAnimalSilhouettes:
+        (this.quizPeekHints || Boolean(this.quizResolved && focusConstellationId)) &&
+        this.showAnimalSilhouettes,
       shimmerStarIds,
       focusConstellationId,
       revealLabelStarIds,

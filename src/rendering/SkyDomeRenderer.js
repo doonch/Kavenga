@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import {
   GameConstants,
   showsActiveStarShimmer,
+  showsEasyConstellationCutout,
   showsSkyAnnotations,
 } from '../core/gameConstants.js';
 import {
@@ -199,6 +200,152 @@ const CONSTELLATION_LINE_FRAGMENT_SHADER = /* glsl */ `
   }
 `;
 
+const TURTLE_HALF_SPAN = 0.20;
+const TURTLE_GRID_N = 14;
+
+const TURTLE_CUTOUT_VERTEX_SHADER = /* glsl */ `
+  attribute float aClearance;
+  varying vec2 vUv;
+  varying float vClearance;
+  void main() {
+    vUv = uv;
+    vClearance = aClearance;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const TURTLE_CUTOUT_FRAGMENT_SHADER = /* glsl */ `
+  uniform sampler2D uCutoutMap;
+  uniform float uOpacity;
+  varying vec2 vUv;
+  varying float vClearance;
+  void main() {
+    vec4 tex = texture2D(uCutoutMap, vUv);
+    float a = tex.a * uOpacity * vClearance;
+    if (a <= 0.006) discard;
+    gl_FragColor = vec4(tex.rgb, a);
+  }
+`;
+
+function createSeaTurtleCutoutTexture() {
+  if (typeof document === 'undefined') {
+    const data = new Uint8Array([68, 168, 210, 220]);
+    const fallback = new THREE.DataTexture(data, 1, 1);
+    fallback.needsUpdate = true;
+    return fallback;
+  }
+
+  const size = 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, size, size);
+
+  const drawSilhouetteParts = () => {
+    // 1. Head & short neck extending forward above Shell Crown (256, 132.7)
+    ctx.beginPath();
+    ctx.moveTo(236, 114);
+    ctx.bezierCurveTo(231, 90, 238, 62, 256, 58);
+    ctx.bezierCurveTo(274, 62, 281, 90, 276, 114);
+    ctx.quadraticCurveTo(256, 108, 236, 114);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // 2. Left & Right swept hydrofoil front flippers (enclosing stars at 76.1, 256 & 435.9, 256)
+    for (const mirror of [false, true]) {
+      const mx = (x) => (mirror ? size - x : x);
+      ctx.beginPath();
+      ctx.moveTo(mx(178), 168);
+      ctx.bezierCurveTo(mx(134), 162, mx(86), 194, mx(50), 248);
+      ctx.bezierCurveTo(mx(38), 266, mx(44), 280, mx(64), 278);
+      ctx.bezierCurveTo(mx(106), 272, mx(144), 244, mx(170), 222);
+      ctx.quadraticCurveTo(mx(171), 194, mx(178), 168);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Hind paddle flipper
+      ctx.beginPath();
+      ctx.moveTo(mx(198), 372);
+      ctx.bezierCurveTo(mx(174), 390, mx(160), 416, mx(168), 432);
+      ctx.bezierCurveTo(mx(176), 444, mx(198), 436, mx(214), 412);
+      ctx.lineTo(mx(222), 390);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    // 3. Small pointed tail
+    ctx.beginPath();
+    ctx.moveTo(248, 404);
+    ctx.lineTo(256, 430);
+    ctx.lineTo(264, 404);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // 4. Heart-oval sea-turtle carapace (cradling Shell Crown star at 256, 132.7)
+    ctx.beginPath();
+    ctx.moveTo(256, 120);
+    ctx.bezierCurveTo(310, 120, 344, 168, 342, 240);
+    ctx.bezierCurveTo(340, 314, 306, 382, 256, 398);
+    ctx.bezierCurveTo(206, 382, 172, 314, 170, 240);
+    ctx.bezierCurveTo(168, 168, 202, 120, 256, 120);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  };
+
+  // Subtle, low-contrast nocturnal midnight-slate shade close to the deep indigo sky
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.fillStyle = 'rgba(42, 84, 124, 0.85)';
+  ctx.strokeStyle = 'rgba(56, 102, 144, 0.85)';
+  ctx.lineWidth = 1.6;
+  drawSilhouetteParts();
+
+  // Carve stencil scute grooves inside the carapace so the dark sky dome shows through cleanly
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.72)';
+  ctx.lineWidth = 3.4;
+
+  ctx.beginPath();
+  ctx.moveTo(256, 138);
+  ctx.bezierCurveTo(298, 138, 326, 178, 325, 240);
+  ctx.bezierCurveTo(323, 302, 295, 360, 256, 378);
+  ctx.bezierCurveTo(217, 360, 189, 302, 187, 240);
+  ctx.bezierCurveTo(186, 178, 214, 138, 256, 138);
+  ctx.closePath();
+  ctx.stroke();
+
+  const scuteSegments = [
+    [256, 154, 278, 176], [278, 176, 274, 218], [274, 218, 238, 218], [238, 218, 234, 176], [234, 176, 256, 154],
+    [274, 218, 276, 272], [276, 272, 236, 272], [236, 272, 238, 218],
+    [276, 272, 270, 326], [270, 326, 242, 326], [242, 326, 236, 272],
+    [256, 326, 256, 378],
+    [234, 176, 196, 192], [278, 176, 316, 192],
+    [238, 218, 188, 244], [274, 218, 324, 244],
+    [236, 272, 194, 304], [276, 272, 318, 304],
+    [242, 326, 212, 352], [270, 326, 300, 352],
+  ];
+  ctx.beginPath();
+  for (const [x1, y1, x2, y2] of scuteSegments) {
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+  }
+  ctx.stroke();
+  ctx.restore();
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 function fractJs(v) {
   return v - Math.floor(v);
 }
@@ -379,6 +526,9 @@ export class SkyDomeRenderer {
     this.focusLines.visible = false;
     this.group.add(this.focusLines);
 
+    // 3b. Easy-Mode Sea Turtle Constellation Cut-Out (drawn behind stars, lines & labels)
+    this._buildSeaTurtleCutout();
+
     // 4. DOM Sky Labels for Named Stars (strictly mode-gated; zero degrees/cardinals)
     this.starLabelEls = {};
     if (this.labelLayerEl) {
@@ -398,6 +548,174 @@ export class SkyDomeRenderer {
     this.curSeaFog = 0.0;
     this._projVec = new THREE.Vector3();
     this._probeDir = { x: 0.0, y: 1.0, z: 0.0 };
+  }
+
+  _buildSeaTurtleCutout() {
+    const stride = TURTLE_GRID_N + 1;
+    const vertCount = stride * stride;
+    this.turtlePositions = new Float32Array(vertCount * 3);
+    this.turtleClearances = new Float32Array(vertCount);
+    const uvs = new Float32Array(vertCount * 2);
+    const indices = [];
+
+    for (let iy = 0; iy <= TURTLE_GRID_N; iy += 1) {
+      const t = iy / TURTLE_GRID_N;
+      for (let ix = 0; ix <= TURTLE_GRID_N; ix += 1) {
+        const s = ix / TURTLE_GRID_N;
+        const idx = iy * stride + ix;
+        uvs[idx * 2] = s;
+        uvs[idx * 2 + 1] = t;
+      }
+    }
+
+    for (let iy = 0; iy < TURTLE_GRID_N; iy += 1) {
+      for (let ix = 0; ix < TURTLE_GRID_N; ix += 1) {
+        const i00 = iy * stride + ix;
+        const i10 = i00 + 1;
+        const i01 = i00 + stride;
+        const i11 = i01 + 1;
+        indices.push(i00, i10, i11, i00, i11, i01);
+      }
+    }
+
+    const turtleGeo = new THREE.BufferGeometry();
+    turtleGeo.setAttribute(
+      'position',
+      new THREE.BufferAttribute(this.turtlePositions, 3)
+    );
+    turtleGeo.setAttribute(
+      'aClearance',
+      new THREE.BufferAttribute(this.turtleClearances, 1)
+    );
+    turtleGeo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+    turtleGeo.setIndex(indices);
+
+    this.turtleUniforms = {
+      uCutoutMap: { value: createSeaTurtleCutoutTexture() },
+      uOpacity: { value: 0.24 },
+    };
+
+    const turtleMat = new THREE.ShaderMaterial({
+      vertexShader: TURTLE_CUTOUT_VERTEX_SHADER,
+      fragmentShader: TURTLE_CUTOUT_FRAGMENT_SHADER,
+      uniforms: this.turtleUniforms,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+
+    this.seaTurtleCutout = new THREE.Mesh(turtleGeo, turtleMat);
+    this.seaTurtleCutout.frustumCulled = false;
+    // Render after skyMesh (-10), strictly behind constellationLines (-9), focusLines (-8.5), and starPoints (-8)
+    this.seaTurtleCutout.renderOrder = -9.5;
+    this.seaTurtleCutout.visible = false;
+    this.group.add(this.seaTurtleCutout);
+  }
+
+  _updateSeaTurtleCutout(
+    navWorldVecs,
+    starVis,
+    camOrigin,
+    cloudOccluder,
+    elapsedSec,
+    isVigil
+  ) {
+    const vc = navWorldVecs.shell_crown;
+    const vl = navWorldVecs.turtle_flipper_east;
+    const vr = navWorldVecs.turtle_flipper_west;
+    if (
+      !vc ||
+      !vl ||
+      !vr ||
+      Math.max(vc.altDeg, vl.altDeg, vr.altDeg) <= 0.2
+    ) {
+      this.seaTurtleCutout.visible = false;
+      return;
+    }
+
+    // Orthonormal tangent basis (M, U, V) rigidly locked to the 3 Sea Turtle stars on the sky sphere
+    let mx = vl.dir.x + vr.dir.x;
+    let my = vl.dir.y + vr.dir.y;
+    let mz = vl.dir.z + vr.dir.z;
+    const mLen = Math.hypot(mx, my, mz) || 1.0;
+    mx /= mLen;
+    my /= mLen;
+    mz /= mLen;
+
+    let ux = vr.dir.x - vl.dir.x;
+    let uy = vr.dir.y - vl.dir.y;
+    let uz = vr.dir.z - vl.dir.z;
+    const uLen = Math.hypot(ux, uy, uz) || 1.0;
+    ux /= uLen;
+    uy /= uLen;
+    uz /= uLen;
+
+    const dotCM = vc.dir.x * mx + vc.dir.y * my + vc.dir.z * mz;
+    const dotCU = vc.dir.x * ux + vc.dir.y * uy + vc.dir.z * uz;
+    let vx = vc.dir.x - dotCM * mx - dotCU * ux;
+    let vy = vc.dir.y - dotCM * my - dotCU * uy;
+    let vz = vc.dir.z - dotCM * mz - dotCU * uz;
+    const vLen = Math.hypot(vx, vy, vz) || 1.0;
+    vx /= vLen;
+    vy /= vLen;
+    vz /= vLen;
+
+    const radius = STAR_RADIUS + 4.0;
+    const stride = TURTLE_GRID_N + 1;
+    let anyVisibleVertex = false;
+
+    for (let iy = 0; iy <= TURTLE_GRID_N; iy += 1) {
+      const v = ((iy / TURTLE_GRID_N) * 2.0 - 1.0) * TURTLE_HALF_SPAN;
+      for (let ix = 0; ix <= TURTLE_GRID_N; ix += 1) {
+        const u = ((ix / TURTLE_GRID_N) * 2.0 - 1.0) * TURTLE_HALF_SPAN;
+        const idx = iy * stride + ix;
+
+        const rx = mx + u * ux + v * vx;
+        const ry = my + u * uy + v * vy;
+        const rz = mz + u * uz + v * vz;
+        const rLen = Math.hypot(rx, ry, rz) || 1.0;
+        const dx = rx / rLen;
+        const dy = ry / rLen;
+        const dz = rz / rLen;
+
+        this.turtlePositions[idx * 3] = dx * radius;
+        this.turtlePositions[idx * 3 + 1] = dy * radius;
+        this.turtlePositions[idx * 3 + 2] = dz * radius;
+
+        if (dy <= 0.002) {
+          this.turtleClearances[idx] = 0.0;
+          continue;
+        }
+
+        this._probeDir.x = dx;
+        this._probeDir.y = dy;
+        this._probeDir.z = dz;
+        const clearance = this._skyClearanceForDir(
+          this._probeDir,
+          camOrigin,
+          cloudOccluder,
+          elapsedSec
+        );
+        const horizonFade = smoothstepJs(0.004, 0.065, dy);
+        const cloudFade = smoothstepJs(0.12, 0.52, clearance);
+        const vAlpha = horizonFade * cloudFade;
+        this.turtleClearances[idx] = vAlpha;
+        if (vAlpha > 0.02) {
+          anyVisibleVertex = true;
+        }
+      }
+    }
+
+    if (!anyVisibleVertex) {
+      this.seaTurtleCutout.visible = false;
+      return;
+    }
+
+    this.seaTurtleCutout.visible = true;
+    this.turtleUniforms.uOpacity.value =
+      (isVigil ? 0.25 : 0.22) * starVis * (1.0 - 0.85 * this.curSeaFog);
+    this.seaTurtleCutout.geometry.attributes.position.needsUpdate = true;
+    this.seaTurtleCutout.geometry.attributes.aClearance.needsUpdate = true;
   }
 
   _generateAmbientStars(count) {
@@ -702,6 +1020,25 @@ export class SkyDomeRenderer {
         }
       });
       this.focusLines.geometry.attributes.position.needsUpdate = true;
+    }
+
+    // Update Constellation Animal Silhouette Cut-Out (Easy-only at sea; button-toggled in Sky Vigils)
+    const showAnimalSilhouettes = vigilOverrides
+      ? 'showAnimalSilhouettes' in vigilOverrides
+        ? Boolean(vigilOverrides.showAnimalSilhouettes)
+        : showsEasyConstellationCutout(difficulty)
+      : showsEasyConstellationCutout(difficulty);
+    if (showAnimalSilhouettes && starVis > 0.08) {
+      this._updateSeaTurtleCutout(
+        navWorldVecs,
+        starVis,
+        camOrigin,
+        cloudOccluder,
+        elapsedSec,
+        Boolean(vigilOverrides)
+      );
+    } else {
+      this.seaTurtleCutout.visible = false;
     }
 
     // Project Mode-Gated Sky Star Labels (strictly hidden whenever occluded by any cloud!)
