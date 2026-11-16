@@ -1416,3 +1416,41 @@ export function animatePlayerCharacterAshore(
       Math.cos(elapsedSec * (windFreq * 0.73)) * (windAmp * 0.45);
   }
 }
+
+/**
+ * Smoothly sets the opacity of a player character rig (used when the camera settles
+ * forward from behind the helm into 1st-person deck view without pop or head clipping).
+ */
+export function setPlayerCharacterOpacity(rig, opacity = 1.0) {
+  if (!rig?.root) return;
+  const clamped = Math.max(0.0, Math.min(1.0, opacity));
+  if (rig._lastOpacity !== undefined && Math.abs(rig._lastOpacity - clamped) < 0.002) {
+    return;
+  }
+  if (!rig._cachedMaterials) {
+    const matSet = new Set();
+    rig.root.traverse((obj) => {
+      if (!obj.isMesh || !obj.material) return;
+      if (Array.isArray(obj.material)) {
+        for (const m of obj.material) {
+          if (m) matSet.add(m);
+        }
+      } else {
+        matSet.add(obj.material);
+      }
+    });
+    rig._cachedMaterials = Array.from(matSet);
+  }
+
+  const isTranslucent = clamped < 0.999;
+  for (let i = 0; i < rig._cachedMaterials.length; i += 1) {
+    const mat = rig._cachedMaterials[i];
+    if (mat.transparent !== isTranslucent) {
+      mat.transparent = isTranslucent;
+      mat.needsUpdate = true;
+    }
+    mat.depthWrite = true;
+    mat.opacity = isTranslucent ? clamped : 1.0;
+  }
+  rig._lastOpacity = clamped;
+}

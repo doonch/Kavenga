@@ -14,6 +14,7 @@ import { altAzToDirectionVec3 } from '../simulation/celestialSim.js';
 import {
   animatePlayerCharacterRig,
   createPlayerCharacterRig,
+  setPlayerCharacterOpacity,
 } from './PlayerCharacterBuilder.js';
 
 export class VakaRenderer {
@@ -1163,7 +1164,10 @@ export class VakaRenderer {
     }
 
     // 5. Standing Player Character at the Aft Helm (visible at sea ONLY when not in 1st-person Deck View)
-    const showPlayerOnCanoe = Boolean(viewOpts?.showPlayerOnCanoe);
+    const playerOpacity =
+      viewOpts?.playerOpacity !== undefined ? viewOpts.playerOpacity : 1.0;
+    const showPlayerOnCanoe =
+      Boolean(viewOpts?.showPlayerOnCanoe) && playerOpacity > 0.005;
     this.playerHelmGroup.visible = showPlayerOnCanoe;
     if (showPlayerOnCanoe) {
       const targetDiff =
@@ -1177,6 +1181,7 @@ export class VakaRenderer {
       } else {
         activeRig.root.visible = true;
       }
+      setPlayerCharacterOpacity(activeRig, playerOpacity);
       animatePlayerCharacterRig(activeRig, elapsedSec, {
         steerNorm,
         hullState: hull,

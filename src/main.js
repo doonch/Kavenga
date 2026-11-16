@@ -70,13 +70,13 @@ class KavengaApp {
       startRollRad: 0.0,
     };
 
-    // ~2.95s 3D Island Launch Departure Cinematic state (bird's-eye over island & leaving canoe -> 1st-person)
+    // ~5.90s (x2 slower) 3D Island Launch Departure Cinematic state (bird's-eye -> behind-helm player showcase -> 1st-person)
     this.launchAnim = {
       active: false,
       finished: true,
       justStarted: false,
       elapsed: 0.0,
-      duration: 2.95,
+      duration: 5.9,
       rawT: 0.0,
       glide: 0.0,
       canoeStartZ: 24.0,
@@ -466,6 +466,19 @@ class KavengaApp {
     );
 
     const hull = this.oceanSim.hullState;
+    // Pre-pose the player character standing at the canoe helm at t = 0 of departure
+    this.vakaRenderer.update(
+      0.0,
+      this._elapsedAppSec || 0.0,
+      this.oceanSim,
+      this.gameState,
+      0.0,
+      {
+        showPlayerOnCanoe: true,
+        playerOpacity: 1.0,
+        lookYawDeg: 0.0,
+      }
+    );
     this.vakaRenderer.root.position.set(
       0.0,
       hull ? hull.heaveM * 0.25 : 0.0,
@@ -944,10 +957,19 @@ class KavengaApp {
         launchProgress01: this.launchAnim.active ? this.launchAnim.rawT : null,
       }
     );
+    let playerOpacity = 1.0;
+    if (this.launchAnim.active && this.cameraCtrl.thirdPersonBlend < 0.22) {
+      const fadeU = Math.max(
+        0.0,
+        Math.min(1.0, (this.launchAnim.rawT - 0.78) / 0.1)
+      );
+      playerOpacity = 1.0 - fadeU * fadeU * (3.0 - 2.0 * fadeU);
+    }
+
     const showPlayerOnCanoe =
       this.phase === 'sailing' &&
       (this.cameraCtrl.thirdPersonBlend >= 0.22 ||
-        (this.launchAnim.active && this.launchAnim.rawT < 0.72) ||
+        (this.launchAnim.active && playerOpacity > 0.005) ||
         (this.landfallAnim.active &&
           (this.cameraCtrl.isThirdPersonView() || this.landfallAnim.rawT > 0.22)));
 
@@ -961,6 +983,7 @@ class KavengaApp {
         : this.cameraCtrl.getSteeringNormalized(),
       {
         showPlayerOnCanoe,
+        playerOpacity,
         lookYawDeg: this.cameraCtrl.lookYawDeg,
       }
     );

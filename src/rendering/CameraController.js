@@ -13,6 +13,11 @@ function clamp(val, minVal, maxVal) {
   return Math.max(minVal, Math.min(maxVal, val));
 }
 
+function smootherstep(e0, e1, x) {
+  const t = clamp((x - e0) / (e1 - e0), 0.0, 1.0);
+  return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+
 export class CameraController {
   constructor(domElement) {
     this.domElement = domElement;
@@ -62,12 +67,14 @@ export class CameraController {
     this._landfallLookMat = new THREE.Matrix4();
     this._landfallTargetQuat = new THREE.Quaternion();
 
-    // Island launch departure camera state (bird's-eye over island & departing canoe -> 1st-person view)
+    // Island launch departure camera state (bird's-eye over island -> behind-helm player showcase -> 1st-person view)
     this._launchActive = false;
     this._launchCanoeStartZ = 24.0;
     this._launchP0 = new THREE.Vector3(7.5, 126.0, 64.0);
-    this._launchP1 = new THREE.Vector3(2.2, 16.5, 29.5);
+    this._launchP1 = new THREE.Vector3(2.2, 18.0, 42.0);
     this._launchP2 = new THREE.Vector3(0.0, 2.38, 3.45);
+    this._launchHeroPos = new THREE.Vector3();
+    this._launchStage1Pos = new THREE.Vector3();
     this._launchLookStart = new THREE.Vector3(0.0, 1.2, 46.0);
     this._launchCurLook = new THREE.Vector3();
     this._launchLookMat = new THREE.Matrix4();
@@ -376,10 +383,17 @@ export class CameraController {
       const hullPitch = hull ? hull.pitchRad * 0.42 : 0.0;
       const hullRoll = hull ? hull.rollRad * 0.38 : 0.0;
 
+      const rawT = clamp(launchAnim.rawT ?? 0.0, 0.0, 1.0);
+      const u = rawT * rawT * (3.0 - 2.0 * rawT);
+      const curCanoeZ =
+        launchAnim.curCanoeZ ??
+        this._launchCanoeStartZ * (1.0 - (launchAnim.glide ?? u));
+
+      // Moving 1st-person navigator bench target (settles to exact baseEyePos as curCanoeZ -> 0)
       this._launchP2.set(
         this.baseEyePos.x - (hull ? hull.rollRad * 1.1 : 0.0),
         this.baseEyePos.y + heave,
-        this.baseEyePos.z
+        curCanoeZ + this.baseEyePos.z
       );
       this._euler.set(
         degToRad(this.basePitchDeg) + hullPitch,
@@ -389,47 +403,61 @@ export class CameraController {
       );
       this._launchEndQuat.setFromEuler(this._euler);
 
-      const rawT = clamp(launchAnim.rawT ?? 0.0, 0.0, 1.0);
-      const u = rawT * rawT * (3.0 - 2.0 * rawT);
-      const oneMinusU = 1.0 - u;
-      const w0 = oneMinusU * oneMinusU;
-      const w1 = 2.0 * oneMinusU * u;
-      const w2 = u * u;
-
-      this.camera.position.set(
-        w0 * this._launchP0.x + w1 * this._launchP1.x + w2 * this._launchP2.x,
-        w0 * this._launchP0.y + w1 * this._launchP1.y + w2 * this._launchP2.y,
-        w0 * this._launchP0.z + w1 * this._launchP1.z + w2 * this._launchP2.z
+      // Stage 1 -> Stage 2: Swoop from bird's-eye island overview into a close behind-the-stern
+      // hero framing (~3.4m–3.9m behind the standing player character at z = curCanoeZ + 3.86)
+      this._launchP1.set(2.2, 18.0, curCanoeZ + 18.5);
+      this._launchHeroPos.set(
+        -0.44 + 0.12 * rawT,
+        3.02 - 0.16 * rawT + heave * 0.72,
+        curCanoeZ + (8.9 - 2.1 * rawT)
       );
 
-      const curCanoeZ =
-        launchAnim.curCanoeZ ??
-        this._launchCanoeStartZ * (1.0 - (launchAnim.glide ?? u));
-      const lookTrackU = clamp(rawT / 0.78, 0.0, 1.0);
-      const lookSmooth = lookTrackU * lookTrackU * (3.0 - 2.0 * lookTrackU);
+      const s1 = smootherstep(0.0, 0.54, rawT);
+      const oneMinusS1 = 1.0 - s1;
+      const w0 = oneMinusS1 * oneMinusS1;
+      const w1 = 2.0 * oneMinusS1 * s1;
+      const w2 = s1 * s1;
+      this._launchStage1Pos.set(
+        w0 * this._launchP0.x + w1 * this._launchP1.x + w2 * this._launchHeroPos.x,
+        w0 * this._launchP0.y + w1 * this._launchP1.y + w2 * this._launchHeroPos.y,
+        w0 * this._launchP0.z + w1 * this._launchP1.z + w2 * this._launchHeroPos.z
+      );
+
+      // Stage 2 -> Stage 3: Hold the player character clearly in view (rawT ~ 0.50..0.76),
+      // then push smoothly forward into 1st-person deck view (rawT 0.76 -> 1.00)
+      const s2 = smootherstep(0.76, 1.0, rawT);
+      this.camera.position.lerpVectors(
+        this._launchStage1Pos,
+        this._launchP2,
+        s2
+      );
+
+      const sLook = smootherstep(0.0, 0.52, rawT);
+      const heroLookY = 1.56 + heave * 0.75;
+      const heroLookZ = curCanoeZ - 2.2;
       this._launchCurLook.set(
-        0.0,
-        1.2 + 1.2 * lookSmooth,
-        this._launchLookStart.z +
-          (curCanoeZ - 14.0 - this._launchLookStart.z) * lookSmooth
+        -0.2 * sLook,
+        this._launchLookStart.y + (heroLookY - this._launchLookStart.y) * sLook,
+        this._launchLookStart.z + (heroLookZ - this._launchLookStart.z) * sLook
       );
       this._launchLookMat.lookAt(
-        this.camera.position,
+        this._launchStage1Pos,
         this._launchCurLook,
         THREE.Object3D.DEFAULT_UP
       );
       this._launchLookQuat.setFromRotationMatrix(this._launchLookMat);
 
-      const slerpU = clamp((rawT - 0.5) / 0.5, 0.0, 1.0);
-      const slerpT = slerpU * slerpU * (3.0 - 2.0 * slerpU);
+      const sRot = smootherstep(0.74, 1.0, rawT);
       this.camera.quaternion.slerpQuaternions(
         this._launchLookQuat,
         this._launchEndQuat,
-        slerpT
+        sRot
       );
 
       const baseFov = GameConstants.DEFAULT_CAMERA_TOP_ALT_DEG + 14.0;
-      const targetFov = 64.0 + (baseFov - 64.0) * u;
+      const heroFov = 58.0;
+      const stage1Fov = 64.0 + (heroFov - 64.0) * s1;
+      const targetFov = stage1Fov + (baseFov - stage1Fov) * s2;
       if (Math.abs(this.camera.fov - targetFov) > 0.01) {
         this.camera.fov = targetFov;
         this.camera.updateProjectionMatrix();
