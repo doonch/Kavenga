@@ -121,6 +121,10 @@ export const POI_LABELS = Object.freeze({
   sacred_lagoon_shrine: "Keeper Akura's Star-Mirror Shrine",
   drying_racks: 'Provisioning & Drying Racks',
   great_ancestral_ahu: 'The Great Ancestral Heiau Ahu',
+  anakena_cove: 'Anakena Coral-Sand Cove',
+  ahu_tongariki: 'Ahu Tongariki Stone Guardians',
+  rano_raraku_quarry: 'Rano Raraku Tuff Quarry',
+  rano_kau_caldera: 'Rano Kau Caldera Rim',
 });
 
 function grantCargoWithSlotSafety(gameState, itemId) {
@@ -706,6 +710,13 @@ export function getAvailableRoutesFromCurrentIsland(gameState) {
           routes.push({ song: retSong, isReturn: true });
           coveredTargets.add(islId);
         }
+      }
+    }
+    if (!routes.length && (fromId === 'rapa_nui' || fromId === 'hawaii')) {
+      const fallbackPeer = fromId === 'rapa_nui' ? 'mangareva' : 'kiritimati';
+      const fallbackSong = buildReturnSong(fromId, fallbackPeer);
+      if (fallbackSong) {
+        routes.push({ song: fallbackSong, isReturn: true });
       }
     }
   }

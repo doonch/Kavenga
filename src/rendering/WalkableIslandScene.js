@@ -15,12 +15,21 @@
 
 import * as THREE from 'three';
 import { Difficulty, wrapDeg180 } from '../core/gameConstants.js';
-import { RAIATEA_WALKABLE_SPEC } from '../data/walkableIslandsData.js';
+import {
+  RAIATEA_WALKABLE_SPEC,
+  getWalkableIslandSpec,
+} from '../data/walkableIslandsData.js';
 import { createSculptedCloudMesh, updateCloudMaterialUniforms } from './CloudSculptBuilder.js';
 import {
   animatePlayerCharacterAshore,
   createPlayerCharacterRig,
 } from './PlayerCharacterBuilder.js';
+import {
+  buildVariantIslandStructures,
+  createHawaiiTerrainEvaluator,
+  createRapaNuiTerrainEvaluator,
+  createTahaaTerrainEvaluator,
+} from './WalkableIslandVariantsBuilder.js';
 
 function clamp(v, lo, hi) {
   return Math.max(lo, Math.min(hi, v));
@@ -270,12 +279,57 @@ export class WalkableIslandScene {
     this.torchFlames = [];
     this.pennantMeshes = [];
     this.lagoonTerns = [];
+    this.variantNpcEntries = [];
+    this.variantCloudMats = [];
+    this.builtIslandId = null;
 
-    this._buildIslandTerrainAndLagoon();
-    this._buildVillageStructuresAndPois();
     this._buildPlayerGroup();
-    this._buildPoiWorldLabels();
+    this._loadIsland('raiatea');
     this._bindCameraPointerOrbit();
+  }
+
+  _clearCurrentIslandContent() {
+    for (let i = this.root.children.length - 1; i >= 0; i -= 1) {
+      const child = this.root.children[i];
+      if (child !== this.playerGroup) {
+        this.root.remove(child);
+      }
+    }
+    for (const el of Object.values(this.poiBadgeEls)) {
+      el.remove?.();
+    }
+    this.poiVisuals = {};
+    this.poiBadgeEls = {};
+    this.torchFlames = [];
+    this.pennantMeshes = [];
+    this.lagoonTerns = [];
+    this.variantNpcEntries = [];
+    this.variantCloudMats = [];
+    this.craftsmanRig = null;
+    this.elderMetuaRig = null;
+    this.peakCloudMat = null;
+    this.tahaaCloudMat = null;
+  }
+
+  _loadIsland(islandId) {
+    const resolvedId = getWalkableIslandSpec(islandId) ? islandId : 'raiatea';
+    if (this.builtIslandId === resolvedId) return;
+
+    this._clearCurrentIslandContent();
+    this.spec = getWalkableIslandSpec(resolvedId) || RAIATEA_WALKABLE_SPEC;
+    this.builtIslandId = resolvedId;
+
+    this.obstacles = [
+      { x: -15.4, z: 57.6, r: 4.1 },
+      { x: -22.5, z: 34.4, r: 2.35 },
+      { x: -19.2, z: 38.2, r: 1.05 },
+      { x: 28.8, z: 41.2, r: 2.85 },
+      { x: 2.5, z: 28.5, r: 1.85 },
+    ];
+
+    this._buildIslandTerrainAndLagoon(resolvedId);
+    this._buildVillageStructuresAndPois(resolvedId);
+    this._buildPoiWorldLabels();
   }
 
   _bindCameraPointerOrbit() {
@@ -348,11 +402,20 @@ export class WalkableIslandScene {
     return h00 + fx * (h10 - h00) + fz * (h11 - h10);
   }
 
-  _buildIslandTerrainAndLagoon() {
+  _buildIslandTerrainAndLagoon(islandId = 'raiatea') {
     const N = this.gridN;
     const half = this.gridHalfSpan;
     const span = half * 2.0;
     const stride = N + 1;
+
+    let evalFn = evalWalkableRaiateaTerrain;
+    if (islandId === 'tahaa') {
+      evalFn = createTahaaTerrainEvaluator(this.spec);
+    } else if (islandId === 'hawaii') {
+      evalFn = createHawaiiTerrainEvaluator(this.spec);
+    } else if (islandId === 'rapa_nui') {
+      evalFn = createRapaNuiTerrainEvaluator(this.spec);
+    }
 
     const colDeepReef = [0.06, 0.32, 0.44];
     const colLagoonAqua = [0.15, 0.79, 0.73];
@@ -376,7 +439,7 @@ export class WalkableIslandScene {
       for (let ix = 0; ix <= N; ix += 1) {
         const x = -half + (ix / N) * span;
         const idx = iz * stride + ix;
-        const s = evalWalkableRaiateaTerrain(x, z);
+        const s = evalFn(x, z);
         this.heightGrid[idx] = s.h;
         samples[idx] = s;
 
@@ -406,15 +469,45 @@ export class WalkableIslandScene {
             mixRgb(colLagoonAqua, colDeepReef, depthT),
             smoothstep(0.0, 0.38, depthT)
           );
+        } else if (s.zone === 'lava_molten') {
+          const heat = clamp01(s.lavaGlow || 0.5);
+          rgb =
+            heat > 0.65
+              ? mixRgb([1.0, 0.38, 0.05], [1.0, 0.92, 0.34], (heat - 0.65) / 0.35)
+              : mixRgb([0.2, 0.06, 0.04], [1.0, 0.38, 0.05], heat / 0.65);
+        } else if (s.zone === 'black_pahoehoe' || s.zone === 'heiau_lava_terrace') {
+          rgb = s.zone === 'heiau_lava_terrace' ? [0.22, 0.21, 0.22] : [0.15, 0.14, 0.15];
+        } else if (s.zone === 'beach_cream') {
+          rgb = mixRgb([0.94, 0.89, 0.74], colVillageGrass, smoothstep(1.15, 2.25, s.h));
+        } else if (s.zone === 'anakena_rose_sand') {
+          rgb = mixRgb([0.94, 0.85, 0.78], [0.52, 0.56, 0.25], smoothstep(1.2, 2.3, s.h));
+        } else if (s.zone === 'basalt_shore') {
+          rgb = [0.2, 0.19, 0.2];
+        } else if (s.zone === 'tuff_quarry') {
+          rgb = mixRgb([0.74, 0.62, 0.34], colCliffBasalt, smoothstep(0.95, 1.8, slope) * 0.55);
+        } else if (s.zone === 'caldera_marsh') {
+          rgb = [0.22, 0.48, 0.28];
+        } else if (s.zone === 'rapa_grassland') {
+          const meadow = mixRgb([0.48, 0.54, 0.24], [0.68, 0.6, 0.3], clamp01(s.ridgeFactor * 1.2));
+          rgb = mixRgb(meadow, colCliffBasalt, smoothstep(0.75, 1.55, slope) * 0.85);
         } else if (s.zone === 'beach' || s.h < 1.75) {
           const grassBlend = smoothstep(1.15, 2.25, s.h);
           rgb = mixRgb(colBeachGold, colVillageGrass, grassBlend);
         } else if (s.zone === 'hut_clearing') {
-          rgb = mixRgb(colVillageGrass, colBeachGold, 0.58);
+          rgb =
+            islandId === 'rapa_nui'
+              ? mixRgb([0.52, 0.56, 0.25], [0.92, 0.84, 0.74], 0.5)
+              : mixRgb(colVillageGrass, colBeachGold, 0.58);
         } else if (s.zone === 'marae_terrace') {
-          rgb = mixRgb(colVillageGrass, colMaraeStone, 0.42);
+          rgb =
+            islandId === 'rapa_nui'
+              ? mixRgb([0.5, 0.54, 0.25], colMaraeStone, 0.52)
+              : mixRgb(colVillageGrass, colMaraeStone, 0.42);
         } else if (s.zone === 'knoll_top') {
-          rgb = mixRgb(colKnollLawn, colBeachGold, 0.25);
+          rgb =
+            islandId === 'rapa_nui'
+              ? [0.56, 0.58, 0.28]
+              : mixRgb(colKnollLawn, colBeachGold, 0.25);
         } else {
           const altT = clamp01((s.h - 2.5) / 56.0);
           rgb = mixRgb(colVillageGrass, colValleyJungle, smoothstep(0.0, 0.55, altT));
@@ -422,6 +515,9 @@ export class WalkableIslandScene {
           rgb = mixRgb(rgb, colCliffBasalt, smoothstep(0.75, 1.55, slope) * 0.85);
           if (s.zone === 'plateau') {
             rgb = mixRgb(rgb, colPlateauMoss, 0.55);
+          }
+          if (s.snowCap && s.snowCap > 0.01) {
+            rgb = mixRgb(rgb, [0.95, 0.97, 1.0], s.snowCap);
           }
         }
 
@@ -462,17 +558,21 @@ export class WalkableIslandScene {
     terrainMesh.receiveShadow = true;
     this.root.add(terrainMesh);
 
-    // Translucent Turquoise Fringing Lagoon Shimmer Ring + Barrier Reef & Te Ava Mo'a Pass
+    // Translucent Coastal Water Shimmer (+ Barrier Reef & Motu on Lagoon Islands)
     const lagoonMat = new THREE.MeshBasicMaterial({
-      color: 0x24dcc8,
+      color: islandId === 'hawaii' ? 0x1ba8c8 : islandId === 'rapa_nui' ? 0x1e9bc4 : 0x24dcc8,
       transparent: true,
-      opacity: 0.36,
+      opacity: islandId === 'raiatea' || islandId === 'tahaa' ? 0.36 : 0.26,
       depthWrite: false,
     });
     const lagoonDisc = new THREE.Mesh(new THREE.CircleGeometry(105.0, 64), lagoonMat);
     lagoonDisc.rotation.x = -Math.PI * 0.5;
     lagoonDisc.position.set(0, 0.11, -6.0);
     this.root.add(lagoonDisc);
+
+    if (islandId !== 'raiatea' && islandId !== 'tahaa') {
+      return;
+    }
 
     const reefSandMat = new THREE.MeshStandardMaterial({
       color: 0xe3d3a8,
@@ -522,6 +622,10 @@ export class WalkableIslandScene {
       this.root.add(motu);
     }
 
+    if (islandId !== 'raiatea') {
+      return;
+    }
+
     // Highland Waterfall Cascade tumbling off Mount Temehani's amphitheater valley
     const fallMat = new THREE.MeshBasicMaterial({
       color: 0xe3f8ff,
@@ -559,7 +663,7 @@ export class WalkableIslandScene {
     this.root.add(distantTahaaGroup);
   }
 
-  _buildVillageStructuresAndPois() {
+  _buildVillageStructuresAndPois(islandId = 'raiatea') {
     const aitoMat = new THREE.MeshStandardMaterial({ color: 0x623e24, roughness: 0.86 });
     const thatchMat = new THREE.MeshStandardMaterial({ color: 0xc89d5c, roughness: 0.88 });
     const reedMat = new THREE.MeshStandardMaterial({ color: 0xa6804e, roughness: 0.85 });
@@ -645,6 +749,25 @@ export class WalkableIslandScene {
 
       this.root.add(ringGrp);
       this.poiVisuals[poi.id] = { group: ringGrp, ringMat: outerMat, baseY: py };
+    }
+
+    if (islandId !== 'raiatea') {
+      const built = buildVariantIslandStructures(
+        {
+          root: this.root,
+          spec: this.spec,
+          getGroundHeight: (x, z) => this.getGroundHeight(x, z),
+          addKukuiTorch,
+          torchFlames: this.torchFlames,
+          pennantMeshes: this.pennantMeshes,
+        },
+        islandId
+      );
+      this.obstacles = built.obstacles;
+      this.variantNpcEntries = built.npcEntries;
+      this.variantCloudMats = built.peakCloudMats;
+      this._populateCoastalPalmsAndBirds(islandId);
+      return;
     }
 
     // -----------------------------------------------------------------------
@@ -987,10 +1110,10 @@ export class WalkableIslandScene {
     // -----------------------------------------------------------------------
     // 5. Lush Wind-Leaning Coconut Palm Groves & Wheeling Lagoon White Terns
     // -----------------------------------------------------------------------
-    this._populateCoastalPalmsAndBirds();
+    this._populateCoastalPalmsAndBirds('raiatea');
   }
 
-  _populateCoastalPalmsAndBirds() {
+  _populateCoastalPalmsAndBirds(islandId = 'raiatea') {
     const trunkMat = new THREE.MeshStandardMaterial({ color: 0x745133, roughness: 0.86 });
     const frondDark = new THREE.MeshStandardMaterial({ color: 0x316e26, roughness: 0.78 });
     const frondSun = new THREE.MeshStandardMaterial({ color: 0x4b8d32, roughness: 0.76 });
@@ -1068,24 +1191,27 @@ export class WalkableIslandScene {
       [-41.0, 32.0, 0.3, 1.04, 0.2],
     ];
     for (const [px, pz, yaw, sc, ln] of palmCoords) {
+      if (islandId === 'rapa_nui' && px > 2.0) continue; // Keep Rapa Nui palms clustered at Anakena oasis!
       addPalm(px, pz, yaw, sc, ln);
     }
 
-    // Motu palms
-    for (const [mx, mz] of [
-      [54.0, 74.0],
-      [56.2, 72.5],
-      [82.0, 42.0],
-    ]) {
-      const mPalm = new THREE.Group();
-      mPalm.position.set(mx, 0.9, mz);
-      const t = new THREE.Mesh(lowerGeo, trunkMat);
-      t.scale.setScalar(0.9);
-      mPalm.add(t);
-      const c = new THREE.Mesh(crownLowGeo, frondSun);
-      c.position.y = 2.45;
-      mPalm.add(c);
-      this.root.add(mPalm);
+    // Motu palms (lagoon islands only)
+    if (islandId === 'raiatea' || islandId === 'tahaa') {
+      for (const [mx, mz] of [
+        [54.0, 74.0],
+        [56.2, 72.5],
+        [82.0, 42.0],
+      ]) {
+        const mPalm = new THREE.Group();
+        mPalm.position.set(mx, 0.9, mz);
+        const t = new THREE.Mesh(lowerGeo, trunkMat);
+        t.scale.setScalar(0.9);
+        mPalm.add(t);
+        const c = new THREE.Mesh(crownLowGeo, frondSun);
+        c.position.y = 2.45;
+        mPalm.add(c);
+        this.root.add(mPalm);
+      }
     }
 
     // 3 Graceful White Terns (Kakaia) wheeling above the turquoise lagoon
@@ -1150,7 +1276,11 @@ export class WalkableIslandScene {
    * Enters the 3D Walkable Island mode, spawning the player beside the moored canoe
    * (or beside the Observation Circle when returning from the Night-Sky Vigil).
    */
-  enter({ spawnMode = 'canoe', gameState = null } = {}) {
+  enter({ islandId = null, spawnMode = 'canoe', gameState = null } = {}) {
+    const targetIslandId =
+      islandId || gameState?.currentIslandId || this.builtIslandId || 'raiatea';
+    this._loadIsland(targetIslandId);
+
     this.active = true;
     this.root.visible = true;
 
@@ -1163,7 +1293,7 @@ export class WalkableIslandScene {
     this.walkAmount = 0.0;
 
     if (spawnMode === 'canoe') {
-      this.camYawRad = 0.26;
+      this.camYawRad = spawn.camYawRad ?? 0.26;
       this.camPitchRad = 0.31;
       this.camDist = 10.2;
     }
@@ -1467,18 +1597,35 @@ export class WalkableIslandScene {
     // 5. Update Moored Canoe, NPCs, Torches, Kura Pennants, Peak Clouds & Lagoon Terns
     this._dockVakaAtLanding(elapsedSec, gameState);
 
-    const dToHut = Math.hypot(this.playerPos.x - -22.5, this.playerPos.z - 36.5);
-    animatePlayerCharacterAshore(this.craftsmanRig, elapsedSec + 1.7, {
-      walkAmount: 0.0,
-      gestureWave: smoothstep(11.0, 6.2, dToHut),
-    });
+    if (this.craftsmanRig) {
+      const dToHut = Math.hypot(this.playerPos.x - -22.5, this.playerPos.z - 36.5);
+      animatePlayerCharacterAshore(this.craftsmanRig, elapsedSec + 1.7, {
+        walkAmount: 0.0,
+        gestureWave: smoothstep(11.0, 6.2, dToHut),
+      });
+    }
 
-    const dToMarae = Math.hypot(this.playerPos.x - 26.5, this.playerPos.z - 42.5);
-    animatePlayerCharacterAshore(this.elderMetuaRig, elapsedSec + 0.6, {
-      walkAmount: 0.0,
-      holdsStaffRight: true,
-      gestureWave: smoothstep(12.5, 6.8, dToMarae),
-    });
+    if (this.elderMetuaRig) {
+      const dToMarae = Math.hypot(this.playerPos.x - 26.5, this.playerPos.z - 42.5);
+      animatePlayerCharacterAshore(this.elderMetuaRig, elapsedSec + 0.6, {
+        walkAmount: 0.0,
+        holdsStaffRight: true,
+        gestureWave: smoothstep(12.5, 6.8, dToMarae),
+      });
+    }
+
+    for (let i = 0; i < this.variantNpcEntries.length; i += 1) {
+      const npc = this.variantNpcEntries[i];
+      const dNpc = Math.hypot(
+        this.playerPos.x - npc.watchX,
+        this.playerPos.z - npc.watchZ
+      );
+      animatePlayerCharacterAshore(npc.rig, elapsedSec + i * 1.1, {
+        walkAmount: 0.0,
+        holdsStaffRight: Boolean(npc.holdsStaffRight),
+        gestureWave: smoothstep(12.0, 6.5, dNpc),
+      });
+    }
 
     for (let i = 0; i < this.torchFlames.length; i += 1) {
       const tf = this.torchFlames[i];
@@ -1518,6 +1665,9 @@ export class WalkableIslandScene {
       };
       if (this.peakCloudMat) updateCloudMaterialUniforms(this.peakCloudMat, cloudOpts);
       if (this.tahaaCloudMat) updateCloudMaterialUniforms(this.tahaaCloudMat, cloudOpts);
+      for (let i = 0; i < this.variantCloudMats.length; i += 1) {
+        updateCloudMaterialUniforms(this.variantCloudMats[i], cloudOpts);
+      }
     }
 
     // 6. Smooth Third-Person Camera Follow

@@ -33,8 +33,9 @@ import {
 } from '../src/data/skyVigilData.js';
 import { SONGS, buildReturnSong } from '../src/data/songsData.js';
 import {
-  RAIATEA_WALKABLE_SPEC,
   WALKABLE_ISLAND_IDS,
+  WALKABLE_ISLAND_SPECS,
+  getWalkableIslandSpec,
   isWalkableIsland,
 } from '../src/data/walkableIslandsData.js';
 import {
@@ -143,53 +144,58 @@ assert(
   'Master Navigator character represents a 50 year old elder with a gray beard'
 );
 
-// Walkable 3D Island Scope Check (currently enabled exclusively for Ra'iatea)
+// Walkable 3D Island Scope Check (Ra'iatea, Taha'a, Hawai'i, and Rapa Nui)
+const expectedWalkableIds = ['raiatea', 'tahaa', 'hawaii', 'rapa_nui'];
 assert(
-  WALKABLE_ISLAND_IDS.size === 1 && isWalkableIsland('raiatea') === true,
-  "Only the first island (Ra'iatea) uses 3D Walkable Island mode"
+  WALKABLE_ISLAND_IDS.size === expectedWalkableIds.length &&
+    expectedWalkableIds.every((id) => isWalkableIsland(id) === true),
+  "Ra'iatea, Taha'a, Hawai'i, and Rapa Nui use 3D Walkable Island mode"
 );
 for (const iid of Object.keys(ISLANDS)) {
-  if (iid !== 'raiatea') {
+  if (!expectedWalkableIds.includes(iid)) {
     assert(
       isWalkableIsland(iid) === false,
-      `Non-initial island ${iid} retains classic IslandHubUI mode`
+      `Non-walkable island ${iid} retains classic IslandHubUI mode`
     );
   }
 }
-assert(
-  RAIATEA_WALKABLE_SPEC.pois.length === 4,
-  "Walkable Ra'iatea defines 4 visual POIs (canoe, hut, observation circle, elder marae)"
-);
-const spawnToCanoeDist = Math.hypot(
-  RAIATEA_WALKABLE_SPEC.initialSpawn.x - RAIATEA_WALKABLE_SPEC.mooredCanoe.x,
-  RAIATEA_WALKABLE_SPEC.initialSpawn.z - RAIATEA_WALKABLE_SPEC.mooredCanoe.z
-);
-assert(
-  spawnToCanoeDist > 3.5 && spawnToCanoeDist < 8.5,
-  'Player spawns ashore right next to the moored canoe'
-);
-const canoePoi = RAIATEA_WALKABLE_SPEC.pois.find((p) => p.id === 'canoe_landing');
-const spawnToCanoeTrigger = Math.hypot(
-  RAIATEA_WALKABLE_SPEC.initialSpawn.x - canoePoi.x,
-  RAIATEA_WALKABLE_SPEC.initialSpawn.z - canoePoi.z
-);
-assert(
-  spawnToCanoeTrigger > canoePoi.triggerRadiusM,
-  'Initial spawn next to canoe leaves viewport clean until player steps onto boarding mat'
-);
-for (const p of RAIATEA_WALKABLE_SPEC.pois) {
+for (const wid of expectedWalkableIds) {
+  const wSpec = getWalkableIslandSpec(wid);
   assert(
-    ['landing', 'sand', 'sanctuary'].includes(p.hubTab),
-    `Walkable POI ${p.id} maps to a valid IslandHubUI tab`
+    wSpec && wSpec.pois.length === 4,
+    `Walkable ${wid} defines 4 visual POIs (canoe, hut, observation circle, sanctuary/ahu)`
   );
-  const dArr = Math.hypot(
-    (p.arrivalSpot?.x ?? 999) - p.x,
-    (p.arrivalSpot?.z ?? 999) - p.z
+  const spawnToCanoeDist = Math.hypot(
+    wSpec.initialSpawn.x - wSpec.mooredCanoe.x,
+    wSpec.initialSpawn.z - wSpec.mooredCanoe.z
   );
   assert(
-    dArr <= p.triggerRadiusM,
-    `Walkable POI ${p.id} arrivalSpot lands inside its trigger radius`
+    spawnToCanoeDist > 3.5 && spawnToCanoeDist < 8.5,
+    `Walkable ${wid}: player spawns ashore right next to the moored canoe`
   );
+  const canoePoi = wSpec.pois.find((p) => p.id === 'canoe_landing');
+  const spawnToCanoeTrigger = Math.hypot(
+    wSpec.initialSpawn.x - canoePoi.x,
+    wSpec.initialSpawn.z - canoePoi.z
+  );
+  assert(
+    spawnToCanoeTrigger > canoePoi.triggerRadiusM,
+    `Walkable ${wid}: initial spawn next to canoe leaves viewport clean until stepping onto landing`
+  );
+  for (const p of wSpec.pois) {
+    assert(
+      ['landing', 'sand', 'sanctuary'].includes(p.hubTab),
+      `Walkable ${wid} POI ${p.id} maps to a valid IslandHubUI tab`
+    );
+    const dArr = Math.hypot(
+      (p.arrivalSpot?.x ?? 999) - p.x,
+      (p.arrivalSpot?.z ?? 999) - p.z
+    );
+    assert(
+      dArr <= p.triggerRadiusM,
+      `Walkable ${wid} POI ${p.id} arrivalSpot lands inside its trigger radius`
+    );
+  }
 }
 
 assert(showsActiveStarShimmer(Difficulty.EASY) === true, 'Easy shows active star shimmer');
@@ -251,11 +257,18 @@ for (const [diffId, prof] of Object.entries(PLAYER_CHARACTER_PROFILES)) {
   auditText(prof.ageLabel, `PlayerCharacter ${diffId}.ageLabel`);
   auditText(prof.attireSummary, `PlayerCharacter ${diffId}.attireSummary`);
 }
-for (const poi of RAIATEA_WALKABLE_SPEC.pois) {
-  auditText(poi.label, `WalkablePOI ${poi.id}.label`);
-  auditText(poi.title, `WalkablePOI ${poi.id}.title`);
-  auditText(poi.subtitle, `WalkablePOI ${poi.id}.subtitle`);
-  auditText(poi.promptHint, `WalkablePOI ${poi.id}.promptHint`);
+for (const [wid, wSpec] of Object.entries(WALKABLE_ISLAND_SPECS)) {
+  for (const poi of wSpec.pois) {
+    auditText(poi.label, `WalkablePOI ${wid}.${poi.id}.label`);
+    auditText(poi.title, `WalkablePOI ${wid}.${poi.id}.title`);
+    auditText(poi.subtitle, `WalkablePOI ${wid}.${poi.id}.subtitle`);
+    auditText(poi.promptHint, `WalkablePOI ${wid}.${poi.id}.promptHint`);
+    if (poi.craftsmanName) auditText(poi.craftsmanName, `WalkablePOI ${wid}.${poi.id}.craftsmanName`);
+    if (poi.craftsmanQuote) auditText(poi.craftsmanQuote, `WalkablePOI ${wid}.${poi.id}.craftsmanQuote`);
+    if (poi.circleDesc) auditText(poi.circleDesc, `WalkablePOI ${wid}.${poi.id}.circleDesc`);
+    if (poi.introTitle) auditText(poi.introTitle, `WalkablePOI ${wid}.${poi.id}.introTitle`);
+    if (poi.introSpeech) auditText(poi.introSpeech, `WalkablePOI ${wid}.${poi.id}.introSpeech`);
+  }
 }
 let mentorPortraitCount = 0;
 let starMasterIslandCount = 0;

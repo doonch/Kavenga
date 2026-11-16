@@ -25,6 +25,7 @@ import {
 import { ISLANDS, OCEAN_BASINS } from '../data/islandsData.js';
 import { getPlayerCharacterProfile } from '../data/playerCharactersData.js';
 import { SONGS } from '../data/songsData.js';
+import { getWalkableIslandSpec } from '../data/walkableIslandsData.js';
 import { SandCanvas } from './SandCanvas.js';
 
 export class WalkableIslandUI {
@@ -388,12 +389,30 @@ export class WalkableIslandUI {
   }
 
   // -------------------------------------------------------------------------
-  // POI 1: Provisioning & Canoe-Wrights' Hut (Refill/Restock, Talk to Craftsmen)
+  // POI 1: Provisioning Hut / Canoe Shed / Wild Stone Shelter
   // -------------------------------------------------------------------------
   _renderProvisioningHutBody(bodyEl) {
     const gs = this.callbacks.getGameState();
+    const isl = ISLANDS[gs.currentIslandId] || ISLANDS.raiatea;
+    const poi = this.currentPoi;
+    const isWild = Boolean(poi?.isWildShelter || !isl.inhabited);
     const playerProfile = getPlayerCharacterProfile(gs.difficulty);
     const sailLabel = gs.vakaTier >= 3 ? 'Twin Pandanus Sails' : 'Pandanus Sail';
+
+    const restockLabel = isWild
+      ? '🥥 Gather Coconuts &amp; Refill Water Gourds'
+      : '🛖 Careen Canoe &amp; Refill Ration Baskets';
+    const inspectLabel = isWild
+      ? this.craftsmanDrawerOpen
+        ? 'Hide Camp &amp; Manifest'
+        : 'Inspect Stone Shelter &amp; Deck Load'
+      : this.craftsmanDrawerOpen
+        ? 'Hide Craftsmen &amp; Manifest'
+        : 'Speak with Craftsmen &amp; Inspect Load';
+    const craftsmanName = poi?.craftsmanName || "Master Boatbuilder Tahu'a";
+    const craftsmanQuote =
+      poi?.craftsmanQuote ||
+      'We keep fresh breadfruit paste, husked coconuts, and sweet water gourds ready beneath the thatch. Before a long crossing, let us tighten your crossbeam sennit and caulk both hulls.';
 
     const cargoHtml =
       gs.cargoItems.length === 0
@@ -437,10 +456,10 @@ export class WalkableIslandUI {
 
       <div class="walkable-action-row">
         <button class="primary-btn" id="btnWalkCareenRestock" type="button">
-          🛖 Careen Canoe &amp; Refill Ration Baskets
+          ${restockLabel}
         </button>
         <button class="secondary-btn" id="btnWalkTalkCraftsmen" type="button">
-          ${this.craftsmanDrawerOpen ? 'Hide Craftsmen &amp; Manifest' : 'Speak with Craftsmen &amp; Inspect Load'}
+          ${inspectLabel}
         </button>
       </div>
 
@@ -455,7 +474,7 @@ export class WalkableIslandUI {
           ? `
         <div class="walkable-craftsman-drawer">
           <p class="walkable-craftsman-quote">
-            <strong>Master Boatbuilder Tahu'a:</strong> "We keep fresh breadfruit paste, husked coconuts, and sweet water gourds ready beneath the thatch. Before a long crossing, let us tighten your crossbeam sennit and caulk both hulls."
+            <strong>${craftsmanName}:</strong> "${craftsmanQuote}"
           </p>
           <div class="cargo-pill">
             <strong>At the Helm · ${playerProfile.title} (${playerProfile.ageLabel})</strong>
@@ -492,7 +511,11 @@ export class WalkableIslandUI {
     bodyEl.querySelector('#btnWalkCareenRestock').addEventListener('click', () => {
       const msg = performBeachCareeningAndRestock(gs);
       this.hutFeedbackText = msg;
-      this.showToast('Canoe careened & woven ration baskets refilled!');
+      this.showToast(
+        isWild
+          ? 'Fresh coconuts & spring water gathered into ration baskets!'
+          : 'Canoe careened & woven ration baskets refilled!'
+      );
       this._renderCurrentPoiPopup();
     });
 
@@ -503,37 +526,95 @@ export class WalkableIslandUI {
   }
 
   // -------------------------------------------------------------------------
-  // POI 2: Elder Metua at Marae Taputapuatea
+  // POI 2: Sanctuary / Marae / Hillside Hearth / Great Heiau / Moai Ahu
   // -------------------------------------------------------------------------
   _renderElderMaraeBody(bodyEl) {
     const gs = this.callbacks.getGameState();
     const isl = ISLANDS[gs.currentIslandId] || ISLANDS.raiatea;
-    const hasKuraFeathers = gs.hasCargoItem('red_kura_feathers');
+    const poi = this.currentPoi;
+    const hasKuraFeathers =
+      isl.id === 'raiatea' && gs.hasCargoItem('red_kura_feathers');
+    const hasTridacnaShell =
+      isl.id === 'hawaii' && gs.hasCargoItem('sacred_tridacna_shell');
+    const recruitCrewId = isl.rewards?.recruitsCrew || null;
+    const recruitCrew = recruitCrewId ? CREW_CATALOG[recruitCrewId] : null;
+
+    let defaultTitle =
+      poi?.introTitle ||
+      (isl.mentorName
+        ? `${isl.mentorName} Awaits Ashore`
+        : `${poi?.title || isl.name}`);
+    let defaultSpeech =
+      poi?.introSpeech ||
+      'Step forward to honor the island sanctuary and listen for the next star-path chant.';
+
+    if (isl.id === 'raiatea') {
+      defaultTitle = `${isl.mentorName} Awaits Before the Sacred Ahu`;
+      defaultSpeech = hasKuraFeathers
+        ? 'Elder Metua sees the sacred crimson Kura feathers gleaming in your cargo! Present them at the Marae to consecrate your vaka and learn the outer-pass chant to Maupiti.'
+        : 'Step before the coral altar to receive Elder Metua’s star-path blessing and guidance for your lagoon crossings.';
+    } else if (isl.id === 'hawaii' && hasTridacnaShell) {
+      defaultSpeech =
+        'The Ancestral Wayfinders behold the Sacred Giant Tridacna Shell carried from Kiritimati! Lay it upon the Great Heiau Ahu to complete the Grand Voyage.';
+    }
 
     const res = this.lastSanctuaryResult || {
-      title: `${isl.mentorName} Awaits Before the Sacred Ahu`,
-      speech: hasKuraFeathers
-        ? 'Elder Metua sees the sacred crimson Kura feathers gleaming in your cargo! Present them at the Marae to consecrate your vaka and learn the outer-pass chant to Maupiti.'
-        : 'Step before the coral altar to receive Elder Metua’s star-path blessing and guidance for your lagoon crossings.',
+      title: defaultTitle,
+      speech: defaultSpeech,
       rewardsList: [],
     };
 
-    const actionLabel =
-      hasKuraFeathers && !gs.completedQuests.raiatea_consecration
-        ? '🌺 Present Crimson Kura Feathers & Consecrate Vaka'
-        : this.lastSanctuaryResult
-          ? `Speak Again with ${isl.mentorName}`
-          : `Speak with ${isl.mentorName}`;
+    let actionLabel;
+    if (!isl.inhabited) {
+      actionLabel = this.lastSanctuaryResult
+        ? `${poi?.glyph || '🗿'} Stand Again Before ${poi?.label || 'the Stone Ahu'}`
+        : `${poi?.glyph || '🗿'} Contemplate ${poi?.label || 'the Stone Guardians'}`;
+    } else if (hasKuraFeathers && !gs.completedQuests.raiatea_consecration) {
+      actionLabel = '🌺 Present Crimson Kura Feathers & Consecrate Vaka';
+    } else if (hasTridacnaShell) {
+      actionLabel = '🌺 Present Sacred Tridacna Shell at the Heiau';
+    } else if (isl.id === 'tahaa' && !gs.completedQuests.tahaa_visit) {
+      actionLabel = '🌺 Greet Hina & Recruit Fisher Tama';
+    } else {
+      actionLabel = this.lastSanctuaryResult
+        ? `Speak Again with ${isl.mentorName}`
+        : `Speak with ${isl.mentorName}`;
+    }
+
+    const portraitColHtml = isl.mentorPortrait
+      ? `<button class="walkable-elder-thumb-btn" id="btnWalkElderPortrait" type="button" title="Inspect full-body portrait">
+           <img src="${isl.mentorPortrait}" alt="${isl.mentorName}" />
+         </button>`
+      : `<div class="walkable-monolith-emblem" aria-hidden="true">${poi?.glyph || '🗿'}</div>`;
+
+    const crewCardHtml = recruitCrew
+      ? `<div class="cargo-pill" style="margin-top:6px;display:flex;align-items:center;gap:10px;">
+           ${
+             recruitCrew.portrait
+               ? `<button class="crew-pill-thumb-btn" id="btnWalkCrewPortrait" type="button" title="Inspect ${recruitCrew.name}">
+                    <img class="crew-pill-thumb" src="${recruitCrew.portrait}" alt="${recruitCrew.name}" />
+                  </button>`
+               : ''
+           }
+           <div>
+             <strong>${
+               gs.recruitedCrew.includes(recruitCrew.id)
+                 ? `✓ Aboard Your Vaka · ${recruitCrew.name} (${recruitCrew.role})`
+                 : `Companion Ashore · ${recruitCrew.name} (${recruitCrew.role})`
+             }</strong>
+             <span>${recruitCrew.traitText}</span>
+           </div>
+         </div>`
+      : '';
 
     bodyEl.innerHTML = `
       <div class="walkable-elder-layout">
-        <button class="walkable-elder-thumb-btn" id="btnWalkElderPortrait" type="button" title="Inspect full-body portrait">
-          <img src="${isl.mentorPortrait}" alt="${isl.mentorName}" />
-        </button>
+        ${portraitColHtml}
         <div class="walkable-elder-copy">
           <div class="walkable-elder-name">${res.title}</div>
-          <div class="walkable-elder-role">${isl.mentorRole}</div>
+          <div class="walkable-elder-role">${isl.mentorRole || isl.subtitle}</div>
           <p class="walkable-elder-speech">${res.speech}</p>
+          ${crewCardHtml}
           ${
             res.rewardsList?.length
               ? `<ul class="walkable-rewards-list">${res.rewardsList
@@ -547,7 +628,7 @@ export class WalkableIslandUI {
         </div>
       </div>
       ${
-        gs.masterReplayUnlocked
+        gs.masterReplayUnlocked || isl.id === 'hawaii'
           ? `<div class="walkable-replay-strip" id="walkMasterReplayStrip">
                <div class="walkable-mini-heading">Master Navigator Anthology (Replay Any Crossing)</div>
                <div class="walkable-replay-btns" id="walkMasterReplayBtns"></div>
@@ -556,14 +637,29 @@ export class WalkableIslandUI {
       }
     `;
 
-    bodyEl.querySelector('#btnWalkElderPortrait').addEventListener('click', () => {
-      this.openPortraitModal({
-        eyebrow: 'Marae Taputapuatea · Sacred Headland',
-        name: isl.mentorName,
-        role: `${isl.mentorRole} · ${isl.name}`,
-        src: isl.mentorPortrait,
+    const elderPortraitBtn = bodyEl.querySelector('#btnWalkElderPortrait');
+    if (elderPortraitBtn && isl.mentorPortrait) {
+      elderPortraitBtn.addEventListener('click', () => {
+        this.openPortraitModal({
+          eyebrow: `${poi?.title || isl.name}`,
+          name: isl.mentorName,
+          role: `${isl.mentorRole} · ${isl.name}`,
+          src: isl.mentorPortrait,
+        });
       });
-    });
+    }
+
+    const crewPortraitBtn = bodyEl.querySelector('#btnWalkCrewPortrait');
+    if (crewPortraitBtn && recruitCrew?.portrait) {
+      crewPortraitBtn.addEventListener('click', () => {
+        this.openPortraitModal({
+          eyebrow: `Voyaging Companion · ${isl.name}`,
+          name: recruitCrew.name,
+          role: `${recruitCrew.role} — ${recruitCrew.traitText}`,
+          src: recruitCrew.portrait,
+        });
+      });
+    }
 
     bodyEl.querySelector('#btnWalkSpeakElder').addEventListener('click', () => {
       this.lastSanctuaryResult = interactWithIslandSanctuary(gs);
@@ -573,8 +669,8 @@ export class WalkableIslandUI {
       this._renderCurrentPoiPopup();
     });
 
-    if (gs.masterReplayUnlocked) {
-      const stripEl = bodyEl.querySelector('#walkMasterReplayBtns');
+    const stripEl = bodyEl.querySelector('#walkMasterReplayBtns');
+    if (stripEl) {
       for (const song of Object.values(SONGS)) {
         if (song.number === '14R') continue;
         const b = document.createElement('button');
@@ -590,17 +686,18 @@ export class WalkableIslandUI {
   }
 
   // -------------------------------------------------------------------------
-  // POI 3: Hilltop Observation Circle & Teaching Sand
+  // POI 3: Observation Circle & Teaching Sand
   // -------------------------------------------------------------------------
   _renderObservationCircleBody(bodyEl) {
     const gs = this.callbacks.getGameState();
     const lessons = getLearnedSandLessonsList(gs);
     const isl = ISLANDS[gs.currentIslandId] || ISLANDS.raiatea;
+    const circleDesc =
+      this.currentPoi?.circleDesc ||
+      'From this breezy basalt stone ring overlooking the water, wayfinders trace wave, cloud, and wake lessons in swept coral sand — or watch the constellations wheel overhead in stillness.';
 
     bodyEl.innerHTML = `
-      <p class="walkable-circle-desc">
-        From this breezy basalt stone ring overlooking the reef pass, wayfinders trace wave, cloud, and wake lessons in swept coral sand — or watch the constellations wheel overhead in stillness.
-      </p>
+      <p class="walkable-circle-desc">${circleDesc}</p>
       <div class="walkable-lesson-pills">
         ${lessons
           .slice(0, 4)
@@ -639,12 +736,15 @@ export class WalkableIslandUI {
   // -------------------------------------------------------------------------
   _renderCanoeLandingBody(bodyEl) {
     const gs = this.callbacks.getGameState();
+    const isl = ISLANDS[gs.currentIslandId] || ISLANDS.raiatea;
+    const walkSpec = getWalkableIslandSpec(isl.id);
+    const elderPoi = walkSpec?.pois.find((p) => p.kind === 'elder');
     const routes = getAvailableRoutesFromCurrentIsland(gs);
 
     if (!routes.length) {
       bodyEl.innerHTML = `
         <div class="empty-note">
-          Walk over to Elder Metua on Sacred Marae Taputapuatea to learn your next star-path chant before launching.
+          Walk over to ${elderPoi?.title || isl.mentorName || 'the island sanctuary'} to learn your next star-path chant before launching.
         </div>
       `;
       return;

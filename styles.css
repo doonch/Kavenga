@@ -2104,6 +2104,19 @@ body {
   object-position: top center;
 }
 
+.walkable-monolith-emblem {
+  flex-shrink: 0;
+  width: 78px;
+  height: 98px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(231, 181, 99, 0.42);
+  background: rgba(255, 255, 255, 0.05);
+}
+
 .walkable-elder-copy {
   flex: 1;
   display: flex;

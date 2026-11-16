@@ -24,6 +24,7 @@ import { ISLANDS, OCEAN_BASINS } from '../data/islandsData.js';
 import { getPlayerCharacterProfile } from '../data/playerCharactersData.js';
 import { STAR_MASTERS } from '../data/skyVigilData.js';
 import { SONGS } from '../data/songsData.js';
+import { getWalkableIslandSpec } from '../data/walkableIslandsData.js';
 import { SandCanvas } from './SandCanvas.js';
 
 export class IslandHubUI {
@@ -639,12 +640,15 @@ export class IslandHubUI {
     this.rootEl.querySelector('#hubActBadge').textContent =
       `Act ${basin.act} · ${basin.name} · ${Object.keys(gs.discoveredIslands).length}/16 Islands Charted`;
     this.rootEl.querySelector('#hubIslandName').textContent = isl.name;
+    const uninhabitedLabel = isl.isSecret
+      ? 'Uninhabited Monolith Isle'
+      : 'Uninhabited Wild Atoll';
     this.rootEl.querySelector('#hubIslandSubtitle').textContent =
-      `${isl.subtitle}${isl.mentorName ? ` · Mentor: ${isl.mentorName}` : ' · Uninhabited Wild Atoll'}`;
+      `${isl.subtitle}${isl.mentorName ? ` · Mentor: ${isl.mentorName}` : ` · ${uninhabitedLabel}`}`;
 
     this.rootEl.querySelector('#hubDifficultySelect').value = gs.difficulty;
 
-    // POI Tab titles from island POIs
+    // POI Tab titles from island POIs (or exact 4-POI walkable spec when in walkable overlay)
     const [pLanding, pSand, pSanctuary] = isl.pois;
     this.rootEl.querySelector('#landingPoiTitle').textContent =
       POI_LABELS[pLanding] || 'Canoe Landing';
@@ -659,6 +663,23 @@ export class IslandHubUI {
     this.rootEl.querySelector('#tabBtnSanctuary').textContent = isl.inhabited
       ? `🌺 ${POI_LABELS[sanctKey] || 'Village & Marae'}`
       : `🌴 ${POI_LABELS[sanctKey] || 'Wild Outpost'}`;
+
+    const walkSpec = this.walkableMode ? getWalkableIslandSpec(isl.id) : null;
+    if (walkSpec) {
+      for (const poi of walkSpec.pois) {
+        const btn = this.rootEl.querySelector(
+          `.poi-tab-btn[data-poi="${poi.id}"]`
+        );
+        if (btn) {
+          btn.textContent = `${poi.glyph} ${poi.label}`;
+        }
+      }
+    } else {
+      this.rootEl.querySelector('#tabBtnLanding').textContent =
+        '🛶 Canoe Landing';
+      this.rootEl.querySelector('#tabBtnSand').textContent =
+        "🐚 Navigator's Shore";
+    }
 
     // Landing Mentor Banner (quick access to meet the mentor face-to-face)
     const landingBanner = this.rootEl.querySelector('#landingMentorBanner');

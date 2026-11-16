@@ -574,6 +574,7 @@ class KavengaApp {
       this.worldCues.group.visible = false;
       this.cameraCtrl.shoreWalkMode = true;
       this.walkableIslandScene.enter({
+        islandId: this.gameState.currentIslandId,
         spawnMode,
         gameState: this.gameState,
       });
@@ -765,10 +766,11 @@ class KavengaApp {
       !this.launchAnim.active;
 
     if (this.phase === 'shore' && this.walkableIslandScene.active) {
-      // Sun-drenched Polynesian morning light across walkable Ra'iatea & its turquoise lagoon
+      // Signature coastal daylight or golden volcano light per walkable island
+      const baseHour = this.walkableIslandScene.spec?.solarHourBase ?? 8.75;
       this.oceanSim.setShoreIsland(this.gameState.currentIslandId);
       this.oceanSim.solarHour =
-        (8.75 + Math.sin(this._elapsedAppSec * 0.02) * 0.2 + 24.0) % 24.0;
+        (baseHour + Math.sin(this._elapsedAppSec * 0.02) * 0.2 + 24.0) % 24.0;
       this.oceanSim.headingDeg = 0.0;
       this.oceanSim._refreshEnvironment(dtSec);
 
