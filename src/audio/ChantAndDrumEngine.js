@@ -12,6 +12,7 @@ import { playsSongAtSea } from '../core/gameConstants.js';
 // Pentatonic Polynesian modal frequencies (Hz)
 const CHANT_SCALE_HZ = [130.81, 146.83, 164.81, 196.0, 220.0, 261.63];
 const VIVO_SCALE_HZ = [392.0, 440.0, 493.88, 523.25, 587.33, 659.25];
+const AUDIO_MUTE_STORAGE_KEY = 'kavenga_audio_muted_v1';
 
 export class ChantAndDrumEngine {
   constructor() {
@@ -19,6 +20,13 @@ export class ChantAndDrumEngine {
     this.masterGain = null;
     this.musicBus = null;
     this.muted = false;
+    if (typeof localStorage !== 'undefined') {
+      try {
+        this.muted = localStorage.getItem(AUDIO_MUTE_STORAGE_KEY) === '1';
+      } catch (_err) {
+        this.muted = false;
+      }
+    }
     this.volume = 0.78;
 
     this.isPlaying = false;
@@ -58,6 +66,13 @@ export class ChantAndDrumEngine {
 
   setMuted(muted) {
     this.muted = Boolean(muted);
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem(AUDIO_MUTE_STORAGE_KEY, this.muted ? '1' : '0');
+      } catch (_err) {
+        // Ignore storage quota errors.
+      }
+    }
     if (this.masterGain && this.ctx) {
       this.masterGain.gain.setTargetAtTime(
         this.muted ? 0.0 : this.volume,

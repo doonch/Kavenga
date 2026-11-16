@@ -25,6 +25,7 @@ import { getPlayerCharacterProfile } from '../data/playerCharactersData.js';
 import { STAR_MASTERS } from '../data/skyVigilData.js';
 import { SONGS } from '../data/songsData.js';
 import { getWalkableIslandSpec } from '../data/walkableIslandsData.js';
+import { formatShortSettingsSummary } from './IslandSettingsUI.js';
 import { SandCanvas } from './SandCanvas.js';
 
 export class IslandHubUI {
@@ -54,15 +55,16 @@ export class IslandHubUI {
             <p class="hub-island-sub" id="hubIslandSubtitle"></p>
           </div>
           <div class="hub-header-right">
-            <label class="hub-mode-select-wrap">
-              <span>Guidance Mode</span>
-              <select id="hubDifficultySelect">
-                <option value="easy">Easy · 12–14 yr Apprentice (Lyrics + Cue Hints + Shimmer)</option>
-                <option value="medium">Medium · 18–20 yr Wayfinder (Lyrics + Sky Outlines)</option>
-                <option value="hard">Hard · 30 yr Navigator (Audio + Sky Outlines Only)</option>
-                <option value="master_navigator">Master Navigator · 50 yr Elder (Pure Silence &amp; Raw Stars)</option>
-              </select>
-            </label>
+            <button
+              class="island-settings-btn"
+              id="btnHubOpenSettings"
+              type="button"
+              title="Open Island Settings (Sound, Difficulty &amp; Start Over)"
+            >
+              <span class="island-settings-gear" aria-hidden="true">⚙</span>
+              <span class="island-settings-label">Settings</span>
+              <span class="island-settings-pill" id="hubSettingsSummary">Wayfinder · 🔊</span>
+            </button>
             <button
               class="secondary-btn hub-close-walk-btn hidden"
               id="btnCloseIslandHub"
@@ -393,12 +395,12 @@ export class IslandHubUI {
       }
     });
 
-    // Difficulty selector
+    // Settings modal opener
     this.rootEl
-      .querySelector('#hubDifficultySelect')
-      .addEventListener('change', (e) => {
-        this.callbacks.onChangeDifficulty?.(e.target.value);
-        this.refresh();
+      .querySelector('#btnHubOpenSettings')
+      .addEventListener('click', (e) => {
+        e.currentTarget.blur();
+        this.callbacks.onOpenSettings?.();
       });
 
     // Ration +/- buttons
@@ -646,7 +648,11 @@ export class IslandHubUI {
     this.rootEl.querySelector('#hubIslandSubtitle').textContent =
       `${isl.subtitle}${isl.mentorName ? ` · Mentor: ${isl.mentorName}` : ` · ${uninhabitedLabel}`}`;
 
-    this.rootEl.querySelector('#hubDifficultySelect').value = gs.difficulty;
+    const summaryEl = this.rootEl.querySelector('#hubSettingsSummary');
+    if (summaryEl) {
+      const isMuted = Boolean(this.callbacks.getIsSoundMuted?.());
+      summaryEl.textContent = formatShortSettingsSummary(gs.difficulty, isMuted);
+    }
 
     // POI Tab titles from island POIs (or exact 4-POI walkable spec when in walkable overlay)
     const [pLanding, pSand, pSanctuary] = isl.pois;

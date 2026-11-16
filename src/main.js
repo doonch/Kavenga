@@ -30,8 +30,14 @@ import { VakaRenderer } from './rendering/VakaRenderer.js';
 import { WalkableIslandScene } from './rendering/WalkableIslandScene.js';
 import { WorldCuesRenderer } from './rendering/WorldCuesRenderer.js';
 import { sampleTwinHullState } from './simulation/hullPhysics.js';
-import { computeLeewayDeg, OceanSim, VoyageStatus } from './simulation/oceanSim.js';
+import {
+  buildVoyageDebugTraceParams,
+  computeLeewayDeg,
+  OceanSim,
+  VoyageStatus,
+} from './simulation/oceanSim.js';
 import { IslandHubUI } from './ui/IslandHubUI.js';
+import { IslandSettingsUI } from './ui/IslandSettingsUI.js';
 import { SailingHUD } from './ui/SailingHUD.js';
 import { SkyVigilUI } from './ui/SkyVigilUI.js';
 import { WalkableIslandUI } from './ui/WalkableIslandUI.js';
@@ -44,6 +50,7 @@ class KavengaApp {
     this.vigilRootEl = document.getElementById('sky-vigil-ui');
     this.walkableUiRootEl = document.getElementById('walkable-island-ui');
     this.hubRootEl = document.getElementById('island-hub');
+    this.settingsRootEl = document.getElementById('island-settings-ui');
 
     // 1. State & Simulation
     this.gameState = new GameState();
@@ -126,8 +133,21 @@ class KavengaApp {
     this.spatialAudio = new SpatialSeaAudio(this.chantEngine);
 
     // 4. UI Layers
+    this.islandSettingsUI = new IslandSettingsUI(this.settingsRootEl, {
+      getGameState: () => this.gameState,
+      getIsSoundMuted: () => this.chantEngine.muted,
+      onSetSoundMuted: (muted) => this.setSoundMuted(muted),
+      onChangeDifficulty: (mode) => this.setDifficulty(mode),
+      onConfirmStartOver: () => this.resetCampaignAndReload(),
+      onClose: () => {
+        this.cameraCtrl.keysDown.clear();
+      },
+    });
+
     this.islandHub = new IslandHubUI(this.hubRootEl, {
       getGameState: () => this.gameState,
+      getIsSoundMuted: () => this.chantEngine.muted,
+      onOpenSettings: () => this.openIslandSettings(),
       onChangeDifficulty: (mode) => this.setDifficulty(mode),
       onLaunchVoyage: (song, depWindow) => this.launchVoyage(song, depWindow),
       onOpenSkyVigil: (opts) => this.enterSkyVigil(opts),
@@ -137,6 +157,8 @@ class KavengaApp {
 
     this.walkableIslandUI = new WalkableIslandUI(this.walkableUiRootEl, {
       getGameState: () => this.gameState,
+      getIsSoundMuted: () => this.chantEngine.muted,
+      onOpenSettings: () => this.openIslandSettings(),
       onChangeDifficulty: (mode) => this.setDifficulty(mode),
       onLaunchVoyage: (song, depWindow) => this.launchVoyage(song, depWindow),
       onOpenSkyVigil: (opts) => this.enterSkyVigil(opts),
@@ -623,8 +645,46 @@ class KavengaApp {
     return poi;
   }
 
+  openIslandSettings() {
+    if (this.phase !== 'shore') return;
+    this.cameraCtrl.keysDown.clear();
+    this.islandSettingsUI.show();
+  }
+
+  setSoundMuted(muted) {
+    const nextMuted = Boolean(muted);
+    this.chantEngine.setMuted(nextMuted);
+    if (!nextMuted) {
+      this.chantEngine.playStarSightedChime();
+    }
+    if (this.phase === 'shore') {
+      if (this.walkableIslandScene.active) {
+        this.walkableIslandUI.refresh();
+        if (this.isWalkableHubOpen) {
+          this.islandHub.refresh();
+        }
+      } else {
+        this.islandHub.refresh();
+      }
+      if (this.islandSettingsUI.isOpen()) {
+        this.islandSettingsUI.refresh();
+      }
+    }
+  }
+
+  resetCampaignAndReload() {
+    this.islandSettingsUI.hide();
+    this.chantEngine.stop();
+    this.spatialAudio.stop();
+    this.gameState.clearSavedProgress();
+    if (typeof window !== 'undefined') {
+      window.location.assign(window.location.pathname || './');
+    }
+  }
+
   enterSkyVigil(opts = {}) {
     this.isWalkableHubOpen = false;
+    this.islandSettingsUI.hide();
     this._resetLaunchAnimation();
     this._resetLandfallAnimation();
     this.walkableIslandScene.exit();
@@ -676,6 +736,9 @@ class KavengaApp {
       } else {
         this.islandHub.refresh();
       }
+      if (this.islandSettingsUI.isOpen()) {
+        this.islandSettingsUI.refresh();
+      }
     }
   }
 
@@ -683,6 +746,7 @@ class KavengaApp {
     // Snapshot pre-voyage state so Lost at Sea / Return to Shore restores cleanly with zero loss!
     this.gameState.savePreVoyageSnapshot();
     this.isWalkableHubOpen = false;
+    this.islandSettingsUI.hide();
     this.walkableIslandScene.exit();
     this.walkableIslandUI.hide();
     this.cameraCtrl.shoreWalkMode = false;
@@ -747,6 +811,31 @@ class KavengaApp {
     });
   }
 
+  _logVoyageDebugMapUrl(outcomeEvent) {
+    if (typeof window === 'undefined') return;
+    try {
+      const params = buildVoyageDebugTraceParams(this.oceanSim, outcomeEvent);
+      const url = new URL('./map.html', window.location.href);
+      for (const [key, val] of Object.entries(params)) {
+        if (val) url.searchParams.set(key, val);
+      }
+      this.lastVoyageDebugMapUrl = url.href;
+
+      const fromName =
+        ISLANDS[params.from]?.name || params.from || 'Departure Isle';
+      const toName = ISLANDS[params.to]?.name || params.to || 'Target Isle';
+      const summary =
+        params.outcome === 'landfall'
+          ? `Landfall at ${ISLANDS[params.landed]?.name || params.landed || toName}`
+          : `Lost at Sea (${params.reason || 'off_course'})`;
+      console.info(
+        `[Kavenga Route Debug] ${summary} [${fromName} -> ${toName}]\n${url.href}`
+      );
+    } catch {
+      // Ignore URL construction errors in non-standard environments
+    }
+  }
+
   _onResize() {
     const w = window.innerWidth;
     const h = window.innerHeight;
@@ -783,8 +872,10 @@ class KavengaApp {
           camera: this.cameraCtrl.camera,
           keysDown: this.cameraCtrl.keysDown,
           inputBlocked:
-            this.isWalkableHubOpen || this.walkableIslandUI.isBlockingMovement(),
-          hideLabels: this.isWalkableHubOpen,
+            this.isWalkableHubOpen ||
+            this.islandSettingsUI.isOpen() ||
+            this.walkableIslandUI.isBlockingMovement(),
+          hideLabels: this.isWalkableHubOpen || this.islandSettingsUI.isOpen(),
         }
       );
       if (!this.isWalkableHubOpen) {
@@ -851,9 +942,12 @@ class KavengaApp {
             'Gourds and woven ration baskets are running low...'
           );
         } else if (ev.type === 'landfall') {
+          this._logVoyageDebugMapUrl(ev);
           this.chantEngine.playLandfallConch();
           this._beginLandfallAnimation(ev.islandId);
           justStartedLandfall = true;
+        } else if (ev.type === 'lost_at_sea') {
+          this._logVoyageDebugMapUrl(ev);
         }
       }
 

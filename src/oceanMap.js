@@ -20,6 +20,7 @@ import {
   getIslandApproachOrientationRad,
   getIslandShoreRadiusM,
 } from './rendering/IslandTerrainBuilder.js';
+import { decodeCompactRouteTrace } from './simulation/oceanSim.js';
 
 // 1.0 sailing-minute unit in islandsData.js maps to 68 meters in 3D chart space
 const UNIT_TO_METERS = 68.0;
@@ -217,7 +218,7 @@ const MAP_OCEAN_FRAG = /* glsl */ `
 // ---------------------------------------------------------------------------
 // Compute Unified Known Ocean Coordinates for All 17 Islands
 // ---------------------------------------------------------------------------
-function buildKnownOceanLayout() {
+export function buildKnownOceanLayout() {
   const c7 = SONGS.song_07?.crossingVector ?? { x: 9.09, y: 5.25 };
   const c13 = SONGS.song_13?.crossingVector ?? { x: -4.5, y: 7.79 };
 
@@ -320,6 +321,203 @@ function buildKnownOceanLayout() {
   return { entries, byId, basinOrigins, regionBounds };
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Parses a `?pts=...` voyage debug query string and projects each local simulation
+ * sample `(sx, sy)` onto the unified Known Ocean Map world coordinates `(worldX, 0, worldZ)`.
+ */
+export function parsePlayerTraceFromSearch(searchString, layout) {
+  if (!searchString) return null;
+  const qs = searchString.startsWith('?') ? searchString.slice(1) : searchString;
+  if (!qs) return null;
+  const params = new URLSearchParams(qs);
+  const rawPts = params.get('pts');
+  if (!rawPts) return null;
+
+  const simPoints = decodeCompactRouteTrace(rawPts);
+  if (simPoints.length === 0) return null;
+
+  const songId = params.get('song') || '';
+  const songDef = SONGS[songId] || null;
+  const fromId = params.get('from') || songDef?.fromIsland || '';
+  const toId = params.get('to') || songDef?.toIsland || '';
+  const basinParam = params.get('basin') || '';
+  const landedId = params.get('landed') || '';
+  const reason = params.get('reason') || '';
+  const outcome =
+    params.get('outcome') === 'landfall' ? 'landfall' : 'lost_at_sea';
+
+  let originX = 0.0;
+  let originY = 0.0;
+  let unitScale = 1.0;
+
+  if (
+    (songId === 'song_07' || (fromId === 'maupiti' && toId === 'nuku_hiva')) &&
+    layout.byId.maupiti
+  ) {
+    originX = layout.byId.maupiti.oceanPos.x;
+    originY = layout.byId.maupiti.oceanPos.y;
+    unitScale = CROSSING_7_SCALE;
+  } else if (
+    (songId === 'song_13' || (fromId === 'mangareva' && toId === 'kauai')) &&
+    layout.byId.mangareva
+  ) {
+    originX = layout.byId.mangareva.oceanPos.x;
+    originY = layout.byId.mangareva.oceanPos.y;
+    unitScale = CROSSING_13_SCALE;
+  } else {
+    const resolvedBasinId =
+      layout.byId[fromId]?.isl?.basinId ||
+      (basinParam && layout.basinOrigins[basinParam] ? basinParam : null) ||
+      layout.byId[toId]?.isl?.basinId ||
+      'act1_raiatea';
+    const origin =
+      layout.basinOrigins[resolvedBasinId] || layout.basinOrigins.act1_raiatea;
+    originX = origin.x;
+    originY = origin.y;
+    unitScale = 1.0;
+  }
+
+  const worldPoints = simPoints.map((pt) => {
+    const ux = originX + pt.x * unitScale;
+    const uy = originY + pt.y * unitScale;
+    return new THREE.Vector3(ux * UNIT_TO_METERS, 0.0, -uy * UNIT_TO_METERS);
+  });
+  if (worldPoints.length === 1) {
+    worldPoints.push(
+      new THREE.Vector3(worldPoints[0].x + 2.0, 0.0, worldPoints[0].z)
+    );
+  }
+
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+  const expand = (wx, wz, r = 40.0) => {
+    minX = Math.min(minX, wx - r);
+    maxX = Math.max(maxX, wx + r);
+    minZ = Math.min(minZ, wz - r);
+    maxZ = Math.max(maxZ, wz + r);
+  };
+
+  for (const wp of worldPoints) {
+    expand(wp.x, wp.z, 45.0);
+  }
+  for (const refId of [fromId, toId, landedId]) {
+    const entry = refId ? layout.byId[refId] : null;
+    if (entry) {
+      expand(entry.worldPos.x, entry.worldPos.z, entry.shelfRadiusM * 1.5);
+    }
+  }
+
+  const padMeters = 240.0;
+  const bounds = {
+    minX: minX - padMeters,
+    maxX: maxX + padMeters,
+    minZ: minZ - padMeters,
+    maxZ: maxZ + padMeters,
+    centerX: (minX + maxX) * 0.5,
+    centerZ: (minZ + maxZ) * 0.5,
+    spanX: Math.max(340.0, maxX - minX + padMeters * 2.0),
+    spanZ: Math.max(340.0, maxZ - minZ + padMeters * 2.0),
+  };
+
+  let sailedUnits = 0.0;
+  for (let i = 1; i < simPoints.length; i++) {
+    sailedUnits += Math.hypot(
+      simPoints[i].x - simPoints[i - 1].x,
+      simPoints[i].y - simPoints[i - 1].y
+    );
+  }
+
+  return {
+    outcome,
+    songId,
+    songDef,
+    fromId,
+    toId,
+    landedId,
+    reason,
+    simPoints,
+    worldPoints,
+    sailedUnits,
+    bounds,
+  };
+}
+
+function buildHorizontalRibbonGeometry(worldPoints, halfWidth, yHeight) {
+  const clean = [];
+  for (const p of worldPoints) {
+    const prev = clean[clean.length - 1];
+    if (!prev || Math.hypot(p.x - prev.x, p.z - prev.z) > 0.08) {
+      clean.push(p);
+    }
+  }
+  if (clean.length < 2 && worldPoints.length > 0) {
+    clean.push(
+      worldPoints[0],
+      new THREE.Vector3(worldPoints[0].x + 1.5, 0.0, worldPoints[0].z)
+    );
+  }
+
+  const positions = [];
+  const pushTri = (ax, az, bx, bz, cx, cz) => {
+    positions.push(ax, yHeight, az, bx, yHeight, bz, cx, yHeight, cz);
+  };
+
+  for (let i = 0; i < clean.length - 1; i++) {
+    const a = clean[i];
+    const b = clean[i + 1];
+    const dx = b.x - a.x;
+    const dz = b.z - a.z;
+    const len = Math.hypot(dx, dz);
+    if (len < 1e-5) continue;
+    const nx = (-dz / len) * halfWidth;
+    const nz = (dx / len) * halfWidth;
+
+    const aLx = a.x + nx;
+    const aLz = a.z + nz;
+    const aRx = a.x - nx;
+    const aRz = a.z - nz;
+    const bLx = b.x + nx;
+    const bLz = b.z + nz;
+    const bRx = b.x - nx;
+    const bRz = b.z - nz;
+
+    pushTri(aLx, aLz, aRx, aRz, bRx, bRz);
+    pushTri(aLx, aLz, bRx, bRz, bLx, bLz);
+  }
+
+  // Round join & end caps so sharp turns have zero miter spikes
+  const capSegs = 10;
+  for (const pt of clean) {
+    for (let s = 0; s < capSegs; s++) {
+      const a0 = (s / capSegs) * Math.PI * 2.0;
+      const a1 = ((s + 1) / capSegs) * Math.PI * 2.0;
+      pushTri(
+        pt.x,
+        pt.z,
+        pt.x + Math.cos(a0) * halfWidth,
+        pt.z + Math.sin(a0) * halfWidth,
+        pt.x + Math.cos(a1) * halfWidth,
+        pt.z + Math.sin(a1) * halfWidth
+      );
+    }
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  return geo;
+}
+
 // ---------------------------------------------------------------------------
 // Main Known Ocean Map Controller
 // ---------------------------------------------------------------------------
@@ -338,16 +536,21 @@ class KnownOceanMapApp {
     this.scaleBarTextEl = document.getElementById('scale-bar-text');
 
     this.layout = buildKnownOceanLayout();
+    this.playerTrace = parsePlayerTraceFromSearch(
+      window.location.search,
+      this.layout
+    );
     this.islandScale = 1.4;
     this.lightKey = 'midday';
-    this.activeRegion = 'all';
+    this.activeRegion = this.playerTrace ? 'trace' : 'all';
     this.selectedIslandId = null;
     this.hoveredIslandId = null;
 
     this.showLabels = true;
     this.showRoutes = true;
     this.showClouds = false;
-    this.showRings = false;
+    this.showRings = Boolean(this.playerTrace);
+    this.showPlayerTrace = Boolean(this.playerTrace);
     this.cloudsBuilt = false;
 
     // Camera state (pan target on y=0 ocean plane + altitude height + tilt)
@@ -389,12 +592,17 @@ class KnownOceanMapApp {
     this._buildAllIslands();
     this._buildSelectionAndCueRings();
     this._buildStarPathRoutes();
+    this._buildPlayerRouteTrace();
     this._buildHtmlLabels();
     this._renderSidebarList('');
     this._renderInspector();
     this._bindEvents();
 
-    this.fitRegion('all', true);
+    if (this.playerTrace) {
+      this.fitPlayerTrace(true);
+    } else {
+      this.fitRegion('all', true);
+    }
     this.lastTimeMs = performance.now();
     this.elapsedSec = 0.0;
     requestAnimationFrame((t) => this._animate(t));
@@ -702,6 +910,182 @@ class KnownOceanMapApp {
     }
   }
 
+  _buildPlayerRouteTrace() {
+    if (this.playerTraceGroup) {
+      this.scene.remove(this.playerTraceGroup);
+      this.playerTraceGroup.traverse((c) => {
+        if (c.geometry) c.geometry.dispose();
+        if (c.material) c.material.dispose();
+      });
+      this.playerTraceGroup = null;
+    }
+
+    if (!this.playerTrace) return;
+
+    const pts = this.playerTrace.worldPoints;
+    this.playerTraceGroup = new THREE.Group();
+    this.playerTraceGroup.visible = this.showPlayerTrace;
+    this.scene.add(this.playerTraceGroup);
+
+    // 1. Dark-crimson outer halo ribbon + bold red inner ribbon (visible at close/medium zoom)
+    const casingGeo = buildHorizontalRibbonGeometry(pts, 6.2, 1.52);
+    const casingMat = new THREE.MeshBasicMaterial({
+      color: 0x520404,
+      transparent: true,
+      opacity: 0.56,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const casingMesh = new THREE.Mesh(casingGeo, casingMat);
+    casingMesh.renderOrder = 10;
+    this.playerTraceGroup.add(casingMesh);
+
+    const ribbonGeo = buildHorizontalRibbonGeometry(pts, 3.2, 1.62);
+    const ribbonMat = new THREE.MeshBasicMaterial({
+      color: 0xff2b2b,
+      transparent: true,
+      opacity: 0.96,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const ribbonMesh = new THREE.Mesh(ribbonGeo, ribbonMat);
+    ribbonMesh.renderOrder = 11;
+    this.playerTraceGroup.add(ribbonMesh);
+
+    // 2. Crisp 1px red centerline so the route stays unbroken even at max zoom-out (5600m)
+    const linePts = pts.map((p) => new THREE.Vector3(p.x, 1.72, p.z));
+    const lineGeo = new THREE.BufferGeometry().setFromPoints(linePts);
+    const lineMat = new THREE.LineBasicMaterial({
+      color: 0xff5959,
+      transparent: true,
+      opacity: 0.98,
+      depthTest: false,
+      depthWrite: false,
+    });
+    const coreLine = new THREE.Line(lineGeo, lineMat);
+    coreLine.renderOrder = 12;
+    this.playerTraceGroup.add(coreLine);
+
+    // 3. Directional red chevrons along the actual sailed trajectory
+    const chevGeo = new THREE.ConeGeometry(6.8, 17.5, 3);
+    chevGeo.rotateX(Math.PI * 0.5);
+    chevGeo.scale(1.0, 0.28, 1.0);
+    const chevMat = new THREE.MeshBasicMaterial({
+      color: 0xff4a4a,
+      transparent: true,
+      opacity: 0.95,
+      depthTest: false,
+      depthWrite: false,
+    });
+
+    let totalLen = 0.0;
+    const segLens = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const d = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].z - pts[i].z);
+      segLens.push(d);
+      totalLen += d;
+    }
+    if (totalLen > 95.0) {
+      const spacing = Math.max(220.0, totalLen / 8.0);
+      let nextMark = Math.min(spacing * 0.55, totalLen * 0.5);
+      let accum = 0.0;
+      for (let i = 0; i < segLens.length; i++) {
+        const segLen = segLens[i];
+        while (
+          segLen > 1e-4 &&
+          accum + segLen >= nextMark &&
+          nextMark <= totalLen - 38.0
+        ) {
+          const u = (nextMark - accum) / segLen;
+          const cx = pts[i].x + (pts[i + 1].x - pts[i].x) * u;
+          const cz = pts[i].z + (pts[i + 1].z - pts[i].z) * u;
+          const tx = (pts[i + 1].x - pts[i].x) / segLen;
+          const tz = (pts[i + 1].z - pts[i].z) / segLen;
+          const chev = new THREE.Mesh(chevGeo, chevMat);
+          chev.position.set(cx, 1.8, cz);
+          chev.lookAt(cx + tx * 10.0, 1.8, cz + tz * 10.0);
+          chev.renderOrder = 13;
+          this.playerTraceGroup.add(chev);
+          nextMark += spacing;
+        }
+        accum += segLen;
+      }
+    }
+
+    // 4. Departure origin ring + Outcome end marker (Landfall bullseye vs Lost-at-Sea X)
+    const startPt = pts[0];
+    const endPt = pts[pts.length - 1];
+
+    const startRingGeo = new THREE.RingGeometry(7.0, 12.0, 36);
+    startRingGeo.rotateX(-Math.PI * 0.5);
+    const startRingMat = new THREE.MeshBasicMaterial({
+      color: 0xffd2d2,
+      transparent: true,
+      opacity: 0.94,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const startRing = new THREE.Mesh(startRingGeo, startRingMat);
+    startRing.position.set(startPt.x, 1.82, startPt.z);
+    startRing.renderOrder = 14;
+    this.playerTraceGroup.add(startRing);
+
+    const endOuterGeo = new THREE.RingGeometry(12.5, 18.5, 44);
+    endOuterGeo.rotateX(-Math.PI * 0.5);
+    const endOuterMat = new THREE.MeshBasicMaterial({
+      color: 0xff2b2b,
+      transparent: true,
+      opacity: 0.98,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const endOuter = new THREE.Mesh(endOuterGeo, endOuterMat);
+    endOuter.position.set(endPt.x, 1.85, endPt.z);
+    endOuter.renderOrder = 14;
+    this.playerTraceGroup.add(endOuter);
+
+    if (this.playerTrace.outcome === 'lost_at_sea') {
+      const armGeo = new THREE.PlaneGeometry(28.0, 5.2);
+      armGeo.rotateX(-Math.PI * 0.5);
+      const armMat = new THREE.MeshBasicMaterial({
+        color: 0xff3b3b,
+        transparent: true,
+        opacity: 0.98,
+        depthTest: false,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+      const armA = new THREE.Mesh(armGeo, armMat);
+      armA.position.set(endPt.x, 1.9, endPt.z);
+      armA.rotation.y = Math.PI * 0.25;
+      armA.renderOrder = 15;
+      const armB = new THREE.Mesh(armGeo, armMat);
+      armB.position.set(endPt.x, 1.9, endPt.z);
+      armB.rotation.y = -Math.PI * 0.25;
+      armB.renderOrder = 15;
+      this.playerTraceGroup.add(armA, armB);
+    } else {
+      const endDotGeo = new THREE.CircleGeometry(7.5, 32);
+      endDotGeo.rotateX(-Math.PI * 0.5);
+      const endDotMat = new THREE.MeshBasicMaterial({
+        color: 0xffe49c,
+        transparent: true,
+        opacity: 0.98,
+        depthTest: false,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+      const endDot = new THREE.Mesh(endDotGeo, endDotMat);
+      endDot.position.set(endPt.x, 1.9, endPt.z);
+      endDot.renderOrder = 15;
+      this.playerTraceGroup.add(endDot);
+    }
+  }
+
   _buildHtmlLabels() {
     this.labelsLayerEl.innerHTML = '';
     this.labelEls.clear();
@@ -856,6 +1240,90 @@ class KnownOceanMapApp {
 
   _renderInspector() {
     if (!this.selectedIslandId || !this.layout.byId[this.selectedIslandId]) {
+      if (this.playerTrace) {
+        const pt = this.playerTrace;
+        const fromName =
+          ISLANDS[pt.fromId]?.name || escapeHtml(pt.fromId) || 'Departure Isle';
+        const toName =
+          ISLANDS[pt.toId]?.name || escapeHtml(pt.toId) || 'Target Isle';
+        const landedName = pt.landedId
+          ? ISLANDS[pt.landedId]?.name || escapeHtml(pt.landedId)
+          : '';
+        const songLabel = pt.songDef
+          ? `Song ${escapeHtml(pt.songDef.number)} · ${escapeHtml(pt.songDef.title)}`
+          : `${fromName} → ${toName}`;
+        const reasonLabel =
+          pt.reason === 'rations_depleted'
+            ? 'Rations Depleted'
+            : pt.reason === 'mercy_divergence'
+              ? 'Drifted Wide of Isles'
+              : pt.reason
+                ? escapeHtml(pt.reason)
+                : 'Off Course';
+        const outcomeBadge =
+          pt.outcome === 'landfall'
+            ? `<span class="cue-badge highlight">Landfall${landedName ? ` · ${landedName}` : ''}</span>`
+            : `<span class="cue-badge trace-red">Lost at Sea · ${reasonLabel}</span>`;
+
+        const jumpChips = [];
+        if (pt.fromId && this.layout.byId[pt.fromId]) {
+          jumpChips.push(
+            `<button class="route-chip" data-jump="${escapeHtml(pt.fromId)}">From: ${fromName}</button>`
+          );
+        }
+        if (pt.toId && this.layout.byId[pt.toId]) {
+          jumpChips.push(
+            `<button class="route-chip" data-jump="${escapeHtml(pt.toId)}">Target: ${toName}</button>`
+          );
+        }
+        if (
+          pt.landedId &&
+          pt.landedId !== pt.toId &&
+          this.layout.byId[pt.landedId]
+        ) {
+          jumpChips.push(
+            `<button class="route-chip" data-jump="${escapeHtml(pt.landedId)}">Arrived: ${landedName}</button>`
+          );
+        }
+
+        this.inspectorEl.innerHTML = `
+          <div class="inspector-header">
+            <div>
+              <div class="inspector-title">Voyage Route Trace</div>
+              <div class="inspector-sub">${songLabel}</div>
+            </div>
+            <div style="display:flex;gap:4px;">
+              <button id="btn-focus-trace" class="icon-btn" title="Frame Sailed Route">Focus Route</button>
+            </div>
+          </div>
+          <div class="badge-row">
+            ${outcomeBadge}
+            <span class="cue-badge trace-red">Red Line · ${pt.sailedUnits.toFixed(1)} Units</span>
+          </div>
+          <div class="inspector-meta">
+            Red line marks the actual path sailed from <strong>${fromName}</strong> toward <strong>${toName}</strong>. Concentric cue rings show target island detection screens.
+          </div>
+          ${
+            jumpChips.length
+              ? `<div class="inspector-routes"><div class="route-chip-wrap">${jumpChips.join('')}</div></div>`
+              : ''
+          }
+        `;
+
+        const focusTraceBtn = document.getElementById('btn-focus-trace');
+        if (focusTraceBtn) {
+          focusTraceBtn.addEventListener('click', () => {
+            this.fitPlayerTrace(false);
+          });
+        }
+        for (const chip of this.inspectorEl.querySelectorAll('.route-chip')) {
+          chip.addEventListener('click', () => {
+            this.selectIsland(chip.dataset.jump, { zoomClose: true });
+          });
+        }
+        return;
+      }
+
       this.inspectorEl.innerHTML = `
         <div class="inspector-header">
           <div>
@@ -1057,6 +1525,46 @@ class KnownOceanMapApp {
     }
   }
 
+  fitPlayerTrace(instant = false) {
+    if (!this.playerTrace) {
+      this.fitRegion('all', instant);
+      return;
+    }
+    const b = this.playerTrace.bounds;
+    this.activeRegion = 'trace';
+
+    for (const pill of document.querySelectorAll('.region-pill')) {
+      pill.classList.remove('active');
+    }
+
+    const w = Math.max(1, this.viewportEl.clientWidth);
+    const h = Math.max(1, this.viewportEl.clientHeight);
+    const aspect = w / h;
+    const vFovRad = (this.camera.fov * Math.PI) / 180.0;
+    const tanHalfV = Math.tan(vFovRad * 0.5);
+    const tanHalfH = tanHalfV * aspect;
+
+    const reqHeightZ = (b.spanZ * 0.56) / tanHalfV;
+    const reqHeightX = (b.spanX * 0.56) / tanHalfH;
+    const targetH = Math.max(
+      MIN_CAM_HEIGHT + 45.0,
+      Math.min(MAX_CAM_HEIGHT, Math.max(reqHeightX, reqHeightZ))
+    );
+
+    this.velPanX = 0.0;
+    this.velPanZ = 0.0;
+    this.goalPanX = b.centerX;
+    this.goalPanZ = b.centerZ;
+    this.goalHeight = targetH;
+
+    if (instant) {
+      this.panX = this.goalPanX;
+      this.panZ = this.goalPanZ;
+      this.camHeight = this.goalHeight;
+      this._applyCameraTransform();
+    }
+  }
+
   setIslandScale(scale) {
     this.islandScale = Math.max(0.8, Math.min(2.1, scale));
     this.oceanUniforms.uIslandScale.value = this.islandScale;
@@ -1146,13 +1654,25 @@ class KnownOceanMapApp {
   _clampGoalPan() {
     const allB = this.layout.regionBounds.all;
     const pad = 1800.0;
+    const minX = this.playerTrace
+      ? Math.min(allB.minX, this.playerTrace.bounds.minX)
+      : allB.minX;
+    const maxX = this.playerTrace
+      ? Math.max(allB.maxX, this.playerTrace.bounds.maxX)
+      : allB.maxX;
+    const minZ = this.playerTrace
+      ? Math.min(allB.minZ, this.playerTrace.bounds.minZ)
+      : allB.minZ;
+    const maxZ = this.playerTrace
+      ? Math.max(allB.maxZ, this.playerTrace.bounds.maxZ)
+      : allB.maxZ;
     this.goalPanX = Math.max(
-      allB.minX - pad,
-      Math.min(allB.maxX + pad, this.goalPanX)
+      minX - pad,
+      Math.min(maxX + pad, this.goalPanX)
     );
     this.goalPanZ = Math.max(
-      allB.minZ - pad,
-      Math.min(allB.maxZ + pad, this.goalPanZ)
+      minZ - pad,
+      Math.min(maxZ + pad, this.goalPanZ)
     );
   }
 
@@ -1265,10 +1785,28 @@ class KnownOceanMapApp {
     });
 
     const toggleRingsBtn = document.getElementById('toggle-rings');
+    toggleRingsBtn.classList.toggle('active', this.showRings);
     toggleRingsBtn.addEventListener('click', () => {
       this.showRings = !this.showRings;
       toggleRingsBtn.classList.toggle('active', this.showRings);
     });
+
+    const toggleTraceBtn = document.getElementById('toggle-trace');
+    const legendTraceEl = document.getElementById('legend-trace');
+    if (this.playerTrace && toggleTraceBtn) {
+      toggleTraceBtn.style.display = 'inline-block';
+      toggleTraceBtn.classList.toggle('active', this.showPlayerTrace);
+      if (legendTraceEl) {
+        legendTraceEl.style.display = 'inline-flex';
+      }
+      toggleTraceBtn.addEventListener('click', () => {
+        this.showPlayerTrace = !this.showPlayerTrace;
+        toggleTraceBtn.classList.toggle('active', this.showPlayerTrace);
+        if (this.playerTraceGroup) {
+          this.playerTraceGroup.visible = this.showPlayerTrace;
+        }
+      });
+    }
 
     // Pointer Drag Panning, Touch Pinch-Zoom, Click Pick & Double-Click Zoom
     this.viewportEl.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -1481,8 +2019,13 @@ class KnownOceanMapApp {
       this.hoverHalo.visible = false;
     }
 
-    // Concentric Wayfinding Cue Rings around selected island (or Ra'iatea if none selected)
-    const ringTarget = selEntry || this.layout.byId.raiatea;
+    // Concentric Wayfinding Cue Rings around selected island (or traced target / Ra'iatea if none selected)
+    const defaultRingEntry =
+      (this.playerTrace &&
+        (this.layout.byId[this.playerTrace.landedId] ||
+          this.layout.byId[this.playerTrace.toId])) ||
+      this.layout.byId.raiatea;
+    const ringTarget = selEntry || defaultRingEntry;
     if (this.showRings && ringTarget) {
       const basin = OCEAN_BASINS[ringTarget.isl.basinId];
       const refHop = basin?.referenceHopUnits ?? 6.0;
@@ -1655,6 +2198,8 @@ class KnownOceanMapApp {
   }
 }
 
-window.addEventListener('DOMContentLoaded', () => {
-  new KnownOceanMapApp();
-});
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  window.addEventListener('DOMContentLoaded', () => {
+    new KnownOceanMapApp();
+  });
+}

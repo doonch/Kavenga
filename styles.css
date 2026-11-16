@@ -2254,3 +2254,203 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================================================================
+   ASHORE ISLAND SETTINGS BUTTON, MODAL & START-OVER CONFIRMATION
+   ========================================================================= */
+.island-settings-btn {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: inherit;
+  background: rgba(9, 21, 35, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(231, 181, 99, 0.42);
+  border-radius: 12px;
+  padding: 9px 14px;
+  color: var(--sand-warm);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.34);
+  transition: border-color 0.16s, background 0.16s, transform 0.12s;
+}
+
+.island-settings-btn:hover {
+  background: rgba(15, 33, 52, 0.92);
+  border-color: var(--sand-gold);
+  transform: translateY(-1px);
+}
+
+.island-settings-gear {
+  font-size: 15px;
+  color: var(--sand-gold);
+}
+
+.island-settings-pill {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(231, 181, 99, 0.16);
+  border: 1px solid rgba(231, 181, 99, 0.34);
+  color: var(--sand-gold);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+#island-settings-ui {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+}
+
+.island-settings-backdrop {
+  position: fixed;
+  inset: 0;
+}
+
+.island-settings-card {
+  width: min(560px, 94vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.island-settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-section-label {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--sand-gold);
+  font-weight: 600;
+}
+
+.settings-sound-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.settings-sound-btn {
+  font-family: inherit;
+  padding: 10px 14px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(232, 198, 142, 0.24);
+  color: var(--text-muted);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.settings-sound-btn:hover {
+  border-color: rgba(231, 181, 99, 0.55);
+  color: var(--sand-warm);
+}
+
+.settings-sound-btn.active {
+  background: rgba(62, 240, 208, 0.14);
+  border-color: var(--lapa-jade);
+  color: #ffffff;
+}
+
+.settings-reset-row {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(212, 101, 66, 0.09);
+  border: 1px solid rgba(212, 101, 66, 0.34);
+}
+
+.settings-reset-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-reset-copy strong {
+  font-size: 14px;
+  color: var(--sand-warm);
+}
+
+.settings-reset-copy span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.danger-outline-btn {
+  font-family: inherit;
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: rgba(212, 101, 66, 0.14);
+  border: 1px solid rgba(212, 101, 66, 0.6);
+  color: #ffb8a2;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.danger-outline-btn:hover {
+  background: rgba(212, 101, 66, 0.28);
+  border-color: #ff8e6b;
+  color: #ffffff;
+}
+
+.danger-solid-btn {
+  font-family: inherit;
+  padding: 10px 18px;
+  border-radius: 11px;
+  background: #c9472c;
+  border: 1px solid #ef7a5c;
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.danger-solid-btn:hover {
+  background: #df5437;
+}
+
+.settings-footer-actions {
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+
+.settings-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(5, 11, 20, 0.76);
+}
+
+.settings-confirm-card {
+  width: min(440px, 92vw);
+  border-color: rgba(212, 101, 66, 0.65);
+}
+
+.settings-danger-eyebrow {
+  color: #ff9c7d;
+}

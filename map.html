@@ -7,7 +7,8 @@
   <script type="importmap">
     {
       "imports": {
-        "three": "./vendor/three.module.min.js"
+        "three": "./vendor/three.module.min.js",
+        "./src/simulation/oceanSim.js": "./src/simulation/oceanSim.js?v=20261116b"
       }
     }
   </script>
@@ -445,6 +446,12 @@
       background: rgba(66, 217, 200, 0.1);
     }
 
+    .cue-badge.trace-red {
+      border-color: rgba(255, 64, 64, 0.58);
+      color: #ffd6d6;
+      background: rgba(255, 48, 48, 0.18);
+    }
+
     .inspector-meta {
       font-size: 12px;
       line-height: 1.42;
@@ -537,6 +544,12 @@
       background: rgba(66, 217, 200, 0.22);
       border-color: var(--accent-teal);
       color: #dffcf8;
+    }
+
+    .tool-btn.trace-btn.active {
+      background: rgba(255, 48, 48, 0.24);
+      border-color: #ff4747;
+      color: #ffe2e2;
     }
 
     .range-slider {
@@ -711,6 +724,7 @@
           <button id="toggle-routes" class="tool-btn active">Star Paths</button>
           <button id="toggle-clouds" class="tool-btn">Clouds</button>
           <button id="toggle-rings" class="tool-btn">Cue Rings</button>
+          <button id="toggle-trace" class="tool-btn trace-btn active" style="display:none">Sailed Route</button>
         </div>
       </section>
 
@@ -724,6 +738,7 @@
           <span class="legend-item"><span class="chain-dot" style="background:#42d9c8"></span>Act II</span>
           <span class="legend-item"><span class="chain-dot" style="background:#9eb8ff"></span>Act III</span>
           <span class="legend-item"><span class="chain-dot" style="background:#f08c6b"></span>Secret</span>
+          <span id="legend-trace" class="legend-item" style="display:none"><span class="chain-dot" style="background:#ff2b2b"></span>Route</span>
         </div>
         <div class="scale-bar-row">
           <div id="scale-bar-graphic" class="scale-bar-graphic"></div>
@@ -733,6 +748,6 @@
     </main>
   </div>
 
-  <script type="module" src="./src/oceanMap.js"></script>
+  <script type="module" src="./src/oceanMap.js?v=20261116b"></script>
 </body>
 </html>

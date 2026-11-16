@@ -120,6 +120,7 @@ export class OceanSim {
     this.worstCueLabel = '';
     this.worstCueDeviationScore = 0.0;
     this.departedRecommendedWindow = true;
+    this.routeTrace = [];
 
     // Cached per-frame readout for renderers, audio, and HUD
     this.sunState = computeSunState(180.0, 6.0, this.latDeg);
@@ -225,6 +226,7 @@ export class OceanSim {
     const dx = this.activeIslands[toDef.id].simPos.x - this.pos.x;
     const dy = this.activeIslands[toDef.id].simPos.y - this.pos.y;
     this.startPos = { x: this.pos.x, y: this.pos.y };
+    this.routeTrace = [{ x: this.pos.x, y: this.pos.y }];
     this.totalRouteUnits = Math.max(1.0, Math.hypot(dx, dy));
     this.fromLatDeg = fromDef?.latDeg ?? GameConstants.REFERENCE_LATITUDE_DEG;
     this.toLatDeg = toDef?.latDeg ?? this.fromLatDeg;
@@ -317,6 +319,7 @@ export class OceanSim {
     const cogRad = degToRad(this.courseOverGroundDeg);
     this.pos.x += Math.sin(cogRad) * speedUnitsPerMin * dtMin;
     this.pos.y += Math.cos(cogRad) * speedUnitsPerMin * dtMin;
+    this._appendRouteTracePoint(false);
 
     // 4. Advance Solar Time & Voyage Clock
     this.elapsedRealSec += simDtSec;
@@ -375,6 +378,7 @@ export class OceanSim {
       const isJustDeparted =
         det.islandId === this.song.fromIsland && this.elapsedRealSec < 45.0;
       if (det.ring >= 4 && !isJustDeparted) {
+        this._appendRouteTracePoint(true);
         this.status = VoyageStatus.ARRIVED;
         this.arrivedIsland = this.activeIslands[det.islandId];
         this.fastForward = false;
@@ -657,7 +661,26 @@ export class OceanSim {
     return true;
   }
 
+  _appendRouteTracePoint(force = false) {
+    const px = this.pos.x;
+    const py = this.pos.y;
+    const last = this.routeTrace[this.routeTrace.length - 1];
+    if (!last) {
+      this.routeTrace.push({ x: px, y: py });
+      return;
+    }
+    const dist = Math.hypot(px - last.x, py - last.y);
+    if (force) {
+      if (dist > 1e-4) {
+        this.routeTrace.push({ x: px, y: py });
+      }
+    } else if (dist >= 0.14) {
+      this.routeTrace.push({ x: px, y: py });
+    }
+  }
+
   _triggerLostAtSea(reason) {
+    this._appendRouteTracePoint(true);
     this.status = VoyageStatus.LOST_AT_SEA;
     this.lostReason = reason;
     this.fastForward = false;
@@ -690,4 +713,163 @@ export class OceanSim {
     }
     return `The twin prows drifted wide of ${this.worstCueLabel}, sailing past the island's birds and clouds into the empty mist.`;
   }
+}
+
+function pointSegmentDistSq(p, a, b) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq <= 1e-10) {
+    const px = p.x - a.x;
+    const py = p.y - a.y;
+    return px * px + py * py;
+  }
+  const t = Math.max(0.0, Math.min(1.0, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq));
+  const projX = a.x + t * dx;
+  const projY = a.y + t * dy;
+  const ex = p.x - projX;
+  const ey = p.y - projY;
+  return ex * ex + ey * ey;
+}
+
+/**
+ * Downsamples a polyline to at most maxPoints while preserving turns and endpoints,
+ * then encodes as flat underscore-separated coordinate pairs (`x0_y0_x1_y1...`)
+ * using only URL-unencoded characters (`0-9`, `-`, `.`, `_`).
+ */
+export function encodeCompactRouteTrace(points, maxPoints = 140) {
+  if (!Array.isArray(points) || points.length === 0) return '';
+  const valid = points.filter(
+    (p) => p && Number.isFinite(p.x) && Number.isFinite(p.y)
+  );
+  if (valid.length === 0) return '';
+
+  let sampled = valid;
+  const cap = Math.max(2, Math.floor(maxPoints));
+  if (valid.length > cap) {
+    const n = valid.length;
+    const keep = new Uint8Array(n);
+    keep[0] = 1;
+    keep[n - 1] = 1;
+    const segments = [[0, n - 1]];
+    let kept = 2;
+
+    while (kept < cap && segments.length > 0) {
+      let bestSegPos = -1;
+      let bestMidIdx = -1;
+      let bestErrSq = -1.0;
+      let bestSpan = -1;
+
+      for (let s = 0; s < segments.length; s++) {
+        const [startIdx, endIdx] = segments[s];
+        const span = endIdx - startIdx;
+        if (span <= 1) continue;
+        const a = valid[startIdx];
+        const b = valid[endIdx];
+        let segMaxIdx = startIdx + (span >> 1);
+        let segMaxErrSq = -1.0;
+        for (let i = startIdx + 1; i < endIdx; i++) {
+          const errSq = pointSegmentDistSq(valid[i], a, b);
+          if (errSq > segMaxErrSq) {
+            segMaxErrSq = errSq;
+            segMaxIdx = i;
+          }
+        }
+        if (
+          segMaxErrSq > bestErrSq + 1e-9 ||
+          (Math.abs(segMaxErrSq - bestErrSq) <= 1e-9 && span > bestSpan)
+        ) {
+          bestErrSq = segMaxErrSq;
+          bestSpan = span;
+          bestSegPos = s;
+          bestMidIdx = segMaxIdx;
+        }
+      }
+
+      if (bestSegPos < 0 || bestMidIdx < 0) break;
+      const [startIdx, endIdx] = segments[bestSegPos];
+      keep[bestMidIdx] = 1;
+      kept += 1;
+      segments.splice(
+        bestSegPos,
+        1,
+        [startIdx, bestMidIdx],
+        [bestMidIdx, endIdx]
+      );
+    }
+
+    sampled = [];
+    for (let i = 0; i < n; i++) {
+      if (keep[i]) sampled.push(valid[i]);
+    }
+  }
+
+  const fmt = (v) => {
+    const r = Math.round(v * 100) / 100;
+    return Object.is(r, -0) ? '0' : String(r);
+  };
+  const tokens = [];
+  for (const pt of sampled) {
+    tokens.push(fmt(pt.x), fmt(pt.y));
+  }
+  return tokens.join('_');
+}
+
+/**
+ * Decodes a compact route trace string (`x0_y0_x1_y1...`, `x~y_x~y`, or `x,y;x,y`)
+ * back into `Array<{ x: number, y: number }>`.
+ */
+export function decodeCompactRouteTrace(encoded) {
+  if (typeof encoded !== 'string' || !encoded.trim()) return [];
+  const raw = encoded.trim();
+  const out = [];
+
+  if (raw.includes('~') || raw.includes(',')) {
+    const pairs = raw.split(/[_;]/);
+    for (const pair of pairs) {
+      const parts = pair.split(/[~,]/);
+      if (parts.length < 2) continue;
+      const x = Number(parts[0]);
+      const y = Number(parts[1]);
+      if (Number.isFinite(x) && Number.isFinite(y)) {
+        out.push({ x, y });
+      }
+    }
+    return out;
+  }
+
+  const nums = raw.split('_');
+  for (let i = 0; i + 1 < nums.length; i += 2) {
+    const x = Number(nums[i]);
+    const y = Number(nums[i + 1]);
+    if (Number.isFinite(x) && Number.isFinite(y)) {
+      out.push({ x, y });
+    }
+  }
+  return out;
+}
+
+/**
+ * Builds plain string query parameters describing a finished voyage's sailed trajectory
+ * for inspection on `map.html`. Free of DOM/window dependencies for headless tests.
+ */
+export function buildVoyageDebugTraceParams(oceanSim, outcomeEvent = null) {
+  const isLandfall =
+    outcomeEvent?.type === 'landfall' ||
+    oceanSim?.status === VoyageStatus.ARRIVED;
+  const params = {
+    outcome: isLandfall ? 'landfall' : 'lost_at_sea',
+    song: oceanSim?.song?.id || '',
+    from: oceanSim?.song?.fromIsland || '',
+    to: oceanSim?.song?.toIsland || '',
+    basin: oceanSim?.basin?.id || '',
+  };
+  if (isLandfall) {
+    params.landed =
+      outcomeEvent?.islandId || oceanSim?.arrivedIsland?.id || '';
+  } else {
+    params.reason = outcomeEvent?.reason || oceanSim?.lostReason || '';
+  }
+  params.pts = encodeCompactRouteTrace(oceanSim?.routeTrace || []);
+  return params;
 }

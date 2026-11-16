@@ -26,6 +26,7 @@ import { ISLANDS, OCEAN_BASINS } from '../data/islandsData.js';
 import { getPlayerCharacterProfile } from '../data/playerCharactersData.js';
 import { SONGS } from '../data/songsData.js';
 import { getWalkableIslandSpec } from '../data/walkableIslandsData.js';
+import { formatShortSettingsSummary } from './IslandSettingsUI.js';
 import { SandCanvas } from './SandCanvas.js';
 
 export class WalkableIslandUI {
@@ -74,15 +75,16 @@ export class WalkableIslandUI {
             </div>
           </div>
 
-          <label class="hub-mode-select-wrap walkable-mode-wrap">
-            <span>Guidance &amp; Wayfinder</span>
-            <select id="walkDifficultySelect">
-              <option value="easy">Easy · 12–14 yr Apprentice</option>
-              <option value="medium">Medium · 18–20 yr Wayfinder</option>
-              <option value="hard">Hard · 30 yr Navigator</option>
-              <option value="master_navigator">Master Navigator · 50 yr Elder</option>
-            </select>
-          </label>
+          <button
+            class="island-settings-btn"
+            id="btnWalkOpenSettings"
+            type="button"
+            title="Open Island Settings (Sound, Difficulty &amp; Start Over)"
+          >
+            <span class="island-settings-gear" aria-hidden="true">⚙</span>
+            <span class="island-settings-label">Settings</span>
+            <span class="island-settings-pill" id="walkSettingsSummary">Wayfinder · 🔊</span>
+          </button>
         </header>
 
         <!-- Minimized POI Re-open Pill (shown only if player minimized active POI card while standing inside it) -->
@@ -163,10 +165,10 @@ export class WalkableIslandUI {
       });
 
     this.rootEl
-      .querySelector('#walkDifficultySelect')
-      .addEventListener('change', (e) => {
-        this.callbacks.onChangeDifficulty?.(e.target.value);
-        this.refresh();
+      .querySelector('#btnWalkOpenSettings')
+      .addEventListener('click', (e) => {
+        e.currentTarget.blur();
+        this.callbacks.onOpenSettings?.();
       });
 
     this.rootEl
@@ -340,16 +342,11 @@ export class WalkableIslandUI {
     this.rootEl.querySelector('#walkIslandName').textContent = isl.name;
     this.rootEl.querySelector('#walkIslandSubtitle').textContent = isl.subtitle;
 
-    const diffSelect = this.rootEl.querySelector('#walkDifficultySelect');
-    const masterOpt = diffSelect.querySelector('option[value="master_navigator"]');
-    if (masterOpt) {
-      masterOpt.disabled =
-        !gs.masterReplayUnlocked && gs.difficulty !== Difficulty.MASTER_NAVIGATOR;
-      masterOpt.textContent = gs.masterReplayUnlocked
-        ? 'Master Navigator · 50 yr Elder'
-        : 'Master Navigator · 50 yr Elder (Unlock at Finale)';
+    const summaryEl = this.rootEl.querySelector('#walkSettingsSummary');
+    if (summaryEl) {
+      const isMuted = Boolean(this.callbacks.getIsSoundMuted?.());
+      summaryEl.textContent = formatShortSettingsSummary(gs.difficulty, isMuted);
     }
-    diffSelect.value = gs.difficulty;
 
     if (this.currentPoi) {
       this._renderCurrentPoiPopup();

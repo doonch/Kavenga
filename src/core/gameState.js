@@ -219,4 +219,17 @@ export class GameState {
     }
     return false;
   }
+
+  clearSavedProgress() {
+    const fresh = new GameState();
+    this.fromJSON(fresh.toJSON());
+    this._preVoyageSnapshot = null;
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (_err) {
+        // Ignore storage errors in restricted contexts.
+      }
+    }
+  }
 }

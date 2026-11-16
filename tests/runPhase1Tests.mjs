@@ -50,7 +50,13 @@ import {
   computeBeatsPerWave,
   sampleTwinHullState,
 } from '../src/simulation/hullPhysics.js';
-import { OceanSim, VoyageStatus } from '../src/simulation/oceanSim.js';
+import {
+  OceanSim,
+  VoyageStatus,
+  buildVoyageDebugTraceParams,
+  decodeCompactRouteTrace,
+  encodeCompactRouteTrace,
+} from '../src/simulation/oceanSim.js';
 import { LASHING_ZONES, evaluateDeckShadow } from '../src/simulation/shadowCraft.js';
 
 const logLine =
@@ -451,6 +457,21 @@ gs.loadedRations = 0.2;
 gs.markIslandDiscovered('tahaa', 'act1_raiatea');
 assert(gs.restorePreVoyageSnapshot() === true, 'Restores pre-voyage snapshot');
 assert(gs.currentIslandId === 'raiatea' && gs.loadedRations === 3.0, 'Snapshot restored cleanly');
+gs.upgradeVakaTier(3);
+gs.recruitCrew('tama');
+gs.addCargoItem('kava_bundle');
+gs.learnSong('song_16');
+gs.markIslandDiscovered('hawaii', 'act3_mist_isles');
+gs.clearSavedProgress();
+assert(
+  gs.currentIslandId === 'raiatea' &&
+    gs.vakaTier === 1 &&
+    gs.maxCargoSlots === 4 &&
+    gs.assignedCrew.length === 0 &&
+    gs.cargoItems.length === 0 &&
+    !gs.learnedSongs.song_16,
+  'clearSavedProgress() resets all campaign state back to the starting point on Raʻiātea'
+);
 
 // ---------------------------------------------------------------------------
 // 7. End-to-End 17-Route Cue Autopilot + Return Song + Mercy-Rule Lost-at-Sea
@@ -502,6 +523,30 @@ for (const sid of ORDERED_SONG_IDS) {
     sim.rationsRemaining > 0.5,
     `Route ${sid} rations too tight (${sim.rationsRemaining.toFixed(2)})`
   );
+  assert(
+    sim.routeTrace.length >= 4,
+    `Route ${sid} recorded sailed trajectory (${sim.routeTrace.length} pts)`
+  );
+  const traceParams = buildVoyageDebugTraceParams(sim);
+  assert(
+    traceParams.outcome === 'landfall' &&
+      traceParams.landed === song.toIsland &&
+      /^[0-9._-]+$/.test(traceParams.pts),
+    `Route ${sid} debug trace params are URL-clean and match landfall`
+  );
+  const decodedTrace = decodeCompactRouteTrace(traceParams.pts);
+  assert(
+    decodedTrace.length >= 4 &&
+      Math.hypot(
+        decodedTrace[0].x - sim.startPos.x,
+        decodedTrace[0].y - sim.startPos.y
+      ) < 0.02 &&
+      Math.hypot(
+        decodedTrace[decodedTrace.length - 1].x - sim.pos.x,
+        decodedTrace[decodedTrace.length - 1].y - sim.pos.y
+      ) < 0.02,
+    `Route ${sid} compact trace round-trips start and arrival coordinates`
+  );
   logLine(
     `  PASS ${sid.padEnd(8)} | ${song.fromIsland.padEnd(10)} -> ${song.toIsland.padEnd(10)} | ${(sim.elapsedRealSec / 60.0).toFixed(2)}m | rations=${sim.rationsRemaining.toFixed(2)}`
   );
@@ -540,6 +585,32 @@ auditText(returnSong.verses[0].lyrics, 'Dynamic return song lyrics');
   assert(sim.status === VoyageStatus.LOST_AT_SEA, 'Sailing opposite target triggers Mercy-Rule Lost at Sea');
   assert(sim.reflectionText.length > 20, 'Post-mist reflection generated');
   auditText(sim.reflectionText, 'Post-mist reflection text');
+  const lostTrace = buildVoyageDebugTraceParams(sim);
+  const lostPts = decodeCompactRouteTrace(lostTrace.pts);
+  assert(
+    lostTrace.outcome === 'lost_at_sea' &&
+      lostTrace.reason === 'mercy_divergence' &&
+      lostPts.length >= 6 &&
+      lostPts[lostPts.length - 1].y < -1.2 &&
+      Math.hypot(
+        lostPts[lostPts.length - 1].x - sim.pos.x,
+        lostPts[lostPts.length - 1].y - sim.pos.y
+      ) < 0.02,
+    'Lost-at-sea debug trace captures off-course trajectory and termination point'
+  );
+  // Dogleg polyline simplification check (>200 points compressed to <=40 while preserving sharp corner)
+  const doglegRaw = [];
+  for (let i = 0; i <= 100; i += 1) doglegRaw.push({ x: i * 0.1, y: 0 });
+  for (let i = 1; i <= 100; i += 1) doglegRaw.push({ x: 10.0, y: i * 0.1 });
+  const doglegEncoded = encodeCompactRouteTrace(doglegRaw, 24);
+  const doglegDecoded = decodeCompactRouteTrace(doglegEncoded);
+  assert(
+    doglegDecoded.length === 24 &&
+      doglegDecoded.some(
+        (p) => Math.abs(p.x - 10.0) < 0.02 && Math.abs(p.y) < 0.02
+      ),
+    'encodeCompactRouteTrace downsamples while preserving sharp dogleg inflection corner'
+  );
   logLine(`  PASS Mercy-Rule reflection: "${sim.reflectionText}"`);
 }
 
