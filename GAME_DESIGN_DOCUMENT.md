@@ -2,16 +2,17 @@
 
 ## 1. Executive Summary & High Concept
 
-*Kavenga: Songs of the Star Path* is a contemplative, atmospheric 3D wayfinding adventure in which the player steps into the role of a traditional Polynesian navigator. Across two interlocking phases—learning, trading, and provisioning at **Point-of-Interest (POI) hubs** during the **Island Phase**, and sailing a double-hulled voyaging canoe across open water during the **Navigation Phase**—players cross a fictionalized Pacific Ocean inspired by authentic Polynesian history and place names, using zero maps, compasses, paper logs, or GPS.
+*Kavenga: Songs of the Star Path* is a contemplative, atmospheric 3D wayfinding adventure in which the player steps into the role of a traditional Polynesian navigator. Across two interlocking phases—exploring, learning, trading, and provisioning ashore during the **Island Phase** (via **3D Walkable Islands** and **Point-of-Interest Hubs**), and sailing a double-hulled voyaging canoe across open water during the **Navigation Phase**—players cross a fictionalized Pacific Ocean inspired by authentic Polynesian history and place names, using zero maps, compasses, paper logs, or GPS.
 
-Routes are preserved and taught orally through **baked-in navigation songs** paired with **stick-in-the-sand diagrams** drawn on the beach by master navigators. Song lyrics encode celestial and environmental landmarks while musical meter mirrors the physical rhythm of ocean swells. Rather than testing reflexes, racing clocks, or rapid clicking, the game rewards calm observation, listening, and genuine environmental literacy—guiding the player from feeling completely lost on an endless sea to reading the sky and water at a glance.
+Routes are preserved and taught orally through **baked-in navigation songs** paired with **stick-in-the-sand diagrams** drawn on the beach and **grounded 360° night-sky vigils** led by master navigators. Song lyrics encode celestial and environmental landmarks while musical meter mirrors the physical rhythm of ocean swells. Rather than testing reflexes, racing clocks, or rapid clicking, the game rewards calm observation, listening, and genuine environmental literacy—guiding the player from feeling completely lost on an endless sea to reading the sky and water at a glance.
 
 | Attribute | Target Specification |
 | :--- | :--- |
 | **Genre** | Contemplative Exploration / Musical Wayfinding Simulation / Adventure |
-| **Camera Perspectives** | **Navigation:** 3D third-person behind & slightly above the double-hulled canoe + 360° Free-Look<br>**Island:** Scenic Point-of-Interest (POI) coastal hubs + close-up **Teaching Sand** view |
-| **Voyage Pacing** | **8–12 real-time minutes per voyage** at 1x speed (no abrupt time-skips); includes a heading-locked **Fast Forward** button that cuts voyage play time by **~60%** (~3–5 minutes) |
-| **World Setting** | **Fictionalized ocean geography** (unspoilable by real maps) populated with **authentic Polynesian island names, terminology, and cultural traditions** |
+| **Camera Perspectives** | **Navigation:** 1st-person **Deck View** from the aft navigator's bench (default) + toggleable 3D **3rd-Person Canoe View** (`V` / Eye icon) + 360° Free-Look, framed by 3D **Launch (`5.90s`)** and **Landfall (`2.15s`)** cinematics<br>**Island:** **3D Walkable Islands** (*Raʻiātea*, *Tahaʻa*, *Hawaiʻi*, *Rapa Nui*) with 3rd-person orbit camera & closeable **Island Hub** + classic **POI Hubs** on the remaining 12 campaign islands + overhead **Teaching Sand** + 360° **Star-Stone Vigil (*Ahu Fetiʻa*)** |
+| **Player Avatar** | **4 difficulty-specific 3D Polynesian wayfinders** (`12–14 yr` Apprentice, `18–20 yr` Wayfinder, `30 yr` Navigator, `50 yr` gray-bearded Master Navigator) standing at the steering sweep in 3rd-person/launch views, hidden in 1st-person Deck View, and walked barefoot ashore |
+| **Voyage Pacing** | **8–12 real-time minutes per voyage** at 1x speed (no abrupt time-skips); includes a heading-locked **Fast Forward (`2.75x`)** button that cuts voyage play time by **~60%** (~3–5 minutes) |
+| **World Setting** | **Fictionalized 3-basin Pacific geography** (`16` campaign islands across Southern & Northern Hemispheres + `1` uncharted secret monolith island, **Rapa Nui**) populated with **authentic Polynesian island names, terminology, and cultural traditions** |
 | **Memory & Diegesis** | Oral songs + **marks drawn on wet sand with a stick** (revisitable via an at-sea **Recall** memory flash on *Easy*, *Medium*, and *Hard*; strictly **no paper journals or written logs**) |
 
 ---
@@ -55,24 +56,35 @@ flowchart LR
 
 ---
 
-## 4. Phase I: The Island Phase (Point-of-Interest Hubs)
+## 4. Phase I: The Island Phase (3D Walkable Islands & Point-of-Interest Hubs)
 
-Rather than free-roaming 3D walking levels, each island is presented as an atmospheric **Point-of-Interest (POI) Hub**—a curated set of scenic, painterly coastal locations navigated via clean node selection. This keeps production focused on rich environmental art, character encounters, and the 3D open-ocean sailing simulation.
+The Island Phase combines **human-scale 3D Walkable Islands** on four signature shores (**Raʻiātea**, **Tahaʻa**, **Hawaiʻi**, and secret **Rapa Nui**) with curated **Point-of-Interest (POI) Hubs** across the remaining 12 campaign islands, unified by full-body character portraits (`15` mentors and `3` recruitable crewmates) and shared quest/provisioning mechanics.
 
-### 4.1 Island POI Structure
-Depending on whether an island is a major settlement or an uninhabited resource atoll, players visit 2–4 distinct POIs:
-1. **The Canoe Landing (*Halau* / Beach):** Manage canoe maintenance, load food/water rations, assign crew, inspect cargo inventory, select departure time, and launch into the Navigation Phase.
-2. **The Navigator's Shore (Teaching Sand):** Sit beside the local navigator or Grandmaster at the tide line to learn environmental lore, study **stick-in-sand diagrams**, and listen to **Route Songs**.
-3. **The Village & *Marae* (Settlement):** Speak with island chiefs, artisans, and fishers; accept or complete inter-island delivery/retrieval quests; recruit specialist crew members.
-4. **Wild Outpost Sites *(Uninhabited Isles)*:** Harvest rare regional items—such as sacred *tamanu* timber, basalt adze stone, pearl shells, or red *kura* feathers—needed to persuade distant Masters.
+### 4.1 Island POI Structure & Hybrid Walkable Experience
+Depending on whether an island is a major settlement or an uninhabited resource/monolith shore, players visit 2–4 distinct POIs:
+1. **The Canoe Landing (*Hālau* / Beach):** Manage canoe maintenance, load food/water rations, inspect crew and lashed cargo, select departure tide-light, and launch into the Navigation Phase.
+2. **The Provisioning & Craftsmen's Hut *(Walkable Islands)*:** Thatched *fare*, royal *hālau waʻa* canoe shed, or uninhabited boat-shaped *hare paenga* stone shelter where players refill woven ration baskets, careen/mend hulls, and speak with boatbuilders or forage wild coconuts and spring water.
+3. **The Navigator's Shore / Observation Circle (Teaching Sand & Sky Vigil):** Coastal stone ring or beach shore where players study **stick-in-the-sand diagrams**, rehearse **Route Songs**, or enter the grounded 360° **Star-Stone Vigil (*Ahu Fetiʻa*)**.
+4. **The Village, *Marae*, *Heiau*, or Stone *Ahu* (Sanctuary / Wild Outpost):** Speak with island elders, artisans, and fishers (or stand before uninhabited ancestral *Moai* and rookeries); complete inter-island delivery/harvest quests; recruit specialist crew members.
 
-### 4.2 Stick-in-the-Sand Teaching (No Written Paper Logs)
+#### 3D Walkable Islands & Closeable Hub Integration (`Raʻiātea`, `Tahaʻa`, `Hawaiʻi`, `Rapa Nui`)
+On walkable islands, arriving ashore places your difficulty-specific 3D character barefoot on the sand **right beside the moored double-hulled canoe**:
+* **Controls & Camera:** Players walk freely across sculpted volcanic beaches, footpaths, hilltop knolls, and ceremonial terraces using **Arrow Keys** (or `WASD`, `Shift` for a brisk stride), while orbiting/zooming the 3rd-person view via pointer drag, `Q` / `E`, or scroll wheel.
+* **Diegetic 3D POIs & Contextual Popups:** Points of interest are physically built on the island surface—such as Elder Metua at *Marae Taputapuātea* (Raʻiātea), Hina & young Fisher Tama at Hillside Hearth (Tahaʻa), the white-*kapa* *Anuʻu* Oracle Tower & glowing Kīlauea lava flank (Hawaiʻi), and the 5-Moai *Ahu Tongariki* platform & *Te Pito Kura* stone ring (Rapa Nui). Walking into a POI's coral-stone ring slides up an on-screen action popup without blocking Arrow-Key movement.
+* **Top-Left "Island" Hub Button:** At the top left of every walkable island, clicking the **Island** button (bearing the island's name) opens the standard **Island Hub** over the live 3D scene with two special behaviors:
+  1. **Closeable Overlay:** Closing the hub (`✕ Close Hub & Walk`, `Esc`, or backdrop click) returns immediately to live Arrow-Key walking from your current spot.
+  2. **Instant Character Move:** Clicking any location tab inside the hub (`🛶`, `🛖`, `🐚`, `🌺` / `🗿`) immediately moves your 3D character and camera to that POI on the island.
+
+### 4.2 Stick-in-the-Sand Teaching & The Star-Stone Vigil (*Ahu Fetiʻa*)
 True to Polynesian history—where wayfinding was passed down without paper or ink—there is **no written journal or notebook UI** anywhere in the game.
-* **Interactive Sand Lessons:** When a Master teaches a navigation concept or breaks down a route song at the Navigator's Shore, the camera frames damp, smooth beach sand from overhead. Using a wooden stick (accented with coral pebbles, shells, and palm ribs), the Master draws clear visual diagrams while speaking or chanting:
-  * *Star Compass Rings:* Twelve shells/pebbles placed around a central twin-canoe mark to illustrate rising and setting horizon houses and the star paths connecting them.
-  * *Constellation Sketches:* Simple stick-drawn outlines of Animal Constellations pointing out exact target stars (*Bull's Horn*, *Rat's Nose*).
-  * *Daytime & Swell Diagrams:* Stick grooves showing how deep swells bend around an island or how white terns radiate outward at dawn and return at dusk.
-* **Rehearsal Ashore:** While on an island, the player can ask the Navigator to redraw any learned sand mark or re-chant any learned route song as many times as needed before setting sail.
+* **Interactive Sand Lessons (`16` Shore Diagrams):** When a Master teaches a navigation concept or breaks down a route song at the Navigator's Shore or Observation Circle, an overhead sand canvas animates a wooden stick (accented with coral pebbles, shells, and palm ribs) carving grooves in damp beach sand:
+  * *Star Horizon Rings:* Twelve shells/pebbles placed around a central twin-canoe mark to illustrate rising and setting horizon houses and the star paths connecting them.
+  * *Constellation Sketches:* Stick-drawn outlines of Animal Constellations pointing out exact target stars (*Bull's Horn*, *Rat's Nose*).
+  * *Daytime & Swell Diagrams:* Stick grooves showing how deep swells bend around an island, how crossbeam post shadows track morning sun, or how white terns radiate outward at dawn and return at dusk.
+* **The Star-Stone Vigil (*Ahu Fetiʻa* — Grounded 360° Night-Sky Observatory):** From any island's Navigator's Shore or Observation Circle, players can step into a motionless coastal ring of 12 carved horizon stones lit by warm braziers to study the live 3D rotating night sky without hull pitch or ration pressure:
+  * **Dual-Hemisphere Star Masters:** Guided interactive chapters with **First Master Teraʻi** on Maupiti (*Realm of the Sea Turtle's Pivot* — Southern Hemisphere sky) and **Keeper Akura** on Kiritimati (*Realm of the Steadfast Peg* — Northern Hemisphere sky).
+  * **Constellation Atlas & Optional Eye Trial:** Scrub night hours freely, switch between any of the 16 campaign island latitudes to watch polar stars rise or dip beneath the sea, inspect all 10 Animal Constellations, or test naked-eye star memory in optional sighting trials.
+* **Rehearsal Ashore:** While on an island, the player can redraw any learned sand mark or review any unlocked route verse as many times as needed before setting sail.
 
 ### 4.3 Quests, Inventory & Persuasion
 To earn a Master Navigator's trust and unlock coveted route songs, players undertake lightweight quests tied to a **Canoe Inventory**:
@@ -92,27 +104,30 @@ At the Canoe Landing POI, the player prepares their double-hulled canoe (*vaka m
 
 ## 5. Phase II: The Navigation Phase
 
-### 5.1 Camera, Controls & Continuous Time Flow ("Fast Forward")
-* **Default Sailing Camera:** 3D view positioned behind and slightly above the double-hulled canoe:
-  * **Bottom-Center (~20–25% of frame):** The twin hulls, central deck platform, crab-claw sail, wooden steering sweep, crew silhouettes, and wake—conveying wind trim and hull pitch/roll physically without UI gauges.
-  * **Upper Frame (~75–80% of frame):** Expansive ocean surface, 360° horizon, cloud formations, wildlife, and sky dome.
+### 5.1 Camera Perspectives, Player Character, Cinematics & Continuous Time Flow ("Fast Forward")
+* **First-Person Deck View *(Default)* & Toggleable Third-Person Canoe View:**
+  * **Deck View (1st-Person, Default):** Positioned at the aft navigator's bench (`baseEyePos`), framing **~22%** twin *manu* prows, forward crossbeam (*iako*) lashings, central sighting post (*pou*), and ocean swell at the bottom of the screen against **~78%** open horizon and sky dome (`0°–42°` altitude). In 1st-person Deck View, the player's own 3D body mesh is hidden so nothing obstructs deck-shadow or horizon sightings.
+  * **Canoe View (3rd-Person Toggle via `V` or HUD Eye Button):** Smoothly pulls back behind and slightly above the twin sterns, rendering the full double-hulled canoe, billowing crab-claw sail(s), wake leeway trail, crew, and **your difficulty-specific 3D Polynesian player character** standing at the aft helm tending the *hoe uli* steering sweep.
+* **Departure & Landfall 3D Cinematics:**
+  * **Canoe Launch Sequence (`5.90s`):** Pushing off from any island begins with your 3D character already standing in position at the canoe's helm. Over `5.90` seconds (paced deliberately at half speed), a 3-stage camera sweeps from a high bird's-eye overview of the departing island and reef pass down into a ~2-second hero framing directly behind your character on deck, then glides forward and cross-fades cleanly into 1st-person Deck View.
+  * **Landfall Arrival Sequence (`2.15s`):** Entering Ring 4 aligns the twin prows toward the destination shore, damps open-sea swells into lagoon calm, and pulls the camera gently back and upward (revealing your character at the helm) as the canoe glides up to the island's reef edge.
 * **Diegetic Trim-Lock Steering:** Adjusting the steering sweep sets a **tied-off paddle angle** holding the canoe's trim relative to wind and swell. Steering is 100% visual—aligning the twin prows, rigging, or stern directly against sky and sea cues with **zero HUD heading readout, degree number, or compass indicator**—requiring no constant clicking once aligned.
-* **360° Free-Look Observation:** At any time, players can pan freely around the entire horizon (including **back-sighting** stars directly behind the stern), tilt straight up to the zenith, or inspect wave angles against the hulls, then snap smoothly back to steering.
-* **Voyage Duration & The "Fast Forward" Button:**
-  * **Standard Duration (1x Speed):** A full voyage takes **8–12 minutes** of real time (with brief ~4–6 minute introductory hops in early Act I), flowing continuously through day and night **without fade-to-black time-skipping**.
-  * **Fast Forward Mode:** Pressing/toggling **Fast Forward** accelerates world time (~2.5x–3x speed) while **keeping the canoe locked on its current heading**. Stars visibly wheel faster across the sky dome, clouds build, and waves roll smoothly past.
-  * **Time Savings:** Using Fast Forward during steady legs once aligned typically cuts total voyage playtime by **~60%** (bringing an 8–12 minute voyage down to **~3–5 minutes**), while keeping the player actively watching the sky and horizon for the next transition cue (such as a guide star climbing too high or dawn breaking) to drop back to 1x speed.
+* **360° Free-Look Observation:** At any time, players can pan freely around the entire horizon (including **back-sighting** stars directly behind the stern), tilt straight up to the masthead zenith, or inspect wave angles against the hulls, then snap smoothly back to steering.
+* **Voyage Duration & The "Fast Forward" (`2.75x`) Button:**
+  * **Standard Duration (1x Speed):** A full voyage takes **8–12 minutes** of real time (with brief ~3.5–6 minute introductory hops in early Act I), flowing continuously through day and night **without fade-to-black time-skipping**.
+  * **Fast Forward Mode (`2.75x`):** Pressing `F` or toggling **Fast Wind** accelerates world time at `2.75x` while **keeping the canoe locked on its current heading** (automatically easing back to `1x` on verse changes, island detection rings, or fish schools). Stars visibly wheel faster across the sky dome, clouds march downwind, and waves roll smoothly past.
+  * **Time Savings:** Using Fast Forward during steady legs once aligned cuts total voyage playtime by **~60%** (bringing an 8–12 minute voyage down to **~3–5 minutes**), while keeping the player actively watching the sky and horizon for the next transition cue.
   * **Audio Handling in Fast Forward:** Rather than pitch-warping the sung chant, engaging Fast Forward smoothly crossfades vocals into rushing wind, wake, and a gentle rhythmic pulse, seamlessly restoring the song when returning to normal 1x speed.
 
 ---
 
 ### 5.2 Nighttime Navigation: The 3D Sky Dome & *Kavenga* (Star Paths)
 
-#### 5.2.1 Celestial Sphere Geometry & Rotation
+#### 5.2.1 Dual-Hemisphere Celestial Sphere Geometry & Rotation
 * **True Rotating Sky Sphere:** Surrounding the ocean is a seamless 3D celestial sphere rotating continuously from rising horizon to setting horizon (`15° per in-game hour`). Across a 12-hour night (~4–6 real-time minutes at 1x speed, or ~1.5–2 minutes in Fast Forward), the night sky rotates `180°` smoothly overhead.
-* **Tropical Polynesian Tilt (`~10°S–15°S` Engine Reference Latitude):**
-  * On one side of the sky (the southern polar pivot), the **Celestial Pole** sits low above the waves (`~12°–15°` altitude). Nearby stars (*The Sea Turtle* and *The Frigatebird*) wheel around this invisible pivot in tight circles—allowing the player to *deduce* that pole's direction purely by observing which stars spin in place or point toward the water.
-  * Opposite that pivot (the northern horizon), the counter-axis dips just beneath the waves, causing *The Horse* to skim a low, shallow arc across the sea.
+* **Per-Island & Voyage-Interpolated Dual-Hemisphere Latitudes:** Rather than using a single static sky tilt for the entire ocean, every island carries an authentic tropical latitude and inter-basin voyages interpolate latitude smoothly as the canoe sails:
+  * **Southern Hemisphere Skies (`-17.8°` to `-8.6°` in Acts I & II; `-27.1°` at Secret Rapa Nui):** Above the southern polar pivot, **The Sea Turtle** (*Shell Crown*) wheels in tight circumpolar circles above the waves while **The Frigatebird** (*Tail -> Beak*) dives straight toward that invisible pivot. Opposite it, the northern pole star (**Steadfast Peg**) lies hidden beneath the curve of the sea, and *Horse's Crown* skims a shallow low arc just above the foam.
+  * **Equatorial Crossing & Northern Hemisphere Skies (`+19.8°` to `+22.4°` in Act III's Hawaiʻi Mist Chain):** During Song 13 (*Mangareva -> Kauaʻi*), the canoe crosses the equator—watching *The Sea Turtle* drown behind the wake while the motionless northern pole star **Steadfast Peg** (*Hōkūpaʻa*, `89.2°N` declination) lifts `~20°–22°` above the northern horizon and *The Horse* becomes circumpolar all night.
   * Between the two poles, all other stars travel along **parallel circular tracks (Declination Bands)**—breaking out of the sea at fixed horizon "houses" on the rising side, arcing overhead, and sinking into the mirror-image houses on the setting side.
 
 #### 5.2.2 What a *Kavenga* Looks Like on the Sky Dome
@@ -141,15 +156,15 @@ Traditionally called a "Star Compass" by scholars, this system is **not a physic
 
 *(Note: Degree angles in the developer column below are **strictly internal 3D engine math** for placing stars on the sky sphere; players, songs, and sand lessons refer to directions exclusively by **Cue House Names**, never degrees or `N/E/S/W` labels.)*
 
-| Star Path Band | Player-Facing Cue House Names *(Rising / Setting)* | 4-Star *Kavenga* Relay Sequence *(Spaced ~36° Apart Along Nocturnal Arc)* | Internal Engine Azimuths *(Hidden From Player)* |
+| Star Path Band | Player-Facing Cue House Names *(Rising / Setting)* | *Kavenga* Relay / Pivot Stars *(34 Total Navigation Stars Across 10 Animal Constellations)* | Internal Engine Azimuths *(Hidden From Player)* |
 | :--- | :--- | :--- | :--- |
-| **Northern Pivot** | *House of the Grazing Horse* | *Horse's Crown* skims a shallow low arc across the water | `0°` |
+| **Northern Pivot** | *House of the Grazing Horse* | **Steadfast Peg** *(motionless northern pole star in Act III; below horizon in Acts I–II)* + *Horse's Crown* *(skims low in Acts I–II; circumpolar in Act III)* | `0°` |
 | **Band 1** | *Rising / Setting Path of the Horse* | *Horse's Mane* -> *Horse's Tail* -> *Boar's Bristle* -> *Crab's Right Claw* | `30°` / `330°` |
-| **Band 2** | *Rising / Setting Path of the Boar* | *Boar's Tusk* -> *Gecko's Tongue* -> *Crab's Left Claw* -> *Horse's Heart* | `60°` / `300°` |
+| **Band 2** | *Rising / Setting Path of the Boar* | *Gecko's Tongue* -> *Horse's Heart* -> *Boar's Tusk* -> *Crab's Left Claw* | `60°` / `300°` |
 | **Band 3** | *Rising / Setting Path of the Bull* *(Sun Path)* | *Bull's Horn* -> *Rat's Nose* -> *Shark's Jaw* -> *Crab's Eye* | `90°` / `270°` |
 | **Band 4** | *Rising / Setting Path of the Shark* | *Bull's Hoof* -> *Rat's Tail* -> *Shark's Fin* -> *Gecko's Tail* | `120°` / `240°` |
 | **Band 5** | *Rising / Setting Path of the Whale* | *Whale's Spout* -> *Whale's Fluke* -> *Shark's Tail* -> *Bird's Wingtip* | `150°` / `210°` |
-| **Southern Pivot** | *House of the Sea Turtle's Pivot* | **The Sea Turtle** (*Shell Crown* tightly orbits pivot) + **The Frigatebird** (*Tail -> Beak* points down to pivot) | `180°` |
+| **Southern Pivot** | *House of the Sea Turtle's Pivot* | **The Sea Turtle** (*Shell Crown* tightly orbits pivot in Acts I–II; below horizon in Act III) + **The Frigatebird** (*Tail -> Beak* points down to pivot) | `180°` |
 
 > [!TIP]
 > **Cross-Band Constellation Geometry (How Master Navigators Read Raw Stars):** Large constellations intentionally span adjacent bands—for example, **The Bull** has its bright amber *Bull's Horn* on **Band 3** and its *Bull's Hoof* on **Band 4**, **The Shark** stretches diagonally across Bands 3, 4, and 5 (*Jaw -> Fin -> Tail*), and **The Gecko** bridges Band 2 (*Gecko's Tongue*) to Band 4 (*Gecko's Tail*) with **Gecko's Heart** (`-12°` declination) passing `90°` straight through the overhead zenith above the masthead. Even with zero UI lines in *Master Navigator* mode, spotting one familiar animal silhouette lets the player visually deduce neighboring star paths and distinguish rising vs. setting sides by watching which way the stars wheel!
@@ -157,9 +172,9 @@ Traditionally called a "Star Compass" by scholars, this system is **not a physic
 #### 5.2.4 Visual Presentation on the Sky Dome (By Mode)
 To keep the night ocean diegetic and ensure the player always deduces heading from the sky itself:
 1. **Natural Starlight Layer *(Always Visible in All Modes)*:**
-   * **Magnitude Hierarchy:** ~30 bright, unmistakable Primary Navigation Stars (with subtle natural warmth/coolness—amber *Bull's Horn*, icy blue-white *Shark's Fin*, golden *Shell Crown*) set against ~400 faint ambient stars that convey the sweeping rotation of the dome.
+   * **Magnitude Hierarchy:** `34` bright, unmistakable Primary Navigation Stars across `10` compact Animal Constellations (each segment spanning `< 34°` of sky arc, with subtle natural warmth/coolness—amber *Bull's Horn*, icy blue-white *Shark's Fin*, golden *Shell Crown*, pale gold *Steadfast Peg*) set against ~400 faint ambient stars that convey the sweeping rotation of the dome.
    * **The Milky Way (*Te Mangōroa*):** A soft, luminous celestial band arching near *The Shark* and *The Frigatebird*, offering natural macro-orientation at a glance.
-   * **Horizon Extinction & Sea Shimmer:** Stars near the waterline softly pulse through horizon mist as they rise or set, naturally drawing the eye when a new relay star emerges.
+   * **Horizon Extinction & Volumetric Cloud Occlusion:** Stars near the waterline softly pulse through horizon mist as they rise or set, while sculpted 3D cumulus clouds physically occlude stars and sky labels passing behind them.
 2. **Constellation & Star Name Annotations *(Easy, Medium, Hard — Hidden in Master Navigator)*:**
    * **Animal Outlines & Names Only (Zero Horizon Compass Ticks):** Soft, chalky starlight strokes connect the stars of each Animal Constellation alongside clean star name labels (*"Bull's Horn"*, *"Rat's Nose"*). The horizon itself **never** displays `N/E/S/W` letters, degree ticks, or heading markers.
    * **Active Star Highlight *(Easy Mode Only)*:** In **Easy** mode, the target star named in the current verse (and its successor star rising/setting along the same path) softly shimmers in the sky—helping beginners spot the right star while still requiring them to look around the dome, find it, and steer the canoe to meet it.
@@ -182,10 +197,10 @@ When sunrise washes out the stars—or when Act III clouds and sea fog hide the 
    * Near solar noon, the post's shadow shrinks directly beneath its base and loses directional leverage. Navigators bridge this brief midday window by locking trim against **drifting trade-wind clouds** or **ocean swells** until the afternoon shadow lengthens cleanly on the opposite side of the deck.
 
 #### 5.3.2 Cloud Craft (*Ao*) & Lagoon Reflection (*Lapa*)
-The 3D sky shader distinguishes ordinary weather from island-born clouds through motion, silhouette, and underside color:
-* **Drifting Trade Clouds (*Directional Grain*):** Flat-bottomed white cumulus arranged in parallel "cloud streets" marching steadily downwind. Tapping **Fast Forward** makes this sky-wide river of motion unmistakable, giving a reliable daytime reference axis.
+Volumetric 3D sculpted clouds distinguish ordinary weather from island-born clouds through motion, silhouette, and underside color:
+* **Drifting Trade Clouds (*Directional Grain*):** Six distinct sculpted cumulus variants arranged in parallel "cloud streets" marching steadily downwind (with randomized variant, yaw, and scale remixing whenever a cloud wraps past the horizon). Tapping **Fast Forward** makes this sky-wide river of motion unmistakable, giving a reliable daytime reference axis.
 * **Stationary Peak Clouds (*High Volcanic Islands*):** While surrounding trade clouds drift across the horizon, a single tall, dome- or anvil-topped cloud cap remains **pinned over one fixed spot** above an unseen mountain peak (such as *Moʻorea* or *Nuku Hiva*), anchored by a faint vertical mist-curtain beneath its base.
-* **Lagoon Underside Glow (*Lapa — Low Coral Atolls*):** Open-ocean clouds have cool slate-grey or lavender undersides reflecting deep water. A cloud hovering over a shallow coral lagoon (like *Manuae* or *Rangiroa*) displays a luminous **pale turquoise-jade glow painted across its flat belly**, visible long before low palm trees break the horizon.
+* **Lagoon Underside Glow (*Lapa — Low Coral Atolls*):** Open-ocean clouds have cool slate-grey or lavender undersides reflecting deep water. A cloud hovering over a shallow coral lagoon (like *Manuae*, *Rangiroa*, or *Kiritimati*) displays a luminous **pale turquoise-jade glow painted across its flat belly**, visible long before low palm trees break the horizon.
 
 #### 5.3.3 Homing Seabirds & Surface Marine Trails
 * **Land-Roosting Seabirds (*White Terns & Boobies*):** Unlike solitary open-ocean gliders, island-roosting terns and boobies fly in **purposeful, straight-line groups of 2–5 birds** at masthead height (`~5°–15°`), announced by crisp stereo calls left, right, or astern:
@@ -215,7 +230,7 @@ flowchart TD
 | **Following / Stern**<br>*(Running With Swell)* | **Long Surfing Surge:** Stern lifts first, pressing twin prows slightly down as the canoe glides forward down the wave face. | Soft, hissing wake surge swelling from behind the camera forward. | **Too Slow (`~5.5–7 beats`):** Waves overtake the canoe slowly, lagging behind the 4-beat pulse. |
 
 #### 5.3.5 Island Swell Refraction, Reflection & Wave Shadows
-In Act III's overcast nights and daytime fog, unseen islands betray their presence by disrupting the Primary Swell—matching the **rock-and-groove sand diagram** taught by the Swell Master on *Rapa Iti*:
+In Act III's overcast nights and daytime fog, unseen islands betray their presence by disrupting the Primary Swell—matching the **rock-and-groove sand diagram** taught by **Swell Master Pōhaku** on *Kauaʻi*:
 1. **Leeward Diamond Lattice (*Refraction*):** Swells bending around both flanks of an island cross in its lee, forming a visible **crisscross diamond wave pattern** on the water and imparting a distinctive *double-bob* shimmer to the twin hulls.
 2. **Windward Pyramid Peaks (*Reflection*):** Faint counter-swells bouncing back off steep island cliffs collide with incoming swells to form sharp, white-tipped **pyramid crests** in open water.
 3. **The Wave Shadow (*Calm Lee*):** Directly behind an island sheltering the sea, the deep rolling swell abruptly flattens—telling a practiced navigator that land lies immediately upswell through the fog.
@@ -309,76 +324,84 @@ flowchart LR
    * Turning too far **into** the swell makes waves strike faster (every ~2.5–3 beats, rushing ahead of the music); turning too far **away** delays wave crests (every ~5.5–6 beats) or shifts motion into a sideways roll. Steering becomes the meditative act of tuning the hull's rise-and-fall to match the song's heartbeat.
 
 ### 6.2 Worked Example: Late-Game Full-Mastery Route Song (Act III Showcase)
-*Route: "The Chant of Tongareva" (Dusk-to-Morning Crossing from Rapa Iti to Tongareva Atoll)*
+*Route: "The Chant of Kiritimati" (Dusk-to-Morning Crossing from Kauaʻi to Kiritimati Atoll — Song 15)*
 
-> **Verse 1 (Dusk Departure):** *"Put Rapa Iti's Fortress Crag behind your stern-post / Sail against the sinking sun until the Crab's Left Claw breaks the dark foam."*
-> **Verse 2 (Night *Kavenga* — Path of the Bull):** *"Turn your twin prows to the Rising Bull's Horn / When he climbs three hands above the sea, let the Rat's Nose carry your wake."*
-> **Verse 3 (Dawn Swell & Landfall):** *"Take the deep swell every four beats upon your starboard cheek / Watch for the pale green lagoon painting the morning cloud's belly."*
+> **Verse 1 (Dusk Departure):** *"Put Kauaʻi's Fortress Crag behind your stern-post / Sail against the sinking sun until the Gecko's Tongue breaks the dark foam."*
+> **Verse 2 (Patchy Night *Kavenga* — Path of the Bull & Swell):** *"Turn your twin prows to the Rising Bull's Horn / When clouds veil the Rat's Nose, hold the deep swell four beats upon your starboard cheek."*
+> **Verse 3 (Dawn Swell Refraction & Landfall):** *"Watch the sea cross into diamond ripples beneath your twin hulls / Follow the crisscrossed water where pale jade paints the morning cloud."*
 
-### 6.3 The Four Difficulty & Mastery Modes
+### 6.3 The Four Difficulty Modes & Player Character Designs
 
-Notice the clean progression across the four tiers: *Easy -> Medium -> Hard* gradually removes **on-screen song decoding** while retaining visual constellation labels and static Sand Recall, whereas *Master Navigator* removes **all external aids** at sea:
+Notice the clean progression across the four tiers: *Easy -> Medium -> Hard* gradually removes **on-screen song decoding** while retaining visual constellation labels and static Sand Recall, whereas *Master Navigator* removes **all external aids** at sea—and each tier is embodied by its own **articulated 3D Polynesian player character** (visible standing at the canoe's aft steering sweep in 3rd-person view and during launch/landfall cinematics, hidden in 1st-person Deck View, and walked barefoot on walkable islands):
 
-| Mode | Audio Song at Sea | On-Screen Song Text *(Cue-Relative Only)* | "Recall" Button *(Static Sand Marks)* | Sky & Star Annotations *(No Compass/Horizon Ticks)* | Target Experience |
+| Mode & 3D Player Character | Audio Song at Sea | On-Screen Song Text *(Cue-Relative Only)* | "Recall" Button *(Static Sand Marks)* | Sky & Star Annotations *(No Compass/Horizon Ticks)* | Target Experience |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **EASY**<br>*(Apprentice)* | **Plays at sea** | **Lyrics + Cue-Based Instructions**<br>*(e.g., "Center twin prows on Rising Bull's Horn; at 3 hands high, follow Rising Rat's Nose")* | **Enabled at sea** | **Annotated** *(constellation lines, star names + active star shimmer)* | Relaxed, guided onboarding connecting music, sand lessons, and sky cues without ever giving away a compass bearing. |
-| **MEDIUM**<br>*(Wayfinder)* | **Plays at sea** | **Lyrics Only** *(no explicit instructions)* | **Enabled at sea** | **Annotated** *(constellation lines + star names)* | Core interpretive puzzle mode: combine on-screen lyrics + recalled sand diagrams to deduce heading. |
-| **HARD**<br>*(Navigator)* | **Plays at sea** | **None** *(no text on screen)* | **Enabled at sea** | **Annotated** *(constellation lines + star names)* | Pure auditory comprehension: listen closely to sung words and drum cadence, cross-referencing Sand Recall as needed. |
-| **MASTER NAVIGATOR**<br>*(Grandmaster)* | **Silence at sea** *(natural ocean audio only; memorize song ashore)* | **None** | **Disabled at sea** *(pure memory)* | **Unannotated** *(raw starfield only)* | True traditional mastery: sing the chant and count its swell rhythm internally while reading naked-eye star shapes. |
+| **EASY — Apprentice**<br>*12–14 yr Youth in woven pandanus pareu, braided auti headband & cowrie cord* | **Plays at sea** | **Lyrics + Cue-Based Instructions**<br>*(e.g., "Center twin prows on Rising Bull's Horn; at 3 hands high, follow Rising Rat's Nose")* | **Enabled at sea** | **Annotated** *(constellation lines, star names + active star shimmer)* | Relaxed, guided onboarding connecting music, sand lessons, and sky cues without ever giving away a compass bearing. |
+| **MEDIUM — Wayfinder**<br>*18–20 yr Young Adult with topknot, frigatebird feather, kīhei sash & wave tapa* | **Plays at sea** | **Lyrics Only** *(no explicit instructions)* | **Enabled at sea** | **Annotated** *(constellation lines + star names)* | Core interpretive puzzle mode: combine on-screen lyrics + recalled sand diagrams to deduce heading. |
+| **HARD — Navigator**<br>*30 yr Navigator with crimson kura feather circlet, tī-leaf mantle, taʻovala & full tatau* | **Plays at sea** | **None** *(no text on screen)* | **Enabled at sea** | **Annotated** *(constellation lines + star names)* | Pure auditory comprehension: listen closely to sung words and drum cadence, cross-referencing Sand Recall as needed. |
+| **MASTER NAVIGATOR**<br>*50 yr Elder with full silver-gray beard, pearl-shell headdress, taumi gorget & kahu cloak* | **Silence at sea** *(natural ocean audio only; memorize song ashore)* | **None** | **Disabled at sea** *(pure memory)* | **Unannotated** *(raw starfield only)* | True traditional mastery: sing the chant and count its swell rhythm internally while reading naked-eye star shapes. |
 
 > [!NOTE]
 > Regardless of difficulty, **all songs and stick-in-sand diagrams remain freely accessible ashore** at the Navigator's Shore POI before every voyage, ensuring *Master Navigator* rewards attentive study and real wayfinding mastery rather than guesswork.
 
 ---
 
-## 7. Fictionalized Polynesian World & Three-Act Progression
+## 7. Fictionalized Polynesian World, Dual-Hemisphere Arc & Secret Rapa Nui
 
-The ocean layout is **fictionalized**—designed specifically around the 12-House Star Compass, 8–12 minute voyage legs, and unspoiled exploration—while honoring Polynesian heritage by using **real island names, geographical archetypes, and voyaging traditions**.
+The ocean layout spans **three continuous flat 2D regional ocean basins** bridged by inter-basin crossings (`Song 7` and `Song 13`), designed around the 12-House Star Ring, 8–12 minute voyage legs, and unspoiled exploration while honoring Polynesian heritage with **real island names, sculpted 3D geological landmarks, and authentic hemisphere sky shifts**.
 
 ```mermaid
 flowchart TD
-    subgraph Act1["Act I: The Ra'iatea Lagoon Chain (Tutorial Archipelago)"]
-        A1["Start on Ra'iatea with Village Elder"] --> A2["Short Hops: Taha'a, Huahine, Mo'orea & Manuae"]
-        A2 --> A3["Meet First Master Navigator on Maupiti"]
+    subgraph Act1["Act I: The Ra'iatea Lagoon Chain (Southern Sky, -17.3 to -16.1 deg)"]
+        A1["Start on Walkable Ra'iatea with Elder Metua"] --> A2["Short Hops: Walkable Taha'a, Huahine, Manuae & Mo'orea"]
+        A2 --> A3["Meet First Master Tera'i on Maupiti (Star-Stone Vigil)"]
     end
 
-    subgraph Act2["Act II: The Nuku Hiva Windward Chain (Star Compass Mastery)"]
-        B1["Learn 12-House Sand Star Compass & Kavenga Relays"] --> B2["Long Multi-Star Crossing to Nuku Hiva"]
-        B2 --> B3["Explore Hiva Oa, Ua Pou, Fatu Hiva & Rangiroa"]
+    subgraph Act2["Act II: The Nuku Hiva Windward Chain (Southern Sky, -12.6 to -8.9 deg)"]
+        B1["Deep Crossing to Nuku Hiva"] --> B2["Explore Ua Pou, Rangiroa, Hiva Oa, Fatu Hiva & Mangareva"]
+        B2 -. "Unlisted Open-Ocean Discovery" .-> BSecret["Secret 3x Island: Walkable Rapa Nui (-27.1 deg)"]
     end
 
-    subgraph Act3["Act III: The Mist Waters & Ancestral Horizon (Swell Mastery)"]
-        C1["Meet Swell Master on Rapa Iti"] --> C2["Master Swell Angles, Refraction & 4-Beat Sync"]
-        C2 --> C3["Grand Finale Voyage Through Mist to Rapa Nui / Hawaiki"]
+    subgraph Act3["Act III: The Hawai'i Mist Chain (Northern Sky, +19.8 to +22.4 deg)"]
+        C1["Cross Equator to Kaua'i (Swell Master Pohaku)"] --> C2["Master Fog Swells on O'ahu & Star-Mirror Kiritimati"]
+        C2 --> C3["Grand Finale Voyage to Walkable Hawai'i (Tupaia-Nui)"]
     end
 
     A3 --> B1
-    B3 --> C1
+    B2 --> C1
 ```
 
-### Act I: The Raʻiātea Chain *(Near-Shore Basics & Tutorial)*
-* **Setting:** Begins on **Raʻiātea**, surrounded by a sheltered fictionalized cluster of nearby high islands and coral atolls (**Tahaʻa**, **Huahine**, **Moʻorea**, uninhabited bird-atoll **Manuae**, and outer windward **Maupiti**).
-* **Guidance & Cues:** A kindly village navigator draws foundational stick marks in Raʻiātea's lagoon sand—teaching stationary clouds, *lapa* coral reflections, dawn/dusk seabird vectors, surface fish trails, and introductory single-star beacons from *The Bull* and *The Rat* (short dusk/evening hops where a single star gets the player close enough to spot reef cues before climbing past three hands high).
-* **Pacing & Quests:** Forgiving single-leg chants; gathering timber and pearl lures across neighboring islands to repair the canoe and earn the trust of the **First Master Navigator** on Maupiti.
+### Act I: The Raʻiātea Lagoon Chain *(Near-Shore Basics & Tutorial — Southern Hemisphere)*
+* **Setting:** Begins on **walkable 3D Raʻiātea** and **walkable 3D Tahaʻa**, surrounded by a sheltered cluster of high islands and coral atolls (**Huahine**, uninhabited bird-atoll **Manuae**, **Moʻorea**, and outer windward **Maupiti**).
+* **Guidance & Cues:** Elder Metua, Hina, Ariʻi, and Vaihere teach stationary peak clouds, *lapa* coral reflections, dawn/dusk seabird vectors, *pou* crossbeam sun-shadows, and introductory rising/setting relays along *The Bull* and *The Rat*, culminating at **First Master Teraʻi's** Star-Stone Ring on Maupiti.
 
-### Act II: The Nuku Hiva Chain *(The Star Compass & Deep Ocean)*
-* **Breakthrough Sand Lesson:** On Maupiti's shore, the First Master draws the complete **12-Shell Sand Star Compass**, teaching full-night sky rotation, multi-star *kavenga* relay handoffs across all 5 Declination Bands and 10 Animal Constellations, rising vs. setting star logic, and stern back-sighting.
-* **The Deep Crossing:** Armed with a multi-verse crossing chant and expanded rations, the player sails out of sight of all land—watching islands vanish behind the wake and handing off across 3–4 sequential animal stars through a full night—to reach the rugged **Nuku Hiva Windward Chain** (**Nuku Hiva**, **Hiva Oa**, **Ua Pou**, **Fatu Hiva**, **Mangareva**, and vast coral ring **Rangiroa**).
-* **Regional Mastery:** Exploring every island in the second chain involves multi-leg routes turning from one Star Path house to another mid-voyage, departure-window planning, specialist crew management, and inter-island trade quests.
+### Act II: The Nuku Hiva Windward Chain *(The Star Ring & Deep Ocean — Southern Hemisphere)*
+* **The Deep Crossing:** Armed with a multi-verse crossing chant and a Tier 2 raised-strake voyaging canoe (`6` Cargo Slots), the player sails out of sight of all land across **Nuku Hiva**, **Ua Pou**, **Rangiroa**, **Hiva Oa**, **Fatu Hiva** (upgrading to the Tier 3 twin-sail *Vaka Moana* with `8` Cargo Slots), and **Mangareva**.
+* **Regional Mastery:** Multi-star *kavenga* relays across all 5 Declination Bands, polar pivot checks against *The Sea Turtle*, 360° stern back-sighting behind rain curtains, and overhead zenith dogleg turns (*Gecko's Heart*).
 
-### Act III: The Far Mist Isles *(Ocean Swells & Grand Finale)*
-* **Breakthrough Sand Lesson:** After charting the entire second chain, the player meets the reclusive **Swell Master Navigator** on **Rapa Iti**. With curved grooves in wet sand and rhythmic strikes on a gourd drum, they teach primary vs. cross-swells, island swell refraction diamonds, and **drum-beat-to-swell synchronization**.
-* **Misty & Overcast Routes:** Voyages past remote outposts (**Tubuai**, **Tongareva**) feature cloud-banked nights (where only patchy glimpses of high stars or stern stars peek through) and daytime sea fog—requiring the player to hold course by hull motion and musical rhythm.
-* **The Grand Voyage:** A culminating expedition to the legendary far-horizon island of **Rapa Nui** (or mythical **Hawaiki**), uniting daytime wildlife, rotating *kavenga* star relays, resource preparation, and rhythmic swell-feeling into one unforgettable master chant.
+### Act III: The Hawaiʻi Mist Chain *(Equatorial Crossing, Ocean Swells & Grand Finale — Northern Hemisphere)*
+* **Crossing the Equator (`Song 13`):** Departing Mangareva at dusk, the canoe crosses from the Southern sky into the **Northern Hemisphere**—watching *The Sea Turtle* sink beneath the wake while the motionless **Steadfast Peg** rises ahead above the fog-ringed crag of **Kauaʻi**.
+* **Swell Mastery & Northern Star-Mirror:** On Kauaʻi, **Swell Master Pōhaku** teaches the Four Swell Voices, 4-beat *pahu* synchronization, and wave refraction across misty **Oʻahu** (*Miro* drum-timber) and **Kiritimati** (where **Keeper Akura** tends the Northern Star-Mirror Ring and bestows the Sacred Giant *Tridacna* Shell).
+* **The Grand Voyage (`Song 16`):** A culminating four-verse crossing to **walkable 3D Hawaiʻi**—uniting dawn birds, *pou* deck shadow, blind 4-beat swell-reading through cross-chop, a 4-star rising relay under the Steadfast Peg, and cliff-reflected pyramid waves beneath snow-crowned Mauna Kea and glowing Kīlauea lava rivers.
+
+### Secret Uncharted Island: Rapa Nui (*Te Pito o Te Henua*)
+* Hidden far off the beaten star-paths in the remote corner of Act II's ocean basin (`pos: { x: 26.5, y: -22.5 }`, `-27.1°` Southern latitude), **Rapa Nui** is never named by elders or authored route songs.
+* Sculpted at **3× horizontal scale** during open-ocean approach—with Maʻunga Terevaka, Poike, sunken Rano Kau caldera, golden Rano Raraku tuff quarry, Puna Pau red scoria cone, offshore *Motu* sea stacks, and upright ocean-facing *Moai*—landing on Rapa Nui opens a full **3D Walkable Island** featuring Anakena Coral Cove, an uninhabited boat-shaped *Hare Paenga* stone camp, *Te Pito Kura*, and 5 towering *Moai* crowned with crimson *Pukao* on *Ahu Tongariki*.
 
 ---
 
-## 8. Audiovisual Direction & Atmosphere
+## 8. Audiovisual Craft, 3D Assets & Companion Inspection Tools
 
-* **Visual Identity:** Warm, painterly 3D prioritizing legible natural phenomena—crisp horizon silhouettes, rich twilight color shifts, distinct constellation geometry, tactile sand grains and wet stick grooves during shore lessons, translucent ocean swells, and bioluminescent wake sparkles at night.
+* **Procedural 3D Voyaging Fleet, Wildlife & Sculpted Islands:**
+  * **Three Canoe Tiers:** Lofted asymmetric Polynesian V-hulls, *pepe* crossbeam lashings, moored *hoe uli* steering sweep, real-time *pou* solar shadow ribbon, and a Tier 3 *Hōkūleʻa*-style **fore-and-aft twin crab-claw sail rig** (`Vaka Moana`).
+  * **Articulated 3D Marine & Avian Life:** Flapping **White Terns** (*kākāia*), **Brown Boobies**, and leaping **Pacific Bonito** baitballs.
+  * **17 Custom-Sculpted 3D Islands:** Individual volcanic ridges, waterfalls, barrier-reef passes, coral *motu* necklaces, regional flora, villages, and active incandescent lava lakes on Hawaiʻi, paired with `18` WebP full-body character portraits (`15` mentors and `3` crewmates).
 * **Spatial & Musical Soundscape:**
-  * **Diegetic Cues:** Subtle stereo positioning of wind in the sail, birds calling off port/starboard beams, and wave slap against the twin hulls so players can literally *hear* canoe alignment.
-  * **Baked-In Chants:** Traditional-inspired vocal harmonies, nose flute (*vivo*), and *pahu* gourd percussion mixed naturally over ocean ambiance so drum downbeats lock cleanly with visual hull pitch.
+  * **Diegetic Cues:** Stereo positioning of wind in the sail, birds calling off port/starboard beams, and right-to-left / left-to-right wave slap cascades against the twin hulls.
+  * **Baked-In Chants:** Sample-accurate Web Audio synthesis of vocal harmonies, nose flute (*vivo*), and *pahu* gourd percussion mixed naturally over ocean ambiance so drum downbeats lock cleanly with visual hull pitch.
+* **Standalone Inspection & Cartography Tools *(Outside Main Game HUD)*:**
+  * **Known Ocean 3D Map (`map.html`):** Top-view zoomable and pannable 3D ocean table rendering all three regional basins, all 16 campaign islands plus secret Rapa Nui, and route threads using the live 3D island assets (kept strictly separate from the in-game Zero-Compass experience).
+  * **3D Asset Studio (`asset-viewer.html`) & URL Preview Harness:** Interactive orbit/zoom inspector for canoe tiers, wildlife, clouds, and islands, alongside direct URL boot modes (`?island=<id>`, `?mode=launch`, `?mode=landfall`, `?mode=sky_vigil`) for rapid testing.
 
 ---
 
@@ -408,8 +431,8 @@ flowchart LR
 
 | Island & Archetype | Active POIs | Mentor & Stick-in-Sand Lessons Taught | Quest / Cargo Role & Upgrades |
 | :--- | :--- | :--- | :--- |
-| **1. Raʻiātea**<br>*(Sacred High Island — Home)* | • Canoe Landing<br>• Navigator's Shore<br>• Village & *Marae Taputapuātea* | **Elder Metua** *(Village Navigator)*:<br>1. *Stationary Peak Cloud vs. Drifting Trade Clouds*<br>2. *Leeward Frond & Kelp Trails*<br>*(Later, before Song 6)*: *Checking Foamy Wake Leeway Astern* | **Main Act I Goal:** Bring **Red *Kura* Feathers** + restore Canoe to `100%` so Elder Metua consecrates the vessel and teaches **Song 6 (Maupiti)**. |
-| **2. Tahaʻa**<br>*(Sheltered Lagoon Isle)* | • Canoe Landing<br>• Navigator's Shore<br>• Hillside Village | **Hina** *(Fisher-Navigator)*:<br>1. *Dawn Outward vs. Dusk Homeward White Terns* (+ midday baitfish-circle warning)<br>2. *Sunrise & Forward Crossbeam (Iako) Post Shadow* | • Gives **Pandanus Sennit Cordage** *(repairs Lashings to `100%`)*<br>• Provides **Medicinal *Kava* Bundle** *(wanted on Huahine)*<br>• Recruits **Tama (*Fisher* Crewmate)** |
+| **1. Raʻiātea**<br>*(Walkable Sacred High Island — Home)* | **3D Walkable Island:**<br>• Moored Canoe Landing<br>• Craftsmen's & Ration Hut<br>• Hilltop Observation Circle<br>• *Marae Taputapuātea* | **Elder Metua** *(Village Navigator)*:<br>1. *Stationary Peak Cloud vs. Drifting Trade Clouds*<br>2. *Leeward Frond & Kelp Trails*<br>*(Later, before Song 6)*: *Checking Foamy Wake Leeway Astern* | **Main Act I Goal:** Bring **Red *Kura* Feathers** + restore Canoe to `100%` so Elder Metua consecrates the vessel and teaches **Song 6 (Maupiti)**. |
+| **2. Tahaʻa**<br>*(Walkable Sheltered Lagoon Isle)* | **3D Walkable Island:**<br>• Bay Jetty & Canoe<br>• Sennit & Fish-Drying *Fare*<br>• Coral Sighting-Post Shore<br>• Hina's Hillside Hearth | **Hina** *(Fisher-Navigator)*:<br>1. *Dawn Outward vs. Dusk Homeward White Terns* (+ midday baitfish-circle warning)<br>2. *Sunrise & Forward Crossbeam (Iako) Post Shadow* | • Gives **Pandanus Sennit Cordage** *(repairs Lashings to `100%`)*<br>• Provides **Medicinal *Kava* Bundle** *(wanted on Huahine)*<br>• Recruits **Tama (*Fisher* Crewmate)** |
 | **3. Huahine**<br>*(Twin-Peak Artisans' Isle)* | • Canoe Landing<br>• Navigator's Shore<br>• Twin-Bay Village | **Ariʻi** *(Night-Sky Elder)*:<br>1. *Pale Jade Lagoon Glow (Lapa)* on atoll cloud bellies<br>2. *Sand Sketches of **The Bull** (Bull's Horn) & **The Rat** (Rat's Nose)* in the 3-Hands Window | • Trade **Medicinal *Kava* Bundle** -> Ariʻi teaches **Song 3 (Manuae)** & **Song 4 (Moʻorea)**<br>• Crafts **Woven Pandanus Sail** *(repairs Sail to `100%`)* |
 | **4. Manuae**<br>*(Uninhabited Coral Atoll)* | • Lagoon Beach<br>• Wild Rookery & Pearl Shallows *(Outpost)* | *Uninhabited — quiet environmental storytelling reward for trusting night stars & lapa glow.* | • Harvest **Ceremonial Red *Kura* Feathers** *(for Raʻiātea's Marae)*<br>• Harvest **Giant Pearl-Shell Lures** *(prized on Moʻorea)* |
 | **5. Moʻorea**<br>*(Jagged Volcanic Spire)* | • Canoe Yard Beach<br>• Navigator's Shore<br>• Spire-Foot *Marae* | **Vaihere** *(Canoe-Wright Navigator)*:<br>1. *Following Setting Stars Downward*<br>2. *Two-Star Handoff Preview (Bull's Horn -> Rat's Nose)* | • Trade **Pearl-Shell Lures** -> repairs **Twin Hulls to `100%`**, expands Deck Cargo **`4 -> 6 Slots`**, gives **Polished Basalt Adze** *(gift for Maupiti's Master)*, and teaches **Song 5** |
@@ -491,8 +514,8 @@ flowchart LR
 | **2. Ua Pou**<br>*(Basalt Spire Isle)* | • Pebble Cove<br>• Navigator's Shore<br>• Carvers' Terrace | **Vaea** *(Wind-Watcher)*:<br>• *Reading Band 1 (Path of the Horse) & Compensating Strong Trade Winds* | • Recruits **Moana (*Sail-Tender* Crewmate — halves crosswind leeway)**<br>• Crafts **Carved Bone Harpoon Heads** *(wanted on Rangiroa)*. |
 | **3. Rangiroa**<br>*(Immense Coral Atoll)* | • Lagoon Pass Beach<br>• Navigator's Shore<br>• Pearl Divers' Village | **Tane** *(Atoll Navigator)*:<br>• *360° Stern Back-Sighting Along Opposite Houses When Forward Rain-Clouds Bank Low* | • Trade **Bone Harpoon Heads** -> receives **Mother-of-Pearl Star Discs** *(for Hiva Oa)* & teaches **Song 10 (Hiva Oa)**. |
 | **4. Hiva Oa**<br>*(Volcanic Quarry Isle)* | • Black-Sand Landing<br>• Navigator's Shore<br>• Quarry & *Tiki* Sanctuary | **Tahia** *(Zenith Watcher)*:<br>• *Mid-Ocean Dogleg Turns & Overhead Zenith Stars (Tilting Free-Look Straight Up to Spot Gecko's Heart Passing the Mast-Top)* | • Trade **Pearl Star Discs** -> receives **Obsidian Adze Blanks** *(for Fatu Hiva's builders)*<br>• Recruits **Kahu (*Hull-Wright* Crewmate — slows sea wear by 50%)**. |
-| **5. Fatu Hiva**<br>*(Cliff-Walled Forest Isle)* | • Waterfall Bay<br>• Navigator's Shore<br>• Master Canoe Shed | **Oihanu** *(Master Builder)*:<br>• *Southern Band 5 (Path of the Whale) & Long-Range Ration Pacing* | • Trade **Obsidian Adze Blanks** -> upgrades vessel into a **Deep-Ocean *Vaka Moana* (`6 -> 8 Cargo Slots`, reinforced squall durability)** & teaches **Song 12**. |
-| **6. Mangareva**<br>*(Outer Lagoon Gateway)* | • Mist-Border Beach<br>• Navigator's Shore<br>• Lagoon *Marae* | **Elder Rongo**:<br>• *Warning of the Starless Mist Waters Ahead* | • Verifies all 6 Act II islands are discovered -> teaches **Song 13 (Crossing to Rapa Iti)** to seek the Swell Master! |
+| **5. Fatu Hiva**<br>*(Cliff-Walled Forest Isle)* | • Waterfall Bay<br>• Navigator's Shore<br>• Master Canoe Shed | **Oihanu** *(Master Builder)*:<br>• *Southern Band 5 (Path of the Whale) & Long-Range Ration Pacing* | • Trade **Obsidian Adze Blanks** -> upgrades vessel into a **Tier 3 Twin-Sail Deep-Ocean *Vaka Moana* (`6 -> 8 Cargo Slots`, fore-and-aft double crab-claw sails, reinforced durability)** & teaches **Song 12**. |
+| **6. Mangareva**<br>*(Outer Lagoon Gateway)* | • Mist-Border Beach<br>• Navigator's Shore<br>• Lagoon *Marae* | **Elder Rongo**:<br>• *Warning of the Equatorial Mist Waters Ahead* | • Verifies all 6 Act II islands are discovered -> teaches **Song 13 (Crossing to Kauaʻi)** to seek Swell Master Pōhaku! |
 
 ---
 
@@ -543,72 +566,73 @@ flowchart LR
 
 ---
 
-## 11. Appendix C: Complete Act III Blueprint (*The Far Mist Isles & Grand Voyage*)
+## 11. Appendix C: Complete Act III Blueprint (*The Hawaiʻi Mist Chain & Grand Voyage*)
 
-Beyond Mangareva lie the **Far Mist Isles**, where dense sea fog and unbroken night cloud decks strip away stars, sun shadows, and distant cloud caps alike. Act III introduces **Swell Master Pōhaku** on **Rapa Iti**, unlocking deep-ocean swell reading, **4-beat *pahu* drum synchronization**, and wave refraction landfalls before culminating in the **Grand Voyage to Rapa Nui**.
+Beyond Mangareva, Song 13 carries the canoe across the equator into the Northern Hemisphere's **Hawaiʻi Mist Chain** (`+19.8°` to `+22.4°` latitude), where *The Sea Turtle* vanishes astern, the unmoving **Steadfast Peg** anchors the northern night, and dense sea fog and unbroken cloud decks frequently strip away stars and sun shadows. Act III introduces **Swell Master Pōhaku** on **Kauaʻi** and **Keeper Akura** on **Kiritimati**, unlocking deep-ocean swell reading, **4-beat *pahu* drum synchronization**, and wave refraction landfalls before culminating at **walkable 3D Hawaiʻi**.
 
 ### 11.1 Act III Topology & Progression Flow
 
 ```mermaid
 flowchart LR
-    M6["Mangareva (Act II Gateway)"] -- "Song 13: Into the Mist Border (~9 min)" --> R1["1. Rapa Iti (Swell Master's Sanctuary)"]
-    R1 -- "Song 14: Fog & Port-Cheek 4-Beat Trial (~8.5 min)" --> R2["2. Tubuai (Miro Drum-Wood Isle)"]
-    R2 -- "Return Trial" --> R1
-    R1 -- "Song 15: Overcast & Swell Lattice (~10 min)" --> R3["3. Tongareva (Sacred Pearl & Provision Atoll)"]
-    R3 -- "Song 16: The Grand Voyage (~12 min)" --> R4["4. Rapa Nui (Ancestral Far Horizon - Finale)"]
+    M6["Mangareva (Act II Gateway)"] -- "Song 13: Equatorial Crossing Into Mist (~9 min)" --> H1["1. Kaua'i (Swell Master Pohaku)"]
+    H1 -- "Song 14: Fog & Port-Cheek 4-Beat Trial (~8.5 min)" --> H2["2. O'ahu (Miro Drum-Wood Isle)"]
+    H2 -- "Song 14R: Starboard-Cheek Return (~8.5 min)" --> H1
+    H1 -- "Song 15: Overcast & Swell Lattice (~10 min)" --> H3["3. Kiritimati (Keeper Akura's Star-Mirror Atoll)"]
+    H3 -- "Song 16: The Great Chant of Hawai'i (~12 min)" --> H4["4. Walkable Hawai'i (Ancestral Mauna Finale)"]
 ```
 
 ---
 
 ### 11.2 The 4 Act III Islands: POIs, Swell Sand Lessons & Final Quests
 
-| Island & Archetype | Active POIs | Mentor & Stick-in-Sand Lessons Taught | Quest / Cargo Role & Culmination |
+| Island & Archetype | Active POIs | Mentor & Lessons Taught | Quest / Cargo Role & Culmination |
 | :--- | :--- | :--- | :--- |
-| **1. Rapa Iti**<br>*(Mist-Ringed Fortress Crag)* | • Black-Sand Cove<br>• **Master Pōhaku's Teaching Sand**<br>• High Crag *Pā* | **Swell Master Pōhaku**:<br>1. *The Four Twin-Hull Swell Voices & 4-Beat Pahu Sync*<br>2. *Separating Primary Deep Swells from Cross-Swells*<br>3. *Rock-in-Sand Wave Refraction (Diamond Lattice, Pyramid Reflections & Calm Wave Shadow)* | • Teaches foundational swell trial (**Song 14** to *Tubuai*).<br>• Deliver *Tubuai*'s **Resonant *Miro* Drum-Wood** -> Pōhaku restores his *pahu* drum, teaches **Refraction**, **Song 15**, and the **Grand Voyage Chant (Song 16)**! |
-| **2. Tubuai**<br>*(Fog-Banked Timber Isle)* | • Sheltered Barrier Beach<br>• *Miro* Forest Grove<br>• Fisher's Hearth | **Local Elder Manu**:<br>• Reinforces *Distinguishing Beam Roll vs. Cheek Corkscrew in Sea Fog* | • Harvest **Resonant *Miro* Drum-Wood & Sharkskin Head** *(quest item for Master Pōhaku on Rapa Iti)*. |
-| **3. Tongareva**<br>*(Remote Mist-Ringed Atoll)* | • Coral Pass Landing<br>• Sacred Lagoon Shrine<br>• Drying Racks | **Keeper Akura**:<br>• *Provisioning for the Ultimate Crossing* | • Gather **Long-Voyage Dried Taro & Bonito Rations** *(fills all 8 Vaka Moana slots for maximum range)* + **Sacred White *Tridacna* Shell**. |
-| **4. Rapa Nui**<br>*(Legendary Far Horizon — Finale)* | • Anakena Golden Beach<br>• **Great Ancestral *Marae / Ahu*** | **Council of Ancestral Wayfinders** | • **Campaign Culmination:** Earns the title of ***Tautai Nui* (Grandmaster Navigator)** and unlocks **Master Navigator Replay Mode** across every ocean route! |
+| **1. Kauaʻi**<br>*(Mist-Ringed Fortress Crag, `+21.8°`)* | • Black-Sand Cove<br>• **Master Pōhaku's Drum & Pebble Shore**<br>• High Crag *Pā* | **Swell Master Pōhaku**:<br>1. *The Four Twin-Hull Swell Voices & 4-Beat Pahu Sync*<br>2. *Rock-in-Sand Wave Refraction (Diamond Lattice, Pyramid Reflections & Calm Wave Shadow)* | • Grants initial fog-swell trial (**Song 14** to *Oʻahu*) on arrival.<br>• Deliver *Oʻahu*'s **Sacred *Miro* Drum-Timber** -> Pōhaku carves the resonant *pahu*, teaching **Refraction**, **Song 15**, and **Song 16**! |
+| **2. Oʻahu**<br>*(Fog-Banked Timber Isle, `+22.4°`)* | • Fog-Shrouded Barrier Beach<br>• *Miro* Forest Grove<br>• Fisher's Hearth | **Elder Manu**:<br>• Reinforces *Reversing Cheek Trim on a Return Swell Passage in Sea Fog* | • Harvest **Sacred *Miro* Drum-Timber** *(quest item for Master Pōhaku on Kauaʻi)* & learn **Song 14R**. |
+| **3. Kiritimati**<br>*(Sacred Star-Mirror Atoll, `+21.2°`)* | • Sacred Coral Pass Landing<br>• Navigator's Shore *(Northern Star-Stone Vigil)*<br>• Sacred Lagoon Shrine | **Keeper Akura** *(Northern Star Master)*:<br>• *Northern Sky Star-Stone Vigil (Steadfast Peg & Circumpolar Horse)*<br>• *Grand Voyage Preparation* | • Full `100%` careening & `8`-slot ration provisioning + loads **Sacred Giant *Tridacna* Shell** for Hawaiʻi's Great *Heiau*. |
+| **4. Hawaiʻi**<br>*(Walkable Ancestral Mauna Horizon, `+19.8°` — Finale)* | **3D Walkable Island:**<br>• Kealakekua Canoe Landing<br>• Royal *Hālau Waʻa* Shed<br>• Mauna Star-Gourd Knoll<br>• **Great Ancestral *Heiau Ahu*** | **Council of Ancestral Wayfinders** | • **Campaign Culmination:** Present the *Sacred Tridacna Shell* beneath snow-crowned Mauna Kea & glowing Kīlauea lava rivers; earn the title ***Tupaia-Nui* (Master Navigator)** and unlock the **Master Navigator Anthology** (free replay of all 17 chants)! |
 
 ---
 
 ### 11.3 Complete Act III Route Songs & Cue-Relative Decoding
 
-#### Song 13: *"Edge of the Grey Curtain"* (`Mangareva -> Rapa Iti` — Act III Intro)
+#### Song 13: *"Edge of the Grey Curtain"* (`Mangareva -> Kauaʻi` — Equatorial Crossing into Act III)
 * **Recommended Departure:** **Dusk** | **1x Duration:** `~9 min`
-* **Mechanics Taught:** Dramatic narrative setup—stars guide the first two legs cleanly until thick pre-dawn mist swallows the sky, saved only by Rapa Iti's high peak piercing above the low fog bank.
-> **Verse 1 (Night — Band 5 Setting):** *"Follow the Setting Whale's Spout and Whale's Fluke down into the dark sea."*
-> **Verse 2 (Pre-Dawn Mist):** *"When grey mist blinds the stars and steals the morning sun, hold your steering sweep locked without wavering / Watch high above the low fog-bank where Rapa Iti's black crag pierces the sky."*
-* ***Easy*-Mode Cue Text:** *"Verse 1: Steer on Setting Whale's Spout -> Setting Whale's Fluke. Verse 2: When fog hides the horizon and stars, do not turn your Trim-Lock paddle; look slightly above the low fog bank at dawn to spot Rapa Iti's high peak."*
+* **Mechanics Taught:** Crossing from the Southern to the Northern sky (*Sea Turtle* drowning astern as **Steadfast Peg** rises ahead), followed by holding a locked sweep through pre-dawn sea fog until Kauaʻi's high crag pierces above the mist.
+> **Verse 1 (Night — Band 1 Setting & Hemisphere Shift):** *"Follow the Setting Horse's Tail and Boar's Bristle down toward the dark sea / Watch the Sea Turtle drown in your wake while the Steadfast Peg lifts above the foam."*
+> **Verse 2 (Pre-Dawn Mist):** *"When grey mist blinds the stars and steals the morning sun, hold your steering sweep locked without wavering / Watch high above the low fog-bank where Kauaʻi's black crag pierces the sky."*
+* ***Easy*-Mode Cue Text:** *"Verse 1: Steer on Setting Horse's Tail, then Setting Boar's Bristle as the Sea Turtle sinks astern and the Steadfast Peg rises ahead. Verse 2: When fog hides the horizon and stars, hold your Trim-Lock paddle steady; look slightly above the low fog bank at dawn to spot Kauaʻi's high peak."*
 
-#### Song 14: *"Four Heartbeats to Tubuai"* (`Rapa Iti -> Tubuai`)
+#### Song 14: *"Four Heartbeats to Oʻahu"* (`Kauaʻi -> Oʻahu`)
 * **Recommended Departure:** **Dawn** | **1x Duration:** `~8.5 min`
 * **Mechanics Taught:** First pure **4-beat *pahu* swell-to-hull synchronization** through daytime sea fog + **Calm Wave Shadow** landfall.
 > **Verse 1 (Dawn into Fog):** *"Put the rising sun behind your right shoulder until white sea-mist closes the world / Listen to the deep drum—let the great swell lift your port cheek every four beats."*
-> **Verse 2 (Fog Landfall):** *"Turn away if the waves rush your bow; turn closer if your deck rolls side to side / When the deep swell suddenly falls flat and still, steer straight upswell into Tubuai's hidden bay."*
-* ***Easy*-Mode Cue Text:** *"Verse 1: In the fog, adjust heading until the left (port) prow lifts first in a diagonal corkscrew exactly on Beat 1 of every 4-beat drum cycle. Verse 2: When you enter the flat Calm Wave Shadow, turn Head-On (symmetric bow seesaw) straight into the swell to reach Tubuai."*
+> **Verse 2 (Fog Landfall):** *"Turn away if the waves rush your bow; turn closer if your deck rolls side to side / When the deep swell suddenly falls flat and still, steer straight upswell into Oʻahu's hidden bay."*
+* ***Easy*-Mode Cue Text:** *"Verse 1: In the fog, adjust heading until the left (port) prow lifts first in a diagonal corkscrew exactly on Beat 1 of every 4-beat drum cycle. Verse 2: When you enter the flat Calm Wave Shadow, turn Head-On (symmetric bow seesaw) straight into the swell to reach Oʻahu."*
 
-#### Song 14R: *"Echo of the Fortress Crag"* (`Tubuai -> Rapa Iti` — Return Swell Trial)
+#### Song 14R: *"Echo of the Fortress Crag"* (`Oʻahu -> Kauaʻi` — Return Swell Trial)
 * **Recommended Departure:** **Dusk** | **1x Duration:** `~8.5 min`
-* **Mechanics Taught:** Reversing a swell bearing on the return passage + combining following/cheek swell feel with dawn high-crag landfall.
-> **Verse 1 (Dusk into Fog):** *"Leave Tubuai's timber cove with the sinking sun behind your left shoulder / Let the long sea-ridge overtake your starboard stern-quarter in slow, steady surf."*
-> **Verse 2 (Misty Dawn Landfall):** *"Hold your wake true against the rolling ridge / When grey morning lightens the mist, steer where Rapa Iti's black fortress crag pierces above the cloud."*
-* ***Easy*-Mode Cue Text:** *"Verse 1: Place the setting sun behind your port shoulder; hold heading in the fog with the Primary Swell surging smoothly from your starboard stern quarter. Verse 2: At dawn, steer toward Rapa Iti's tall peak rising above the low fog bank."*
+* **Mechanics Taught:** Reversing to starboard-cheek 4-beat swell feel on the return passage + dawn high-crag landfall above the mist.
+> **Verse 1 (Dusk into Fog):** *"Leave Oʻahu's timber cove with the sinking sun behind your left shoulder / Let the deep ocean ridge lift your starboard cheek every four beats through the dark mist."*
+> **Verse 2 (Misty Dawn Landfall):** *"Hold your wake true against the rolling ridge / When grey morning lightens the mist, steer where Kauaʻi's black fortress crag pierces above the cloud."*
+* ***Easy*-Mode Cue Text:** *"Verse 1: Place the setting sun behind your port shoulder; hold starboard-cheek corkscrew lift on every 4-beat drum strike through the mist. Verse 2: At dawn, steer toward Kauaʻi's tall peak rising above the low fog bank."*
 
-#### Song 15: *"The Chant of Tongareva"* (`Rapa Iti -> Tongareva Atoll`)
+#### Song 15: *"The Chant of Kiritimati"* (`Kauaʻi -> Kiritimati Atoll`)
 * **Recommended Departure:** **Dusk** | **1x Duration:** `~10 min`
 * **Mechanics Taught:** Combining patchy night *kavenga*, starboard-cheek 4-beat swell maintenance under cloud cover, and **Leeward Diamond Lattice + *Lapa* Glow** landfall.
-> **Verse 1 (Dusk Departure):** *"Put Rapa Iti's Fortress Crag behind your stern-post / Sail against the sinking sun until the Crab's Left Claw breaks the dark foam."*
+> **Verse 1 (Dusk Departure):** *"Put Kauaʻi's Fortress Crag behind your stern-post / Sail against the sinking sun until the Gecko's Tongue breaks the dark foam."*
 > **Verse 2 (Patchy Night *Kavenga*):** *"Turn your twin prows to the Rising Bull's Horn / When clouds veil the Rat's Nose, hold the deep swell four beats upon your starboard cheek."*
 > **Verse 3 (Dawn Refraction & Landfall):** *"Watch the sea cross into diamond ripples beneath your twin hulls / Follow the crisscrossed water where pale jade paints the morning cloud."*
-* ***Easy*-Mode Cue Text:** *"Verse 1: Keep the setting sun astern until Crab's Left Claw rises. Verse 2: Align prows to Rising Bull's Horn; when night clouds cover the sky, hold starboard-cheek corkscrew lift every 4 drum beats. Verse 3: Follow the diamond cross-hatched swell refraction toward the turquoise-bellied cloud."*
+* ***Easy*-Mode Cue Text:** *"Verse 1: Keep the setting sun astern until Gecko's Tongue rises. Verse 2: Align prows to Rising Bull's Horn; when night clouds cover the sky, hold starboard-cheek corkscrew lift every 4 drum beats. Verse 3: Follow the diamond cross-hatched swell refraction toward the turquoise-bellied cloud."*
 
-#### Song 16: *"The Great Chant of Rapa Nui"* (`Tongareva -> Rapa Nui` — The Grand Finale)
+#### Song 16: *"The Great Chant of Hawaiʻi"* (`Kiritimati -> Hawaiʻi` — The Grand Finale)
 * **Recommended Departure:** **Dawn** | **1x Duration:** `~12 min` *(Full day -> foggy afternoon -> starry night -> misty dawn)*
-* **Mechanics Taught:** Complete mastery exam uniting every cue in the game—dawn wildlife, *iako* sun-shadow, blind 4-beat swell-reading against a deceptive cross-swell, 3-star *kavenga* + polar check, and cliff-reflected swell landfall.
+* **Mechanics Taught:** Complete mastery exam uniting every cue in the game—dawn wildlife, *pou* sun-shadow, blind 4-beat swell-reading against a deceptive cross-chop, a 4-star rising *kavenga* relay checked against the northern **Steadfast Peg**, and cliff-reflected pyramid waves into Kealakekua Bay.
 > **Verse 1 (Dawn Departure & Sun Shadow):** *"Sail against the morning boobies with the rising sun warm between your twin prows / When the sun climbs high, bind the post shadow to the center deck-lashing."*
 > **Verse 2 (Afternoon Sea Fog & Cross-Swell):** *"When white mist swallows sun and sky, ignore the quick chop slapping your beam / Feel only the slow ocean ridge lifting your port cheek every four strikes of the deep drum."*
-> **Verse 3 (Clearing Midnight *Kavenga* — Band 4):** *"When night wind tears the fog apart, set your prows upon the Rising Rat's Tail / Hand the watch to the icy Shark's Fin, then the Gecko's Tail, keeping the Sea Turtle's Pivot off your right beam."*
-> **Verse 4 (Misty Dawn & Reflected Cliffs):** *"When morning mist returns, watch for white-tipped pyramid waves bouncing back from unseen cliffs / Follow the dawn terns' beaks straight through the surf-mist to Rapa Nui's ancestral shore."*
-* ***Easy*-Mode Cue Text:** *"Verse 1: Steer toward the rising sun (opposite dawn boobies), then keep the post shadow centered along the middle deck lashing. Verse 2: In fog, tune heading until the deep Primary Swell lifts your port prow every 4 beats. Verse 3: Under night stars, relay along Rising Rat's Tail -> Rising Shark's Fin -> Rising Gecko's Tail. Verse 4: In dawn mist, steer toward peaked white-tipped reflected waves and opposite outward-flying terns to reach Rapa Nui."*
+> **Verse 3 (Clearing Midnight *Kavenga* — Band 4 & Steadfast Peg):** *"When night wind tears the fog apart, set your prows upon the Rising Gecko's Tail / Hand the watch to the Bull's Hoof, the Rat's Tail, and icy Shark's Fin, keeping the Steadfast Peg shining off your port beam."*
+> **Verse 4 (Misty Dawn & Reflected Cliffs):** *"When morning mist returns, watch for white-tipped pyramid waves bouncing back from unseen cliffs / Follow the dawn terns' beaks straight through the surf-mist to Hawaiʻi's ancestral shore."*
+* ***Easy*-Mode Cue Text:** *"Verse 1: Steer toward the rising sun (opposite dawn boobies), then keep the post shadow centered along the middle deck lashing. Verse 2: In fog, tune heading until the deep Primary Swell lifts your port prow every 4 beats. Verse 3: Under night stars, relay along Rising Gecko's Tail, Bull's Hoof, Rat's Tail, and Shark's Fin while the Steadfast Peg shines off your left beam. Verse 4: In dawn mist, steer toward peaked white-tipped reflected waves and opposite outward-flying terns to reach Hawaiʻi."*
+
 
 
