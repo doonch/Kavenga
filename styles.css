@@ -482,6 +482,26 @@ body {
   margin-top: 2px;
 }
 
+.hub-header-right {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.hub-close-walk-btn {
+  padding: 9px 16px;
+  border-color: rgba(62, 240, 208, 0.55);
+  color: var(--sand-warm);
+  font-weight: 600;
+}
+
+.hub-close-walk-btn:hover {
+  border-color: var(--lapa-jade);
+  background: rgba(62, 240, 208, 0.16);
+  color: #ffffff;
+}
+
 .hub-mode-select-wrap {
   display: flex;
   flex-direction: column;
@@ -521,6 +541,24 @@ body {
   background: rgba(231, 181, 99, 0.24);
   border-color: var(--sand-gold);
   color: var(--sand-warm);
+}
+
+.hub-walkable-status {
+  align-self: center;
+  margin-left: auto;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(9, 21, 35, 0.62);
+  border: 1px solid rgba(232, 198, 142, 0.2);
+}
+
+.hub-walkable-status.moved-confirm {
+  color: var(--lapa-jade);
+  border-color: rgba(62, 240, 208, 0.5);
+  background: rgba(14, 42, 49, 0.78);
+  font-weight: 600;
 }
 
 .landing-grid,
@@ -1745,14 +1783,58 @@ body {
   gap: 14px;
 }
 
-.walkable-island-pill {
-  pointer-events: auto;
-  background: rgba(9, 21, 35, 0.72);
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--card-border);
-  border-radius: 14px;
-  padding: 9px 16px;
+.walkable-top-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
   max-width: 620px;
+}
+
+.walkable-island-btn {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  font-family: inherit;
+  background: rgba(9, 21, 35, 0.78);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(231, 181, 99, 0.45);
+  border-radius: 14px;
+  padding: 9px 15px;
+  color: var(--text-main);
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.38);
+  transition: border-color 0.16s, background 0.16s, transform 0.12s;
+}
+
+.walkable-island-btn:hover {
+  background: rgba(15, 33, 52, 0.9);
+  border-color: var(--sand-gold);
+  transform: translateY(-1px);
+}
+
+.walkable-island-btn-icon {
+  font-size: 23px;
+  line-height: 1;
+}
+
+.walkable-island-btn-copy {
+  display: flex;
+  flex-direction: column;
+}
+
+.walkable-island-btn-cta {
+  margin-left: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(231, 181, 99, 0.18);
+  border: 1px solid rgba(231, 181, 99, 0.42);
+  color: var(--sand-gold);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .walkable-act-eyebrow {
@@ -1780,7 +1862,9 @@ body {
 }
 
 .walkable-controls-hint {
-  margin-top: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(9, 21, 35, 0.62);
   font-size: 11.5px;
   color: var(--lapa-jade);
 }

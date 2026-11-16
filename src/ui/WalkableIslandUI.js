@@ -49,16 +49,27 @@ export class WalkableIslandUI {
   _buildDOM() {
     this.rootEl.innerHTML = `
       <div class="walkable-shore-shell">
-        <!-- Minimal Top Bar: Island Title & Controls Hint (Left) + Guidance Mode (Right) -->
+        <!-- Minimal Top Bar: Island Hub Button & Controls Hint (Left) + Guidance Mode (Right) -->
         <header class="walkable-top-bar">
-          <div class="walkable-island-pill">
-            <div class="walkable-act-eyebrow" id="walkActEyebrow">Act I · The Ra'iatea Lagoon Chain</div>
-            <div class="walkable-island-title-row">
-              <strong id="walkIslandName">Ra'iatea</strong>
-              <span id="walkIslandSubtitle">Sacred High Island</span>
-            </div>
+          <div class="walkable-top-left">
+            <button
+              class="walkable-island-btn"
+              id="btnOpenIslandHub"
+              type="button"
+              title="Open Island Hub to inspect locations or move straight to a Point of Interest"
+            >
+              <span class="walkable-island-btn-icon" aria-hidden="true">🏝️</span>
+              <span class="walkable-island-btn-copy">
+                <span class="walkable-act-eyebrow" id="walkActEyebrow">Island · Act I · The Ra'iatea Lagoon Chain</span>
+                <span class="walkable-island-title-row">
+                  <strong id="walkIslandName">Ra'iatea</strong>
+                  <span id="walkIslandSubtitle">Sacred High Island</span>
+                </span>
+              </span>
+              <span class="walkable-island-btn-cta">Island Hub ▾</span>
+            </button>
             <div class="walkable-controls-hint">
-              Arrow Keys (or WASD) to walk · Drag sky/land to orbit view · Walk up to huts, stone circle, marae, or canoe
+              Arrow Keys (or WASD) to walk · Drag view to orbit · Click island button above for quick hub
             </div>
           </div>
 
@@ -142,6 +153,13 @@ export class WalkableIslandUI {
     this.sandCanvas = new SandCanvas(
       this.rootEl.querySelector('#walkShoreSandCanvas')
     );
+
+    this.rootEl
+      .querySelector('#btnOpenIslandHub')
+      .addEventListener('click', (e) => {
+        e.currentTarget.blur();
+        this.callbacks.onOpenIslandHub?.(this.currentPoi);
+      });
 
     this.rootEl
       .querySelector('#walkDifficultySelect')
@@ -246,6 +264,34 @@ export class WalkableIslandUI {
   }
 
   /**
+   * Temporarily hides or restores the walkable HUD while the closeable Island Hub is open
+   * without resetting currentPoi state.
+   */
+  setSuspendedForHub(suspended) {
+    if (suspended) {
+      this.closeSandModal();
+      this.closePortraitModal();
+      this.rootEl.classList.add('hidden');
+    } else {
+      this.rootEl.classList.remove('hidden');
+      this.refresh();
+      this._syncPopupVisibility();
+    }
+  }
+
+  /**
+   * Syncs active POI immediately when the player clicks a location inside the Island Hub.
+   */
+  selectPoiFromHub(poi) {
+    this.currentPoi = poi || null;
+    this.minimizedPoiId = null;
+    this.craftsmanDrawerOpen = false;
+    this.hutFeedbackText = '';
+    this._renderCurrentPoiPopup();
+    this._syncPopupVisibility();
+  }
+
+  /**
    * Called each frame by KavengaApp with the POI the player is currently standing inside (or null).
    */
   updateActivePoi(poi) {
@@ -289,7 +335,7 @@ export class WalkableIslandUI {
     const basin = OCEAN_BASINS[isl.basinId];
 
     this.rootEl.querySelector('#walkActEyebrow').textContent =
-      `Act ${isl.act} · ${basin?.name || ''}`;
+      `Island · Act ${isl.act} · ${basin?.name || ''}`;
     this.rootEl.querySelector('#walkIslandName').textContent = isl.name;
     this.rootEl.querySelector('#walkIslandSubtitle').textContent = isl.subtitle;
 

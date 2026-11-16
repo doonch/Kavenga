@@ -50,6 +50,7 @@ class KavengaApp {
     const hasSavedProgress = this.gameState.loadFromLocalStorage();
     this.oceanSim = new OceanSim();
     this.phase = 'shore'; // 'shore' | 'sailing' | 'sky_vigil'
+    this.isWalkableHubOpen = false;
 
     // ~2.15s 3D Landfall Arrival Cinematic state (canoe glides to island edge; camera pulls back & up)
     this.landfallAnim = {
@@ -130,6 +131,8 @@ class KavengaApp {
       onChangeDifficulty: (mode) => this.setDifficulty(mode),
       onLaunchVoyage: (song, depWindow) => this.launchVoyage(song, depWindow),
       onOpenSkyVigil: (opts) => this.enterSkyVigil(opts),
+      onCloseHub: () => this.closeWalkableHub(),
+      onMoveToPoi: (poiId) => this.moveWalkableCharacterToPoi(poiId),
     });
 
     this.walkableIslandUI = new WalkableIslandUI(this.walkableUiRootEl, {
@@ -137,6 +140,7 @@ class KavengaApp {
       onChangeDifficulty: (mode) => this.setDifficulty(mode),
       onLaunchVoyage: (song, depWindow) => this.launchVoyage(song, depWindow),
       onOpenSkyVigil: (opts) => this.enterSkyVigil(opts),
+      onOpenIslandHub: (activePoi) => this.openWalkableHub(activePoi),
     });
 
     this.skyVigilUI = new SkyVigilUI(this.vigilRootEl, {
@@ -555,6 +559,7 @@ class KavengaApp {
    */
   _enterShoreMode({ hubDefaultTab = 'landing', spawnMode = 'canoe' } = {}) {
     this.phase = 'shore';
+    this.isWalkableHubOpen = false;
     this.oceanSim.setShoreIsland(this.gameState.currentIslandId);
     this.skyLabelsEl
       .querySelectorAll('.sky-star-label')
@@ -583,7 +588,42 @@ class KavengaApp {
     }
   }
 
+  openWalkableHub(activePoi = null) {
+    if (this.phase !== 'shore' || !this.walkableIslandScene.active) return;
+    this.isWalkableHubOpen = true;
+    this.cameraCtrl.keysDown.clear();
+    this.walkableIslandUI.setSuspendedForHub(true);
+    const initialTab = activePoi?.hubTab || 'landing';
+    this.islandHub.show(initialTab, {
+      walkableOverlay: true,
+      activePoiId: activePoi?.id || null,
+    });
+  }
+
+  closeWalkableHub() {
+    if (!this.isWalkableHubOpen) return;
+    this.isWalkableHubOpen = false;
+    this.cameraCtrl.keysDown.clear();
+    this.islandHub.hide();
+    if (this.phase === 'shore' && this.walkableIslandScene.active) {
+      this.walkableIslandUI.setSuspendedForHub(false);
+    }
+  }
+
+  moveWalkableCharacterToPoi(poiId) {
+    if (!this.walkableIslandScene.active) return null;
+    const poi = this.walkableIslandScene.moveToPoi(
+      poiId,
+      this.cameraCtrl.camera
+    );
+    if (poi) {
+      this.walkableIslandUI.selectPoiFromHub(poi);
+    }
+    return poi;
+  }
+
   enterSkyVigil(opts = {}) {
+    this.isWalkableHubOpen = false;
     this._resetLaunchAnimation();
     this._resetLandfallAnimation();
     this.walkableIslandScene.exit();
@@ -629,6 +669,9 @@ class KavengaApp {
     } else if (this.phase === 'shore') {
       if (this.walkableIslandScene.active) {
         this.walkableIslandUI.refresh();
+        if (this.isWalkableHubOpen) {
+          this.islandHub.refresh();
+        }
       } else {
         this.islandHub.refresh();
       }
@@ -638,6 +681,7 @@ class KavengaApp {
   launchVoyage(song, departureWindow) {
     // Snapshot pre-voyage state so Lost at Sea / Return to Shore restores cleanly with zero loss!
     this.gameState.savePreVoyageSnapshot();
+    this.isWalkableHubOpen = false;
     this.walkableIslandScene.exit();
     this.walkableIslandUI.hide();
     this.cameraCtrl.shoreWalkMode = false;
@@ -736,10 +780,14 @@ class KavengaApp {
           oceanSim: this.oceanSim,
           camera: this.cameraCtrl.camera,
           keysDown: this.cameraCtrl.keysDown,
-          inputBlocked: this.walkableIslandUI.isBlockingMovement(),
+          inputBlocked:
+            this.isWalkableHubOpen || this.walkableIslandUI.isBlockingMovement(),
+          hideLabels: this.isWalkableHubOpen,
         }
       );
-      this.walkableIslandUI.updateActivePoi(nearPoi);
+      if (!this.isWalkableHubOpen) {
+        this.walkableIslandUI.updateActivePoi(nearPoi);
+      }
 
       this.skyDome.update(
         dtSec,

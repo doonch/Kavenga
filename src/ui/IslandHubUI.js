@@ -36,6 +36,9 @@ export class IslandHubUI {
     this.selectedLessonId = null;
     this.lastSanctuaryResult = null;
     this._lightboxMentor = null;
+    this.walkableMode = false;
+    this.walkableActivePoiId = null;
+    this.walkableMoveNotice = '';
 
     this._buildDOM();
   }
@@ -59,13 +62,23 @@ export class IslandHubUI {
                 <option value="master_navigator">Master Navigator · 50 yr Elder (Pure Silence &amp; Raw Stars)</option>
               </select>
             </label>
+            <button
+              class="secondary-btn hub-close-walk-btn hidden"
+              id="btnCloseIslandHub"
+              type="button"
+              title="Close Island Hub and keep walking on the island (Esc)"
+            >
+              ✕ Close Hub &amp; Walk
+            </button>
           </div>
         </header>
 
         <nav class="hub-poi-tabs">
-          <button class="poi-tab-btn active" data-tab="landing" id="tabBtnLanding">🛶 Canoe Landing</button>
-          <button class="poi-tab-btn" data-tab="sand" id="tabBtnSand">🐚 Navigator's Shore</button>
-          <button class="poi-tab-btn" data-tab="sanctuary" id="tabBtnSanctuary">🌺 Village &amp; Marae</button>
+          <button class="poi-tab-btn active" data-tab="landing" data-poi="canoe_landing" id="tabBtnLanding">🛶 Canoe Landing</button>
+          <button class="poi-tab-btn hidden" data-tab="landing" data-poi="provisioning_hut" id="tabBtnHut">🛖 Craftsmen's &amp; Ration Hut</button>
+          <button class="poi-tab-btn" data-tab="sand" data-poi="observation_circle" id="tabBtnSand">🐚 Navigator's Shore</button>
+          <button class="poi-tab-btn" data-tab="sanctuary" data-poi="elder_marae" id="tabBtnSanctuary">🌺 Village &amp; Marae</button>
+          <span class="hub-walkable-status hidden" id="hubWalkableStatus"></span>
         </nav>
 
         <main class="hub-content">
@@ -278,23 +291,55 @@ export class IslandHubUI {
       this.rootEl.querySelector('#shoreSandCanvas')
     );
 
-    // Tab switching
+    // Closeable hub button & backdrop click (active on walkable islands)
+    this.rootEl
+      .querySelector('#btnCloseIslandHub')
+      .addEventListener('click', (e) => {
+        e.currentTarget.blur();
+        if (this.walkableMode) {
+          this.callbacks.onCloseHub?.();
+        }
+      });
+    this.rootEl.addEventListener('click', (e) => {
+      if (this.walkableMode && e.target === this.rootEl) {
+        this.callbacks.onCloseHub?.();
+      }
+    });
+
+    // Tab switching (+ immediate 3D character POI move when on a walkable island)
     this.rootEl.querySelectorAll('.poi-tab-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        this.switchTab(btn.getAttribute('data-tab'));
+      btn.addEventListener('click', (e) => {
+        e.currentTarget.blur();
+        const tabId = btn.getAttribute('data-tab');
+        const poiId = btn.getAttribute('data-poi');
+        if (this.walkableMode && poiId) {
+          this._handleWalkableLocationClick(tabId, poiId);
+        } else {
+          this.switchTab(tabId);
+        }
       });
     });
 
     // Quick jump between Landing <-> Mentor Sanctuary
     this.rootEl
       .querySelector('#btnMeetMentorFromLanding')
-      .addEventListener('click', () => {
-        this.switchTab('sanctuary');
+      .addEventListener('click', (e) => {
+        e.currentTarget.blur();
+        if (this.walkableMode) {
+          this._handleWalkableLocationClick('sanctuary', 'elder_marae');
+        } else {
+          this.switchTab('sanctuary');
+        }
       });
     this.rootEl
       .querySelector('#btnGoToLandingFromSanctuary')
-      .addEventListener('click', () => {
-        this.switchTab('landing');
+      .addEventListener('click', (e) => {
+        e.currentTarget.blur();
+        if (this.walkableMode) {
+          this._handleWalkableLocationClick('landing', 'canoe_landing');
+        } else {
+          this.switchTab('landing');
+        }
       });
 
     // Portrait Lightbox triggers
@@ -338,7 +383,12 @@ export class IslandHubUI {
       });
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Escape' && !this.rootEl.classList.contains('hidden')) {
-        this.closePortraitModal();
+        const modalEl = this.rootEl.querySelector('#mentorPortraitModal');
+        if (modalEl && !modalEl.classList.contains('hidden')) {
+          this.closePortraitModal();
+        } else if (this.walkableMode) {
+          this.callbacks.onCloseHub?.();
+        }
       }
     });
 
@@ -489,7 +539,30 @@ export class IslandHubUI {
     this.rootEl.querySelector('#mentorPortraitModal')?.classList.add('hidden');
   }
 
-  show(initialTab = 'landing') {
+  _handleWalkableLocationClick(tabId, poiId) {
+    this.walkableActivePoiId = poiId;
+    const movedPoi = this.callbacks.onMoveToPoi?.(poiId);
+    this.walkableMoveNotice = movedPoi
+      ? `✓ Wayfinder moved to ${movedPoi.label}`
+      : '';
+    this.switchTab(tabId);
+  }
+
+  show(initialTab = 'landing', opts = {}) {
+    this.walkableMode = Boolean(opts.walkableOverlay);
+    this.walkableActivePoiId = opts.activePoiId || null;
+    this.walkableMoveNotice = '';
+
+    this.rootEl
+      .querySelector('#btnCloseIslandHub')
+      ?.classList.toggle('hidden', !this.walkableMode);
+    this.rootEl
+      .querySelector('#tabBtnHut')
+      ?.classList.toggle('hidden', !this.walkableMode);
+    this.rootEl
+      .querySelector('#hubWalkableStatus')
+      ?.classList.toggle('hidden', !this.walkableMode);
+
     this.rootEl.classList.remove('hidden');
     this.closePortraitModal();
     this.lastSanctuaryResult = null;
@@ -506,8 +579,32 @@ export class IslandHubUI {
   switchTab(tabId) {
     this.activeTab = tabId;
     this.rootEl.querySelectorAll('.poi-tab-btn').forEach((btn) => {
-      btn.classList.toggle('active', btn.getAttribute('data-tab') === tabId);
+      if (this.walkableMode) {
+        if (this.walkableActivePoiId) {
+          btn.classList.toggle(
+            'active',
+            btn.getAttribute('data-poi') === this.walkableActivePoiId
+          );
+        } else {
+          btn.classList.toggle(
+            'active',
+            tabId === 'landing'
+              ? btn.id === 'tabBtnLanding'
+              : btn.getAttribute('data-tab') === tabId
+          );
+        }
+      } else {
+        btn.classList.toggle('active', btn.getAttribute('data-tab') === tabId);
+      }
     });
+
+    const walkStatusEl = this.rootEl.querySelector('#hubWalkableStatus');
+    if (walkStatusEl && this.walkableMode) {
+      walkStatusEl.textContent =
+        this.walkableMoveNotice ||
+        'Click a location to move your wayfinder there · Close hub to walk';
+      walkStatusEl.classList.toggle('moved-confirm', Boolean(this.walkableMoveNotice));
+    }
     this.rootEl
       .querySelector('#panelLanding')
       .classList.toggle('hidden', tabId !== 'landing');

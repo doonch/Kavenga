@@ -1176,6 +1176,39 @@ export class WalkableIslandScene {
   }
 
   /**
+   * Immediately moves the player character (and third-person shore camera) to a named 3D POI.
+   * Used when clicking a location inside the closeable Island Hub on a walkable island.
+   */
+  moveToPoi(poiId, camera = null) {
+    const poi = this.spec.pois.find((p) => p.id === poiId) || null;
+    if (!poi) return null;
+
+    const spot = poi.arrivalSpot || {
+      x: poi.x,
+      z: poi.z,
+      facingYawRad: 0.0,
+      camYawRad: this.camYawRad,
+    };
+
+    this.playerPos.x = spot.x;
+    this.playerPos.z = spot.z;
+    this.playerPos.y = Math.max(-0.08, this.getGroundHeight(spot.x, spot.z));
+    this.playerYawRad = spot.facingYawRad ?? 0.0;
+    if (spot.camYawRad !== undefined) {
+      this.camYawRad = spot.camYawRad;
+    }
+    this.walkAmount = 0.0;
+    this.activePoi = poi;
+
+    if (this.playerGroup) {
+      this.playerGroup.position.copy(this.playerPos);
+      this.playerGroup.rotation.y = this.playerYawRad;
+    }
+    this._syncCamera(1.0, camera);
+    return poi;
+  }
+
+  /**
    * Exits 3D Walkable Island mode and restores VakaRenderer root to sailing origin (0, 0, 0).
    */
   exit() {
@@ -1326,7 +1359,11 @@ export class WalkableIslandScene {
    * Updates player arrow-key movement, character/NPC animations, moored canoe,
    * third-person camera, and POI proximity detection.
    */
-  update(dtSec, elapsedSec, { gameState, oceanSim, camera, keysDown, inputBlocked = false }) {
+  update(
+    dtSec,
+    elapsedSec,
+    { gameState, oceanSim, camera, keysDown, inputBlocked = false, hideLabels = false }
+  ) {
     if (!this.active) return null;
 
     const dt = Math.min(0.1, Math.max(0.001, dtSec));
@@ -1508,13 +1545,19 @@ export class WalkableIslandScene {
     }
 
     this.activePoi = nearestPoi;
-    this._updateProjectedPoiTags(camera);
+    this._updateProjectedPoiTags(camera, hideLabels);
 
     return nearestPoi;
   }
 
-  _updateProjectedPoiTags(camera) {
+  _updateProjectedPoiTags(camera, hideLabels = false) {
     if (!camera || !this.labelLayerEl) return;
+    if (hideLabels) {
+      for (const el of Object.values(this.poiBadgeEls)) {
+        el.classList.add('hidden');
+      }
+      return;
+    }
     const w = window.innerWidth;
     const h = window.innerHeight;
     const proj = new THREE.Vector3();

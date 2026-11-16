@@ -177,6 +177,20 @@ assert(
   spawnToCanoeTrigger > canoePoi.triggerRadiusM,
   'Initial spawn next to canoe leaves viewport clean until player steps onto boarding mat'
 );
+for (const p of RAIATEA_WALKABLE_SPEC.pois) {
+  assert(
+    ['landing', 'sand', 'sanctuary'].includes(p.hubTab),
+    `Walkable POI ${p.id} maps to a valid IslandHubUI tab`
+  );
+  const dArr = Math.hypot(
+    (p.arrivalSpot?.x ?? 999) - p.x,
+    (p.arrivalSpot?.z ?? 999) - p.z
+  );
+  assert(
+    dArr <= p.triggerRadiusM,
+    `Walkable POI ${p.id} arrivalSpot lands inside its trigger radius`
+  );
+}
 
 assert(showsActiveStarShimmer(Difficulty.EASY) === true, 'Easy shows active star shimmer');
 assert(showsActiveStarShimmer(Difficulty.MEDIUM) === false, 'Medium hides active shimmer');
