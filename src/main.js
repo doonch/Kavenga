@@ -18,6 +18,10 @@ import {
   wrapDeg180,
 } from './core/gameConstants.js';
 import { GameState } from './core/gameState.js';
+import {
+  CONSTELLATION_LESSONS,
+  getAvailableUnlearnedLessonForIsland,
+} from './data/constellationLessonsData.js';
 import { ISLANDS } from './data/islandsData.js';
 import { buildReturnSong, SONGS } from './data/songsData.js';
 import { isWalkableIsland } from './data/walkableIslandsData.js';
@@ -36,6 +40,7 @@ import {
   OceanSim,
   VoyageStatus,
 } from './simulation/oceanSim.js';
+import { ElderVigilPromptUI } from './ui/ElderVigilPromptUI.js';
 import { IslandHubUI } from './ui/IslandHubUI.js';
 import { IslandSettingsUI } from './ui/IslandSettingsUI.js';
 import { SailingHUD } from './ui/SailingHUD.js';
@@ -51,6 +56,7 @@ class KavengaApp {
     this.walkableUiRootEl = document.getElementById('walkable-island-ui');
     this.hubRootEl = document.getElementById('island-hub');
     this.settingsRootEl = document.getElementById('island-settings-ui');
+    this.elderPromptRootEl = document.getElementById('elder-vigil-prompt-ui');
 
     // 1. State & Simulation
     this.gameState = new GameState();
@@ -144,12 +150,25 @@ class KavengaApp {
       },
     });
 
+    this.elderVigilPromptUI = new ElderVigilPromptUI(this.elderPromptRootEl, {
+      onGoToTeaching: (lesson) => {
+        this.enterSkyVigil({
+          guidedLessonId: lesson.id,
+          islandId: lesson.islandId,
+        });
+      },
+      onSetSailAnyway: (song, depWindow) => {
+        this.launchVoyage(song, depWindow);
+      },
+    });
+
     this.islandHub = new IslandHubUI(this.hubRootEl, {
       getGameState: () => this.gameState,
       getIsSoundMuted: () => this.chantEngine.muted,
       onOpenSettings: () => this.openIslandSettings(),
       onChangeDifficulty: (mode) => this.setDifficulty(mode),
-      onLaunchVoyage: (song, depWindow) => this.launchVoyage(song, depWindow),
+      onLaunchVoyage: (song, depWindow) =>
+        this.requestLaunchVoyage(song, depWindow),
       onOpenSkyVigil: (opts) => this.enterSkyVigil(opts),
       onCloseHub: () => this.closeWalkableHub(),
       onMoveToPoi: (poiId) => this.moveWalkableCharacterToPoi(poiId),
@@ -160,7 +179,8 @@ class KavengaApp {
       getIsSoundMuted: () => this.chantEngine.muted,
       onOpenSettings: () => this.openIslandSettings(),
       onChangeDifficulty: (mode) => this.setDifficulty(mode),
-      onLaunchVoyage: (song, depWindow) => this.launchVoyage(song, depWindow),
+      onLaunchVoyage: (song, depWindow) =>
+        this.requestLaunchVoyage(song, depWindow),
       onOpenSkyVigil: (opts) => this.enterSkyVigil(opts),
       onOpenIslandHub: (activePoi) => this.openWalkableHub(activePoi),
     });
@@ -171,6 +191,12 @@ class KavengaApp {
       getCameraCtrl: () => this.cameraCtrl,
       onExitVigil: () => this.exitSkyVigil(),
       onPlayChime: () => this.chantEngine.playStarSightedChime(),
+      onConstellationLearned: () => {
+        if (this.walkableIslandScene.active) {
+          this.walkableIslandUI.refresh();
+        }
+        this.islandHub.refresh();
+      },
     });
 
     this.sailingHud = new SailingHUD(this.hudRootEl, {
@@ -291,6 +317,7 @@ class KavengaApp {
     }
 
     if (urlMode === 'sky_vigil' || params.get('vigil') === '1') {
+      const urlLesson = params.get('lesson');
       const islObj = urlIsland && ISLANDS[urlIsland] ? ISLANDS[urlIsland] : null;
       const resolvedMaster =
         urlMaster ||
@@ -299,7 +326,9 @@ class KavengaApp {
       this.enterSkyVigil({
         masterId: resolvedMaster,
         islandId: islObj ? islObj.id : undefined,
-        mode: urlTab || 'lessons',
+        mode: urlTab || undefined,
+        guidedLessonId:
+          urlLesson && CONSTELLATION_LESSONS[urlLesson] ? urlLesson : undefined,
       });
     }
   }
@@ -648,6 +677,7 @@ class KavengaApp {
 
   openIslandSettings() {
     if (this.phase !== 'shore') return;
+    this.elderVigilPromptUI.hide();
     this.cameraCtrl.keysDown.clear();
     this.islandSettingsUI.show();
   }
@@ -675,6 +705,7 @@ class KavengaApp {
 
   resetCampaignAndReload() {
     this.islandSettingsUI.hide();
+    this.elderVigilPromptUI.hide();
     this.chantEngine.stop();
     this.spatialAudio.stop();
     this.gameState.clearSavedProgress();
@@ -686,6 +717,7 @@ class KavengaApp {
   enterSkyVigil(opts = {}) {
     this.isWalkableHubOpen = false;
     this.islandSettingsUI.hide();
+    this.elderVigilPromptUI.hide();
     this._resetLaunchAnimation();
     this._resetLandfallAnimation();
     this.walkableIslandScene.exit();
@@ -744,11 +776,25 @@ class KavengaApp {
     }
   }
 
+  requestLaunchVoyage(song, departureWindow) {
+    const pendingLesson = getAvailableUnlearnedLessonForIsland(
+      this.gameState,
+      this.gameState.currentIslandId
+    );
+    if (pendingLesson) {
+      this.cameraCtrl.keysDown.clear();
+      this.elderVigilPromptUI.show(pendingLesson, song, departureWindow);
+      return;
+    }
+    this.launchVoyage(song, departureWindow);
+  }
+
   launchVoyage(song, departureWindow) {
     // Snapshot pre-voyage state so Lost at Sea / Return to Shore restores cleanly with zero loss!
     this.gameState.savePreVoyageSnapshot();
     this.isWalkableHubOpen = false;
     this.islandSettingsUI.hide();
+    this.elderVigilPromptUI.hide();
     this.walkableIslandScene.exit();
     this.walkableIslandUI.hide();
     this.cameraCtrl.shoreWalkMode = false;
@@ -876,8 +922,12 @@ class KavengaApp {
           inputBlocked:
             this.isWalkableHubOpen ||
             this.islandSettingsUI.isOpen() ||
+            this.elderVigilPromptUI.isOpen() ||
             this.walkableIslandUI.isBlockingMovement(),
-          hideLabels: this.isWalkableHubOpen || this.islandSettingsUI.isOpen(),
+          hideLabels:
+            this.isWalkableHubOpen ||
+            this.islandSettingsUI.isOpen() ||
+            this.elderVigilPromptUI.isOpen(),
         }
       );
       if (!this.isWalkableHubOpen) {
@@ -891,7 +941,8 @@ class KavengaApp {
         'master_navigator',
         this.cameraCtrl.camera,
         null,
-        null
+        null,
+        this.gameState
       );
       this.oceanRenderer.update(dtSec, this._elapsedAppSec, this.oceanSim, true);
 
@@ -916,7 +967,9 @@ class KavengaApp {
         this.oceanSim,
         this.gameState.difficulty,
         this.cameraCtrl.camera,
-        this.skyVigilUI.getSkyDomeOverrides()
+        this.skyVigilUI.getSkyDomeOverrides(),
+        null,
+        this.gameState
       );
       this.oceanRenderer.update(dtSec, this._elapsedAppSec, this.oceanSim, true);
       this.starRing.update(
@@ -1090,7 +1143,8 @@ class KavengaApp {
         : 'master_navigator',
       this.cameraCtrl.camera,
       null,
-      this.worldCues
+      this.worldCues,
+      this.gameState
     );
     this.oceanRenderer.update(
       dtSec,

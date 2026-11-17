@@ -14,6 +14,12 @@
 import * as THREE from 'three';
 import { showsEasyConstellationCutout } from '../core/gameConstants.js';
 import {
+  CONSTELLATION_LESSONS,
+  getAvailableConstellationLessonForIsland,
+  getAvailableUnlearnedLessonForIsland,
+  getLessonByUnlockKey,
+} from '../data/constellationLessonsData.js';
+import {
   CONSTELLATIONS,
   HORIZON_HOUSES,
   NAVIGATION_STARS,
@@ -52,12 +58,24 @@ export class SkyVigilUI {
 
     this.activeMasterId = 'terai';
     this.activeIslandId = 'maupiti';
-    this.mode = 'lessons'; // 'lessons' | 'atlas' | 'quiz'
+    this.mode = 'lessons'; // 'guided' | 'lessons' | 'atlas' | 'quiz'
     this.chapterIndex = 0;
     this.sightedChapters = new Set();
 
+    // Elder-Guided Constellation Introduction state
+    this.guidedLesson = null;
+    this.guidedBeatIndex = 0;
+    this.guidedBeatElapsedSec = 0.0;
+    this.guidedLinesAlpha = 0.0;
+    this.guidedSilhouetteAlpha = 0.0;
+    this.guidedLabelsAlpha = 0.0;
+    this._guidedTargetLines = 0.0;
+    this._guidedTargetSilhouette = 0.0;
+    this._guidedTargetLabels = 0.0;
+    this._guidedLaunchedFromAtlas = false;
+
     // Atlas state
-    this.selectedConstellationId = 'the_bull';
+    this.selectedConstellationId = 'the_sea_turtle';
 
     // Optional Eye Trial (Quiz) state
     this.quizIndex = 0;
@@ -141,6 +159,7 @@ export class SkyVigilUI {
         </div>
 
         <div class="vigil-mode-tabs" role="tablist">
+          <button class="vigil-mode-btn hidden" id="btnVigilModeGuided" data-mode="guided" type="button">✨ Elder Teaching</button>
           <button class="vigil-mode-btn active" data-mode="lessons" type="button">📖 Master's Lessons</button>
           <button class="vigil-mode-btn" data-mode="atlas" type="button">🌌 Constellation Atlas</button>
           <button class="vigil-mode-btn" data-mode="quiz" type="button">🎯 Optional Eye Trial</button>
@@ -155,8 +174,42 @@ export class SkyVigilUI {
       <div class="vigil-bottom-deck">
         <!-- LEFT PANEL -->
         <section class="vigil-main-card" id="vigilMainCard">
+          <!-- MODE 0: ELDER-GUIDED CONSTELLATION INTRODUCTION -->
+          <div class="vigil-pane hidden" id="vigilPaneGuided">
+            <div class="vigil-mentor-row">
+              <button class="vigil-mentor-thumb-btn" id="btnVigilEnlargeGuidedMentor" type="button" title="Click to inspect full-body portrait">
+                <img class="vigil-mentor-thumb" id="vigilGuidedMentorImg" alt="" />
+              </button>
+              <div class="vigil-mentor-head">
+                <div class="vigil-chapter-steps" id="vigilGuidedSteps"></div>
+                <h3 class="vigil-card-heading" id="vigilGuidedTitle"></h3>
+                <div class="vigil-mentor-byline" id="vigilGuidedByline"></div>
+              </div>
+            </div>
+
+            <p class="vigil-speech" id="vigilGuidedSpeech"></p>
+            <div class="vigil-hint-line" id="vigilGuidedHint"></div>
+
+            <div class="vigil-action-bar">
+              <div class="vigil-sight-status" id="vigilGuidedStatusBadge"></div>
+              <div class="vigil-action-btns">
+                <button class="secondary-btn small-btn" id="btnVigilGuidedReframe" type="button">
+                  ✦ Center Gaze
+                </button>
+                <button class="secondary-btn small-btn" id="btnVigilGuidedPrev" type="button">← Back</button>
+                <button class="primary-btn small-btn" id="btnVigilGuidedNext" type="button">Look Up →</button>
+              </div>
+            </div>
+          </div>
+
           <!-- MODE 1: GUIDED LESSONS -->
           <div class="vigil-pane" id="vigilPaneLessons">
+            <div class="vigil-elder-callout hidden" id="vigilIslandElderCallout">
+              <span id="vigilIslandElderCalloutText"></span>
+              <button class="primary-btn small-btn" id="btnVigilStartIslandElder" type="button">
+                ✨ Begin Elder's Teaching
+              </button>
+            </div>
             <div class="vigil-mentor-row">
               <button class="vigil-mentor-thumb-btn" id="btnVigilEnlargeMentor" type="button" title="Click to inspect full-body portrait">
                 <img class="vigil-mentor-thumb" id="vigilMentorImg" alt="" />
@@ -200,9 +253,14 @@ export class SkyVigilUI {
 
             <div class="vigil-action-bar">
               <span class="vigil-drag-tip">Drag the sky or press W/A/S/D or I/J/K/L to look freely</span>
-              <button class="secondary-btn small-btn" id="btnVigilPanAtlas" type="button">
-                ✦ Turn Gaze to Constellation
-              </button>
+              <div class="vigil-action-btns">
+                <button class="secondary-btn small-btn hidden" id="btnVigilReplayGuided" type="button">
+                  ✨ Replay Elder Teaching
+                </button>
+                <button class="secondary-btn small-btn" id="btnVigilPanAtlas" type="button">
+                  ✦ Turn Gaze to Constellation
+                </button>
+              </div>
             </div>
           </div>
 
@@ -371,11 +429,68 @@ export class SkyVigilUI {
         }
       });
 
-    // Atlas pan
+    // Atlas pan & guided replay
     this.rootEl
       .querySelector('#btnVigilPanAtlas')
       .addEventListener('click', () => {
         this.panToSelectedConstellation();
+      });
+    this.rootEl
+      .querySelector('#btnVigilReplayGuided')
+      .addEventListener('click', () => {
+        const lesson = getLessonByUnlockKey(this.selectedConstellationId);
+        if (lesson) {
+          this._guidedLaunchedFromAtlas = true;
+          this.startGuidedLesson(lesson.id);
+        }
+      });
+
+    // Elder-Guided Constellation Intro buttons
+    this.rootEl
+      .querySelector('#btnVigilStartIslandElder')
+      .addEventListener('click', () => {
+        const gs = this.callbacks.getGameState?.();
+        const lesson = getAvailableConstellationLessonForIsland(
+          gs,
+          this.activeIslandId
+        );
+        if (lesson) {
+          this._guidedLaunchedFromAtlas = false;
+          this.startGuidedLesson(lesson.id);
+        }
+      });
+    this.rootEl
+      .querySelector('#btnVigilGuidedReframe')
+      .addEventListener('click', () => {
+        this._frameActiveGuidedBeat(false);
+      });
+    this.rootEl
+      .querySelector('#btnVigilGuidedPrev')
+      .addEventListener('click', () => {
+        if (this.guidedLesson && this.guidedBeatIndex > 0) {
+          this.setGuidedBeat(this.guidedBeatIndex - 1);
+        }
+      });
+    this.rootEl
+      .querySelector('#btnVigilGuidedNext')
+      .addEventListener('click', () => {
+        this.advanceGuidedBeat();
+      });
+    this.rootEl
+      .querySelector('#btnVigilEnlargeGuidedMentor')
+      .addEventListener('click', () => {
+        if (!this.guidedLesson) return;
+        const isl = ISLANDS[this.guidedLesson.islandId];
+        this.rootEl.querySelector('#vigilModalEyebrow').textContent =
+          `${isl ? isl.name : ''} · Guided Constellation Vigil`;
+        this.rootEl.querySelector('#vigilModalName').textContent =
+          this.guidedLesson.elderName;
+        this.rootEl.querySelector('#vigilModalRole').textContent =
+          this.guidedLesson.elderRole;
+        const img = this.rootEl.querySelector('#vigilModalImg');
+        img.src = this.guidedLesson.portrait;
+        img.alt = this.guidedLesson.elderName;
+        this.rootEl.querySelector('#vigilPortraitModal').classList.remove('hidden');
       });
 
     // Quiz actions
@@ -393,7 +508,7 @@ export class SkyVigilUI {
     this.rootEl
       .querySelector('#btnVigilQuizNext')
       .addEventListener('click', () => {
-        const pool = getQuizPromptsForMaster(this.activeMasterId);
+        const pool = this._getFilteredQuizPool();
         this.setQuizPrompt((this.quizIndex + 1) % pool.length);
       });
 
@@ -508,21 +623,59 @@ export class SkyVigilUI {
     this._refreshControlsDOM();
   }
 
-  show({ masterId = 'terai', islandId = null, mode = 'lessons', chapterIndex = 0 } = {}) {
+  show({
+    masterId = 'terai',
+    islandId = null,
+    mode = null,
+    chapterIndex = 0,
+    guidedLessonId = null,
+  } = {}) {
+    const gs = this.callbacks?.getGameState?.();
     if (!this._userToggledAnimals) {
-      this.showAnimalSilhouettes = showsEasyConstellationCutout(
-        this.callbacks?.getGameState?.()?.difficulty
-      );
+      this.showAnimalSilhouettes = showsEasyConstellationCutout(gs?.difficulty);
     }
     this.rootEl.classList.remove('hidden');
     this.rootEl.querySelector('#vigilPortraitModal').classList.add('hidden');
+
+    if (guidedLessonId && CONSTELLATION_LESSONS[guidedLessonId]) {
+      this._guidedLaunchedFromAtlas = false;
+      this.startGuidedLesson(guidedLessonId);
+      return;
+    }
+
     const resolvedMaster = STAR_MASTERS[masterId] ? masterId : 'terai';
     const resolvedIsland =
       islandId && ISLANDS[islandId]
         ? islandId
         : STAR_MASTERS[resolvedMaster].islandId;
 
-    this.mode = ['lessons', 'atlas', 'quiz'].includes(mode) ? mode : 'lessons';
+    // If entering the local Star-Stone Ring on an island with an unlearned elder constellation teaching
+    // and no explicit non-guided mode was requested, start directly in that elder's Guided Vigil!
+    const unlearnedLocal = getAvailableUnlearnedLessonForIsland(
+      gs,
+      resolvedIsland
+    );
+    if (!mode && unlearnedLocal) {
+      this._guidedLaunchedFromAtlas = false;
+      this.startGuidedLesson(unlearnedLocal.id);
+      return;
+    }
+
+    this.guidedLesson = getAvailableConstellationLessonForIsland(
+      gs,
+      resolvedIsland
+    );
+    this.mode = ['guided', 'lessons', 'atlas', 'quiz'].includes(mode)
+      ? mode
+      : 'lessons';
+    if (this.mode === 'guided' && this.guidedLesson) {
+      this._guidedLaunchedFromAtlas = false;
+      this.startGuidedLesson(this.guidedLesson.id);
+      return;
+    }
+    if (this.mode === 'guided') {
+      this.mode = 'lessons';
+    }
     this.chapterIndex = chapterIndex || 0;
     this.selectMasterAndIsland(resolvedMaster, resolvedIsland, true);
   }
@@ -539,6 +692,15 @@ export class SkyVigilUI {
     this.activeIslandId =
       islandId && ISLANDS[islandId] ? islandId : master.islandId;
 
+    const gs = this.callbacks.getGameState?.();
+    const localLesson = getAvailableConstellationLessonForIsland(
+      gs,
+      this.activeIslandId
+    );
+    if (this.mode !== 'guided') {
+      this.guidedLesson = localLesson || null;
+    }
+
     const sim = this.callbacks.getOceanSim?.();
     if (sim) {
       sim.headingDeg = 0.0;
@@ -552,6 +714,11 @@ export class SkyVigilUI {
     this.quizIndex = 0;
 
     this._syncHeaderDOM();
+    this._syncModeTabsDOM();
+    if (this.mode === 'guided' && this.guidedLesson) {
+      this.startGuidedLesson(this.guidedLesson.id);
+      return;
+    }
     if (this.mode === 'lessons') {
       this.setChapter(this.chapterIndex, autoPan);
     } else if (this.mode === 'atlas') {
@@ -562,23 +729,46 @@ export class SkyVigilUI {
     this._refreshControlsDOM();
   }
 
-  setMode(nextMode) {
-    if (!['lessons', 'atlas', 'quiz'].includes(nextMode)) return;
-    this.mode = nextMode;
-    this.spinMode = 0;
-
+  _syncModeTabsDOM() {
+    const guidedTabBtn = this.rootEl.querySelector('#btnVigilModeGuided');
+    if (guidedTabBtn) {
+      guidedTabBtn.classList.toggle('hidden', !this.guidedLesson);
+      if (this.guidedLesson) {
+        guidedTabBtn.textContent = `✨ ${this.guidedLesson.elderName}: ${this.guidedLesson.title}`;
+      }
+    }
     this.rootEl.querySelectorAll('.vigil-mode-btn').forEach((btn) => {
-      btn.classList.toggle('active', btn.getAttribute('data-mode') === nextMode);
+      btn.classList.toggle(
+        'active',
+        btn.getAttribute('data-mode') === this.mode
+      );
     });
     this.rootEl
+      .querySelector('#vigilPaneGuided')
+      ?.classList.toggle('hidden', this.mode !== 'guided');
+    this.rootEl
       .querySelector('#vigilPaneLessons')
-      .classList.toggle('hidden', nextMode !== 'lessons');
+      .classList.toggle('hidden', this.mode !== 'lessons');
     this.rootEl
       .querySelector('#vigilPaneAtlas')
-      .classList.toggle('hidden', nextMode !== 'atlas');
+      .classList.toggle('hidden', this.mode !== 'atlas');
     this.rootEl
       .querySelector('#vigilPaneQuiz')
-      .classList.toggle('hidden', nextMode !== 'quiz');
+      .classList.toggle('hidden', this.mode !== 'quiz');
+  }
+
+  setMode(nextMode) {
+    if (!['guided', 'lessons', 'atlas', 'quiz'].includes(nextMode)) return;
+    if (nextMode === 'guided') {
+      if (this.guidedLesson) {
+        this._guidedLaunchedFromAtlas = false;
+        this.startGuidedLesson(this.guidedLesson.id);
+      }
+      return;
+    }
+    this.mode = nextMode;
+    this.spinMode = 0;
+    this._syncModeTabsDOM();
 
     if (nextMode === 'lessons') {
       this.setChapter(this.chapterIndex, true);
@@ -589,6 +779,212 @@ export class SkyVigilUI {
       this.setQuizPrompt(this.quizIndex);
     }
     this._refreshControlsDOM();
+  }
+
+  startGuidedLesson(lessonId) {
+    const lesson = CONSTELLATION_LESSONS[lessonId];
+    if (!lesson) return;
+    this.guidedLesson = lesson;
+    this.mode = 'guided';
+    this.activeIslandId = lesson.islandId;
+    this.activeMasterId =
+      ISLANDS[lesson.islandId]?.latDeg > 0 ? 'akura' : 'terai';
+
+    const sim = this.callbacks.getOceanSim?.();
+    if (sim) {
+      sim.headingDeg = 0.0;
+      sim.setShoreIsland(lesson.islandId);
+      sim.solarRaDeg = lesson.solarRaDeg;
+      this.sliderHour = hourToNocturnalSlider(lesson.solarHour);
+      sim.solarHour = this.sliderHour % 24.0;
+      sim._refreshEnvironment(0);
+    }
+
+    this.guidedLinesAlpha = 0.0;
+    this.guidedSilhouetteAlpha = 0.0;
+    this.guidedLabelsAlpha = 0.0;
+    this._syncHeaderDOM();
+    this._syncModeTabsDOM();
+    this.setGuidedBeat(0, true);
+  }
+
+  setGuidedBeat(beatIdx, isInitial = false) {
+    const lesson = this.guidedLesson;
+    if (!lesson) return;
+    const clamped = Math.max(0, Math.min(lesson.beats.length - 1, beatIdx));
+    this.guidedBeatIndex = clamped;
+    this.guidedBeatElapsedSec = 0.0;
+    const beat = lesson.beats[clamped];
+
+    const sim = this.callbacks.getOceanSim?.();
+    if (beat.kind !== 'spin' && sim) {
+      this.spinMode = 0;
+      this.sliderHour = hourToNocturnalSlider(lesson.solarHour);
+      sim.solarRaDeg = lesson.solarRaDeg;
+      sim.solarHour = this.sliderHour % 24.0;
+      sim._refreshEnvironment(0);
+    }
+
+    if (beat.kind === 'stone') {
+      this._guidedTargetLines = 0.0;
+      this._guidedTargetSilhouette = 0.0;
+      this._guidedTargetLabels = 0.0;
+      if (isInitial) {
+        this.guidedLinesAlpha = 0.0;
+        this.guidedSilhouetteAlpha = 0.0;
+        this.guidedLabelsAlpha = 0.0;
+      }
+      this._frameActiveGuidedBeat(isInitial);
+    } else if (beat.kind === 'lines') {
+      this._guidedTargetLines = 1.0;
+      this._guidedTargetSilhouette = 0.0;
+      this._guidedTargetLabels = 0.0;
+      this._frameActiveGuidedBeat(false);
+      this.callbacks.onPlayChime?.();
+    } else if (beat.kind === 'silhouette') {
+      this._guidedTargetLines = 1.0;
+      this._guidedTargetSilhouette = 1.0;
+      this._guidedTargetLabels = 0.0;
+      this._frameActiveGuidedBeat(false);
+    } else if (beat.kind === 'labels') {
+      this._guidedTargetLines = 1.0;
+      this._guidedTargetSilhouette = lesson.hasSilhouette ? 1.0 : 0.0;
+      this._guidedTargetLabels = 1.0;
+      this._frameActiveGuidedBeat(false);
+    } else if (beat.kind === 'spin') {
+      this._guidedTargetLines = 1.0;
+      this._guidedTargetSilhouette = lesson.hasSilhouette ? 1.0 : 0.0;
+      this._guidedTargetLabels = 1.0;
+      // Elder turns on the Night-Wheel "Play" button to demonstrate sky rotation!
+      this.spinMode = 1;
+      const gs = this.callbacks.getGameState?.();
+      if (gs && !gs.hasLearnedConstellation(lesson.unlockKey)) {
+        gs.learnConstellation(lesson.unlockKey);
+        gs.saveToLocalStorage();
+        this.callbacks.onConstellationLearned?.(lesson);
+      }
+    }
+
+    this._refreshGuidedDOM();
+    this._refreshControlsDOM();
+  }
+
+  advanceGuidedBeat() {
+    const lesson = this.guidedLesson;
+    if (!lesson) return;
+    if (this.guidedBeatIndex + 1 < lesson.beats.length) {
+      this.setGuidedBeat(this.guidedBeatIndex + 1, false);
+      return;
+    }
+
+    // Final beat completed -> ensure constellation is recorded & return smoothly
+    const gs = this.callbacks.getGameState?.();
+    if (gs && !gs.hasLearnedConstellation(lesson.unlockKey)) {
+      gs.learnConstellation(lesson.unlockKey);
+      gs.saveToLocalStorage();
+      this.callbacks.onConstellationLearned?.(lesson);
+    }
+    this.callbacks.onPlayChime?.();
+    this.spinMode = 0;
+
+    if (this._guidedLaunchedFromAtlas) {
+      this._guidedLaunchedFromAtlas = false;
+      this.selectedConstellationId = lesson.constellationId;
+      this.setMode('atlas');
+    } else {
+      this.callbacks.onExitVigil?.();
+    }
+  }
+
+  _frameActiveGuidedBeat(instant = false) {
+    const lesson = this.guidedLesson;
+    const sim = this.callbacks.getOceanSim?.();
+    const camCtrl = this.callbacks.getCameraCtrl?.();
+    if (!lesson || !sim || !camCtrl) return;
+
+    const beat = lesson.beats[this.guidedBeatIndex];
+    if (beat?.kind === 'stone') {
+      const house = HORIZON_HOUSES.find((h) => h.id === lesson.startHouseId);
+      if (house) {
+        camCtrl.panToAltAz(1.8, house.engineAzDeg, sim.headingDeg, instant);
+      }
+      return;
+    }
+
+    const pt = lesson.panTarget;
+    if (pt?.altDeg !== undefined && pt?.azDeg !== undefined) {
+      camCtrl.panToAltAz(pt.altDeg, pt.azDeg, sim.headingDeg, instant);
+      return;
+    }
+    if (pt?.starId) {
+      const st = sim.starsState[pt.starId];
+      if (st) {
+        camCtrl.panToAltAz(
+          Math.max(pt.minAltDeg ?? 12.0, st.altDeg),
+          st.azDeg,
+          sim.headingDeg,
+          instant
+        );
+      }
+    }
+  }
+
+  _refreshGuidedDOM() {
+    const lesson = this.guidedLesson;
+    if (!lesson) return;
+    const beat = lesson.beats[this.guidedBeatIndex];
+    const gs = this.callbacks.getGameState?.();
+    const alreadyLearned = Boolean(
+      gs?.hasLearnedConstellation(lesson.unlockKey)
+    );
+
+    const img = this.rootEl.querySelector('#vigilGuidedMentorImg');
+    img.src = lesson.portrait;
+    img.alt = lesson.elderName;
+
+    const stepsEl = this.rootEl.querySelector('#vigilGuidedSteps');
+    stepsEl.innerHTML = '';
+    lesson.beats.forEach((bItem, idx) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      const passed = idx < this.guidedBeatIndex || alreadyLearned;
+      b.className = `vigil-step-dot ${idx === this.guidedBeatIndex ? 'active' : ''} ${passed ? 'sighted' : ''}`;
+      b.textContent = `Step ${idx + 1}`;
+      b.addEventListener('click', () => this.setGuidedBeat(idx, false));
+      stepsEl.appendChild(b);
+    });
+
+    const isl = ISLANDS[lesson.islandId];
+    this.rootEl.querySelector('#vigilGuidedTitle').textContent =
+      `${lesson.title} — ${beat.heading}`;
+    this.rootEl.querySelector('#vigilGuidedByline').textContent =
+      `${lesson.elderName} (${lesson.elderRole}) · ${isl ? isl.name : ''}`;
+    this.rootEl.querySelector('#vigilGuidedSpeech').textContent = beat.speech;
+
+    const hintEl = this.rootEl.querySelector('#vigilGuidedHint');
+    if (beat.kind === 'stone') {
+      const house = HORIZON_HOUSES.find((h) => h.id === lesson.startHouseId);
+      hintEl.textContent = `Horizon Stone: ${house ? house.name : ''}`;
+    } else if (beat.kind === 'spin') {
+      hintEl.textContent =
+        'Night-Wheel Play is active — watch how the stars move across the sky dome.';
+    } else {
+      hintEl.textContent = `Guided Night-Sky Teaching · Step ${this.guidedBeatIndex + 1} of ${lesson.beats.length}`;
+    }
+
+    const badge = this.rootEl.querySelector('#vigilGuidedStatusBadge');
+    if (alreadyLearned) {
+      badge.textContent = `✦ Learned: ${lesson.title}`;
+      badge.className = 'vigil-sight-status sighted';
+    } else {
+      badge.textContent = `◌ Studying: ${lesson.title}`;
+      badge.className = 'vigil-sight-status near';
+    }
+
+    this.rootEl.querySelector('#btnVigilGuidedPrev').disabled =
+      this.guidedBeatIndex === 0;
+    this.rootEl.querySelector('#btnVigilGuidedNext').textContent =
+      beat.buttonLabel;
   }
 
   setChapter(index, autoPan = true) {
@@ -685,8 +1081,18 @@ export class SkyVigilUI {
     }
   }
 
+  _getFilteredQuizPool() {
+    const rawPool = getQuizPromptsForMaster(this.activeMasterId);
+    const gs = this.callbacks.getGameState?.();
+    if (!gs) return rawPool;
+    const filtered = rawPool.filter(
+      (q) => q.type === 'house' || gs.isStarLearned(q.targetId, NAVIGATION_STARS)
+    );
+    return filtered.length > 0 ? filtered : rawPool.filter((q) => q.type === 'house');
+  }
+
   setQuizPrompt(index) {
-    const pool = getQuizPromptsForMaster(this.activeMasterId);
+    const pool = this._getFilteredQuizPool();
     this.quizIndex = ((index % pool.length) + pool.length) % pool.length;
     this.quizHoldSec = 0.0;
     this.quizResolved = false;
@@ -706,7 +1112,7 @@ export class SkyVigilUI {
   }
 
   _revealAndPanCurrentQuizPrompt() {
-    const pool = getQuizPromptsForMaster(this.activeMasterId);
+    const pool = this._getFilteredQuizPool();
     const q = pool[this.quizIndex];
     const sim = this.callbacks.getOceanSim?.();
     const camCtrl = this.callbacks.getCameraCtrl?.();
@@ -766,6 +1172,29 @@ export class SkyVigilUI {
   _refreshLessonDOM() {
     const master = STAR_MASTERS[this.activeMasterId];
     const ch = master.chapters[this.chapterIndex];
+    const gs = this.callbacks.getGameState?.();
+
+    const calloutEl = this.rootEl.querySelector('#vigilIslandElderCallout');
+    const localLesson = getAvailableConstellationLessonForIsland(
+      gs,
+      this.activeIslandId
+    );
+    if (calloutEl) {
+      if (localLesson) {
+        const isDone = Boolean(gs?.hasLearnedConstellation(localLesson.unlockKey));
+        calloutEl.classList.remove('hidden');
+        this.rootEl.querySelector('#vigilIslandElderCalloutText').textContent =
+          isDone
+            ? `✦ ${localLesson.elderName}'s Constellation Teaching (${localLesson.title}) — Learned`
+            : `✨ ${localLesson.elderName} awaits at this ring to introduce ${localLesson.title}!`;
+        this.rootEl.querySelector('#btnVigilStartIslandElder').textContent =
+          isDone
+            ? `Replay ${localLesson.title}`
+            : `Learn ${localLesson.title} →`;
+      } else {
+        calloutEl.classList.add('hidden');
+      }
+    }
 
     const img = this.rootEl.querySelector('#vigilMentorImg');
     img.src = master.portrait;
@@ -802,13 +1231,40 @@ export class SkyVigilUI {
     const guide = CONSTELLATION_GUIDE[this.selectedConstellationId];
     const constObj = CONSTELLATIONS.find((c) => c.id === guide.id);
     const sim = this.callbacks.getOceanSim?.();
+    const gs = this.callbacks.getGameState?.();
+    const isLearned = !gs || gs.hasLearnedConstellation(guide.id);
 
     this.rootEl.querySelectorAll('.vigil-const-chip').forEach((chip) => {
-      chip.classList.toggle(
-        'active',
-        chip.getAttribute('data-const-id') === guide.id
-      );
+      const cid = chip.getAttribute('data-const-id');
+      const cDef = CONSTELLATIONS.find((item) => item.id === cid);
+      const chipLearned = !gs || gs.hasLearnedConstellation(cid);
+      chip.textContent = chipLearned ? (cDef?.name || cid) : '◌ Uncharted';
+      chip.classList.toggle('active', cid === guide.id);
+      chip.classList.toggle('locked-chip', !chipLearned);
     });
+
+    const panBtn = this.rootEl.querySelector('#btnVigilPanAtlas');
+    const replayBtn = this.rootEl.querySelector('#btnVigilReplayGuided');
+
+    if (!isLearned) {
+      this.rootEl.querySelector('#vigilAtlasTitle').textContent =
+        'Uncharted Sky Pattern';
+      this.rootEl.querySelector('#vigilAtlasStatusPill').textContent =
+        'Awaiting Elder Teaching Ashore';
+      this.rootEl.querySelector('#vigilAtlasNote').textContent =
+        'You have not yet been introduced to this constellation. Speak with wayfinder elders as you voyage from island to island—each elder guides your eyes to recognize a new animal in the night vault.';
+      this.rootEl.querySelector('#vigilAtlasStarRoster').innerHTML =
+        '<span class="vigil-star-pill below-sea">◌ Stars appear unmarked in the sky until taught by an elder</span>';
+      if (panBtn) panBtn.classList.add('hidden');
+      if (replayBtn) replayBtn.classList.add('hidden');
+      return;
+    }
+
+    if (panBtn) panBtn.classList.remove('hidden');
+    const matchedLesson = getLessonByUnlockKey(guide.id);
+    if (replayBtn) {
+      replayBtn.classList.toggle('hidden', !matchedLesson);
+    }
 
     this.rootEl.querySelector('#vigilAtlasTitle').textContent =
       constObj?.name || guide.id;
@@ -819,7 +1275,9 @@ export class SkyVigilUI {
 
     const rosterEl = this.rootEl.querySelector('#vigilAtlasStarRoster');
     const stars = Object.values(NAVIGATION_STARS).filter(
-      (s) => s.constellation === guide.id
+      (s) =>
+        s.constellation === guide.id &&
+        (!gs || gs.isStarLearned(s.id, NAVIGATION_STARS))
     );
     rosterEl.innerHTML = stars
       .map((st) => {
@@ -833,8 +1291,8 @@ export class SkyVigilUI {
   }
 
   _refreshQuizDOM() {
-    const pool = getQuizPromptsForMaster(this.activeMasterId);
-    const q = pool[this.quizIndex];
+    const pool = this._getFilteredQuizPool();
+    const q = pool[this.quizIndex % pool.length];
 
     this.rootEl.querySelector('#vigilQuizTally').textContent =
       `Sighted: ${this.quizScore} · Streak: ${this.quizStreak}`;
@@ -958,9 +1416,31 @@ export class SkyVigilUI {
       oceanSim.solarHour = this.sliderHour % 24.0;
     }
 
+    // 1b. Animate Guided Constellation Vigil fade-ins smoothly
+    if (this.mode === 'guided' && this.guidedLesson) {
+      this.guidedBeatElapsedSec += dtSec;
+      const beat = this.guidedLesson.beats[this.guidedBeatIndex];
+      const allowLinesNow =
+        beat?.kind === 'lines' ? this.guidedBeatElapsedSec > 0.32 : true;
+      const goalLines = allowLinesNow ? this._guidedTargetLines : 0.0;
+      const stepFade = Math.min(1.0, dtSec * 1.15);
+
+      this.guidedLinesAlpha +=
+        (goalLines - this.guidedLinesAlpha) * stepFade;
+      this.guidedSilhouetteAlpha +=
+        (this._guidedTargetSilhouette - this.guidedSilhouetteAlpha) * stepFade;
+      this.guidedLabelsAlpha +=
+        (this._guidedTargetLabels - this.guidedLabelsAlpha) * stepFade;
+    }
+
     // 2. Evaluate sight-ring alignment for Guided Lessons & Optional Eye Trial
     const reticleEl = this.rootEl.querySelector('#vigilSightReticle');
     const ringEl = this.rootEl.querySelector('#vigilReticleRing');
+
+    if (this.mode === 'guided') {
+      reticleEl.classList.add('hidden');
+      return;
+    }
 
     if (this.mode === 'lessons') {
       reticleEl.classList.remove('hidden');
@@ -996,8 +1476,8 @@ export class SkyVigilUI {
       }
     } else if (this.mode === 'quiz') {
       reticleEl.classList.remove('hidden');
-      const pool = getQuizPromptsForMaster(this.activeMasterId);
-      const q = pool[this.quizIndex];
+      const pool = this._getFilteredQuizPool();
+      const q = pool[this.quizIndex % pool.length];
       const angDeg = this._measureAngleToTarget(q, oceanSim, cameraCtrl);
       const aligned = angDeg <= ALIGN_THRESHOLD_DEG;
       ringEl.classList.toggle('aligned', aligned || this.quizResolved);
@@ -1033,10 +1513,39 @@ export class SkyVigilUI {
     const shimmerStarIds = new Set();
     const revealLabelStarIds = new Set();
     let focusConstellationId = null;
+    const gs = this.callbacks.getGameState?.();
+
+    if (this.mode === 'guided' && this.guidedLesson) {
+      const starSet = new Set(this.guidedLesson.focusStarIds);
+      for (const sid of starSet) {
+        shimmerStarIds.add(sid);
+        revealLabelStarIds.add(sid);
+      }
+      return {
+        forceClearSky: true,
+        showLines: this.guidedLinesAlpha > 0.01,
+        showStarLabels: this.guidedLabelsAlpha > 0.01,
+        showAnimalSilhouettes: this.guidedSilhouetteAlpha > 0.01,
+        shimmerStarIds,
+        focusConstellationId: this.guidedLesson.constellationId,
+        revealLabelStarIds,
+        guidedIntro: {
+          unlockKey: this.guidedLesson.unlockKey,
+          constellationId: this.guidedLesson.constellationId,
+          starIds: starSet,
+          linesAlpha: this.guidedLinesAlpha,
+          silhouetteAlpha: this.guidedSilhouetteAlpha,
+          labelsAlpha: this.guidedLabelsAlpha,
+        },
+      };
+    }
 
     if (this.mode === 'lessons') {
       const ch = STAR_MASTERS[this.activeMasterId].chapters[this.chapterIndex];
-      if (ch?.focusStarId) {
+      if (
+        ch?.focusStarId &&
+        (!gs || gs.isStarLearned(ch.focusStarId, NAVIGATION_STARS))
+      ) {
         shimmerStarIds.add(ch.focusStarId);
         revealLabelStarIds.add(ch.focusStarId);
         focusConstellationId =
@@ -1054,11 +1563,18 @@ export class SkyVigilUI {
     }
 
     if (this.mode === 'atlas') {
-      focusConstellationId = this.selectedConstellationId;
-      for (const st of Object.values(NAVIGATION_STARS)) {
-        if (st.constellation === focusConstellationId) {
-          shimmerStarIds.add(st.id);
-          revealLabelStarIds.add(st.id);
+      const isLearned =
+        !gs || gs.hasLearnedConstellation(this.selectedConstellationId);
+      if (isLearned) {
+        focusConstellationId = this.selectedConstellationId;
+        for (const st of Object.values(NAVIGATION_STARS)) {
+          if (
+            st.constellation === focusConstellationId &&
+            (!gs || gs.isStarLearned(st.id, NAVIGATION_STARS))
+          ) {
+            shimmerStarIds.add(st.id);
+            revealLabelStarIds.add(st.id);
+          }
         }
       }
       return {
@@ -1073,8 +1589,8 @@ export class SkyVigilUI {
     }
 
     // Quiz mode: clean raw night sky unless Peek Sky Hints is enabled or prompt is resolved!
-    const pool = getQuizPromptsForMaster(this.activeMasterId);
-    const q = pool[this.quizIndex];
+    const pool = this._getFilteredQuizPool();
+    const q = pool[this.quizIndex % pool.length];
     if (this.quizResolved && q?.type === 'star') {
       shimmerStarIds.add(q.targetId);
       revealLabelStarIds.add(q.targetId);
@@ -1098,6 +1614,15 @@ export class SkyVigilUI {
    * Returns rendering overrides for `StarRingRenderer.update(...)`.
    */
   getStarRingOverrides() {
+    if (this.mode === 'guided' && this.guidedLesson) {
+      const hId = this.guidedLesson.startHouseId || null;
+      return {
+        showStoneLabels: this.showStoneLabels,
+        highlightHouseId: hId,
+        revealHouseIds: hId ? new Set([hId]) : null,
+      };
+    }
+
     if (this.mode === 'lessons') {
       const ch = STAR_MASTERS[this.activeMasterId].chapters[this.chapterIndex];
       return {
@@ -1110,7 +1635,12 @@ export class SkyVigilUI {
     }
 
     if (this.mode === 'atlas') {
-      const guide = CONSTELLATION_GUIDE[this.selectedConstellationId];
+      const gs = this.callbacks.getGameState?.();
+      const isLearned =
+        !gs || gs.hasLearnedConstellation(this.selectedConstellationId);
+      const guide = isLearned
+        ? CONSTELLATION_GUIDE[this.selectedConstellationId]
+        : null;
       return {
         showStoneLabels: this.showStoneLabels,
         highlightHouseId: guide?.houseId || null,
@@ -1119,8 +1649,8 @@ export class SkyVigilUI {
     }
 
     // Quiz mode
-    const pool = getQuizPromptsForMaster(this.activeMasterId);
-    const q = pool[this.quizIndex];
+    const pool = this._getFilteredQuizPool();
+    const q = pool[this.quizIndex % pool.length];
     const resolvedHouseId =
       this.quizResolved && q?.type === 'house' ? q.targetId : null;
     return {

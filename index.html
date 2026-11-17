@@ -8,20 +8,23 @@
   <link rel="icon" type="image/png" sizes="32x32" href="./assets/icons/favicon-32.png" />
   <link rel="icon" type="image/png" sizes="64x64" href="./assets/icons/favicon-64.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="./assets/icons/apple-touch-icon.png" />
-  <link rel="stylesheet" href="./styles.css?v=20261116e" />
+  <link rel="stylesheet" href="./styles.css?v=20261116f" />
   <script type="importmap">
     {
       "imports": {
         "three": "./vendor/three.module.min.js",
-        "./src/core/gameConstants.js": "./src/core/gameConstants.js?v=20261116e",
-        "./src/core/gameState.js": "./src/core/gameState.js?v=20261116e",
-        "./src/simulation/oceanSim.js": "./src/simulation/oceanSim.js?v=20261116e",
-        "./src/rendering/SkyDomeRenderer.js": "./src/rendering/SkyDomeRenderer.js?v=20261116e",
-        "./src/audio/ChantAndDrumEngine.js": "./src/audio/ChantAndDrumEngine.js?v=20261116e",
-        "./src/ui/IslandHubUI.js": "./src/ui/IslandHubUI.js?v=20261116e",
-        "./src/ui/SkyVigilUI.js": "./src/ui/SkyVigilUI.js?v=20261116e",
-        "./src/ui/WalkableIslandUI.js": "./src/ui/WalkableIslandUI.js?v=20261116e",
-        "./src/ui/IslandSettingsUI.js": "./src/ui/IslandSettingsUI.js?v=20261116e"
+        "./src/core/gameConstants.js": "./src/core/gameConstants.js?v=20261116f",
+        "./src/core/gameState.js": "./src/core/gameState.js?v=20261116f",
+        "./src/data/constellationLessonsData.js": "./src/data/constellationLessonsData.js?v=20261116f",
+        "./src/simulation/oceanSim.js": "./src/simulation/oceanSim.js?v=20261116f",
+        "./src/rendering/CameraController.js": "./src/rendering/CameraController.js?v=20261116f",
+        "./src/rendering/SkyDomeRenderer.js": "./src/rendering/SkyDomeRenderer.js?v=20261116f",
+        "./src/audio/ChantAndDrumEngine.js": "./src/audio/ChantAndDrumEngine.js?v=20261116f",
+        "./src/ui/ElderVigilPromptUI.js": "./src/ui/ElderVigilPromptUI.js?v=20261116f",
+        "./src/ui/IslandHubUI.js": "./src/ui/IslandHubUI.js?v=20261116f",
+        "./src/ui/SkyVigilUI.js": "./src/ui/SkyVigilUI.js?v=20261116f",
+        "./src/ui/WalkableIslandUI.js": "./src/ui/WalkableIslandUI.js?v=20261116f",
+        "./src/ui/IslandSettingsUI.js": "./src/ui/IslandSettingsUI.js?v=20261116f"
       }
     }
   </script>
@@ -48,6 +51,9 @@
   <!-- Ashore Settings Modal & Start-Over Confirmation (Island Phase Only) -->
   <div id="island-settings-ui" class="hidden"></div>
 
-  <script type="module" src="./src/main.js?v=20261116e"></script>
+  <!-- Pre-Departure Elder Night-Sky Teaching Choice Popup -->
+  <div id="elder-vigil-prompt-ui" class="hidden"></div>
+
+  <script type="module" src="./src/main.js?v=20261116f"></script>
 </body>
 </html>

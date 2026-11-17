@@ -20,6 +20,10 @@ import {
   interactWithIslandSanctuary,
   performBeachCareeningAndRestock,
 } from '../core/campaignManager.js';
+import {
+  getAvailableConstellationLessonForIsland,
+  getAvailableUnlearnedLessonForIsland,
+} from '../data/constellationLessonsData.js';
 import { ISLANDS, OCEAN_BASINS } from '../data/islandsData.js';
 import { getPlayerCharacterProfile } from '../data/playerCharactersData.js';
 import { STAR_MASTERS } from '../data/skyVigilData.js';
@@ -254,6 +258,9 @@ export class IslandHubUI {
 
                   <div class="sanctuary-actions">
                     <button class="primary-btn" id="btnSpeakMentor">Greet Mentor / Harvest Shore</button>
+                    <button class="secondary-btn hidden" id="btnSanctuaryGuidedVigil" type="button">
+                      ✨ Guided Sky Vigil
+                    </button>
                     <button class="secondary-btn" id="btnGoToLandingFromSanctuary" type="button">
                       Prepare Canoe &amp; Set Sail →
                     </button>
@@ -486,6 +493,22 @@ export class IslandHubUI {
       .addEventListener('click', () => {
         this._triggerSanctuaryInteraction();
         this.refresh();
+      });
+
+    this.rootEl
+      .querySelector('#btnSanctuaryGuidedVigil')
+      .addEventListener('click', () => {
+        const gs = this.callbacks.getGameState();
+        const lesson = getAvailableConstellationLessonForIsland(
+          gs,
+          gs?.currentIslandId
+        );
+        if (lesson) {
+          this.callbacks.onOpenSkyVigil?.({
+            guidedLessonId: lesson.id,
+            islandId: lesson.islandId,
+          });
+        }
       });
   }
 
@@ -894,7 +917,18 @@ export class IslandHubUI {
     thumbEl.alt = master.mentorName;
 
     const launchBtn = this.rootEl.querySelector('#btnLaunchLocalVigil');
-    if (curIsl.starMasterId) {
+    const unlearnedLocal = getAvailableUnlearnedLessonForIsland(gs, curIsl.id);
+    if (unlearnedLocal) {
+      thumbEl.src = unlearnedLocal.portrait;
+      thumbEl.alt = unlearnedLocal.elderName;
+      this.rootEl.querySelector('#shoreVigilEyebrow').textContent =
+        `✨ Elder Night-Sky Teaching Available · ${curIsl.name}`;
+      this.rootEl.querySelector('#shoreVigilTitle').textContent =
+        `${unlearnedLocal.elderName} Introduces ${unlearnedLocal.title}`;
+      this.rootEl.querySelector('#shoreVigilDesc').textContent =
+        `Join ${unlearnedLocal.elderName} in the Star-Stone Ring to trace ${unlearnedLocal.title} across the night dome and unlock its chalk lines and star names at sea.`;
+      launchBtn.textContent = `✨ Begin ${unlearnedLocal.elderName}'s Guided Vigil (${unlearnedLocal.title})`;
+    } else if (curIsl.starMasterId) {
       this.rootEl.querySelector('#shoreVigilEyebrow').textContent =
         `✦ Home Star-Stone Ring · ${master.skyRealmLabel}`;
       this.rootEl.querySelector('#shoreVigilTitle').textContent =
@@ -1019,6 +1053,21 @@ export class IslandHubUI {
     )
       .map((r) => `<li>✦ ${r}</li>`)
       .join('');
+
+    const sanctVigilBtn = this.rootEl.querySelector('#btnSanctuaryGuidedVigil');
+    const constLesson = getAvailableConstellationLessonForIsland(gs, isl.id);
+    if (sanctVigilBtn) {
+      if (constLesson) {
+        const isLearned = gs.hasLearnedConstellation(constLesson.unlockKey);
+        sanctVigilBtn.classList.remove('hidden');
+        sanctVigilBtn.classList.toggle('elder-vigil-cta-btn', !isLearned);
+        sanctVigilBtn.textContent = isLearned
+          ? `✦ Replay Sky Vigil: ${constLesson.title}`
+          : `✨ Guided Sky Vigil: Learn ${constLesson.title}`;
+      } else {
+        sanctVigilBtn.classList.add('hidden');
+      }
+    }
 
     // Crewmate Encounter Card on islands that recruit a specialist companion (Taha'a, Ua Pou, Hiva Oa)
     const crewCardEl = this.rootEl.querySelector('#sanctuaryCrewCard');

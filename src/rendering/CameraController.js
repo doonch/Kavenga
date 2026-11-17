@@ -212,9 +212,10 @@ export class CameraController {
   }
 
   /**
-   * Smoothly turns the camera to frame a world (altDeg, azDeg) direction.
+   * Smoothly turns (or immediately snaps when `instant === true`) the camera
+   * to frame a world (altDeg, azDeg) direction.
    */
-  panToAltAz(altDeg, azDeg, headingDeg = 0.0) {
+  panToAltAz(altDeg, azDeg, headingDeg = 0.0, instant = false) {
     const relAzDeg = azDeg - headingDeg;
     const targetYawDeg = wrapDeg180(-relAzDeg);
     const clampedAlt = clamp(altDeg, -18.0, 89.5);
@@ -223,6 +224,12 @@ export class CameraController {
       -37.5,
       90.0 - this.basePitchDeg
     );
+    if (instant) {
+      this.lookYawDeg = targetYawDeg;
+      this.lookPitchOffsetDeg = targetPitchOffsetDeg;
+      this._panTarget = null;
+      return;
+    }
     this._panTarget = {
       yawDeg: targetYawDeg,
       pitchOffsetDeg: targetPitchOffsetDeg,

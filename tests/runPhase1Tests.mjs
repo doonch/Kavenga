@@ -17,6 +17,11 @@ import {
 } from '../src/core/gameConstants.js';
 import { GameState } from '../src/core/gameState.js';
 import {
+  CONSTELLATION_LESSONS,
+  CONSTELLATION_LESSONS_ORDER,
+  getAvailableUnlearnedLessonForIsland,
+} from '../src/data/constellationLessonsData.js';
+import {
   CONSTELLATIONS,
   HORIZON_HOUSES,
   NAVIGATION_STARS,
@@ -284,6 +289,48 @@ for (const [wid, wSpec] of Object.entries(WALKABLE_ISLAND_SPECS)) {
     if (poi.introSpeech) auditText(poi.introSpeech, `WalkablePOI ${wid}.${poi.id}.introSpeech`);
   }
 }
+
+assert(
+  CONSTELLATION_LESSONS_ORDER.length === 11 &&
+    Object.keys(CONSTELLATION_LESSONS).length === 11,
+  'Expected 11 progressive Elder-Guided Constellation Sky Vigil lessons (10 animals + Steadfast Peg)'
+);
+const turtleLesson = CONSTELLATION_LESSONS.lesson_sea_turtle;
+assert(
+  turtleLesson.islandId === 'tahaa' &&
+    turtleLesson.elderName === 'Hina' &&
+    turtleLesson.beats.map((b) => b.kind).join(',') ===
+      'stone,lines,silhouette,labels,spin',
+  "Hina on Taha'a teaches The Sea Turtle via the 5-beat stone -> lines -> silhouette -> labels -> spin sequence"
+);
+const pegLesson = CONSTELLATION_LESSONS.lesson_steadfast_peg;
+assert(
+  pegLesson.islandId === 'kiritimati' &&
+    pegLesson.elderName === 'Keeper Akura' &&
+    pegLesson.unlockKey === 'steadfast_peg',
+  'Keeper Akura on Kiritimati teaches The Steadfast Peg (polar star equivalent)'
+);
+for (const [lesId, cLes] of Object.entries(CONSTELLATION_LESSONS)) {
+  auditText(cLes.title, `ConstellationLesson ${lesId}.title`);
+  auditText(cLes.elderRole, `ConstellationLesson ${lesId}.elderRole`);
+  const isl = ISLANDS[cLes.islandId];
+  const lst = computeLstDeg(cLes.solarRaDeg, cLes.solarHour);
+  for (const sid of cLes.focusStarIds) {
+    const st = NAVIGATION_STARS[sid];
+    assert(Boolean(st), `ConstellationLesson ${lesId} references valid star ${sid}`);
+    const aa = computeStarAltAz(st.raDeg, st.decDeg, lst, isl.latDeg);
+    assert(
+      aa.altDeg >= 8.0,
+      `ConstellationLesson ${lesId} focus star ${sid} must be clearly above horizon (got ${aa.altDeg.toFixed(1)})`
+    );
+  }
+  for (let bi = 0; bi < cLes.beats.length; bi += 1) {
+    const b = cLes.beats[bi];
+    auditText(b.heading, `ConstellationLesson ${lesId} beat ${bi} heading`);
+    auditText(b.speech, `ConstellationLesson ${lesId} beat ${bi} speech`);
+    auditText(b.buttonLabel, `ConstellationLesson ${lesId} beat ${bi} buttonLabel`);
+  }
+}
 let mentorPortraitCount = 0;
 let starMasterIslandCount = 0;
 for (const [iid, isl] of Object.entries(ISLANDS)) {
@@ -460,6 +507,32 @@ assert(Number.isFinite(sampleHull.heaveM), 'Hull heaveM is finite');
 logLine('[6/7] Verifying GameState Cargo Slots, Crew Traits & Pre-Voyage Snapshot...');
 const gs = new GameState();
 assert(gs.maxCargoSlots === 4, 'Starts with 4 cargo slots');
+assert(
+  gs.getLearnedConstellationCount() === 0 &&
+    !gs.hasLearnedConstellation('the_sea_turtle') &&
+    !gs.isStarLearned('shell_crown', NAVIGATION_STARS) &&
+    getAvailableUnlearnedLessonForIsland(gs, 'raiatea') === null,
+  'Fresh GameState starts knowing 0 constellations and no departure popup on opening Song 1'
+);
+assert(
+  getAvailableUnlearnedLessonForIsland(gs, 'tahaa')?.id === 'lesson_sea_turtle',
+  "Taha'a offers Hina's unlearned Sea Turtle vigil before learning"
+);
+gs.learnConstellation('the_horse');
+assert(
+  gs.isStarLearned('horses_crown', NAVIGATION_STARS) &&
+    !gs.isStarLearned('steadfast_peg', NAVIGATION_STARS) &&
+    !gs.isConstellationSegmentLearned('the_horse', 'steadfast_peg', 'horses_crown') &&
+    gs.isConstellationSegmentLearned('the_horse', 'horses_crown', 'horses_mane'),
+  'Learning the_horse in Act II unlocks grazing stars without prematurely unlocking steadfast_peg'
+);
+gs.learnConstellation('steadfast_peg');
+assert(
+  gs.isStarLearned('steadfast_peg', NAVIGATION_STARS) &&
+    gs.isConstellationSegmentLearned('the_horse', 'steadfast_peg', 'horses_crown'),
+  'Learning steadfast_peg in Act III unlocks Steadfast Peg and its polar tether line'
+);
+gs.learnedConstellations = {};
 gs.savePreVoyageSnapshot();
 gs.loadedRations = 0.2;
 gs.markIslandDiscovered('tahaa', 'act1_raiatea');

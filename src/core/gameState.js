@@ -16,6 +16,7 @@ export class GameState {
     this.discoveredIslands = { raiatea: true };
     this.learnedSongs = { song_01: true };
     this.learnedSandLessons = { sand_raiatea_clouds: true };
+    this.learnedConstellations = {};
     this.completedQuests = {};
 
     // Starting Coastal Vaka on Ra'iatea (GDD 9.2): 4 slots, Hull 75%, Sail 75%, Lashings 65%
@@ -130,6 +131,40 @@ export class GameState {
     this.learnedSandLessons[lessonId] = true;
   }
 
+  learnConstellation(unlockKey) {
+    if (unlockKey) {
+      this.learnedConstellations[unlockKey] = true;
+    }
+  }
+
+  hasLearnedConstellation(unlockKey) {
+    if (!unlockKey) return false;
+    if (this.masterReplayUnlocked) return true;
+    return Boolean(this.learnedConstellations[unlockKey]);
+  }
+
+  isStarLearned(starId, navStarsMap) {
+    if (this.masterReplayUnlocked) return true;
+    if (starId === 'steadfast_peg') {
+      return Boolean(this.learnedConstellations.steadfast_peg);
+    }
+    const cId = navStarsMap?.[starId]?.constellation;
+    return Boolean(cId && this.learnedConstellations[cId]);
+  }
+
+  isConstellationSegmentLearned(constellationId, aId, bId) {
+    if (this.masterReplayUnlocked) return true;
+    if (aId === 'steadfast_peg' || bId === 'steadfast_peg') {
+      return Boolean(this.learnedConstellations.steadfast_peg);
+    }
+    return Boolean(constellationId && this.learnedConstellations[constellationId]);
+  }
+
+  getLearnedConstellationCount() {
+    if (this.masterReplayUnlocked) return 11;
+    return Object.values(this.learnedConstellations).filter(Boolean).length;
+  }
+
   savePreVoyageSnapshot() {
     this._preVoyageSnapshot = this.toJSON();
   }
@@ -149,6 +184,7 @@ export class GameState {
       discoveredIslands: { ...this.discoveredIslands },
       learnedSongs: { ...this.learnedSongs },
       learnedSandLessons: { ...this.learnedSandLessons },
+      learnedConstellations: { ...this.learnedConstellations },
       completedQuests: { ...this.completedQuests },
       vakaTier: this.vakaTier,
       maxCargoSlots: this.maxCargoSlots,
@@ -184,6 +220,26 @@ export class GameState {
     this.learnedSongs = { ...(data.learnedSongs ?? { song_01: true }) };
     this.learnedSandLessons = { ...(data.learnedSandLessons ?? {}) };
     this.completedQuests = { ...(data.completedQuests ?? {}) };
+
+    if (data.learnedConstellations !== undefined && data.learnedConstellations !== null) {
+      this.learnedConstellations = { ...data.learnedConstellations };
+    } else {
+      // Backfill constellations for legacy pre-feature saves based on already-completed island quests
+      const backfilled = {};
+      const q = this.completedQuests;
+      if (q.tahaa_visit) backfilled.the_sea_turtle = true;
+      if (q.huahine_trade) backfilled.the_bull = true;
+      if (q.moorea_trade) backfilled.the_rat = true;
+      if (q.raiatea_consecration) backfilled.the_boar = true;
+      if (q.maupiti_master) backfilled.the_crab = true;
+      if (q.nuku_hiva_visit) backfilled.the_horse = true;
+      if (q.ua_pou_visit) backfilled.the_frigatebird = true;
+      if (q.rangiroa_trade) backfilled.the_gecko = true;
+      if (q.hiva_oa_trade) backfilled.the_shark = true;
+      if (q.fatu_hiva_upgrade) backfilled.the_whale = true;
+      if (q.kiritimati_prep) backfilled.steadfast_peg = true;
+      this.learnedConstellations = backfilled;
+    }
     this.vakaTier = data.vakaTier ?? 1;
     this.maxCargoSlots = data.maxCargoSlots ?? 4;
     this.hullCondition = data.hullCondition ?? 75.0;

@@ -22,6 +22,10 @@ import {
   Difficulty,
   departureWindowLabel,
 } from '../core/gameConstants.js';
+import {
+  getAvailableConstellationLessonForIsland,
+  getAvailableUnlearnedLessonForIsland,
+} from '../data/constellationLessonsData.js';
 import { ISLANDS, OCEAN_BASINS } from '../data/islandsData.js';
 import { getPlayerCharacterProfile } from '../data/playerCharactersData.js';
 import { SONGS } from '../data/songsData.js';
@@ -621,6 +625,19 @@ export class WalkableIslandUI {
           }
           <div class="walkable-action-row">
             <button class="primary-btn" id="btnWalkSpeakElder" type="button">${actionLabel}</button>
+            ${(() => {
+              const constLesson = getAvailableConstellationLessonForIsland(
+                gs,
+                isl.id
+              );
+              if (!constLesson) return '';
+              const learned = gs.hasLearnedConstellation(constLesson.unlockKey);
+              const btnClass = learned ? 'secondary-btn' : 'primary-btn elder-vigil-cta-btn';
+              const btnText = learned
+                ? `✦ Replay Sky Vigil: ${constLesson.title}`
+                : `✨ Guided Sky Vigil: Learn ${constLesson.title}`;
+              return `<button class="${btnClass}" id="btnWalkElderGuidedVigil" type="button">${btnText}</button>`;
+            })()}
           </div>
         </div>
       </div>
@@ -666,6 +683,19 @@ export class WalkableIslandUI {
       this._renderCurrentPoiPopup();
     });
 
+    const elderVigilBtn = bodyEl.querySelector('#btnWalkElderGuidedVigil');
+    if (elderVigilBtn) {
+      elderVigilBtn.addEventListener('click', () => {
+        const constLesson = getAvailableConstellationLessonForIsland(gs, isl.id);
+        if (constLesson) {
+          this.callbacks.onOpenSkyVigil?.({
+            guidedLessonId: constLesson.id,
+            islandId: isl.id,
+          });
+        }
+      });
+    }
+
     const stripEl = bodyEl.querySelector('#walkMasterReplayBtns');
     if (stripEl) {
       for (const song of Object.values(SONGS)) {
@@ -689,9 +719,14 @@ export class WalkableIslandUI {
     const gs = this.callbacks.getGameState();
     const lessons = getLearnedSandLessonsList(gs);
     const isl = ISLANDS[gs.currentIslandId] || ISLANDS.raiatea;
+    const unlearnedConst = getAvailableUnlearnedLessonForIsland(gs, isl.id);
     const circleDesc =
       this.currentPoi?.circleDesc ||
       'From this breezy basalt stone ring overlooking the water, wayfinders trace wave, cloud, and wake lessons in swept coral sand — or watch the constellations wheel overhead in stillness.';
+
+    const vigilBtnLabel = unlearnedConst
+      ? `✨ Guided Vigil with ${unlearnedConst.elderName}: ${unlearnedConst.title}`
+      : '✨ Enter Night-Sky Star-Stone Vigil';
 
     bodyEl.innerHTML = `
       <p class="walkable-circle-desc">${circleDesc}</p>
@@ -708,8 +743,8 @@ export class WalkableIslandUI {
         <button class="primary-btn" id="btnWalkOpenSand" type="button">
           🐚 Trace Stick-in-the-Sand Diagrams (${lessons.length})
         </button>
-        <button class="secondary-btn" id="btnWalkEnterVigil" type="button">
-          ✨ Enter Night-Sky Star-Stone Vigil
+        <button class="${unlearnedConst ? 'primary-btn elder-vigil-cta-btn' : 'secondary-btn'}" id="btnWalkEnterVigil" type="button">
+          ${vigilBtnLabel}
         </button>
       </div>
     `;
@@ -723,7 +758,7 @@ export class WalkableIslandUI {
       this.callbacks.onOpenSkyVigil?.({
         masterId,
         islandId: isl.id,
-        mode: 'lessons',
+        guidedLessonId: unlearnedConst ? unlearnedConst.id : undefined,
       });
     });
   }

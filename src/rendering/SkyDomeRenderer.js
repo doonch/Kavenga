@@ -618,7 +618,8 @@ export class SkyDomeRenderer {
     camOrigin,
     cloudOccluder,
     elapsedSec,
-    isVigil
+    isVigil,
+    fadeMultiplier = 1.0
   ) {
     const vc = navWorldVecs.shell_crown;
     const vl = navWorldVecs.turtle_flipper_east;
@@ -706,14 +707,17 @@ export class SkyDomeRenderer {
       }
     }
 
-    if (!anyVisibleVertex) {
+    if (!anyVisibleVertex || fadeMultiplier <= 0.005) {
       this.seaTurtleCutout.visible = false;
       return;
     }
 
     this.seaTurtleCutout.visible = true;
     this.turtleUniforms.uOpacity.value =
-      (isVigil ? 0.25 : 0.22) * starVis * (1.0 - 0.85 * this.curSeaFog);
+      (isVigil ? 0.25 : 0.22) *
+      starVis *
+      (1.0 - 0.85 * this.curSeaFog) *
+      fadeMultiplier;
     this.seaTurtleCutout.geometry.attributes.position.needsUpdate = true;
     this.seaTurtleCutout.geometry.attributes.aClearance.needsUpdate = true;
   }
@@ -804,9 +808,71 @@ export class SkyDomeRenderer {
     difficulty,
     camera,
     vigilOverrides = null,
-    cloudOccluder = null
+    cloudOccluder = null,
+    gameState = null
   ) {
     if (!oceanSim) return;
+    const guided = vigilOverrides?.guidedIntro || null;
+
+    const isSegmentTargetedByGuided = (seg) => {
+      if (!guided) return false;
+      if (guided.unlockKey === 'steadfast_peg') {
+        return seg.aId === 'steadfast_peg' || seg.bId === 'steadfast_peg';
+      }
+      return (
+        seg.constellation.id === guided.constellationId &&
+        seg.aId !== 'steadfast_peg' &&
+        seg.bId !== 'steadfast_peg'
+      );
+    };
+
+    const getSegmentKnowledgeAlpha = (seg) => {
+      if (guided) {
+        if (isSegmentTargetedByGuided(seg)) {
+          return clampJs(guided.linesAlpha ?? 0.0, 0.0, 1.0);
+        }
+        if (
+          guided.linesAlpha > 0.01 &&
+          gameState?.isConstellationSegmentLearned(
+            seg.constellation.id,
+            seg.aId,
+            seg.bId
+          )
+        ) {
+          return 0.35 * clampJs(guided.linesAlpha, 0.0, 1.0);
+        }
+        return 0.0;
+      }
+      if (!gameState) return 1.0;
+      return gameState.isConstellationSegmentLearned(
+        seg.constellation.id,
+        seg.aId,
+        seg.bId
+      )
+        ? 1.0
+        : 0.0;
+    };
+
+    const getStarLabelKnowledgeAlpha = (st) => {
+      if (guided) {
+        if (guided.starIds?.has(st.id)) {
+          return clampJs(guided.labelsAlpha ?? 0.0, 0.0, 1.0);
+        }
+        return 0.0;
+      }
+      if (!gameState) return 1.0;
+      return gameState.isStarLearned(st.id, NAVIGATION_STARS) ? 1.0 : 0.0;
+    };
+
+    const isStarShimmerAllowed = (st) => {
+      if (guided) {
+        return Boolean(
+          guided.starIds?.has(st.id) && (guided.linesAlpha ?? 0.0) > 0.35
+        );
+      }
+      if (!gameState) return true;
+      return gameState.isStarLearned(st.id, NAVIGATION_STARS);
+    };
 
     if (camera) {
       this.group.position.copy(camera.position);
@@ -905,6 +971,7 @@ export class SkyDomeRenderer {
       this.starShimmers[idx] =
         easyShimmer &&
         activeStarIds.has(st.id) &&
+        isStarShimmerAllowed(st) &&
         alpha > 0.14 &&
         skyClearance > 0.28
           ? 1.0
@@ -946,17 +1013,20 @@ export class SkyDomeRenderer {
     this.starPoints.geometry.attributes.aAlpha.needsUpdate = true;
     this.starPoints.geometry.attributes.aShimmer.needsUpdate = true;
 
-    // Update Chalky Constellation Outlines (per-vertex alpha occluded by clouds)
-    this.constellationLines.visible = showLines && starVis > 0.08;
+    // Update Chalky Constellation Outlines (per-vertex alpha occluded by clouds & gated by learned constellations)
+    this.constellationLines.visible =
+      (showLines || Boolean(guided && (guided.linesAlpha ?? 0.0) > 0.01)) &&
+      starVis > 0.08;
     if (this.constellationLines.visible) {
       this.lineUniforms.uBaseOpacity.value =
-        (vigilOverrides ? 0.34 : 0.24) * starVis * (1.0 - 0.85 * this.curSeaFog);
+        (vigilOverrides ? 0.36 : 0.24) * starVis * (1.0 - 0.85 * this.curSeaFog);
       this.constellationSegments.forEach((seg, sIdx) => {
         const va = navWorldVecs[seg.aId];
         const vb = navWorldVecs[seg.bId];
         const base = sIdx * 6;
         const aBase = sIdx * 2;
-        if (va && vb && va.altDeg > 0.5 && vb.altDeg > 0.5) {
+        const knowAlpha = getSegmentKnowledgeAlpha(seg);
+        if (knowAlpha > 0.005 && va && vb && va.altDeg > 0.5 && vb.altDeg > 0.5) {
           this.linePositions[base] = va.dir.x * (STAR_RADIUS - 2.0);
           this.linePositions[base + 1] = va.dir.y * (STAR_RADIUS - 2.0);
           this.linePositions[base + 2] = va.dir.z * (STAR_RADIUS - 2.0);
@@ -980,9 +1050,9 @@ export class SkyDomeRenderer {
           );
           const midFactor = smoothstepJs(0.14, 0.55, midClearance);
           this.lineAlphas[aBase] =
-            smoothstepJs(0.12, 0.50, va.skyClearance) * midFactor;
+            knowAlpha * smoothstepJs(0.12, 0.50, va.skyClearance) * midFactor;
           this.lineAlphas[aBase + 1] =
-            smoothstepJs(0.12, 0.50, vb.skyClearance) * midFactor;
+            knowAlpha * smoothstepJs(0.12, 0.50, vb.skyClearance) * midFactor;
         } else {
           for (let k = 0; k < 6; k += 1) this.linePositions[base + k] = 0.0;
           this.lineAlphas[aBase] = 0.0;
@@ -993,17 +1063,26 @@ export class SkyDomeRenderer {
       this.constellationLines.geometry.attributes.aLineAlpha.needsUpdate = true;
     }
 
-    // Update Focused Constellation Golden Outline (Vigil Atlas / Lesson / Quiz Reveal)
+    // Update Focused Constellation Golden Outline (Vigil Guided Intro / Atlas / Lesson / Quiz Reveal)
     const focusConstId = vigilOverrides?.focusConstellationId || null;
-    this.focusLines.visible = Boolean(focusConstId) && starVis > 0.08;
+    const showFocus = guided
+      ? (guided.linesAlpha ?? 0.0) > 0.01
+      : Boolean(focusConstId);
+    this.focusLines.visible = showFocus && starVis > 0.08;
     if (this.focusLines.visible) {
-      this.focusLineMaterial.opacity = 0.65 + 0.2 * Math.sin(elapsedSec * 3.4);
+      const guidedScale = guided ? clampJs(guided.linesAlpha ?? 0.0, 0.0, 1.0) : 1.0;
+      this.focusLineMaterial.opacity =
+        (0.62 + 0.18 * Math.sin(elapsedSec * 3.4)) * guidedScale;
       this.constellationSegments.forEach((seg, sIdx) => {
         const base = sIdx * 6;
         const va = navWorldVecs[seg.aId];
         const vb = navWorldVecs[seg.bId];
+        const segMatchesFocus = guided
+          ? isSegmentTargetedByGuided(seg)
+          : seg.constellation.id === focusConstId &&
+            getSegmentKnowledgeAlpha(seg) > 0.5;
         if (
-          seg.constellation.id === focusConstId &&
+          segMatchesFocus &&
           va &&
           vb &&
           va.altDeg > 0.5 &&
@@ -1022,26 +1101,40 @@ export class SkyDomeRenderer {
       this.focusLines.geometry.attributes.position.needsUpdate = true;
     }
 
-    // Update Constellation Animal Silhouette Cut-Out (Easy-only at sea; button-toggled in Sky Vigils)
-    const showAnimalSilhouettes = vigilOverrides
-      ? 'showAnimalSilhouettes' in vigilOverrides
-        ? Boolean(vigilOverrides.showAnimalSilhouettes)
-        : showsEasyConstellationCutout(difficulty)
-      : showsEasyConstellationCutout(difficulty);
-    if (showAnimalSilhouettes && starVis > 0.08) {
+    // Update Constellation Animal Silhouette Cut-Out (Easy-only at sea; button-toggled in Vigils; gated by learning!)
+    let turtleSilhouetteFade = 0.0;
+    if (guided) {
+      if (guided.unlockKey === 'the_sea_turtle') {
+        turtleSilhouetteFade = clampJs(guided.silhouetteAlpha ?? 0.0, 0.0, 1.0);
+      }
+    } else {
+      const turtleLearned =
+        !gameState || gameState.hasLearnedConstellation('the_sea_turtle');
+      const modeAllowsSilhouette = vigilOverrides
+        ? 'showAnimalSilhouettes' in vigilOverrides
+          ? Boolean(vigilOverrides.showAnimalSilhouettes)
+          : showsEasyConstellationCutout(difficulty)
+        : showsEasyConstellationCutout(difficulty);
+      if (turtleLearned && modeAllowsSilhouette) {
+        turtleSilhouetteFade = 1.0;
+      }
+    }
+
+    if (turtleSilhouetteFade > 0.005 && starVis > 0.08) {
       this._updateSeaTurtleCutout(
         navWorldVecs,
         starVis,
         camOrigin,
         cloudOccluder,
         elapsedSec,
-        Boolean(vigilOverrides)
+        Boolean(vigilOverrides),
+        turtleSilhouetteFade
       );
     } else {
       this.seaTurtleCutout.visible = false;
     }
 
-    // Project Mode-Gated Sky Star Labels (strictly hidden whenever occluded by any cloud!)
+    // Project Mode-Gated Sky Star Labels (strictly hidden whenever unlearned or occluded by any cloud!)
     if (this.labelLayerEl && camera) {
       const width = window.innerWidth;
       const height = window.innerHeight;
@@ -1050,8 +1143,12 @@ export class SkyDomeRenderer {
         const el = this.starLabelEls[st.id];
         if (!el) continue;
         const info = navWorldVecs[st.id];
+        const knowLabelAlpha = getStarLabelKnowledgeAlpha(st);
         const allowThisLabel =
-          showLabels || (revealStarIds && revealStarIds.has(st.id));
+          knowLabelAlpha > 0.01 &&
+          (Boolean(guided) ||
+            showLabels ||
+            (revealStarIds && revealStarIds.has(st.id)));
         if (!allowThisLabel || !info || info.altDeg < 1.2 || starVis < 0.16) {
           el.style.display = 'none';
           continue;
@@ -1111,7 +1208,7 @@ export class SkyDomeRenderer {
         el.style.opacity = String(
           Math.min(
             0.95,
-            starVis * cloudFade * (isTarget ? 0.98 : 0.62)
+            knowLabelAlpha * starVis * cloudFade * (isTarget ? 0.98 : 0.62)
           )
         );
         el.classList.toggle('active-target-star', easyShimmer && isTarget);

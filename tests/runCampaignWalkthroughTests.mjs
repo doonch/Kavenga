@@ -13,6 +13,8 @@ import {
   performBeachCareeningAndRestock,
 } from '../src/core/campaignManager.js';
 import { GameState } from '../src/core/gameState.js';
+import { getAvailableUnlearnedLessonForIsland } from '../src/data/constellationLessonsData.js';
+import { NAVIGATION_STARS } from '../src/data/constellationsData.js';
 import { OceanSim, VoyageStatus } from '../src/simulation/oceanSim.js';
 
 const logLine =
@@ -97,6 +99,21 @@ for (let i = 0; i < CAMPAIGN_STEPS.length; i += 1) {
     auditText(rw, `${step.expectedIsland} reward`);
   }
 
+  // Complete the local elder's Guided Constellation Sky Vigil if available on this island
+  const pendingConstLesson = getAvailableUnlearnedLessonForIsland(
+    gs,
+    step.expectedIsland
+  );
+  if (i === 0) {
+    assert(
+      pendingConstLesson === null && gs.getLearnedConstellationCount() === 0,
+      'Step 1 on Raʻiātea: starts with 0 constellations and no pre-Song-1 vigil prompt'
+    );
+  }
+  if (pendingConstLesson) {
+    gs.learnConstellation(pendingConstLesson.unlockKey);
+  }
+
   // Careen & restock rations within actual slot limits!
   const careenMsg = performBeachCareeningAndRestock(gs);
   auditText(careenMsg, `${step.expectedIsland} careen message`);
@@ -112,6 +129,30 @@ for (let i = 0; i < CAMPAIGN_STEPS.length; i += 1) {
     Boolean(chosen),
     `Step ${i + 1} on ${step.expectedIsland}: expected ${step.sailSongId} to be available, got [${routes.map((r) => r.song.id).join(', ')}]`
   );
+
+  // Verify every guidance star actively steered on this leg has ALREADY been taught by an elder!
+  for (const v of chosen.song.verses) {
+    const g = v.guidance || {};
+    const primaryStarId = Array.isArray(g.stars) ? g.stars[0] : null;
+    if (primaryStarId) {
+      assert(
+        gs.isStarLearned(primaryStarId, NAVIGATION_STARS),
+        `Leg ${step.sailSongId} steers by ${primaryStarId}, which must already be taught before departure`
+      );
+    }
+    if (g.sternStarId) {
+      assert(
+        gs.isStarLearned(g.sternStarId, NAVIGATION_STARS),
+        `Leg ${step.sailSongId} backsights ${g.sternStarId}, which must already be taught before departure`
+      );
+    }
+    if (v.zenithTriggerStarId) {
+      assert(
+        gs.isStarLearned(v.zenithTriggerStarId, NAVIGATION_STARS),
+        `Leg ${step.sailSongId} uses zenith star ${v.zenithTriggerStarId}, which must already be taught`
+      );
+    }
+  }
 
   // Sail the voyage with actual GameState rations, crew, leeway, and durability!
   const sim = new OceanSim();
