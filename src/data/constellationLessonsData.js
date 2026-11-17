@@ -43,7 +43,6 @@ export const CONSTELLATION_LESSONS = Object.freeze({
     elderName: 'Hina',
     elderRole: 'Fisher-Navigator & Sennit Artisan',
     portrait: './assets/mentors/hina.webp',
-    // LST = 20 deg -> Shell Crown sits directly upright above the two horizontal flippers!
     solarRaDeg: 230.0,
     solarHour: 22.0,
     startHouseId: 'house_south_turtle_pivot',
@@ -99,13 +98,12 @@ export const CONSTELLATION_LESSONS = Object.freeze({
     elderName: "Elder Ari'i",
     elderRole: 'Night-Sky Elder & Sail-Weaver',
     portrait: './assets/mentors/arii.webp',
-    // LST = 56 deg -> Setting Bull sits clearly in the Three-Hands window (~34 deg alt -> descending toward 270)
     solarRaDeg: 266.0,
     solarHour: 22.0,
     startHouseId: 'house_band3_setting',
     focusStarIds: ['bulls_horn', 'bulls_shoulder', 'bulls_hoof'],
-    panTarget: { starId: 'bulls_shoulder', minAltDeg: 20.0 },
-    hasSilhouette: false,
+    panTarget: { altDeg: 36.5, azDeg: 265.0 },
+    hasSilhouette: true,
     beats: [
       {
         kind: 'stone',
@@ -116,16 +114,23 @@ export const CONSTELLATION_LESSONS = Object.freeze({
       },
       {
         kind: 'lines',
-        heading: 'A Mighty Foreleg in the Dusk Sky',
+        heading: 'Three Warm Stars Above the Cairn',
         speech:
-          'See those three warm amber stars slanting down toward the sea foam? Together they form the charging foreleg and horn of the Bull.',
+          'See those three warm amber stars slanting down toward the sea foam? Together they form the Bull.',
+        buttonLabel: 'See the Bull →',
+      },
+      {
+        kind: 'silhouette',
+        heading: 'Shape of the Charging Bull',
+        speech:
+          'Picture the mighty Bull charging headlong toward the sea—his curved horn lowered ahead, his humped shoulder raised high, and his hind hoof driving behind him.',
         buttonLabel: 'Name His Stars →',
       },
       {
         kind: 'labels',
-        heading: "Horn, Shoulder, and Hoof",
+        heading: 'Horn, Shoulder, and Hoof',
         speech:
-          "Fierce amber Bull's Horn leads the sun's own path, anchored through Bull's Shoulder down to bright Bull's Hoof along the deeper track.",
+          "Fierce amber Bull's Horn leads the sun's own path, anchored up through Bull's Shoulder and back to bright Bull's Hoof along the deeper track.",
         buttonLabel: 'Watch His Descent →',
       },
       {
@@ -148,19 +153,18 @@ export const CONSTELLATION_LESSONS = Object.freeze({
     elderName: 'Vaihere',
     elderRole: 'Master Canoe-Wright Navigator',
     portrait: './assets/mentors/vaihere.webp',
-    // LST = 330 deg -> Bull's Horn has climbed ~31 deg while Rat's Nose rises right beneath it (~18 deg)!
     solarRaDeg: 180.0,
     solarHour: 22.0,
     startHouseId: 'house_band3_rising',
     focusStarIds: ['rats_nose', 'rats_ear', 'rats_tail'],
-    panTarget: { starId: 'rats_ear', minAltDeg: 16.0 },
-    hasSilhouette: false,
+    panTarget: { altDeg: 18.0, azDeg: 99.0 },
+    hasSilhouette: true,
     beats: [
       {
         kind: 'stone',
         heading: 'Where Followers Climb the Same Track',
         speech:
-          "A single rising star cannot guide your prows all night—once it climbs higher than three open hands, its path curves overhead. Face the Rising Path of the Bull stone and look up beneath the climbing Bull.",
+          'A single rising star cannot guide your prows all night—once it climbs higher than three open hands, its path curves overhead. Face the Rising Path of the Bull stone and look up beneath the climbing Bull.',
         buttonLabel: 'Look Up →',
       },
       {
@@ -168,11 +172,18 @@ export const CONSTELLATION_LESSONS = Object.freeze({
         heading: 'The Swift Follower on the Sun-Path',
         speech:
           'See those three nimble pale-gold stars rising right in the footsteps of the Bull? Together they form the Rat.',
+        buttonLabel: 'See the Rat →',
+      },
+      {
+        kind: 'silhouette',
+        heading: 'Shape of the Voyaging Kiore',
+        speech:
+          'See the sleek island rat bounding along the star path—pointed snout sniffing ahead, rounded ear perked alertly, and long whip-tail curling high behind.',
         buttonLabel: 'Name His Stars →',
       },
       {
         kind: 'labels',
-        heading: "Nose, Ear, and Tail",
+        heading: 'Nose, Ear, and Tail',
         speech:
           "Bright Rat's Nose climbs out of the exact same stone house as Bull's Horn, curving back through Rat's Ear to Rat's Tail along the Bull's Hoof track.",
         buttonLabel: 'Watch the Star Handoff →',
@@ -198,13 +209,12 @@ export const CONSTELLATION_LESSONS = Object.freeze({
     elderName: 'Elder Metua',
     elderRole: 'Village Navigator & Marae Elder',
     portrait: './assets/mentors/elder_metua.webp',
-    // LST = 65 deg -> Boar's Bristle (+14 deg), Boar's Spine (+29 deg), and Boar's Tusk (+44 deg) all shine clearly!
     solarRaDeg: 275.0,
     solarHour: 22.0,
     startHouseId: 'house_band2_rising',
     focusStarIds: ['boars_tusk', 'boars_spine', 'boars_bristle'],
-    panTarget: { starId: 'boars_spine', minAltDeg: 22.0 },
-    hasSilhouette: false,
+    panTarget: { altDeg: 26.5, azDeg: 6.5 },
+    hasSilhouette: true,
     beats: [
       {
         kind: 'stone',
@@ -215,16 +225,23 @@ export const CONSTELLATION_LESSONS = Object.freeze({
       },
       {
         kind: 'lines',
-        heading: 'The Ridged Back of the Wild Boar',
+        heading: 'A Bold Three-Star Ridge',
         speech:
           'See that bold three-star ridge climbing slantwise out of the sea spray? Together those stars form the Boar.',
+        buttonLabel: 'See the Boar →',
+      },
+      {
+        kind: 'silhouette',
+        heading: 'Shape of the Leaping Wild Boar',
+        speech:
+          'Picture the thick-chested wild boar leaping skyward out of the surf—his upturned snout and curved ivory tusk leading the charge above his bristled back and cloven trotters.',
         buttonLabel: 'Name His Stars →',
       },
       {
         kind: 'labels',
         heading: 'Tusk, Spine, and Bristle',
         speech:
-          "Warm orange Boar's Tusk leads his charge, rising up his arched Boar's Spine to Boar's Bristle along the lower crest.",
+          "Warm orange Boar's Tusk gleams at his jaw, running down his bristled Boar's Spine to Boar's Bristle near his curled tail.",
         buttonLabel: 'Watch His Arc →',
       },
       {
@@ -246,14 +263,14 @@ export const CONSTELLATION_LESSONS = Object.freeze({
     islandId: 'maupiti',
     elderName: "First Master Tera'i",
     elderRole: 'First Master of the Star Ring',
-    portrait: './assets/mentors/master_terai.webp',
-    // LST = 95 deg -> Crab's Right Claw (+11 deg), Carapace (+36 deg), Left Claw (+41 deg), and Eye (+50 deg) all shine clearly!
-    solarRaDeg: 305.0,
+    portrait: './assets/mentors/first_master_terai.webp',
+    // LST = 85 deg -> Crab's Right Claw (+9.0 deg), Carapace (+32.2 deg), Left Claw (+38.1 deg), and Eye (+50.4 deg) all shine clearly!
+    solarRaDeg: 295.0,
     solarHour: 22.0,
     startHouseId: 'house_band2_rising',
     focusStarIds: ['crabs_left_claw', 'crabs_shell', 'crabs_right_claw', 'crabs_eye'],
-    panTarget: { starId: 'crabs_shell', minAltDeg: 26.0 },
-    hasSilhouette: false,
+    panTarget: { altDeg: 28.0, azDeg: 36.0 },
+    hasSilhouette: true,
     beats: [
       {
         kind: 'stone',
@@ -264,16 +281,23 @@ export const CONSTELLATION_LESSONS = Object.freeze({
       },
       {
         kind: 'lines',
-        heading: 'Two Wide Claws Behind the Boar',
+        heading: 'Four Silver-Blue Stars Behind the Boar',
         speech:
-          'See those four cool silver-blue stars branching like twin pincers from a central shell? Together they form the Crab.',
+          'See those four cool silver-blue stars branching outward from a central hub? Together they form the Crab.',
+        buttonLabel: 'See the Crab →',
+      },
+      {
+        kind: 'silhouette',
+        heading: 'Shape of the Reef Crab',
+        speech:
+          'Picture the wide reef crab scuttling across the dark tide—broad scalloped carapace in the center, walking legs splayed to either side, and two open pincer claws raised ahead.',
         buttonLabel: 'Name His Stars →',
       },
       {
         kind: 'labels',
         heading: 'Claws, Carapace, and Eye',
         speech:
-          "Pale Crab's Left Claw rises in the exact track of Boar's Tusk, joined through Crab's Carapace to Crab's Right Claw and bright Crab's Eye.",
+          "Pale Crab's Left Claw rises in the exact track of Boar's Tusk, joined through Crab's Carapace to sweeping Crab's Right Claw and bright Crab's Eye.",
         buttonLabel: 'Watch the Relay →',
       },
       {
@@ -286,7 +310,7 @@ export const CONSTELLATION_LESSONS = Object.freeze({
     ],
   },
 
-  // 6. NUKU HIVA — Master Teiki introduces The Horse (4 Southern-visible grazing stars; needed for Song 8 & 9)
+  // 6. NUKU HIVA — Master Teiki introduces The Horse (4 grazing stars; needed for Song 8 & 9)
   lesson_the_horse: {
     id: 'lesson_the_horse',
     unlockKey: 'the_horse',
@@ -296,33 +320,39 @@ export const CONSTELLATION_LESSONS = Object.freeze({
     elderName: 'Master Teiki',
     elderRole: 'Valley Master Navigator',
     portrait: './assets/mentors/master_teiki.webp',
-    // At Nuku Hiva (lat -8.9 deg), LST = 18 deg puts Horse's Crown (RA 18, Dec +70) at upper culmination: alt = 90 - 8.9 - 20? Wait: sinAlt = sin(-8.9)*sin(70) + cos(-8.9)*cos(70)*1 = -0.145 + 0.338 = +0.193 -> +11.1 deg right above House of the Grazing Horse!
     solarRaDeg: 228.0,
     solarHour: 22.0,
     startHouseId: 'house_north_horse_pivot',
     focusStarIds: ['horses_crown', 'horses_mane', 'horses_heart', 'horses_tail'],
-    panTarget: { starId: 'horses_mane', minAltDeg: 14.0 },
-    hasSilhouette: false,
+    panTarget: { altDeg: 28.0, azDeg: 0.0 },
+    hasSilhouette: true,
     beats: [
       {
         kind: 'stone',
         heading: 'The House of the Grazing Horse',
         speech:
-          'Welcome to our steep cliff valleys! Turn your back to the Sea Turtle and face the opposite notched monolith—the House of the Grazing Horse—then look just above the dark waves.',
+          'Welcome to our steep cliff valleys! Turn your back to the Sea Turtle and face the opposite notched monolith—the House of the Grazing Horse—then look up above the dark waves.',
         buttonLabel: 'Look Up →',
       },
       {
         kind: 'lines',
-        heading: 'Skimming the Sea Foam',
+        heading: 'Four Golden Stars Above the Monolith',
         speech:
-          'See those four warm golden stars arching low across the water like a steed lowering its head to drink? Together they form the Horse.',
+          'See those four warm golden stars branching above the notched stone? Together they form the Horse.',
+        buttonLabel: 'See the Horse →',
+      },
+      {
+        kind: 'silhouette',
+        heading: 'Inverted Steed Skimming the Surf',
+        speech:
+          'In our skies, the great galloping Horse arcs inverted above the water—so his Crown and ears dip low to graze the sea foam while his chest and hooves vault overhead!',
         buttonLabel: 'Name His Stars →',
       },
       {
         kind: 'labels',
         heading: 'Crown, Mane, Heart, and Tail',
         speech:
-          "Low-skimming Horse's Crown glides just above the surf beneath Horse's Mane, stretching back to Horse's Heart and trailing Horse's Tail.",
+          "Low-skimming Horse's Crown glides just above the surf, joined through billowing Horse's Mane up to deep Horse's Heart and across to streaming Horse's Tail.",
         buttonLabel: 'Watch Him Graze →',
       },
       {
@@ -345,13 +375,12 @@ export const CONSTELLATION_LESSONS = Object.freeze({
     elderName: 'Vaea',
     elderRole: 'Wind-Watcher & Bone-Carver',
     portrait: './assets/mentors/vaea.webp',
-    // LST = 145 deg -> Frigatebird's Tail (RA 145, Dec -64) & Beak (RA 145, Dec -74) stand vertically straight above the Sea Turtle!
     solarRaDeg: 355.0,
     solarHour: 22.0,
     startHouseId: 'house_south_turtle_pivot',
     focusStarIds: ['birds_wingtip', 'frigatebirds_tail', 'frigatebirds_beak'],
-    panTarget: { starId: 'frigatebirds_tail', minAltDeg: 22.0 },
-    hasSilhouette: false,
+    panTarget: { altDeg: 31.0, azDeg: 185.0 },
+    hasSilhouette: true,
     beats: [
       {
         kind: 'stone',
@@ -362,16 +391,23 @@ export const CONSTELLATION_LESSONS = Object.freeze({
       },
       {
         kind: 'lines',
-        heading: 'Wings Folded in a Stoop',
+        heading: 'An Angled Pointer in the Vault',
         speech:
           'See those three pale violet-white stars angled steeply downward toward the Sea Turtle? Together they form the Frigatebird.',
+        buttonLabel: 'See the Frigatebird →',
+      },
+      {
+        kind: 'silhouette',
+        heading: 'Shape of the Stooping Sea-Hawk',
+        speech:
+          'Picture the great sea-bird stooping down from the clouds—scissor-forked tail aloft, long crooked wings angled against the trade wind, and hooked beak spearing straight toward the Pivot.',
         buttonLabel: 'Name His Stars →',
       },
       {
         kind: 'labels',
         heading: 'Wingtip, Tail, and Diving Beak',
         speech:
-          "Outspread Bird's Wingtip sweeps back to Frigatebird's Tail, aiming straight through bright Frigatebird's Beak toward the Sea Turtle's unmoving Pivot.",
+          "Outspread Bird's Wingtip sweeps back to forked Frigatebird's Tail, aiming straight through bright Frigatebird's Beak toward the Sea Turtle's unmoving Pivot.",
         buttonLabel: 'Watch His Wheel →',
       },
       {
@@ -394,13 +430,12 @@ export const CONSTELLATION_LESSONS = Object.freeze({
     elderName: 'Tane',
     elderRole: 'Atoll Navigator & Pearl-Diver',
     portrait: './assets/mentors/tane.webp',
-    // LST = 18 deg -> Setting Gecko's Tongue (RA 322, Dec +29.3, HA = +56 deg) descends cleanly toward Setting Path of the Boar (~32 deg alt)!
     solarRaDeg: 228.0,
     solarHour: 22.0,
     startHouseId: 'house_band2_setting',
     focusStarIds: ['geckos_tongue', 'geckos_crest', 'geckos_heart', 'geckos_tail'],
-    panTarget: { starId: 'geckos_crest', minAltDeg: 26.0 },
-    hasSilhouette: false,
+    panTarget: { altDeg: 35.0, azDeg: 282.0 },
+    hasSilhouette: true,
     beats: [
       {
         kind: 'stone',
@@ -411,9 +446,16 @@ export const CONSTELLATION_LESSONS = Object.freeze({
       },
       {
         kind: 'lines',
-        heading: 'Clinging High Across the Vault',
+        heading: 'A Winding Four-Star Trail',
         speech:
           'See that sinuous four-star trail of pale sea-green light curving from high overhead down toward the water? Together those stars form the Gecko.',
+        buttonLabel: 'See the Gecko →',
+      },
+      {
+        kind: 'silhouette',
+        heading: 'Clinging Across the Night Vault',
+        speech:
+          'Picture the nimble island gecko clinging directly to the dark roof of the sky—four splayed toe-padded feet gripping the vault from curled tail down to flicking forked tongue.',
         buttonLabel: 'Name His Stars →',
       },
       {
@@ -443,13 +485,12 @@ export const CONSTELLATION_LESSONS = Object.freeze({
     elderName: 'Tahia',
     elderRole: 'Zenith Watcher & Quarry Elder',
     portrait: './assets/mentors/tahia.webp',
-    // LST = 25 deg -> Shark's Jaw (RA 80, Dec 0), Fin (RA 80, Dec -29.3), Tail (RA 80, Dec -57.9) all rising at HA = -55 deg (~32 deg alt)!
     solarRaDeg: 235.0,
     solarHour: 22.0,
     startHouseId: 'house_band4_rising',
     focusStarIds: ['sharks_jaw', 'sharks_fin', 'sharks_tail'],
-    panTarget: { starId: 'sharks_fin', minAltDeg: 22.0 },
-    hasSilhouette: false,
+    panTarget: { altDeg: 31.0, azDeg: 118.0 },
+    hasSilhouette: true,
     beats: [
       {
         kind: 'stone',
@@ -460,16 +501,23 @@ export const CONSTELLATION_LESSONS = Object.freeze({
       },
       {
         kind: 'lines',
-        heading: 'Dorsal Fin Cutting the Night',
+        heading: 'Three Steel-Blue Stars in Unison',
         speech:
-          'See those three cool steel-blue stars slicing upward across three neighboring star tracks? Together they form the Shark.',
+          'See those three cool steel-blue stars slicing across three neighboring star tracks? Together they form the Shark.',
+        buttonLabel: 'See the Shark →',
+      },
+      {
+        kind: 'silhouette',
+        heading: 'Shape of the Patrolling Reef-Hunter',
+        speech:
+          'Picture the sleek ocean shark gliding effortlessly through the night—open jaws ahead, tall sickle dorsal fin cutting the dark above his gills, and crescent tail sweeping behind.',
         buttonLabel: 'Name His Stars →',
       },
       {
         kind: 'labels',
         heading: 'Jaw, Dorsal Fin, and Tail',
         speech:
-          "Sharp Shark's Jaw rides the middle sun-track, brilliant Shark's Fin gleams in the middle, and Shark's Tail sweeps along the deep whale-track.",
+          "Sharp Shark's Jaw rides the middle sun-track, brilliant Shark's Fin gleams beneath his tall dorsal blade, and Shark's Tail sweeps along the deep whale-track.",
         buttonLabel: 'Watch Him Patrol →',
       },
       {
@@ -492,13 +540,12 @@ export const CONSTELLATION_LESSONS = Object.freeze({
     elderName: 'Oihanu',
     elderRole: 'Master Vaka Moana Shipwright',
     portrait: './assets/mentors/oihanu.webp',
-    // LST = 325 deg -> Whale's Spout (RA 0, Dec -57.9) & Fluke (RA 40, Dec -57.9) rising cleanly (~22-35 deg alt) above Rising Path of the Whale!
     solarRaDeg: 175.0,
     solarHour: 22.0,
     startHouseId: 'house_band5_rising',
     focusStarIds: ['whales_spout', 'whales_brow', 'whales_fluke'],
-    panTarget: { starId: 'whales_brow', minAltDeg: 20.0 },
-    hasSilhouette: false,
+    panTarget: { altDeg: 26.5, azDeg: 150.0 },
+    hasSilhouette: true,
     beats: [
       {
         kind: 'stone',
@@ -512,13 +559,20 @@ export const CONSTELLATION_LESSONS = Object.freeze({
         heading: 'Breaching Near the Pivot Waters',
         speech:
           'See that broad mist-blue arch of three stars lifting out of the heavy rollers? Together they form the Great Whale.',
+        buttonLabel: 'See the Whale →',
+      },
+      {
+        kind: 'silhouette',
+        heading: 'Shape of the Breaching Tohora',
+        speech:
+          'Picture the mighty humpback breaching from the deep—twin misty plume rising above his arched brow and long flipper, with wide notched flukes lifting clear of the waves.',
         buttonLabel: 'Name His Stars →',
       },
       {
         kind: 'labels',
         heading: 'Spout, Brow, and Broad Fluke',
         speech:
-          "Bright Whale's Spout breaks the surface first, arching across Whale's Brow to wide Whale's Fluke right ahead of Shark's Tail.",
+          "Bright Whale's Spout bursts from his blowhole first, arching across Whale's Brow down to wide Whale's Fluke right ahead of Shark's Tail.",
         buttonLabel: 'Watch His Breach →',
       },
       {
@@ -541,13 +595,12 @@ export const CONSTELLATION_LESSONS = Object.freeze({
     elderName: 'Keeper Akura',
     elderRole: 'Star-Mirror Master & Shrine Keeper',
     portrait: './assets/mentors/keeper_akura.webp',
-    // At Kiritimati (+21.2 deg lat), LST = 25 deg puts Horse's Crown (+70 deg dec) high at +41 deg directly above Steadfast Peg (+89.2 deg dec) at +22.0 deg!
     solarRaDeg: 235.0,
     solarHour: 22.0,
     startHouseId: 'house_north_horse_pivot',
     focusStarIds: ['steadfast_peg'],
-    panTarget: { starId: 'steadfast_peg', minAltDeg: 20.0 },
-    hasSilhouette: false,
+    panTarget: { altDeg: 28.0, azDeg: 0.0 },
+    hasSilhouette: true,
     beats: [
       {
         kind: 'stone',
@@ -558,23 +611,30 @@ export const CONSTELLATION_LESSONS = Object.freeze({
       },
       {
         kind: 'lines',
-        heading: 'The Tether of the Grazing Horse',
+        heading: 'The Tether Line to the Crown',
         speech:
-          "See that solitary golden-white star standing two hands above the notched stone, tethered directly to Horse's Crown? In our islands, the Horse never drowns—he circles a single peg driven into the sky.",
+          "See that solitary golden-white star standing two hands above the notched stone, linked by a single taut line up to Horse's Crown?",
+        buttonLabel: 'See the Tethered Horse →',
+      },
+      {
+        kind: 'silhouette',
+        heading: 'A Steed Circling His Sky-Post',
+        speech:
+          'In our waters, the great Horse never sinks beneath the waves—he wheels endlessly around that single peg like a steed tethered by his Crown!',
         buttonLabel: 'Name the Polar Star →',
       },
       {
         kind: 'labels',
         heading: 'The Steadfast Peg',
         speech:
-          'This star is the Steadfast Peg—our unmoving sky-nail! Hold it off your left beam on the Grand Voyage to ancestral Hawaiʻi so you never drift past the volcanic peaks.',
+          'We call this star the Steadfast Peg—our unmoving sky-nail! Hold it off your left beam on the Grand Voyage to ancestral Hawaiʻi so you never drift past the volcanic peaks.',
         buttonLabel: 'Watch the Sky Wheel →',
       },
       {
         kind: 'spin',
         heading: 'Unmoving Anchor of the Mist Seas',
         speech:
-          'Watch as we turn the night dome: every constellation wheels in a great circle while the Steadfast Peg stands motionless above its stone from dusk until dawn!',
+          'Watch as we turn the night dome: the Horse and every constellation wheel in a great circle while the Steadfast Peg stands motionless above its stone from dusk until dawn!',
         buttonLabel: '✦ Keep the Steadfast Peg in Memory',
       },
     ],

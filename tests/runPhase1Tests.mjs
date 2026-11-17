@@ -26,6 +26,7 @@ import {
   HORIZON_HOUSES,
   NAVIGATION_STARS,
 } from '../src/data/constellationsData.js';
+import { CONSTELLATION_SILHOUETTES } from '../src/data/constellationSilhouettesData.js';
 import { ISLANDS, OCEAN_BASINS } from '../src/data/islandsData.js';
 import {
   PLAYER_CHARACTER_PROFILES,
@@ -45,6 +46,7 @@ import {
   isWalkableIsland,
 } from '../src/data/walkableIslandsData.js';
 import {
+  altAzToDirectionVec3,
   computeLstDeg,
   computeStarAltAz,
   computeSunState,
@@ -313,7 +315,17 @@ assert(
 for (const [lesId, cLes] of Object.entries(CONSTELLATION_LESSONS)) {
   auditText(cLes.title, `ConstellationLesson ${lesId}.title`);
   auditText(cLes.elderRole, `ConstellationLesson ${lesId}.elderRole`);
+  assert(
+    cLes.hasSilhouette === true &&
+      cLes.beats.map((b) => b.kind).join(',') ===
+        'stone,lines,silhouette,labels,spin',
+    `ConstellationLesson ${lesId} must integrate a 5-beat stone -> lines -> silhouette -> labels -> spin sequence`
+  );
   const isl = ISLANDS[cLes.islandId];
+  assert(
+    cLes.portrait === isl.mentorPortrait,
+    `ConstellationLesson ${lesId} portrait (${cLes.portrait}) must match island mentorPortrait (${isl.mentorPortrait})`
+  );
   const lst = computeLstDeg(cLes.solarRaDeg, cLes.solarHour);
   for (const sid of cLes.focusStarIds) {
     const st = NAVIGATION_STARS[sid];
@@ -329,6 +341,91 @@ for (const [lesId, cLes] of Object.entries(CONSTELLATION_LESSONS)) {
     auditText(b.heading, `ConstellationLesson ${lesId} beat ${bi} heading`);
     auditText(b.speech, `ConstellationLesson ${lesId} beat ${bi} speech`);
     auditText(b.buttonLabel, `ConstellationLesson ${lesId} beat ${bi} buttonLabel`);
+  }
+}
+
+// Verify all 10 Animal Constellation Silhouette Cut-Outs & rigid spherical star alignment
+assert(
+  Object.keys(CONSTELLATION_SILHOUETTES).length === CONSTELLATIONS.length,
+  'Every constellation in CONSTELLATIONS must have an animal silhouette spec'
+);
+for (const c of CONSTELLATIONS) {
+  const spec = CONSTELLATION_SILHOUETTES[c.id];
+  assert(Boolean(spec), `Missing silhouette spec for ${c.id}`);
+  assert(
+    Array.isArray(spec.parts) &&
+      spec.parts.length >= 1 &&
+      Array.isArray(spec.stencils) &&
+      spec.stencils.length >= 1,
+    `Silhouette ${c.id} must define non-empty parts and stencils`
+  );
+  for (const part of spec.parts) {
+    for (const cmd of part) {
+      for (let k = 1; k < cmd.length; k += 1) {
+        assert(
+          cmd[k] >= 12 && cmd[k] <= 500,
+          `Silhouette ${c.id} coordinate ${cmd[k]} must stay safely inside 512x512 canvas`
+        );
+      }
+    }
+  }
+
+  const evalBasisAt = (lstTest, latTest, hdgTest) => {
+    const cAA = computeStarAltAz(spec.centerRaDeg, spec.centerDecDeg, lstTest, latTest);
+    const mRaw = altAzToDirectionVec3(cAA.altDeg, cAA.azDeg, hdgTest);
+    const mL = Math.hypot(mRaw.x, mRaw.y, mRaw.z);
+    const M = { x: mRaw.x / mL, y: mRaw.y / mL, z: mRaw.z / mL };
+
+    const uAA = computeStarAltAz(spec.upRaDeg, spec.upDecDeg, lstTest, latTest);
+    const vRaw = altAzToDirectionVec3(uAA.altDeg, uAA.azDeg, hdgTest);
+    const dvm = vRaw.x * M.x + vRaw.y * M.y + vRaw.z * M.z;
+    let vx = vRaw.x - dvm * M.x;
+    let vy = vRaw.y - dvm * M.y;
+    let vz = vRaw.z - dvm * M.z;
+    const vL = Math.hypot(vx, vy, vz);
+    vx /= vL;
+    vy /= vL;
+    vz /= vL;
+    const V = { x: vx, y: vy, z: vz };
+    const U = {
+      x: M.y * V.z - M.z * V.y,
+      y: M.z * V.x - M.x * V.z,
+      z: M.x * V.y - M.y * V.x,
+    };
+    return { M, U, V };
+  };
+
+  const bSouth = evalBasisAt(25.0, -16.8, 0.0);
+  const bNorth = evalBasisAt(165.0, 21.2, 74.0);
+  const memberStars = Object.values(NAVIGATION_STARS).filter(
+    (s) => s.constellation === c.id && s.id !== 'steadfast_peg'
+  );
+  assert(memberStars.length >= 3, `Constellation ${c.id} has >= 3 stars`);
+  for (const st of memberStars) {
+    const sAA1 = computeStarAltAz(st.raDeg, st.decDeg, 25.0, -16.8);
+    const d1 = altAzToDirectionVec3(sAA1.altDeg, sAA1.azDeg, 0.0);
+    const dm1 = d1.x * bSouth.M.x + d1.y * bSouth.M.y + d1.z * bSouth.M.z;
+    const u1 = (d1.x * bSouth.U.x + d1.y * bSouth.U.y + d1.z * bSouth.U.z) / dm1;
+    const v1 = (d1.x * bSouth.V.x + d1.y * bSouth.V.y + d1.z * bSouth.V.z) / dm1;
+    const px1 = ((u1 / spec.halfSpan) * 0.5 + 0.5) * 512.0;
+    const py1 = (0.5 - (v1 / spec.halfSpan) * 0.5) * 512.0;
+
+    const sAA2 = computeStarAltAz(st.raDeg, st.decDeg, 165.0, 21.2);
+    const d2 = altAzToDirectionVec3(sAA2.altDeg, sAA2.azDeg, 74.0);
+    const dm2 = d2.x * bNorth.M.x + d2.y * bNorth.M.y + d2.z * bNorth.M.z;
+    const u2 = (d2.x * bNorth.U.x + d2.y * bNorth.U.y + d2.z * bNorth.U.z) / dm2;
+    const v2 = (d2.x * bNorth.V.x + d2.y * bNorth.V.y + d2.z * bNorth.V.z) / dm2;
+    const px2 = ((u2 / spec.halfSpan) * 0.5 + 0.5) * 512.0;
+    const py2 = (0.5 - (v2 / spec.halfSpan) * 0.5) * 512.0;
+
+    assert(
+      px1 >= 55 && px1 <= 457 && py1 >= 55 && py1 <= 457,
+      `Star ${st.id} of ${c.id} must project comfortably inside 512x512 silhouette canvas (got ${px1.toFixed(1)}, ${py1.toFixed(1)})`
+    );
+    assert(
+      Math.hypot(px1 - px2, py1 - py2) < 1e-4,
+      `Star ${st.id} of ${c.id} must remain rigidly locked to silhouette across hemispheres & headings`
+    );
   }
 }
 let mentorPortraitCount = 0;
