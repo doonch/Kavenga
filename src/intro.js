@@ -2,18 +2,20 @@
  * Cinematic Real-Time 3D Introduction Sequence for Kavenga: Songs of the Star Path (`intro.html`).
  *
  * Choreography:
- *  1. [0.0s – 4.0s]  Mid-ocean, midday, fully upgraded Tier-3 Vaka Moana with nothing around
+ *  1. [0.0s – 3.5s]  Mid-ocean, midday, fully upgraded Tier-3 Vaka Moana with nothing around
  *                    but endless swells and waves.
- *  2. [4.0s – 7.6s]  Camera swoops cinematically behind the stern ("canoe view"), showcasing
+ *  2. [3.5s – 6.8s]  Camera swoops cinematically behind the stern ("canoe view"), showcasing
  *                    the canoe and the child navigator (`Difficulty.EASY`) from behind.
- *  3. [7.6s – 21.2s] Camera glides smoothly from behind around to the left (port, `-X`) side
- *                    while the environment abruptly cuts through four distinct worlds around
+ *  3. [6.8s – 14.4s] Camera glides smoothly from behind around to the left (port, `-X`) side
+ *                    while the environment abruptly cuts every 1.9s (<= 2.0s per cut) around
  *                    the unchanging, continuously wave-riding canoe:
- *                      - [7.6s  – 11.0s] Clear starry night (bright stars & Te Mangoroa visible)
- *                      - [11.0s – 14.4s] Golden-coral twilight with marching trade-wind clouds
- *                      - [14.4s – 17.8s] Bright day again with flocks of seabirds flying
- *                      - [17.8s – 21.2s] Foggy night with silver fish jumping next to the canoe
- *  4. [21.2s – ∞]    Abrupt cut to golden dusk on the port-beam profile view with the sun
+ *                      - [6.8s  – 8.7s]  Clear starry night (bright stars & Te Mangoroa visible)
+ *                      - [8.7s  – 10.6s] Golden-coral twilight with 2x marching trade-wind clouds
+ *                      - [10.6s – 12.5s] Bright day with sculpted Huahine fully visible behind the
+ *                                        canoe on the left side of the screen & bird flocks flying
+ *                                        directly toward Huahine
+ *                      - [12.5s – 14.4s] Foggy night with silver fish jumping next to the canoe
+ *  4. [14.4s – ∞]    Abrupt cut to golden dusk on the port-beam profile view with the sun
  *                    setting directly behind the visible canoe:
  *                      - `assets/banner.png` ("Kavenga") slowly eases in at the top
  *                      - "Songs of the Star Path" appears right beneath it
@@ -25,26 +27,43 @@ import * as THREE from 'three';
 import { DepartureWindow, Difficulty } from './core/gameConstants.js';
 import { GameState } from './core/gameState.js';
 import { SONGS } from './data/songsData.js';
+import { altAzToDirectionVec3 } from './simulation/celestialSim.js';
 import { OceanSim } from './simulation/oceanSim.js';
+import {
+  TRADE_CLOUD_VARIANT_KEYS,
+  createSculptedCloudMesh,
+  updateCloudMaterialUniforms,
+} from './rendering/CloudSculptBuilder.js';
+import {
+  applyDetailedIslandAlpha,
+  createDetailedIslandAssembly,
+  getIslandApproachOrientationRad,
+} from './rendering/IslandTerrainBuilder.js';
 import { SkyDomeRenderer } from './rendering/SkyDomeRenderer.js';
 import { OceanRenderer } from './rendering/OceanRenderer.js';
 import { VakaRenderer } from './rendering/VakaRenderer.js';
 import { WorldCuesRenderer } from './rendering/WorldCuesRenderer.js';
 
-// Timeline cue timestamps (seconds)
-const T_MOVE_TO_STERN_START = 3.6;
-const T_ARRIVE_BEHIND_NAVIGATOR = 6.4;
-const T_ORBIT_TO_LEFT_START = 6.9;
-const T_CUT_STARRY_NIGHT = 7.6;
-const T_CUT_TWILIGHT_CLOUDS = 11.0;
-const T_CUT_DAY_BIRDS = 14.4;
-const T_CUT_FOG_NIGHT_FISH = 17.8;
-const T_CUT_DUSK_FINALE = 21.2;
+// Timeline cue timestamps (seconds) — each Part-3 cut lasts 1.9s (<= 2.0s)
+const CUT_DURATION_SEC = 1.9;
+const T_MOVE_TO_STERN_START = 3.5;
+const T_ARRIVE_BEHIND_NAVIGATOR = 6.2;
+const T_ORBIT_TO_LEFT_START = 6.5;
 
-const T_BANNER_IN = 21.7;
-const T_SUBTITLE_IN = 25.0;
-const T_SUNSET_COMPLETE = 29.6;
-const T_START_BTN_IN = 29.9;
+const T_CUT_STARRY_NIGHT = 6.8;
+const T_CUT_TWILIGHT_CLOUDS = T_CUT_STARRY_NIGHT + CUT_DURATION_SEC;      // 8.7s
+const T_CUT_DAY_BIRDS = T_CUT_TWILIGHT_CLOUDS + CUT_DURATION_SEC;         // 10.6s
+const T_CUT_FOG_NIGHT_FISH = T_CUT_DAY_BIRDS + CUT_DURATION_SEC;          // 12.5s
+const T_CUT_DUSK_FINALE = T_CUT_FOG_NIGHT_FISH + CUT_DURATION_SEC;        // 14.4s
+
+const T_BANNER_IN = T_CUT_DUSK_FINALE + 0.5;                              // 14.9s
+const T_SUBTITLE_IN = T_CUT_DUSK_FINALE + 3.8;                            // 18.2s
+const T_SUNSET_COMPLETE = T_CUT_DUSK_FINALE + 8.4;                        // 22.8s
+const T_START_BTN_IN = T_CUT_DUSK_FINALE + 8.7;                           // 23.1s
+
+// Sculpted Huahine world position during Stage 3 (behind the canoe on the left side of the screen)
+const HUAHINE_POS = Object.freeze({ x: 182.0, y: 0.52, z: -129.0 });
+const TWILIGHT_CLOUD_SUN_DIR = new THREE.Vector3(-0.72, 0.34, 0.60).normalize();
 
 function clamp01(v) {
   return v < 0.0 ? 0.0 : v > 1.0 ? 1.0 : v;
@@ -110,7 +129,7 @@ class KavengaIntroDirector {
       this.gameState
     );
     this.oceanSim.rationsRemaining = 8.0;
-    // Place canoe far out in empty blue ocean so zero islands ever enter detection rings
+    // Place canoe far out in empty blue ocean so zero basin islands auto-detect
     this.oceanSim.pos.x = -9999.0;
     this.oceanSim.pos.y = -9999.0;
     this.oceanSim.detections = [];
@@ -131,6 +150,7 @@ class KavengaIntroDirector {
     this.oceanRenderer = new OceanRenderer(this.scene);
     this.vakaRenderer = new VakaRenderer(this.scene);
     this.worldCues = new WorldCuesRenderer(this.scene);
+    this.worldCues.group.visible = false;
 
     // Supplemental nocturnal & sunset rim lighting so the upgraded canoe, child navigator,
     // and leaping silver fish stay sculpted and luminous during night & dusk scenes
@@ -146,7 +166,10 @@ class KavengaIntroDirector {
     this.fishSpotLight.position.set(-6.0, 5.2, 0.8);
     this.scene.add(this.fishSpotLight);
 
-    // Build dedicated cinematic bird flocks (Scene 4) & close-up leaping fish + splash rings (Scene 5)
+    // Build 2x (30) camera-framed marching twilight clouds (Stage 2), sculpted Huahine +
+    // sail-clear homing bird flocks (Stage 3), and close-up leaping fish (Stage 4)
+    this._buildIntroTwilightClouds();
+    this._buildIntroHuahineBackdrop();
     this._buildIntroBirdFlocks();
     this._buildIntroCloseFishSchool();
 
@@ -194,45 +217,150 @@ class KavengaIntroDirector {
     requestAnimationFrame(this._tick);
   }
 
+  /**
+   * Builds 30 sculpted cumulus clouds (2x the standard 15 trade clouds) directly across the
+   * Stage-2 camera's forward-starboard sky frustum so a dense, tiered armada of twilight-lit
+   * clouds marches unmistakably across the sky throughout [8.7s – 10.6s].
+   */
+  _buildIntroTwilightClouds() {
+    this.introCloudsGroup = new THREE.Group();
+    this.introCloudsGroup.visible = false;
+    this.scene.add(this.introCloudsGroup);
+
+    this.introTwilightClouds = [];
+    const cloudCount = 30; // 2x the standard 15 trade-wind clouds
+    const marchHeadingRad = Math.atan2(-0.58, -0.81);
+
+    for (let i = 0; i < cloudCount; i += 1) {
+      const archetypeKey =
+        TRADE_CLOUD_VARIANT_KEYS[i % TRADE_CLOUD_VARIANT_KEYS.length];
+      const sculpted = createSculptedCloudMesh(archetypeKey, { opacity: 0.98 });
+      const holder = new THREE.Group();
+      const scale = 0.78 + (i % 4) * 0.12;
+      holder.scale.setScalar(scale);
+      holder.rotation.y = marchHeadingRad + ((i % 5) - 2) * 0.18;
+      holder.add(sculpted.mesh);
+      this.introCloudsGroup.add(holder);
+
+      // 10 azimuth columns spanning [2..126 deg] right of -Z (from bow all the way around
+      // starboard-astern) x 3 depth/elevation tiers (102..266m) so marching clouds stay densely
+      // visible behind the canoe & stern right through the end of the Stage-2 camera movement!
+      const col = i % 10;              // 0..9 across wide 124-deg arc
+      const tier = Math.floor(i / 10); // 0..2 depth/height tiers
+      const azDeg = 2.0 + col * 13.8 + (tier - 1) * 4.2 + ((i * 7) % 5) - 2.0;
+      const azRad = (azDeg * Math.PI) / 180.0;
+      const dist = 102.0 + tier * 68.0 + ((i * 17) % 28);
+      const elevSlope = 0.13 + ((i * 3 + tier) % 4) * 0.068;
+
+      const startX = Math.sin(azRad) * dist;
+      const startZ = -Math.cos(azRad) * dist;
+      const startY = 3.4 + dist * elevSlope;
+      const speed = 21.0 + (i % 4) * 3.0;
+
+      this.introTwilightClouds.push({
+        holder,
+        mat: sculpted.material,
+        startX,
+        startY,
+        startZ,
+        vx: -0.58 * speed,
+        vz: -0.81 * speed,
+      });
+    }
+  }
+
+  /**
+   * Builds the full sculpted 3D Huahine assembly (twin Huahine Nui & Huahine Iti volcanic peaks,
+   * turquoise Maroe Strait, barrier reef surf, palms & stationary peak cloud) behind the canoe
+   * on the left side of the screen for Stage 3.
+   */
+  _buildIntroHuahineBackdrop() {
+    this.introHuahineGroup = new THREE.Group();
+    this.introHuahineGroup.visible = false;
+    this.introHuahineGroup.position.set(
+      HUAHINE_POS.x,
+      HUAHINE_POS.y,
+      HUAHINE_POS.z
+    );
+    // Orient Huahine so its twin peaks & reef pass face directly toward the canoe & camera!
+    this.introHuahineGroup.lookAt(0.0, HUAHINE_POS.y, 0.0);
+
+    const huahineAssembly = createDetailedIslandAssembly('huahine');
+    huahineAssembly.group.rotation.y = getIslandApproachOrientationRad('huahine');
+    applyDetailedIslandAlpha(huahineAssembly, 1.0);
+    this.introHuahineGroup.add(huahineAssembly.group);
+
+    // Signature stationary island cumulus cloud crowning high above Huahine's twin peaks
+    const peakSculpt = createSculptedCloudMesh('peak', { opacity: 0.94 });
+    peakSculpt.mesh.position.set(0.0, 66.0, 0.0);
+    peakSculpt.mesh.scale.setScalar(0.95);
+    this.introHuahinePeakMat = peakSculpt.material;
+    this.introHuahineGroup.add(peakSculpt.mesh);
+
+    this.scene.add(this.introHuahineGroup);
+  }
+
+  /**
+   * Builds three seabird flocks (White Terns & Brown Boobies) that sweep across the foreground
+   * and mid-sky flying directly toward sculpted Huahine (`HUAHINE_POS`) on the left!
+   */
   _buildIntroBirdFlocks() {
     this.introBirdsGroup = new THREE.Group();
     this.introBirdsGroup.visible = false;
     this.scene.add(this.introBirdsGroup);
 
     this.introBirds = [];
-    // Three distinct flocks sweeping overhead & past the sails in bright daylight
     const flockSpecs = [
-      // Flock A: White Terns sweeping low across the twin crab-claw sails
-      { count: 7, species: 'white_tern', baseX: 3.5, baseY: 6.6, baseZ: 18.0, vx: -0.9, vz: -11.8, scale: 1.55 },
-      // Flock B: Brown Boobies soaring in high V-formation across the upper sky
-      { count: 6, species: 'brown_booby', baseX: 8.5, baseY: 11.2, baseZ: 22.0, vx: -1.6, vz: -10.4, scale: 1.75 },
-      // Flock C: White Terns skimming briskly past the bow wave
-      { count: 5, species: 'white_tern', baseX: -2.2, baseY: 4.4, baseZ: 13.5, vx: 0.6, vz: -13.2, scale: 1.45 },
+      // Flock A: White Terns sweeping sideways forward of the bow & sails toward Huahine
+      { count: 7, species: 'white_tern', baseX: 2.2, baseY: 6.2, baseZ: -12.8, speed: 18.2, targetY: 23.0, scale: 1.55 },
+      // Flock B: Brown Boobies soaring high above masthead height toward Huahine's twin peaks
+      { count: 6, species: 'brown_booby', baseX: 14.0, baseY: 15.2, baseZ: -19.2, speed: 17.6, targetY: 50.0, scale: 1.75 },
+      // Flock C: White Terns skimming seaward ahead of the twin prows toward Huahine's lagoon pass
+      { count: 6, species: 'white_tern', baseX: 12.0, baseY: 3.8, baseZ: -16.5, speed: 19.2, targetY: 12.0, scale: 1.48 },
     ];
 
     flockSpecs.forEach((fs, fIdx) => {
+      // Exact 3D unit flight vector from this flock's origin straight to Huahine!
+      const dx = HUAHINE_POS.x - fs.baseX;
+      const dy = fs.targetY - fs.baseY;
+      const dz = HUAHINE_POS.z - fs.baseZ;
+      const dLen = Math.hypot(dx, dy, dz) || 1.0;
+      const ux = dx / dLen;
+      const uy = dy / dLen;
+      const uz = dz / dLen;
+
+      // Horizontal perpendicular vector for V-formation wingman spacing
+      const hLen = Math.hypot(ux, uz) || 1.0;
+      const sideX = -uz / hLen;
+      const sideZ = ux / hLen;
+
+      const vx = ux * fs.speed;
+      const vy = uy * fs.speed;
+      const vz = uz * fs.speed;
+      // Seabird beak is local -Z -> rotation.y = atan2(-vx, -vz) points beak dead at Huahine!
+      const yaw = Math.atan2(-vx, -vz);
+
       for (let i = 0; i < fs.count; i += 1) {
         const rank = i - (fs.count - 1) * 0.5;
-        const vLag = Math.abs(rank) * 1.65 + (i % 2) * 0.55;
+        const vLag = Math.abs(rank) * 1.55 + (i % 2) * 0.45;
         const entry = this.worldCues.createSeabird(fs.species, { opaque: true });
         const holder = new THREE.Group();
         holder.scale.setScalar(fs.scale);
+        holder.rotation.y = yaw;
         holder.add(entry.root);
         this.introBirdsGroup.add(holder);
-
-        const yaw = Math.atan2(-fs.vx, -fs.vz);
-        holder.rotation.y = yaw;
 
         this.introBirds.push({
           holder,
           entry,
           phase: fIdx * 1.7 + i * 0.85,
-          speedScale: 1.08 + (i % 3) * 0.08,
-          startX: fs.baseX + rank * 1.55,
-          startY: fs.baseY + (i % 3) * 0.65 - Math.abs(rank) * 0.18,
-          startZ: fs.baseZ + vLag,
-          vx: fs.vx,
-          vz: fs.vz,
+          speedScale: 1.12 + (i % 3) * 0.08,
+          startX: fs.baseX + sideX * rank * 1.35 - ux * vLag,
+          startY: fs.baseY + (i % 3) * 0.42 - Math.abs(rank) * 0.12,
+          startZ: fs.baseZ + sideZ * rank * 1.35 - uz * vLag,
+          vx,
+          vy,
+          vz,
         });
       }
     });
@@ -249,13 +377,13 @@ class KavengaIntroDirector {
     this.introFish = [];
     // 7 silver Pacific Bonito leaping right next to the port (-X) hull in staggered arcs
     const slots = [
-      { x: -4.45, z: 2.35, dirZ: -1.0, phase: 0.15, speed: 2.85, height: 1.55, dist: 3.1, scale: 1.28 },
-      { x: -5.65, z: 0.85, dirZ: -1.0, phase: 1.25, speed: 2.65, height: 1.75, dist: 3.4, scale: 1.35 },
-      { x: -4.15, z: -0.95, dirZ: -1.0, phase: 2.35, speed: 3.05, height: 1.42, dist: 2.9, scale: 1.2 },
-      { x: -6.35, z: 3.1, dirZ: -1.0, phase: 3.1, speed: 2.75, height: 1.68, dist: 3.3, scale: 1.3 },
-      { x: -5.05, z: -2.4, dirZ: -1.0, phase: 4.05, speed: 2.9, height: 1.5, dist: 3.0, scale: 1.24 },
-      { x: -6.85, z: -0.35, dirZ: -1.0, phase: 4.95, speed: 2.6, height: 1.82, dist: 3.5, scale: 1.36 },
-      { x: -4.65, z: 3.85, dirZ: -1.0, phase: 5.65, speed: 2.95, height: 1.48, dist: 3.1, scale: 1.22 },
+      { x: -4.45, z: 2.35, dirZ: -1.0, phase: 0.25, speed: 3.35, height: 1.58, dist: 3.1, scale: 1.28 },
+      { x: -5.65, z: 0.85, dirZ: -1.0, phase: 1.35, speed: 3.15, height: 1.78, dist: 3.4, scale: 1.35 },
+      { x: -4.15, z: -0.95, dirZ: -1.0, phase: 2.45, speed: 3.55, height: 1.45, dist: 2.9, scale: 1.2 },
+      { x: -6.35, z: 3.1, dirZ: -1.0, phase: 3.25, speed: 3.25, height: 1.7, dist: 3.3, scale: 1.3 },
+      { x: -5.05, z: -2.4, dirZ: -1.0, phase: 4.15, speed: 3.4, height: 1.52, dist: 3.0, scale: 1.24 },
+      { x: -6.85, z: -0.35, dirZ: -1.0, phase: 5.05, speed: 3.1, height: 1.84, dist: 3.5, scale: 1.36 },
+      { x: -4.65, z: 3.85, dirZ: -1.0, phase: 5.75, speed: 3.45, height: 1.5, dist: 3.1, scale: 1.22 },
     ];
 
     for (const sl of slots) {
@@ -308,11 +436,11 @@ class KavengaIntroDirector {
 
   _resolveEnvironmentStage(t) {
     if (t < T_CUT_STARRY_NIGHT) return 0;      // Midday pure ocean
-    if (t < T_CUT_TWILIGHT_CLOUDS) return 1;   // Abrupt cut -> Clear bright starry night
-    if (t < T_CUT_DAY_BIRDS) return 2;         // Abrupt cut -> Twilight + marching clouds
-    if (t < T_CUT_FOG_NIGHT_FISH) return 3;    // Abrupt cut -> Day + flocks of flying birds
-    if (t < T_CUT_DUSK_FINALE) return 4;       // Abrupt cut -> Foggy night + jumping fish
-    return 5;                                  // Abrupt cut -> Dusk sunset behind canoe -> Nightfall
+    if (t < T_CUT_TWILIGHT_CLOUDS) return 1;   // Cut 1 (1.9s): Clear bright starry night
+    if (t < T_CUT_DAY_BIRDS) return 2;         // Cut 2 (1.9s): Twilight + 2x marching clouds
+    if (t < T_CUT_FOG_NIGHT_FISH) return 3;    // Cut 3 (1.9s): Day + Huahine + homing bird flocks
+    if (t < T_CUT_DUSK_FINALE) return 4;       // Cut 4 (1.9s): Foggy night + jumping fish
+    return 5;                                  // Cut 5: Dusk sunset behind canoe -> Nightfall
   }
 
   _applyEnvironmentForTime(t, dtSec) {
@@ -323,8 +451,7 @@ class KavengaIntroDirector {
     let solarHour = 12.2;
     let weather = 'clear';
     let showClouds = false;
-    let cloudSpeedBoost = 1.0;
-    let showBirds = false;
+    let showDayHuahineAndBirds = false;
     let showFish = false;
     let instantFog = 0.0;
 
@@ -332,29 +459,24 @@ class KavengaIntroDirector {
       // 1. Mid-ocean midday: nothing around but ocean & waves
       solarHour = 12.2;
       weather = 'clear';
-      showClouds = false;
     } else if (stage === 1) {
       // 2. Abrupt cut -> Nighttime with bright stars & Milky Way clearly visible
       solarHour = 23.15;
       weather = 'clear';
-      showClouds = false;
     } else if (stage === 2) {
-      // 3. Abrupt cut -> Warm twilight with marching trade-wind clouds moving
-      solarHour = 18.18;
+      // 3. Abrupt cut -> Warm twilight with 2x (30) marching trade-wind clouds filling the sky
+      solarHour = 18.08;
       weather = 'clear';
       showClouds = true;
-      cloudSpeedBoost = 4.2;
     } else if (stage === 3) {
-      // 4. Abrupt cut -> Bright day again with flocks of seabirds flying
-      solarHour = 9.25;
+      // 4. Abrupt cut -> Bright morning sunlight from over-shoulder (-X) illuminating Huahine & bird flocks!
+      solarHour = 9.55;
       weather = 'clear';
-      showClouds = false;
-      showBirds = true;
+      showDayHuahineAndBirds = true;
     } else if (stage === 4) {
       // 5. Abrupt cut -> Night and foggy, silver fish jumping next to the canoe
       solarHour = 22.4;
       weather = 'sea_fog';
-      showClouds = false;
       showFish = true;
       instantFog = 0.86;
     } else {
@@ -362,7 +484,6 @@ class KavengaIntroDirector {
       const sunsetProgress = smootherstep(T_CUT_DUSK_FINALE, T_SUNSET_COMPLETE, t);
       solarHour = lerp(17.74, 18.92, sunsetProgress);
       weather = 'clear';
-      showClouds = false;
       instantFog = 0.0;
     }
 
@@ -378,29 +499,54 @@ class KavengaIntroDirector {
       this.oceanRenderer.curSeaFog = instantFog;
     }
 
-    // Update WorldCuesRenderer (marching clouds during Stage 2, hidden otherwise)
+    // Update Stage 2 Camera-Framed 2x (30) Marching Twilight Clouds
+    this.introCloudsGroup.visible = showClouds;
     if (showClouds) {
-      this.worldCues.group.visible = true;
-      this.worldCues.tradeCloudGroup.visible = true;
-      this.worldCues.tradeFogOpacity = 1.0;
-      this.worldCues.update(dtSec * cloudSpeedBoost, t, this.oceanSim);
-      this.worldCues.birdFlockGroup.visible = false;
-      this.worldCues.fishGroup.visible = false;
-      this.worldCues.frondGroup.visible = false;
-    } else {
-      this.worldCues.group.visible = false;
-      this.worldCues._activeCloudOccluders.length = 0;
+      const localCloudT = t - T_CUT_TWILIGHT_CLOUDS;
+      for (const tc of this.introTwilightClouds) {
+        tc.holder.position.set(
+          tc.startX + tc.vx * localCloudT,
+          tc.startY,
+          tc.startZ + tc.vz * localCloudT
+        );
+        updateCloudMaterialUniforms(tc.mat, {
+          sunDir: TWILIGHT_CLOUD_SUN_DIR,
+          daylight: 0.28,
+          twilight: 0.98,
+          opacity: 0.96,
+          lapaGlow: 0.0,
+          elapsedSec: t,
+        });
+      }
     }
 
-    // Update Stage 3 Daylight Seabird Flocks
-    this.introBirdsGroup.visible = showBirds;
-    if (showBirds) {
+    // Update Stage 3 Sculpted Huahine & Homing Seabird Flocks Flying Toward Huahine
+    this.introHuahineGroup.visible = showDayHuahineAndBirds;
+    this.introBirdsGroup.visible = showDayHuahineAndBirds;
+    if (showDayHuahineAndBirds) {
+      const sun = this.oceanSim.sunState;
+      const sunVec = altAzToDirectionVec3(
+        sun.altDeg,
+        sun.azDeg,
+        this.oceanSim.headingDeg
+      );
+      if (this.introHuahinePeakMat) {
+        updateCloudMaterialUniforms(this.introHuahinePeakMat, {
+          sunDir: sunVec,
+          daylight: sun.daylightFactor,
+          twilight: sun.twilightFactor,
+          opacity: 0.94,
+          lapaGlow: 0.0,
+          elapsedSec: t,
+        });
+      }
+
       const localT = t - T_CUT_DAY_BIRDS;
       for (const b of this.introBirds) {
         this.worldCues.animateSeabird(b.entry, t, b.phase, b.speedScale);
         b.holder.position.set(
           b.startX + b.vx * localT,
-          b.startY + b.entry.bobY * 2.2 + Math.sin(t * 1.8 + b.phase) * 0.18,
+          b.startY + b.vy * localT + b.entry.bobY * 2.2 + Math.sin(t * 1.9 + b.phase) * 0.14,
           b.startZ + b.vz * localT
         );
       }
@@ -412,25 +558,21 @@ class KavengaIntroDirector {
     if (showFish) {
       for (const f of this.introFish) {
         const cycle = (t * f.speed + f.phase) % (Math.PI * 2.0);
-        // Leap occurs during cycle in [0, PI]; underwater glide during [PI, 2*PI]
         const sinC = Math.sin(cycle);
         const inAir = sinC > -0.18;
         f.mesh.visible = inAir;
 
         if (inAir) {
-          const u = cycle / Math.PI; // ~0 at breach, ~0.5 at apex, ~1.0 at splashdown
+          const u = cycle / Math.PI;
           const arcZ = f.z + (u - 0.5) * f.dist * f.dirZ;
           const arcY = sinC * f.height;
           f.mesh.position.set(f.x, arcY, arcZ);
-          // Bonito nose is +X in local space: rotateY(+PI/2) aims nose toward -Z (forward alongside canoe!),
-          // and rotation.z pitches nose up on breach (+cosC) and nose down on dive (-cosC)!
           f.mesh.rotation.set(0.0, Math.PI * 0.5, Math.cos(cycle) * 0.72);
           if (f.tailPivot) {
             f.tailPivot.rotation.y = Math.sin(t * 22.0 + f.phase * 2.7) * 0.34;
           }
         }
 
-        // Expanding water-surface splash ring on breach (cycle ~ 0) & re-entry (cycle ~ PI)
         const distEntry = Math.abs(cycle - 0.08);
         const distExit = Math.abs(cycle - Math.PI);
         const splashAge =
@@ -480,7 +622,7 @@ class KavengaIntroDirector {
     } else if (t <= T_ARRIVE_BEHIND_NAVIGATOR) {
       // Cinematic swoop around port (-X) into the stern "canoe view" behind the child navigator
       const u = smootherstep(T_MOVE_TO_STERN_START, T_ARRIVE_BEHIND_NAVIGATOR, t);
-      const angle = lerp(-2.32, 0.0, u); // Sweeps from ahead-port (-133 deg) around port to astern (0)
+      const angle = lerp(-2.32, 0.0, u);
       const radius = lerp(27.0, 8.55, u);
       const camX = Math.sin(angle) * radius - 0.38 * u;
       const camZ = Math.cos(angle) * radius;
