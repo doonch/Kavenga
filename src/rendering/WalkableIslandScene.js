@@ -211,6 +211,21 @@ export class WalkableIslandScene {
         }
       }
     }
+
+    // Fill any single-cell polar pinhole (e.g. r=0.04m center of polar terrain meshes)
+    for (let gz = 1; gz < N; gz += 1) {
+      for (let gx = 1; gx < N; gx += 1) {
+        const cell = gz * stride + gx;
+        if (this.heightGrid[cell] > -3.99) continue;
+        const n0 = this.heightGrid[cell - 1];
+        const n1 = this.heightGrid[cell + 1];
+        const n2 = this.heightGrid[cell - stride];
+        const n3 = this.heightGrid[cell + stride];
+        if (n0 > 0 && n1 > 0 && n2 > 0 && n3 > 0) {
+          this.heightGrid[cell] = (n0 + n1 + n2 + n3) * 0.25;
+        }
+      }
+    }
   }
 
   _loadIsland(islandId) {
@@ -253,6 +268,86 @@ export class WalkableIslandScene {
     // 4. Add subtle diegetic POI threshold rings, teaching sand circle, NPCs & lagoon terns
     this._buildPoiMarkersAndAshoreProps(resolvedId);
     this._buildPoiWorldLabels();
+  }
+
+  _buildRaiateaSummitStonePath(basaltMat, coralStoneMat, addKukuiTorch) {
+    const waypoints = [
+      new THREE.Vector3(4.5, 0, 50.5), // Trailhead beside Marae Taputapuatea & Fare Pote'e
+      new THREE.Vector3(14.5, 0, 44.5), // Coastal curve onto gentle eastern ridge
+      new THREE.Vector3(21.0, 0, 32.5), // Lower ridge bend overlooking lagoon
+      new THREE.Vector3(17.2, 0, 20.5), // Mid-slope ascent along open ridge
+      new THREE.Vector3(10.0, 0, 11.8), // Upper ridge shoulder
+      new THREE.Vector3(3.4, 0, 5.2), // Summit Observation Knoll entrance
+    ];
+    const curve = new THREE.CatmullRomCurve3(waypoints);
+    const stepCount = 34;
+    const stepGeo = new THREE.CylinderGeometry(0.58, 0.7, 0.14, 7);
+    const kerbGeo = new THREE.DodecahedronGeometry(0.26, 0);
+
+    for (let i = 0; i <= stepCount; i += 1) {
+      const t = i / stepCount;
+      const p = curve.getPoint(t);
+      const tan = curve.getTangent(t);
+      const perpX = -tan.z;
+      const perpZ = tan.x;
+      const perpLen = Math.hypot(perpX, perpZ) || 1.0;
+      const nx = perpX / perpLen;
+      const nz = perpZ / perpLen;
+
+      // Subtle natural stagger left/right for hand-laid stepping stones
+      const stagger = (i % 2 === 0 ? 1 : -1) * 0.24;
+      const sx = p.x + nx * stagger;
+      const sz = p.z + nz * stagger;
+      const sy = this.getGroundHeight(sx, sz);
+      if (sy < 0.15) continue;
+
+      // Estimate local forward slope so stepping stone hugs the hillside
+      const fDist = 0.65;
+      const hAhead = this.getGroundHeight(sx + tan.x * fDist, sz + tan.z * fDist);
+      const hBehind = this.getGroundHeight(sx - tan.x * fDist, sz - tan.z * fDist);
+      const pitch = Math.atan2(hAhead - hBehind, fDist * 2.0);
+
+      const stone = new THREE.Mesh(
+        stepGeo,
+        i % 3 === 0 ? coralStoneMat : basaltMat
+      );
+      stone.position.set(sx, sy + 0.04, sz);
+      stone.rotation.order = 'YXZ';
+      stone.rotation.y = Math.atan2(tan.x, tan.z) + (i % 5) * 0.18;
+      stone.rotation.x = -pitch * 0.85;
+      stone.scale.set(
+        1.0 + (i % 3) * 0.12,
+        1.0,
+        0.88 + ((i + 1) % 3) * 0.14
+      );
+      stone.receiveShadow = true;
+      this.root.add(stone);
+
+      // Flanking coral & basalt border kerb stones every step to guide the eye uphill
+      for (const side of [-1, 1]) {
+        if (i % 2 === 1 && side === -1) continue;
+        const kx = p.x + nx * side * (1.12 + (i % 2) * 0.14);
+        const kz = p.z + nz * side * (1.12 + (i % 2) * 0.14);
+        const ky = this.getGroundHeight(kx, kz);
+        if (ky < 0.15) continue;
+
+        const kerb = new THREE.Mesh(
+          kerbGeo,
+          (i + (side > 0 ? 1 : 0)) % 2 === 0 ? coralStoneMat : basaltMat
+        );
+        kerb.position.set(kx, ky + 0.08, kz);
+        kerb.scale.set(1.25, 0.68, 1.05);
+        kerb.rotation.y = i * 0.9 + side;
+        kerb.castShadow = true;
+        kerb.receiveShadow = true;
+        this.root.add(kerb);
+      }
+    }
+
+    // Warm kukui-nut torch markers at trailhead, ridge bend, and summit approach
+    addKukuiTorch(5.6, 49.4, 1.65);
+    addKukuiTorch(22.2, 32.0, 1.65);
+    addKukuiTorch(11.0, 11.2, 1.65);
   }
 
   _buildPoiMarkersAndAshoreProps(islandId) {
@@ -317,6 +412,14 @@ export class WalkableIslandScene {
 
       this.root.add(tGrp);
     };
+
+    if (islandId === 'raiatea') {
+      this._buildRaiateaSummitStonePath(
+        basaltMat,
+        coralStoneMat,
+        addKukuiTorch
+      );
+    }
 
     for (const poi of this.spec.pois) {
       const groundY = this.getGroundHeight(poi.x, poi.z);

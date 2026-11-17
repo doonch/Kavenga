@@ -89,6 +89,17 @@ export class AchievementsManager {
     this.loadFromStorage();
   }
 
+  clearSavedAchievements() {
+    this.unlocked = {};
+    this.masterCompletedSongs = {};
+    if (!this._storage) return;
+    try {
+      this._storage.removeItem(ACHIEVEMENTS_STORAGE_KEY);
+    } catch (_err) {
+      // Ignore storage access errors in restricted browsing modes.
+    }
+  }
+
   onUnlock(listener) {
     if (typeof listener === 'function') {
       this._listeners.push(listener);

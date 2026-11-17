@@ -80,31 +80,49 @@ function evalRaiateaPoint(x, z) {
     return { h: lagoonDepth, u, ridgeFactor: 0.0, isBeachCove: false, isPlateau: false };
   }
 
-  // Coastal apron transitioning into steep volcanic massif
+  // Coastal apron transitioning into volcanic massif (50% lower for panoramic hilltop observation)
   const inland = 1.0 - u;
-  const baseDome = 58.0 * Math.pow(smoothstep(0.04, 0.88, inland), 1.32);
+  const baseDome = 29.0 * Math.pow(smoothstep(0.04, 0.88, inland), 1.32);
 
-  // 7 dramatic eroded radial basalt ridges & deep lush valleys
+  // 7 eroded radial basalt ridges & lush valleys
   const twistTheta = theta + 0.18 * Math.sin(2.0 * theta) + 0.12 * inland;
   const ridgeRaw = 0.5 + 0.5 * Math.cos(7.0 * twistTheta - 0.4);
   const ridgeSharp = Math.pow(ridgeRaw, 1.85);
   const ridgeEnv = smoothstep(0.08, 0.36, inland) * smoothstep(0.95, 0.52, inland);
-  const ridgeRelief = (ridgeSharp - 0.32) * 18.5 * ridgeEnv;
+  const ridgeRelief = (ridgeSharp - 0.32) * 9.2 * ridgeEnv;
 
   // Secondary peak spur on the aft/south flank
   const southPeakDist = Math.hypot(sx + 6.0, sz - 12.5);
-  const southSpur = 14.5 * Math.exp(-Math.pow(southPeakDist / 12.0, 2.0));
+  const southSpur = 7.2 * Math.exp(-Math.pow(southPeakDist / 12.0, 2.0));
 
   let h = Math.max(0.0, baseDome + ridgeRelief + southSpur);
 
-  // Iconic flat-topped sacred Mount Temehani plateau truncation above 52m with subtle rim
+  // Iconic flat-topped sacred Mount Temehani plateau truncation above ~25m
   let isPlateau = false;
-  if (h > 50.5) {
-    const over = h - 50.5;
-    h = 50.5 + Math.min(5.2, over * 0.24);
+  if (h > 25.2) {
+    const over = h - 25.2;
+    h = 25.2 + Math.min(2.6, over * 0.24);
     // Subtle plateau rim lip
     const centerDist = Math.hypot(sx - 1.5, sz + 2.0);
-    h += 1.4 * Math.exp(-Math.pow((centerDist - 6.8) / 2.4, 2.0));
+    h += 0.7 * Math.exp(-Math.pow((centerDist - 6.8) / 2.4, 2.0));
+    isPlateau = true;
+  }
+
+  // Gentle walkable eastern ridge face (theta ~ -1.05 rad -> world +X/+Z) leading smoothly to hilltop
+  const rampAngDiff = Math.abs(Math.atan2(Math.sin(theta + 1.05), Math.cos(theta + 1.05)));
+  if (rampAngDiff < 0.72 && u < 0.96) {
+    const angMask = smoothstep(0.72, 0.22, rampAngDiff);
+    const rampT = clamp01((inland - 0.02) / 0.84);
+    const rampProfile = lerp(1.0, 26.8, rampT);
+    const rampBlend = angMask * smoothstep(0.96, 0.86, u);
+    h = lerp(h, rampProfile, rampBlend * 0.96);
+  }
+
+  // Level summit clearing at the top of the hill for the Observation Knoll
+  const summitDist = Math.hypot(sx, sz);
+  if (summitDist < 7.2) {
+    const flatBlend = smoothstep(7.2, 3.6, summitDist);
+    h = lerp(h, 26.8, flatBlend);
     isPlateau = true;
   }
 
@@ -977,8 +995,8 @@ export function createDetailedIslandAssembly(islandId) {
       })
     );
     waterfallMat.userData.baseOpacity = 0.82;
-    const fallRibbon = new THREE.Mesh(new THREE.PlaneGeometry(1.65, 22.0), waterfallMat);
-    fallRibbon.position.set(-11.8, 31.5, -10.5);
+    const fallRibbon = new THREE.Mesh(new THREE.PlaneGeometry(1.45, 11.5), waterfallMat);
+    fallRibbon.position.set(-11.8, 15.8, -10.5);
     fallRibbon.rotation.y = -2.35;
     fallRibbon.rotation.x = -0.44;
     group.add(fallRibbon);

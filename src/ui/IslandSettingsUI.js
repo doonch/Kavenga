@@ -46,20 +46,7 @@ export class IslandSettingsUI {
             <button class="walkable-close-btn" id="btnCloseIslandSettings" type="button" title="Close Settings (Esc)">✕</button>
           </div>
 
-          <!-- 1. Sound On / Off -->
-          <div class="settings-section">
-            <div class="settings-section-label">Sound</div>
-            <div class="settings-sound-toggle" role="group" aria-label="Sound On or Off">
-              <button class="settings-sound-btn" data-sound="on" id="btnSettingsSoundOn" type="button">
-                🔊 Sound On
-              </button>
-              <button class="settings-sound-btn" data-sound="off" id="btnSettingsSoundOff" type="button">
-                🔇 Sound Off
-              </button>
-            </div>
-          </div>
-
-          <!-- 2. Difficulty: The Four Defined Levels -->
+          <!-- 1. Difficulty: The Four Defined Levels -->
           <div class="settings-section">
             <div class="settings-section-label">Difficulty &amp; Wayfinder Persona</div>
             <div class="mode-selector-grid" id="settingsDifficultyGrid">
@@ -82,22 +69,11 @@ export class IslandSettingsUI {
             </div>
           </div>
 
-          <!-- 3. Achievements Gallery Shortcut -->
-          <div class="settings-section settings-reset-row">
-            <div class="settings-reset-copy">
-              <strong>🏆 Wayfinder Achievements</strong>
-              <span>Review extraordinary feats unlocked across your voyages (preserved across resets).</span>
-            </div>
-            <button class="secondary-btn" id="btnSettingsOpenAchievements" type="button">
-              🏆 View Achievements
-            </button>
-          </div>
-
-          <!-- 4. Start Over (gated by confirmation popup) -->
+          <!-- 2. Start Over (gated by confirmation popup) -->
           <div class="settings-section settings-reset-row">
             <div class="settings-reset-copy">
               <strong>Start Over</strong>
-              <span>Erase saved campaign progress and begin anew on Ra'iatea (unlocked achievements are kept).</span>
+              <span>Erase saved campaign progress and begin anew on Ra'iatea.</span>
             </div>
             <button class="danger-outline-btn" id="btnSettingsStartOver" type="button">
               ↺ Start Over...
@@ -117,6 +93,10 @@ export class IslandSettingsUI {
             <p class="dialog-sub">
               This will erase all discovered islands, learned star-path chants, recruited crewmates, and canoe upgrades, and reload your journey at the starting shore of Ra'iatea.
             </p>
+            <label class="settings-reset-checkbox">
+              <input type="checkbox" id="chkDeleteAchievements" />
+              <span>Also delete all unlocked achievements</span>
+            </label>
             <div class="dialog-actions">
               <button class="secondary-btn" id="btnCancelStartOver" type="button">Cancel</button>
               <button class="danger-solid-btn" id="btnConfirmStartOver" type="button">Yes, Erase &amp; Start Over</button>
@@ -144,23 +124,7 @@ export class IslandSettingsUI {
       }
     });
 
-    // 1. Sound On / Off handlers
-    this.rootEl
-      .querySelector('#btnSettingsSoundOn')
-      .addEventListener('click', (e) => {
-        e.currentTarget.blur();
-        this.callbacks.onSetSoundMuted?.(false);
-        this.refresh();
-      });
-    this.rootEl
-      .querySelector('#btnSettingsSoundOff')
-      .addEventListener('click', (e) => {
-        e.currentTarget.blur();
-        this.callbacks.onSetSoundMuted?.(true);
-        this.refresh();
-      });
-
-    // 2. Difficulty level handlers
+    // 1. Difficulty level handlers
     this.rootEl.querySelectorAll('[data-difficulty]').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.currentTarget.blur();
@@ -170,15 +134,7 @@ export class IslandSettingsUI {
       });
     });
 
-    // 3. View Achievements shortcut + Start Over confirmation handlers
-    this.rootEl
-      .querySelector('#btnSettingsOpenAchievements')
-      .addEventListener('click', (e) => {
-        e.currentTarget.blur();
-        this.hide();
-        this.callbacks.onOpenAchievements?.();
-      });
-
+    // 2. Start Over confirmation handlers
     const confirmModal = this.rootEl.querySelector('#startOverConfirmModal');
     this.rootEl
       .querySelector('#btnSettingsStartOver')
@@ -201,7 +157,10 @@ export class IslandSettingsUI {
       .querySelector('#btnConfirmStartOver')
       .addEventListener('click', (e) => {
         e.currentTarget.blur();
-        this.callbacks.onConfirmStartOver?.();
+        const deleteAchievements = Boolean(
+          this.rootEl.querySelector('#chkDeleteAchievements')?.checked
+        );
+        this.callbacks.onConfirmStartOver?.({ deleteAchievements });
       });
 
     window.addEventListener(
@@ -221,6 +180,10 @@ export class IslandSettingsUI {
 
   _setConfirmResetOpen(isOpen) {
     this.confirmResetOpen = Boolean(isOpen);
+    if (this.confirmResetOpen) {
+      const chk = this.rootEl.querySelector('#chkDeleteAchievements');
+      if (chk) chk.checked = false;
+    }
     this.rootEl
       .querySelector('#startOverConfirmModal')
       ?.classList.toggle('hidden', !this.confirmResetOpen);
@@ -246,15 +209,7 @@ export class IslandSettingsUI {
 
   refresh() {
     const gs = this.callbacks.getGameState?.();
-    const isMuted = Boolean(this.callbacks.getIsSoundMuted?.());
     const diff = gs?.difficulty || Difficulty.MEDIUM;
-
-    this.rootEl
-      .querySelector('#btnSettingsSoundOn')
-      ?.classList.toggle('active', !isMuted);
-    this.rootEl
-      .querySelector('#btnSettingsSoundOff')
-      ?.classList.toggle('active', isMuted);
 
     this.rootEl.querySelectorAll('[data-difficulty]').forEach((btn) => {
       btn.classList.toggle(

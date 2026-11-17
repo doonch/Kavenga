@@ -629,6 +629,9 @@ export class SkyVigilUI {
     this.rootEl
       .querySelector('#vigilPaneQuiz')
       .classList.toggle('hidden', this.mode !== 'quiz');
+    this.rootEl
+      .querySelector('.vigil-controls-card')
+      ?.classList.toggle('hidden', this.mode === 'guided');
   }
 
   setMode(nextMode) {
@@ -816,9 +819,14 @@ export class SkyVigilUI {
     lesson.beats.forEach((bItem, idx) => {
       const b = document.createElement('button');
       b.type = 'button';
-      const passed = idx < this.guidedBeatIndex || alreadyLearned;
-      b.className = `vigil-step-dot ${idx === this.guidedBeatIndex ? 'active' : ''} ${passed ? 'sighted' : ''}`;
-      b.textContent = `Step ${idx + 1}`;
+      const filled = idx <= this.guidedBeatIndex || alreadyLearned;
+      const isCurrent = idx === this.guidedBeatIndex;
+      b.className = `vigil-step-dot ${filled ? 'filled' : ''} ${isCurrent ? 'active' : ''}`;
+      b.setAttribute(
+        'aria-label',
+        `${bItem.heading} (${idx + 1} of ${lesson.beats.length})`
+      );
+      b.title = bItem.heading;
       b.addEventListener('click', () => this.setGuidedBeat(idx, false));
       stepsEl.appendChild(b);
     });
@@ -838,7 +846,7 @@ export class SkyVigilUI {
       hintEl.textContent =
         'Night-Wheel Play is active — watch how the stars move across the sky dome.';
     } else {
-      hintEl.textContent = `Guided Night-Sky Teaching · Step ${this.guidedBeatIndex + 1} of ${lesson.beats.length}`;
+      hintEl.textContent = `Guided Night-Sky Teaching · ${beat.heading}`;
     }
 
     const badge = this.rootEl.querySelector('#vigilGuidedStatusBadge');

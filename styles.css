@@ -1730,30 +1730,34 @@ body {
 
 .vigil-chapter-steps {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .vigil-step-dot {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text-muted);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 999px;
-  padding: 2px 9px;
-  font-size: 11px;
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  border: 1.5px solid rgba(232, 198, 142, 0.5);
   cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.15s ease;
+}
+
+.vigil-step-dot:hover {
+  border-color: var(--sand-gold);
+  transform: scale(1.15);
+}
+
+.vigil-step-dot.filled {
+  background: var(--sand-gold);
+  border-color: var(--sand-gold);
 }
 
 .vigil-step-dot.active {
-  border-color: var(--sand-gold);
-  background: rgba(231, 181, 99, 0.24);
-  color: #ffe9ba;
-  font-weight: 600;
-}
-
-.vigil-step-dot.sighted {
-  border-color: rgba(62, 240, 208, 0.55);
-  color: var(--lapa-jade);
+  box-shadow: 0 0 0 3px rgba(231, 181, 99, 0.28);
 }
 
 .vigil-card-heading {
@@ -2624,6 +2628,27 @@ body {
 .settings-reset-copy span {
   font-size: 12px;
   color: var(--text-muted);
+}
+
+.settings-reset-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 2px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: rgba(212, 101, 66, 0.08);
+  border: 1px solid rgba(212, 101, 66, 0.28);
+  color: var(--sand-warm);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.settings-reset-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #e45d42;
+  cursor: pointer;
 }
 
 .danger-outline-btn {

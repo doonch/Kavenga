@@ -38,8 +38,8 @@ export const WALKABLE_ISLAND_SPECS = Object.freeze({
       camYawRad: 0.24,
     }),
     vigilExitSpawn: Object.freeze({
-      x: 18.8,
-      z: 49.0,
+      x: 0.0,
+      z: 5.5,
       facingYawRad: 0.0,
     }),
     mooredCanoe: Object.freeze({
@@ -102,15 +102,15 @@ export const WALKABLE_ISLAND_SPECS = Object.freeze({
         promptHint: 'Study Teaching Sand & Sky Circle',
         circleDesc:
           'From this breezy basalt stone ring overlooking the reef pass, wayfinders trace wave, cloud, and wake lessons in swept coral sand — or watch the constellations wheel overhead in stillness.',
-        x: 20.5,
-        z: 47.5,
-        triggerRadiusM: 5.6,
-        markerRadiusM: 3.6,
+        x: 0.0,
+        z: 0.0,
+        triggerRadiusM: 6.2,
+        markerRadiusM: 4.0,
         arrivalSpot: Object.freeze({
-          x: 18.8,
-          z: 49.0,
-          facingYawRad: 0.0,
-          camYawRad: 0.08,
+          x: 3.5,
+          z: 5.0,
+          facingYawRad: 0.55,
+          camYawRad: 0.48,
         }),
       }),
       Object.freeze({

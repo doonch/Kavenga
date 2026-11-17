@@ -196,11 +196,8 @@ class KavengaApp {
 
     this.islandSettingsUI = new IslandSettingsUI(this.settingsRootEl, {
       getGameState: () => this.gameState,
-      getIsSoundMuted: () => this.chantEngine.muted,
-      onSetSoundMuted: (muted) => this.setSoundMuted(muted),
       onChangeDifficulty: (mode) => this.setDifficulty(mode),
-      onOpenAchievements: () => this.openIslandAchievements(),
-      onConfirmStartOver: () => this.resetCampaignAndReload(),
+      onConfirmStartOver: (opts) => this.resetCampaignAndReload(opts),
       onClose: () => {
         this.cameraCtrl.keysDown.clear();
       },
@@ -1027,13 +1024,16 @@ class KavengaApp {
     }
   }
 
-  resetCampaignAndReload() {
+  resetCampaignAndReload({ deleteAchievements = false } = {}) {
     this.islandSettingsUI.hide();
     this.achievementsUI.hideModal();
     this.elderVigilPromptUI.hide();
     this.chantEngine.stop();
     this.spatialAudio.stop();
     this.gameState.clearSavedProgress();
+    if (deleteAchievements) {
+      this.achievementsManager.clearSavedAchievements();
+    }
     if (typeof window !== 'undefined') {
       window.location.assign(window.location.pathname || './');
     }
