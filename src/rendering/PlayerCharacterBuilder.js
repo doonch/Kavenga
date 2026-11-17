@@ -176,11 +176,188 @@ function createPareuSkirtMesh({
 }
 
 /**
+ * Piecewise-linearly samples the lofted torso cross-section `{ rx, rz, oz }` at local height `y`.
+ */
+function sampleTorsoEllipse(torsoRings, y) {
+  if (y <= torsoRings[0].y) {
+    const r0 = torsoRings[0];
+    return { rx: r0.rx, rz: r0.rz, oz: r0.oz ?? 0.0 };
+  }
+  const last = torsoRings[torsoRings.length - 1];
+  if (y >= last.y) {
+    return { rx: last.rx, rz: last.rz, oz: last.oz ?? 0.0 };
+  }
+  for (let i = 0; i < torsoRings.length - 1; i += 1) {
+    const a = torsoRings[i];
+    const b = torsoRings[i + 1];
+    if (y >= a.y && y <= b.y) {
+      const t = (y - a.y) / Math.max(1e-6, b.y - a.y);
+      return {
+        rx: a.rx + (b.rx - a.rx) * t,
+        rz: a.rz + (b.rz - a.rz) * t,
+        oz: (a.oz ?? 0.0) + ((b.oz ?? 0.0) - (a.oz ?? 0.0)) * t,
+      };
+    }
+  }
+  return { rx: last.rx, rz: last.rz, oz: last.oz ?? 0.0 };
+}
+
+/**
+ * Builds a closed, 3D surface-conforming crossbody cord (`easy`) or folded barkcloth
+ * kihei shoulder sash (`medium`) that hugs the exact lofted torso contour from one
+ * shoulder diagonally across the chest and back to the opposite hip without gaps or clipping.
+ */
+function createTorsoCrossbodyBandMesh({
+  torsoRings,
+  torsoH,
+  shoulderSide = 1, // +1 = right shoulder to left hip; -1 = left shoulder to right hip
+  halfWidth = 0.014,
+  thickness = 0.005,
+  liftM = 0.003,
+  variant = 'braided_cord', // 'braided_cord' | 'kihei_sash'
+}) {
+  const segU = 64;
+  const segW = 4; // width subdivisions across [-halfWidth .. +halfWidth]
+
+  const evalCenterPoint = (alpha) => {
+    const lat = shoulderSide * Math.cos(alpha);
+    const fb = -Math.sin(alpha);
+    const phi = Math.atan2(fb, lat);
+    const tUp = 0.5 * (1.0 + Math.cos(alpha));
+    const yHip = 0.022;
+    const yShoulder = torsoH * 0.948;
+    const y = yHip + (yShoulder - yHip) * Math.pow(tUp, 0.92);
+    const { rx, rz, oz } = sampleTorsoEllipse(torsoRings, y);
+    return new THREE.Vector3(
+      Math.cos(phi) * (rx + liftM),
+      y,
+      oz + Math.sin(phi) * (rz + liftM)
+    );
+  };
+
+  const evalOutwardNormal = (p) => {
+    const { rx, rz, oz } = sampleTorsoEllipse(torsoRings, p.y);
+    const nx = p.x / Math.max(1e-4, rx * rx);
+    const nz = (p.z - oz) / Math.max(1e-4, rz * rz);
+    // Account for upward shoulder taper near collarbone so shoulder normal points up-and-out
+    const ny = p.y > torsoH * 0.88 ? 0.55 / Math.max(1e-3, rx) : 0.06;
+    return new THREE.Vector3(nx, ny, nz).normalize();
+  };
+
+  const projectOntoTorso = (rawPt, extraLift) => {
+    const clampedY = Math.max(-0.015, Math.min(torsoH * 1.01, rawPt.y));
+    const { rx, rz, oz } = sampleTorsoEllipse(torsoRings, clampedY);
+    const phi = Math.atan2(rawPt.z - oz, rawPt.x);
+    const totLift = liftM + extraLift;
+    return new THREE.Vector3(
+      Math.cos(phi) * (rx + totLift),
+      clampedY,
+      oz + Math.sin(phi) * (rz + totLift)
+    );
+  };
+
+  const positions = [];
+  const colors = [];
+  const indices = [];
+
+  const ringCount = segW * 2; // closed perimeter around band cross-section (outer face + inner face)
+  const eps = 0.025;
+
+  const sampleBandColor = (u, wNorm) => {
+    if (variant === 'kihei_sash') {
+      // Warm golden-ochre mulberry tapa barkcloth with traditional dark umber & madder border stripes
+      const ochre = [0.84, 0.67, 0.43];
+      const madder = [0.64, 0.23, 0.14];
+      const umber = [0.22, 0.13, 0.09];
+      const edge = Math.abs(wNorm);
+      const chevron = Math.abs(((u * 26.0) % 1.0) * 2.0 - 1.0);
+      if (edge > 0.82) return umber;
+      if (edge > 0.62) return edge - 0.62 > chevron * 0.14 ? madder : ochre;
+      return ochre;
+    }
+    // Braided pandanus & sennit pouch cord (warm woven golden-brown chevrons, never bone-white)
+    const braidA = [0.66, 0.46, 0.24];
+    const braidB = [0.46, 0.29, 0.15];
+    const twist = Math.sin(u * Math.PI * 44.0 + wNorm * 2.4);
+    return twist >= 0.0 ? braidA : braidB;
+  };
+
+  for (let iu = 0; iu < segU; iu += 1) {
+    const u = iu / segU;
+    const alpha = u * Math.PI * 2.0;
+    const c0 = evalCenterPoint(alpha);
+    const cPrev = evalCenterPoint(alpha - eps);
+    const cNext = evalCenterPoint(alpha + eps);
+    const tangent = cNext.clone().sub(cPrev).normalize();
+    const normal = evalOutwardNormal(c0);
+    const binormal = new THREE.Vector3().crossVectors(tangent, normal).normalize();
+
+    // Closed cross-section loop:
+    //   k = 0 .. segW: outer face from -halfWidth to +halfWidth
+    //   k = segW+1 .. 2*segW-1: inner skin-hugging face returning from +halfWidth to -halfWidth
+    for (let k = 0; k < ringCount; k += 1) {
+      let wNorm;
+      let isOuter;
+      if (k <= segW) {
+        wNorm = (k / segW) * 2.0 - 1.0;
+        isOuter = true;
+      } else {
+        const backIdx = ringCount - k;
+        wNorm = (backIdx / segW) * 2.0 - 1.0;
+        isOuter = false;
+      }
+
+      const wOff = wNorm * halfWidth;
+      const candidate = c0.clone().addScaledVector(binormal, wOff);
+      const edgeRound = Math.sqrt(Math.max(0.0, 1.0 - wNorm * wNorm * 0.88));
+      const extraLift = isOuter ? thickness * edgeRound : 0.0;
+      const pt = projectOntoTorso(candidate, extraLift);
+
+      positions.push(pt.x, pt.y, pt.z);
+      const col = sampleBandColor(u, wNorm);
+      const shade = isOuter ? 1.0 : 0.82;
+      colors.push(col[0] * shade, col[1] * shade, col[2] * shade);
+    }
+  }
+
+  for (let iu = 0; iu < segU; iu += 1) {
+    const iuNext = (iu + 1) % segU;
+    const rowA = iu * ringCount;
+    const rowB = iuNext * ringCount;
+    for (let k = 0; k < ringCount; k += 1) {
+      const kNext = (k + 1) % ringCount;
+      const a0 = rowA + k;
+      const a1 = rowA + kNext;
+      const b0 = rowB + k;
+      const b1 = rowB + kNext;
+      indices.push(a0, b0, b1, a0, b1, a1);
+    }
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+
+  const mat = new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 0.85,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+/**
  * Builds a ceremonial Kahu Tapa voyaging shoulder cloak draping down the Master Navigator's back (+Z).
+ * Deformed dynamically each frame by `updateKahuTapaCloak` so it billows in the wind and gently
+ * wraps around the navigator's shoulders, waist sash, and pareu without ever clipping the body.
  */
 function createKahuTapaCloakMesh(shoulderW, cloakLen) {
-  const segU = 18;
-  const segV = 14;
+  const segU = 24;
+  const segV = 18;
   const positions = [];
   const colors = [];
   const indices = [];
@@ -197,11 +374,9 @@ function createKahuTapaCloakMesh(shoulderW, cloakLen) {
     for (let iu = 0; iu <= segU; iu += 1) {
       const u = iu / segU; // 0 = left edge, 1 = right edge
       const s = u * 2.0 - 1.0; // -1 .. +1
-      // Curves smoothly around upper back & shoulders (+Z is back of character!)
       const x = s * halfSpan;
-      const wrapArc = (1.0 - s * s) * (0.055 + 0.035 * v);
-      const foldRipple = Math.sin(s * Math.PI * 3.0) * 0.012 * v;
-      const z = 0.095 + wrapArc + v * 0.085 + foldRipple;
+      const wrapArc = (1.0 - s * s) * (0.065 + 0.04 * v);
+      const z = 0.14 + wrapArc + v * 0.12;
 
       positions.push(x, y, z);
 
@@ -244,7 +419,435 @@ function createKahuTapaCloakMesh(shoulderW, cloakLen) {
   const mesh = new THREE.Mesh(geo, mat);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
-  return { mesh, geo, basePositions: Float32Array.from(positions) };
+  return {
+    mesh,
+    geo,
+    segU,
+    segV,
+    shoulderW,
+    cloakLen,
+  };
+}
+
+/**
+ * Exact 3D ray-capsule outer exit distance along horizontal spine ray `O + t * D`
+ * (`O = (0, py, 0)`, `D = (ux, 0, uz)`, `t >= 0`) against 3D capsule `A -> B` of radius `rad`.
+ * Handles arbitrary limb/staff tilt angles without underestimating horizontal cross-sections,
+ * and always resolves to the outer exit so adjacent cloth vertices never straddle a limb.
+ */
+function maxSpineExitForCapsule(py, ux, uz, rHoriz, ax, ay, az, bx, by, bz, rad) {
+  let bestT = rHoriz;
+  const rSq = rad * rad;
+
+  // 1. Check sphere caps at endpoints A and B
+  for (let pass = 0; pass < 2; pass += 1) {
+    const cx = pass === 0 ? ax : bx;
+    const cy = pass === 0 ? ay : by;
+    const cz = pass === 0 ? az : bz;
+    const dy = py - cy;
+    const rEffSq = rSq - dy * dy;
+    if (rEffSq > 0.0) {
+      const proj = cx * ux + cz * uz;
+      const perpSq = cx * cx + cz * cz - proj * proj;
+      if (perpSq < rEffSq) {
+        const tCap = proj + Math.sqrt(rEffSq - perpSq);
+        if (tCap > bestT) bestT = tCap;
+      }
+    }
+  }
+
+  // 2. Check infinite cylinder around segment A -> B clamped to [0, segLen]
+  const abx = bx - ax;
+  const aby = by - ay;
+  const abz = bz - az;
+  const segLen = Math.hypot(abx, aby, abz);
+  if (segLen < 1e-5) return bestT;
+
+  const vx = abx / segLen;
+  const vy = aby / segLen;
+  const vz = abz / segLen;
+
+  // W = O - A = (-ax, py - ay, -az); D = (ux, 0, uz)
+  const wx = -ax;
+  const wy = py - ay;
+  const wz = -az;
+
+  const dDotV = ux * vx + uz * vz;
+  const wDotV = wx * vx + wy * vy + wz * vz;
+
+  const dpx = ux - dDotV * vx;
+  const dpy = -dDotV * vy;
+  const dpz = uz - dDotV * vz;
+
+  const wpx = wx - wDotV * vx;
+  const wpy = wy - wDotV * vy;
+  const wpz = wz - wDotV * vz;
+
+  const a = dpx * dpx + dpy * dpy + dpz * dpz;
+  if (a > 1e-6) {
+    const b = wpx * dpx + wpy * dpy + wpz * dpz;
+    const c = wpx * wpx + wpy * wpy + wpz * wpz - rSq;
+    const disc = b * b - a * c;
+    if (disc > 0.0) {
+      const tCyl = (-b + Math.sqrt(disc)) / a;
+      if (tCyl > bestT) {
+        const uHit = wDotV + tCyl * dDotV;
+        if (uHit >= 0.0 && uHit <= segLen) {
+          bestT = tCyl;
+        }
+      }
+    }
+  }
+
+  return bestT;
+}
+
+const _tmpBoneVecA = new THREE.Vector3();
+const _tmpBoneVecB = new THREE.Vector3();
+const _tmpInvTorsoMat = new THREE.Matrix4();
+const _tmpPelvisToTorsoMat = new THREE.Matrix4();
+
+/**
+ * Deforms the Master Navigator's ceremonial Kahu Tapa cape in real time so it:
+ *  1. Billows and ripples gracefully back-and-forth in the ocean trade wind or walking breeze,
+ *  2. Gently wraps its side borders around his shoulders, waist sash, and pareu flanks as it
+ *     swings close to his body, and
+ *  3. Enforces exact outward spine-ray clearance against his live torso, belt, layered skirts,
+ *     ironwood hip token, arms, and legs so no part of the body ever protrudes through the cape.
+ */
+function updateKahuTapaCloak(
+  rig,
+  elapsedSec,
+  { windStrength = 0.65, walkAmount = 0.0, steerNorm = 0.0 } = {}
+) {
+  const cd = rig?.cloakData;
+  if (!cd?.geo) return;
+
+  const spec = rig.spec;
+  const H = spec.totalHeightM;
+  const lt = spec.limbThickness;
+  const hipY = H * 0.525;
+  const waistY = H * 0.585;
+  const neckBaseY = H * 0.845;
+  const torsoH = neckBaseY - waistY;
+  const torsoOffsetY = waistY - hipY;
+  const skirtTopPelvisY = torsoOffsetY + 0.015;
+  const pareuHeight = H * 0.32;
+  const cloakPivotY = cd.pivotY ?? torsoH * 0.93;
+
+  if (cd.pivot) {
+    cd.pivot.rotation.set(0.0, 0.0, 0.0);
+  }
+
+  // Update local matrices of pelvisGroup, torsoGroup, arms & legs to read exact bone coordinates
+  rig.pelvisGroup.updateMatrix();
+  rig.torsoGroup.updateMatrix();
+  _tmpInvTorsoMat.copy(rig.torsoGroup.matrix).invert();
+
+  const rxT = rig.torsoGroup.rotation.x;
+  const te = rig.torsoGroup.matrix.elements; // column-major 4x4: torsoGroup -> pelvisGroup
+  const ti = _tmpInvTorsoMat.elements; // column-major 4x4: pelvisGroup -> torsoGroup
+
+  // Exact live arm capsules in torsoGroup space (shoulder -> elbow -> hand)
+  const upperArmLen = H * 0.175;
+  const forearmLen = H * 0.155;
+  const armCapR = 0.048 * lt * 1.08 + 0.032;
+  const armSegs = [];
+  for (const key of ['left', 'right']) {
+    const arm = rig.arms?.[key];
+    if (!arm) continue;
+    const sp = arm.shoulderPivot;
+    const ep = arm.elbowPivot;
+    sp.updateMatrix();
+    ep.updateMatrix();
+
+    const sx0 = sp.position.x;
+    const sy0 = sp.position.y;
+    const sz0 = sp.position.z;
+
+    _tmpBoneVecA.set(0.0, -upperArmLen, 0.0).applyMatrix4(sp.matrix);
+    const ex0 = _tmpBoneVecA.x;
+    const ey0 = _tmpBoneVecA.y;
+    const ez0 = _tmpBoneVecA.z;
+    armSegs.push({ ax: sx0, ay: sy0, az: sz0, bx: ex0, by: ey0, bz: ez0, r: armCapR });
+
+    _tmpBoneVecB
+      .set(0.0, -forearmLen - 0.026 * lt, 0.0)
+      .applyMatrix4(ep.matrix)
+      .applyMatrix4(sp.matrix);
+    armSegs.push({
+      ax: ex0,
+      ay: ey0,
+      az: ez0,
+      bx: _tmpBoneVecB.x,
+      by: _tmpBoneVecB.y,
+      bz: _tmpBoneVecB.z,
+      r: armCapR * 0.88,
+    });
+  }
+
+  // Exact live leg capsules + left-hip carved ironwood whisk token in pelvisGroup space
+  const thighLen = hipY * 0.5;
+  const shinLen = hipY * 0.44;
+  const legCapR = 0.066 * lt * 1.1 + 0.032;
+  const pelvisSegs = [];
+  for (const key of ['left', 'right']) {
+    const leg = rig.legs?.[key];
+    if (!leg) continue;
+    const hp = leg.hipPivot;
+    const kp = leg.kneePivot;
+    hp.updateMatrix();
+    kp.updateMatrix();
+
+    const hx = hp.position.x;
+    const hy = hp.position.y;
+    const hz = hp.position.z;
+
+    _tmpBoneVecA.set(0.0, -thighLen, 0.0).applyMatrix4(hp.matrix);
+    const kx = _tmpBoneVecA.x;
+    const ky = _tmpBoneVecA.y;
+    const kz = _tmpBoneVecA.z;
+    pelvisSegs.push({ ax: hx, ay: hy, az: hz, bx: kx, by: ky, bz: kz, r: legCapR });
+
+    _tmpBoneVecB
+      .set(0.0, -shinLen, 0.0)
+      .applyMatrix4(kp.matrix)
+      .applyMatrix4(hp.matrix);
+    pelvisSegs.push({
+      ax: kx,
+      ay: ky,
+      az: kz,
+      bx: _tmpBoneVecB.x,
+      by: _tmpBoneVecB.y,
+      bz: _tmpBoneVecB.z,
+      r: legCapR * 0.9,
+    });
+  }
+
+  // Left-hip carved ironwood whisk token + sennit waist tassels capsule in pelvisGroup space
+  const beltRadiusX = spec.waistWidthM * 0.58;
+  const staffCx = -beltRadiusX * 1.04;
+  const staffCy = skirtTopPelvisY - 0.075;
+  const staffCz = 0.04;
+  pelvisSegs.push({
+    ax: staffCx - 0.12 * Math.sin(0.18),
+    ay: staffCy + 0.12 * Math.cos(0.18),
+    az: staffCz + 0.12 * Math.sin(0.14),
+    bx: staffCx + 0.12 * Math.sin(0.18),
+    by: staffCy - 0.12 * Math.cos(0.18),
+    bz: staffCz - 0.12 * Math.sin(0.14),
+    r: 0.052,
+  });
+
+  // Evaluate combined outer elliptical body/belt/skirt envelope at pelvis-space height `pyPelvis`
+  const evalPelvisEnvelope = (pyPelvis, pyTorso) => {
+    const torsoSec = sampleTorsoEllipse(cd.torsoRings, pyTorso);
+    const shoulderBlend = Math.max(
+      0.0,
+      Math.min(1.0, (pyTorso - torsoH * 0.66) / (torsoH * 0.24))
+    );
+    let envRx = Math.max(
+      torsoSec.rx,
+      shoulderBlend * (spec.shoulderWidthM * 0.48 + 0.048 * lt)
+    );
+    let envRz = torsoSec.rz;
+    let envOz = torsoSec.oz;
+
+    // Braided sennit waist belt + knotted left-hip tassels around skirtTopPelvisY
+    const beltDist = (pyPelvis - (skirtTopPelvisY - 0.005)) / 0.068;
+    if (Math.abs(beltDist) < 2.4) {
+      const bWeight = Math.exp(-beltDist * beltDist);
+      envRx = Math.max(envRx, spec.waistWidthM * 0.64 * bWeight + envRx * (1.0 - bWeight));
+      envRz = Math.max(envRz, spec.chestDepthM * 0.65 * bWeight + envRz * (1.0 - bWeight));
+    }
+
+    // Layered masterMatWrap (ta'ovala) + masterPareu flare from waist down past knees
+    if (pyPelvis <= skirtTopPelvisY + 0.04) {
+      const vSkirt = Math.max(
+        0.0,
+        Math.min(1.12, (skirtTopPelvisY + 0.02 - pyPelvis) / (pareuHeight + 0.02))
+      );
+      const flare = Math.pow(Math.min(1.0, vSkirt), 1.02);
+      // Include pleat + drapeWave margin (+0.02m) on both skirts
+      const sRx =
+        spec.waistWidthM * 0.63 +
+        (spec.hipWidthM * 0.86 + 0.02 - spec.waistWidthM * 0.63) * flare;
+      const sRz =
+        spec.chestDepthM * 0.63 +
+        (spec.chestDepthM * 0.87 + 0.02 - spec.chestDepthM * 0.63) * flare;
+      const stanceAft = Math.max(0.0, vSkirt - 0.5) * 0.045;
+      envRx = Math.max(envRx, sRx);
+      envRz = Math.max(envRz, sRz + stanceAft);
+      envOz = Math.max(envOz, 0.004);
+    }
+
+    return { envRx, envRz, envOz };
+  };
+
+  const breeze = Math.max(0.0, Math.min(1.6, windStrength ?? 0.65));
+  const walk = Math.max(0.0, Math.min(1.0, walkAmount ?? 0.0));
+
+  // Smooth back-and-forth wind cycle: 0 = gently settles & wraps around body, 1 = billows aft
+  const mainFreq = 1.85 + breeze * 1.55;
+  const cycle01 = 0.5 + 0.5 * Math.sin(elapsedSec * mainFreq);
+  const openBlend = Math.max(
+    0.0,
+    Math.min(1.0, cycle01 * (0.42 + 0.46 * breeze) + walk * 0.42)
+  );
+
+  const posAttr = cd.geo.getAttribute('position');
+  const arr = posAttr.array;
+  const { segU, segV, cloakLen, shoulderW } = cd;
+
+  let vertIdx = 0;
+  for (let iv = 0; iv <= segV; iv += 1) {
+    const v = iv / segV;
+    const vPow = Math.pow(v, 1.18);
+
+    const billowMaxZ = (0.058 + breeze * 0.108 + walk * 0.145) * vPow;
+    const billowZ = openBlend * billowMaxZ;
+    const liftY = billowZ * 0.24 * v;
+    const yLocal = -v * cloakLen + liftY;
+    const pyTorso = cloakPivotY + yLocal;
+
+    const estPelvisY = te[13] + te[5] * pyTorso + te[9] * 0.18;
+    const { envRx, envRz, envOz } = evalPelvisEnvelope(estPelvisY, pyTorso);
+    const torsoPitchShiftZ = Math.max(
+      0.0,
+      (cloakPivotY - pyTorso) * Math.sin(Math.max(0.0, rxT))
+    );
+
+    // Gentle flank wrap when close to body (~62 deg around sides) vs broader wind sail (~36 deg)
+    const collarWrap = Math.exp(-v * 6.5);
+    const wrapAngleClose = 1.08 + 0.34 * collarWrap;
+    const wrapAngleOpen = 0.64 + 0.78 * collarWrap;
+    const halfWrapAngle =
+      wrapAngleClose + (wrapAngleOpen - wrapAngleClose) * openBlend;
+
+    const clearance = 0.025 + 0.006 * v;
+    const closeRx = envRx + clearance;
+    const openRx = Math.max(
+      closeRx,
+      shoulderW * (0.56 + 0.36 * Math.pow(v, 0.85))
+    );
+    const rowRx = closeRx + (openRx - closeRx) * openBlend;
+    const rowRz = envRz + clearance + torsoPitchShiftZ;
+
+    const swayX =
+      (Math.sin(elapsedSec * (1.35 + breeze * 1.05) - v * 1.7) *
+        (0.01 + breeze * 0.022) -
+        steerNorm * 0.032) *
+      Math.pow(v, 1.3);
+
+    for (let iu = 0; iu <= segU; iu += 1) {
+      const u = iu / segU;
+      const s = u * 2.0 - 1.0;
+      const ang = s * halfWrapAngle;
+
+      const travelWave =
+        Math.sin(elapsedSec * (2.8 + breeze * 2.3) - v * 3.3 + s * 0.9) *
+        (0.008 + breeze * 0.015) *
+        vPow *
+        (0.25 + 0.75 * openBlend);
+      const pleat =
+        (0.5 + 0.5 * Math.sin(s * Math.PI * 3.0)) * 0.012 * Math.pow(v, 0.75);
+      const radialWave = Math.max(-0.003 * openBlend, travelWave) + pleat;
+
+      const shoulderArchY =
+        collarWrap * (1.0 - Math.abs(Math.cos(ang))) * 0.024;
+
+      let px =
+        Math.sin(ang) * (rowRx + radialWave * 0.35) +
+        swayX * (0.4 + 0.6 * (1.0 - s * s));
+      let py = pyTorso + shoulderArchY;
+      let pz =
+        envOz +
+        Math.cos(ang) * (rowRz + radialWave) +
+        billowZ * (0.72 + 0.28 * (1.0 - s * s));
+
+      // 1. Outward spine-ray clearance in torsoGroup space (torso ellipse + live arm capsules)
+      let rH = Math.hypot(px, pz);
+      if (rH > 1e-5) {
+        const ux = px / rH;
+        const uz = pz / rH;
+        const tSec = sampleTorsoEllipse(cd.torsoRings, py);
+        const tRx = tSec.rx + 0.024;
+        const tRz = tSec.rz + 0.024;
+        const qUnit = (ux * ux) / (tRx * tRx) + (uz * uz) / (tRz * tRz);
+        const minTorsoR = 1.0 / Math.sqrt(Math.max(1e-6, qUnit));
+        if (rH < minTorsoR) rH = minTorsoR;
+
+        for (let a = 0; a < armSegs.length; a += 1) {
+          const seg = armSegs[a];
+          rH = maxSpineExitForCapsule(
+            py,
+            ux,
+            uz,
+            rH,
+            seg.ax,
+            seg.ay,
+            seg.az,
+            seg.bx,
+            seg.by,
+            seg.bz,
+            seg.r
+          );
+        }
+        px = ux * rH;
+        pz = uz * rH;
+      }
+
+      // 2. Transform into pelvisGroup space and enforce outward spine-ray clearance against
+      //    waist belt, tassels, ironwood whisk token, layered pareu/ta'ovala skirts & live legs!
+      let ppx = te[0] * px + te[4] * py + te[8] * pz + te[12];
+      const ppy = te[1] * px + te[5] * py + te[9] * pz + te[13];
+      let ppz = te[2] * px + te[6] * py + te[10] * pz + te[14];
+
+      let rP = Math.hypot(ppx, ppz);
+      if (rP > 1e-5) {
+        const uxP = ppx / rP;
+        const uzP = ppz / rP;
+        const pEnv = evalPelvisEnvelope(ppy, py);
+        const pRx = pEnv.envRx + 0.024;
+        const pRz = pEnv.envRz + 0.024;
+        const qUnitP = (uxP * uxP) / (pRx * pRx) + (uzP * uzP) / (pRz * pRz);
+        const minPelvisR = 1.0 / Math.sqrt(Math.max(1e-6, qUnitP));
+        if (rP < minPelvisR) rP = minPelvisR;
+
+        for (let l = 0; l < pelvisSegs.length; l += 1) {
+          const lseg = pelvisSegs[l];
+          rP = maxSpineExitForCapsule(
+            ppy,
+            uxP,
+            uzP,
+            rP,
+            lseg.ax,
+            lseg.ay,
+            lseg.az,
+            lseg.bx,
+            lseg.by,
+            lseg.bz,
+            lseg.r
+          );
+        }
+        ppx = uxP * rP;
+        ppz = uzP * rP;
+      }
+
+      // Transform guarded pelvisGroup point back to cloakPivot local space
+      const finalTorsoX = ti[0] * ppx + ti[4] * ppy + ti[8] * ppz + ti[12];
+      const finalTorsoY = ti[1] * ppx + ti[5] * ppy + ti[9] * ppz + ti[13];
+      const finalTorsoZ = ti[2] * ppx + ti[6] * ppy + ti[10] * ppz + ti[14];
+
+      arr[vertIdx] = finalTorsoX;
+      arr[vertIdx + 1] = finalTorsoY - cloakPivotY;
+      arr[vertIdx + 2] = finalTorsoZ;
+      vertIdx += 3;
+    }
+  }
+
+  posAttr.needsUpdate = true;
+  cd.geo.computeVertexNormals();
 }
 
 function createFeatherPlume(length, width, colorHex, tipHex = null) {
@@ -652,13 +1255,14 @@ export function createPlayerCharacterRig(difficulty = Difficulty.EASY) {
   pelvisGroup.add(torsoGroup);
 
   const torsoH = neckBaseY - waistY;
-  const torsoGeo = createLoftedBodyPartGeometry([
-    { y: -0.02, rx: spec.waistWidthM * 0.5, rz: spec.chestDepthM * 0.48 },
-    { y: torsoH * 0.34, rx: spec.chestWidthM * 0.47, rz: spec.chestDepthM * 0.5 },
+  const torsoRings = [
+    { y: -0.02, rx: spec.waistWidthM * 0.5, rz: spec.chestDepthM * 0.48, oz: 0.0 },
+    { y: torsoH * 0.34, rx: spec.chestWidthM * 0.47, rz: spec.chestDepthM * 0.5, oz: 0.0 },
     { y: torsoH * 0.72, rx: spec.chestWidthM * 0.52, rz: spec.chestDepthM * 0.52, oz: -0.005 },
-    { y: torsoH * 0.92, rx: spec.shoulderWidthM * 0.45, rz: spec.chestDepthM * 0.44 },
-    { y: torsoH * 1.03, rx: spec.headRadiusM * 0.52, rz: spec.headRadiusM * 0.52 },
-  ]);
+    { y: torsoH * 0.92, rx: spec.shoulderWidthM * 0.45, rz: spec.chestDepthM * 0.44, oz: 0.0 },
+    { y: torsoH * 1.03, rx: spec.headRadiusM * 0.52, rz: spec.headRadiusM * 0.52, oz: 0.0 },
+  ];
+  const torsoGeo = createLoftedBodyPartGeometry(torsoRings);
   const torsoMesh = new THREE.Mesh(torsoGeo, skinMat);
   torsoMesh.castShadow = true;
   torsoMesh.receiveShadow = true;
@@ -682,16 +1286,17 @@ export function createPlayerCharacterRig(difficulty = Difficulty.EASY) {
   let cloakData = null;
 
   if (spec.id === Difficulty.EASY) {
-    // Crossbody braided pandanus strap + cowrie-shell neck cord
-    const strap = new THREE.Mesh(
-      new THREE.TorusGeometry(torsoH * 0.56, 0.012, 6, 24),
-      pandanusMat
-    );
-    strap.position.set(-0.02, torsoH * 0.45, 0.0);
-    strap.rotation.y = Math.PI * 0.5;
-    strap.rotation.x = 0.58;
-    strap.scale.set(spec.chestDepthM * 2.15, 1.0, 0.85);
-    torsoGroup.add(strap);
+    // Surface-conforming braided sennit-pandanus crossbody pouch cord (right shoulder -> left-hip star pouch)
+    const pouchCord = createTorsoCrossbodyBandMesh({
+      torsoRings,
+      torsoH,
+      shoulderSide: 1,
+      halfWidth: 0.012,
+      thickness: 0.005,
+      liftM: 0.0025,
+      variant: 'braided_cord',
+    });
+    torsoGroup.add(pouchCord);
 
     const neckCord = new THREE.Mesh(
       new THREE.TorusGeometry(spec.headRadiusM * 0.74, 0.007, 6, 18),
@@ -710,25 +1315,22 @@ export function createPlayerCharacterRig(difficulty = Difficulty.EASY) {
       cowrie.position.set(
         Math.sin(cAng) * 0.055,
         torsoH * 0.85,
-        -spec.chestDepthM * 0.46
+        -spec.chestDepthM * 0.5
       );
       torsoGroup.add(cowrie);
     }
   } else if (spec.id === Difficulty.MEDIUM) {
-    // Diagonal barkcloth kihei / tiputa shoulder sash across left shoulder & chest/back
-    const sashMat = new THREE.MeshStandardMaterial({
-      color: 0xe4cda1,
-      roughness: 0.84,
+    // Surface-conforming patterned mulberry barkcloth kihei sash (left shoulder -> right waist)
+    const kiheiSash = createTorsoCrossbodyBandMesh({
+      torsoRings,
+      torsoH,
+      shoulderSide: -1,
+      halfWidth: 0.038,
+      thickness: 0.006,
+      liftM: 0.003,
+      variant: 'kihei_sash',
     });
-    const sash = new THREE.Mesh(
-      new THREE.TorusGeometry(torsoH * 0.58, 0.036, 8, 28),
-      sashMat
-    );
-    sash.position.set(0.01, torsoH * 0.48, 0.0);
-    sash.rotation.y = Math.PI * 0.5;
-    sash.rotation.x = -0.62;
-    sash.scale.set(spec.chestDepthM * 2.12, 1.02, 0.92);
-    torsoGroup.add(sash);
+    torsoGroup.add(kiheiSash);
 
     // Black-lip pearl-shell crescent pendant on chest
     const cord = new THREE.Mesh(
@@ -744,7 +1346,7 @@ export function createPlayerCharacterRig(difficulty = Difficulty.EASY) {
       blackPearlMat
     );
     crescent.rotation.x = Math.PI * 0.5 - 0.12;
-    crescent.position.set(0, torsoH * 0.76, -spec.chestDepthM * 0.52);
+    crescent.position.set(0, torsoH * 0.76, -spec.chestDepthM * 0.54);
     torsoGroup.add(crescent);
   } else if (spec.id === Difficulty.HARD) {
     // Layered auti (ti-leaf) voyaging shoulder collar fanning around shoulders & upper back
@@ -812,11 +1414,14 @@ export function createPlayerCharacterRig(difficulty = Difficulty.EASY) {
     }
 
     const cloakPivot = new THREE.Group();
-    cloakPivot.position.set(0.0, torsoH * 0.93, 0.0);
+    const cloakPivotY = torsoH * 0.93;
+    cloakPivot.position.set(0.0, cloakPivotY, 0.0);
     cloakData = createKahuTapaCloakMesh(spec.shoulderWidthM, H * 0.54);
+    cloakData.pivot = cloakPivot;
+    cloakData.pivotY = cloakPivotY;
+    cloakData.torsoRings = torsoRings;
     cloakPivot.add(cloakData.mesh);
     torsoGroup.add(cloakPivot);
-    cloakData.pivot = cloakPivot;
   }
 
   // -------------------------------------------------------------------------
@@ -1228,7 +1833,7 @@ export function createPlayerCharacterRig(difficulty = Difficulty.EASY) {
     elderKnot.add(knotGoldRing);
   }
 
-  return {
+  const rig = {
     root,
     difficulty: spec.id,
     spec,
@@ -1240,6 +1845,12 @@ export function createPlayerCharacterRig(difficulty = Difficulty.EASY) {
     cloakData,
     cloakMesh: cloakData?.mesh || null,
   };
+
+  if (cloakData) {
+    updateKahuTapaCloak(rig, 0.0, { windStrength: 0.5, walkAmount: 0.0, steerNorm: 0.0 });
+  }
+
+  return rig;
 }
 
 /**
@@ -1297,16 +1908,15 @@ export function animatePlayerCharacterRig(
     -0.16 - Math.abs(roll) * 0.25
   );
 
-  // Master Navigator's ceremonial Kahu Tapa cloak ripples gently in the trade wind
-  if (rig.cloakData?.pivot) {
+  // Master Navigator's ceremonial Kahu Tapa cloak billows in the trade wind & wraps gently around his body
+  if (rig.cloakData) {
     const breeze =
       windStrength !== null ? windStrength : fastForward ? 1.25 : 0.65;
-    const windFreq = 2.2 + breeze * 3.1;
-    const windAmp = 0.012 + breeze * 0.042;
-    rig.cloakData.pivot.rotation.x =
-      0.045 + Math.sin(elapsedSec * windFreq) * windAmp;
-    rig.cloakData.pivot.rotation.z =
-      Math.cos(elapsedSec * (windFreq * 0.73)) * (windAmp * 0.45);
+    updateKahuTapaCloak(rig, elapsedSec, {
+      windStrength: breeze,
+      walkAmount: 0.0,
+      steerNorm,
+    });
   }
 }
 
@@ -1405,15 +2015,13 @@ export function animatePlayerCharacterAshore(
     );
   }
 
-  // Ceremonial Kahu Tapa cloak flows behind when striding and ripples in the coastal breeze
-  if (rig.cloakData?.pivot) {
-    const breeze = windStrength + w * 0.55;
-    const windFreq = 2.2 + breeze * 3.0;
-    const windAmp = 0.014 + breeze * 0.038;
-    rig.cloakData.pivot.rotation.x =
-      0.05 + 0.16 * w + Math.sin(elapsedSec * windFreq) * windAmp;
-    rig.cloakData.pivot.rotation.z =
-      Math.cos(elapsedSec * (windFreq * 0.73)) * (windAmp * 0.45);
+  // Ceremonial Kahu Tapa cloak billows when striding and gently wraps around body when settling
+  if (rig.cloakData) {
+    updateKahuTapaCloak(rig, elapsedSec, {
+      windStrength,
+      walkAmount: w,
+      steerNorm: 0.0,
+    });
   }
 }
 
