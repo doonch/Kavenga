@@ -3,6 +3,7 @@
  */
 
 import { Difficulty } from './gameConstants.js';
+import { backfillLegacyObjectives } from './objectivesManager.js';
 
 const STORAGE_KEY = 'kavenga_campaign_save_v1';
 
@@ -18,6 +19,8 @@ export class GameState {
     this.learnedSandLessons = { sand_raiatea_clouds: true };
     this.learnedConstellations = {};
     this.completedQuests = {};
+    this.activeObjectives = { meet_raiatea_elder: true };
+    this.clearedObjectives = {};
 
     // Starting Coastal Vaka on Ra'iatea (GDD 9.2): 4 slots, Hull 75%, Sail 75%, Lashings 65%
     this.vakaTier = 1;
@@ -186,6 +189,8 @@ export class GameState {
       learnedSandLessons: { ...this.learnedSandLessons },
       learnedConstellations: { ...this.learnedConstellations },
       completedQuests: { ...this.completedQuests },
+      activeObjectives: { ...this.activeObjectives },
+      clearedObjectives: { ...this.clearedObjectives },
       vakaTier: this.vakaTier,
       maxCargoSlots: this.maxCargoSlots,
       hullCondition: this.hullCondition,
@@ -249,6 +254,18 @@ export class GameState {
     this.cargoItems = [...(data.cargoItems ?? [])];
     this.recruitedCrew = [...(data.recruitedCrew ?? [])];
     this.assignedCrew = [...(data.assignedCrew ?? [])];
+
+    if (
+      data.activeObjectives !== undefined &&
+      data.activeObjectives !== null &&
+      data.clearedObjectives !== undefined &&
+      data.clearedObjectives !== null
+    ) {
+      this.activeObjectives = { ...data.activeObjectives };
+      this.clearedObjectives = { ...data.clearedObjectives };
+    } else {
+      backfillLegacyObjectives(this);
+    }
   }
 
   saveToLocalStorage() {

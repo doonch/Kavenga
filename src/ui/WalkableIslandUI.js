@@ -17,6 +17,7 @@ import {
   interactWithIslandSanctuary,
   performBeachCareeningAndRestock,
 } from '../core/campaignManager.js';
+import { getActiveObjectivesForDisplay } from '../core/objectivesManager.js';
 import {
   DepartureWindow,
   Difficulty,
@@ -48,6 +49,8 @@ export class WalkableIslandUI {
     this.selectedDeparture = DepartureWindow.DAWN;
     this.lastSanctuaryResult = null;
     this.hutFeedbackText = '';
+    this.objectivesCollapsed = false;
+    this._recentlyClearedObjectives = [];
 
     this._buildDOM();
   }
@@ -77,18 +80,39 @@ export class WalkableIslandUI {
             <div class="walkable-controls-hint">
               Arrow Keys (or WASD) to walk · Drag view to orbit · Click island button above for quick hub
             </div>
+
+            <!-- Ashore Active Objectives Tracker (strictly island-only; never shown while sailing) -->
+            <section class="shore-objectives-card hidden" id="walkObjectivesCard" aria-live="polite">
+              <button class="shore-objectives-header" id="btnToggleWalkObjectives" type="button">
+                <span class="shore-objectives-heading">✦ Objectives Ashore</span>
+                <span class="shore-objectives-chevron" id="walkObjectivesChevron">▾</span>
+              </button>
+              <div class="shore-objectives-list" id="walkObjectivesList"></div>
+            </section>
           </div>
 
-          <button
-            class="island-settings-btn"
-            id="btnWalkOpenSettings"
-            type="button"
-            title="Open Island Settings (Sound, Difficulty &amp; Start Over)"
-          >
-            <span class="island-settings-gear" aria-hidden="true">⚙</span>
-            <span class="island-settings-label">Settings</span>
-            <span class="island-settings-pill" id="walkSettingsSummary">Wayfinder · 🔊</span>
-          </button>
+          <div class="walkable-top-right-btns">
+            <button
+              class="island-settings-btn island-achievements-btn"
+              id="btnWalkOpenAchievements"
+              type="button"
+              title="View Wayfinder Achievements"
+            >
+              <span aria-hidden="true">🏆</span>
+              <span class="island-settings-label">Achievements</span>
+              <span class="island-settings-pill" id="walkAchievementsSummary">0/12</span>
+            </button>
+            <button
+              class="island-settings-btn"
+              id="btnWalkOpenSettings"
+              type="button"
+              title="Open Island Settings (Sound, Difficulty &amp; Start Over)"
+            >
+              <span class="island-settings-gear" aria-hidden="true">⚙</span>
+              <span class="island-settings-label">Settings</span>
+              <span class="island-settings-pill" id="walkSettingsSummary">Wayfinder · 🔊</span>
+            </button>
+          </div>
         </header>
 
         <!-- Minimized POI Re-open Pill (shown only if player minimized active POI card while standing inside it) -->
@@ -173,6 +197,21 @@ export class WalkableIslandUI {
       .addEventListener('click', (e) => {
         e.currentTarget.blur();
         this.callbacks.onOpenSettings?.();
+      });
+
+    this.rootEl
+      .querySelector('#btnWalkOpenAchievements')
+      .addEventListener('click', (e) => {
+        e.currentTarget.blur();
+        this.callbacks.onOpenAchievements?.();
+      });
+
+    this.rootEl
+      .querySelector('#btnToggleWalkObjectives')
+      .addEventListener('click', (e) => {
+        e.currentTarget.blur();
+        this.objectivesCollapsed = !this.objectivesCollapsed;
+        this._renderObjectivesTracker();
       });
 
     this.rootEl
@@ -352,9 +391,86 @@ export class WalkableIslandUI {
       summaryEl.textContent = formatShortSettingsSummary(gs.difficulty, isMuted);
     }
 
+    const achSummaryEl = this.rootEl.querySelector('#walkAchievementsSummary');
+    if (achSummaryEl) {
+      const achSummary = this.callbacks.getAchievementsSummary?.();
+      achSummaryEl.textContent = achSummary
+        ? `${achSummary.unlockedCount}/${achSummary.totalCount}`
+        : '0/12';
+    }
+
+    this._renderObjectivesTracker();
+
     if (this.currentPoi) {
       this._renderCurrentPoiPopup();
     }
+  }
+
+  flashClearedObjectives(clearedList) {
+    if (!Array.isArray(clearedList) || clearedList.length === 0) return;
+    for (const def of clearedList) {
+      this._recentlyClearedObjectives.push(def);
+    }
+    this._renderObjectivesTracker();
+    clearTimeout(this._clearedObjTimer);
+    this._clearedObjTimer = setTimeout(() => {
+      this._recentlyClearedObjectives = [];
+      this._renderObjectivesTracker();
+    }, 2800);
+  }
+
+  _renderObjectivesTracker() {
+    const cardEl = this.rootEl.querySelector('#walkObjectivesCard');
+    const listEl = this.rootEl.querySelector('#walkObjectivesList');
+    const chevEl = this.rootEl.querySelector('#walkObjectivesChevron');
+    if (!cardEl || !listEl) return;
+
+    const gs = this.callbacks.getGameState();
+    const activeItems = getActiveObjectivesForDisplay(gs);
+    const recentCleared = this._recentlyClearedObjectives || [];
+
+    if (activeItems.length === 0 && recentCleared.length === 0) {
+      cardEl.classList.add('hidden');
+      return;
+    }
+
+    cardEl.classList.remove('hidden');
+    listEl.classList.toggle('hidden', this.objectivesCollapsed);
+    if (chevEl) {
+      chevEl.textContent = this.objectivesCollapsed ? '▸' : '▾';
+    }
+
+    const rows = [];
+    for (const c of recentCleared) {
+      rows.push(`
+        <div class="shore-obj-item cleared-flash">
+          <span class="shore-obj-check">✓</span>
+          <div class="shore-obj-copy">
+            <strong>${c.glyph || '✦'} ${c.title}</strong>
+            <span class="shore-obj-cleared-tag">Objective Cleared</span>
+          </div>
+        </div>
+      `);
+    }
+    for (const item of activeItems) {
+      rows.push(`
+        <div class="shore-obj-item ${item.isHere ? 'is-local' : ''} ${item.hasRequiredCargo ? 'cargo-ready' : ''}">
+          <span class="shore-obj-bullet" aria-hidden="true">${item.glyph || '✦'}</span>
+          <div class="shore-obj-copy">
+            <div class="shore-obj-title-row">
+              <strong>${item.title}</strong>
+              ${
+                item.statusBadge
+                  ? `<span class="shore-obj-badge">${item.statusBadge}</span>`
+                  : ''
+              }
+            </div>
+            <span class="shore-obj-detail">${item.detail}</span>
+          </div>
+        </div>
+      `);
+    }
+    listEl.innerHTML = rows.join('');
   }
 
   _describeCondition(val) {
@@ -517,6 +633,8 @@ export class WalkableIslandUI {
           ? 'Fresh coconuts & spring water gathered into ration baskets!'
           : 'Canoe careened & woven ration baskets refilled!'
       );
+      this.callbacks.onAshoreStateChanged?.();
+      this._renderObjectivesTracker();
       this._renderCurrentPoiPopup();
     });
 
@@ -677,9 +795,17 @@ export class WalkableIslandUI {
 
     bodyEl.querySelector('#btnWalkSpeakElder').addEventListener('click', () => {
       this.lastSanctuaryResult = interactWithIslandSanctuary(gs);
-      if (this.lastSanctuaryResult?.rewardsList?.length) {
+      if (this.lastSanctuaryResult?.clearedObjectives?.length) {
+        this.flashClearedObjectives(this.lastSanctuaryResult.clearedObjectives);
+      }
+      this.callbacks.onSanctuaryInteracted?.(this.lastSanctuaryResult);
+      if (
+        this.lastSanctuaryResult?.rewardsList?.length &&
+        !this.lastSanctuaryResult?.clearedObjectives?.length
+      ) {
         this.showToast(this.lastSanctuaryResult.rewardsList[0]);
       }
+      this._renderObjectivesTracker();
       this._renderCurrentPoiPopup();
     });
 

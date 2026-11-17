@@ -271,6 +271,7 @@ export class SailingHUD {
     modal.classList.toggle('hidden', !this.recallOpen);
 
     if (this.recallOpen && sim?.song) {
+      sim.usedRecallThisVoyage = true;
       const lesson =
         SAND_LESSONS[sim.song.sandRecallId] ||
         SAND_LESSONS.sand_maupiti_12_shell_compass;

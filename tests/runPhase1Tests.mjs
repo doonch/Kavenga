@@ -17,6 +17,22 @@ import {
 } from '../src/core/gameConstants.js';
 import { GameState } from '../src/core/gameState.js';
 import {
+  AchievementsManager,
+  formatAchievementDateLabel,
+  formatAchievementDifficultyLabel,
+  formatAchievementLocationLabel,
+} from '../src/core/achievementsManager.js';
+import {
+  activateIslandArrivalObjective,
+  getActiveObjectivesForDisplay,
+} from '../src/core/objectivesManager.js';
+import { ACHIEVEMENTS, ACHIEVEMENTS_ORDER } from '../src/data/achievementsData.js';
+import {
+  ISLAND_ARRIVAL_OBJECTIVE_MAP,
+  OBJECTIVES,
+  OBJECTIVES_ORDER,
+} from '../src/data/objectivesData.js';
+import {
   CONSTELLATION_LESSONS,
   CONSTELLATION_LESSONS_ORDER,
   getAvailableUnlearnedLessonForIsland,
@@ -294,6 +310,35 @@ for (const [wid, wSpec] of Object.entries(WALKABLE_ISLAND_SPECS)) {
     if (poi.introTitle) auditText(poi.introTitle, `WalkablePOI ${wid}.${poi.id}.introTitle`);
     if (poi.introSpeech) auditText(poi.introSpeech, `WalkablePOI ${wid}.${poi.id}.introSpeech`);
   }
+}
+
+assert(
+  OBJECTIVES_ORDER.length === 25 &&
+    Object.keys(ISLAND_ARRIVAL_OBJECTIVE_MAP).length === 16,
+  'Expected 25 Campaign Objectives (16 island arrival + 9 item-retrieval/consecration quests)'
+);
+for (const [oid, obj] of Object.entries(OBJECTIVES)) {
+  auditText(obj.title, `Objective ${oid}.title`);
+  auditText(obj.detail, `Objective ${oid}.detail`);
+  if (obj.readyNote) auditText(obj.readyNote, `Objective ${oid}.readyNote`);
+}
+
+assert(
+  ACHIEVEMENTS_ORDER.length === 12 && Object.keys(ACHIEVEMENTS).length === 12,
+  'Expected 12 Surprise Achievements'
+);
+for (const [aid, ach] of Object.entries(ACHIEVEMENTS)) {
+  auditText(ach.title, `Achievement ${aid}.title`);
+  auditText(ach.description, `Achievement ${aid}.description`);
+}
+for (const diffVal of Object.values(Difficulty)) {
+  auditText(formatAchievementDifficultyLabel(diffVal), `AchievementDiff ${diffVal}`);
+}
+for (const iid of Object.keys(ISLANDS)) {
+  auditText(
+    formatAchievementLocationLabel({ islandId: iid, basinId: ISLANDS[iid].basinId }),
+    `AchievementLocation ${iid}`
+  );
 }
 
 assert(
@@ -783,6 +828,200 @@ auditText(returnSong.verses[0].lyrics, 'Dynamic return song lyrics');
     'encodeCompactRouteTrace downsamples while preserving sharp dogleg inflection corner'
   );
   logLine(`  PASS Mercy-Rule reflection: "${sim.reflectionText}"`);
+}
+
+// ---------------------------------------------------------------------------
+// 8. Objectives & Surprise Achievements End-to-End Verification
+// ---------------------------------------------------------------------------
+logLine('\n[8/8] Verifying Objectives Lifecycle, Multi-Fish Harvest, 24h Ocean Survival, Rapa Nui & Master Achievements...');
+{
+  const memStoreMap = new Map();
+  const memStorage = {
+    getItem: (k) => (memStoreMap.has(k) ? memStoreMap.get(k) : null),
+    setItem: (k, v) => memStoreMap.set(k, String(v)),
+    removeItem: (k) => memStoreMap.delete(k),
+  };
+
+  // A. Fresh GameState starts immediately with Ra'iatea elder objective active
+  const freshGs = new GameState();
+  const initialObjs = getActiveObjectivesForDisplay(freshGs);
+  assert(
+    initialObjs.length === 1 &&
+      initialObjs[0].id === 'meet_raiatea_elder' &&
+      initialObjs[0].isHere === true,
+    "Fresh GameState on Ra'iatea immediately displays 'Speak with Elder Metua' objective"
+  );
+
+  const unlockedEvents = [];
+  const achMgr = new AchievementsManager({
+    storage: memStorage,
+    nowFn: () => '2026-11-17T18:30:00.000Z',
+  });
+  achMgr.onUnlock((rec) => unlockedEvents.push(rec));
+  assert(
+    achMgr.getSummary().unlockedCount === 0 &&
+      achMgr.getSummary().remainingMysteryCount === 12,
+    'Fresh AchievementsManager starts with 0 unlocked and 12 ??? mystery slots'
+  );
+
+  // B. Harvest 2 schools of fish during a single voyage -> unlocks `two_fish_schools_single_voyage`
+  const fishGs = new GameState();
+  fishGs.difficulty = Difficulty.MEDIUM;
+  fishGs.setLoadedRations(4);
+  const fishSim = new OceanSim();
+  fishSim.startVoyage(SONGS.song_04, DepartureWindow.MIDDAY, fishGs);
+  assert(
+    fishSim.fishSchools.length >= 2,
+    'OceanSim spawns multiple fish schools so 2 schools can be harvested in one voyage'
+  );
+  // Steer straight through School #1 then School #2 in daylight
+  for (const targetSchool of [fishSim.fishSchools[0], fishSim.fishSchools[1]]) {
+    fishSim.pos.x = targetSchool.x - 0.1;
+    fishSim.pos.y = targetSchool.y - 0.1;
+    const evs = fishSim.step(1.0);
+    for (const ev of evs) {
+      achMgr.evaluateSeaEvent(ev, fishSim, fishGs);
+    }
+  }
+  assert(
+    fishSim.fishSchoolsHarvestedCount === 2 &&
+      achMgr.isUnlocked('two_fish_schools_single_voyage'),
+    'Harvesting two fish schools in a single voyage unlocks two_fish_schools_single_voyage'
+  );
+
+  // C. Survive 24 in-game hours at sea without landing -> unlocks `survive_24h_at_sea`
+  const seaGs = new GameState();
+  seaGs.vakaTier = 3;
+  seaGs.maxCargoSlots = 8;
+  seaGs.loadedRations = 8;
+  const seaSim = new OceanSim();
+  seaSim.startVoyage(SONGS.song_01, DepartureWindow.DAWN, seaGs);
+  let saw24hEvent = false;
+  for (let stepIdx = 0; stepIdx < 1800 && !saw24hEvent; stepIdx += 1) {
+    // Sail 90s out into open lagoon-chain water, then hold a steady offshore loop well clear of Ring 4
+    seaSim.setHeading(stepIdx < 90 ? 90.0 : ((stepIdx - 90) * 3.0) % 360.0);
+    const evs = seaSim.step(1.0);
+    for (const ev of evs) {
+      if (ev.type === 'survived_24h_at_sea') {
+        saw24hEvent = true;
+        achMgr.evaluateSeaEvent(ev, seaSim, seaGs);
+      }
+    }
+  }
+  assert(
+    saw24hEvent &&
+      seaSim.status === VoyageStatus.SAILING &&
+      seaSim.elapsedGameHours >= 24.0 &&
+      achMgr.isUnlocked('survive_24h_at_sea'),
+    'Surviving 24 in-game hours at sea without landing unlocks survive_24h_at_sea'
+  );
+
+  // D. Sail deliberately from Mangareva to secret Rapa Nui (23.4 units away) -> no Mercy false positive & unlocks `reach_rapa_nui`!
+  const rapaGs = new GameState();
+  rapaGs.difficulty = Difficulty.HARD;
+  rapaGs.vakaTier = 3;
+  rapaGs.maxCargoSlots = 8;
+  rapaGs.loadedRations = 8;
+  rapaGs.recruitCrew('kahu');
+  rapaGs.recruitCrew('moana');
+  const rapaLaunchSong = buildReturnSong('mangareva', 'fatu_hiva');
+  const rapaSim = new OceanSim();
+  rapaSim.startVoyage(rapaLaunchSong, DepartureWindow.DAWN, rapaGs);
+  const rapaTarget = rapaSim.activeIslands.rapa_nui;
+  assert(Boolean(rapaTarget), 'Secret Rapa Nui is present in Act II basin activeIslands');
+  for (let t = 0; t < 2000 && rapaSim.status === VoyageStatus.SAILING; t += 1) {
+    const dx = rapaTarget.simPos.x - rapaSim.pos.x;
+    const dy = rapaTarget.simPos.y - rapaSim.pos.y;
+    const brg = (((Math.atan2(dx, dy) * 180.0) / Math.PI) + 360.0) % 360.0;
+    rapaSim.setHeading(brg);
+    rapaSim.step(1.0);
+  }
+  assert(
+    rapaSim.status === VoyageStatus.ARRIVED && rapaSim.arrivedIsland?.id === 'rapa_nui',
+    'Navigator sailing deliberately from Mangareva reaches secret Rapa Nui without Mercy-Rule interruption'
+  );
+  achMgr.evaluateLandfall(rapaSim, rapaGs, 'rapa_nui');
+  assert(achMgr.isUnlocked('reach_rapa_nui'), 'Landing on Rapa Nui unlocks reach_rapa_nui');
+
+  // E. Complete all 17 canonical songs in Master Navigator difficulty -> unlocks `all_songs_master_difficulty`
+  //    (and verify downgrading difficulty mid-voyage prevents Master credit!)
+  const masterGs = new GameState();
+  masterGs.difficulty = Difficulty.MASTER_NAVIGATOR;
+  const downgradeSim = new OceanSim();
+  downgradeSim.startVoyage(SONGS.song_01, DepartureWindow.DAWN, masterGs);
+  downgradeSim.sailedPureMasterNavigator = false; // simulated mid-voyage switch to Easy and back
+  downgradeSim.arrivedIsland = ISLANDS.tahaa;
+  achMgr.evaluateLandfall(downgradeSim, masterGs, 'tahaa');
+  assert(
+    !achMgr.masterCompletedSongs.song_01,
+    'Mid-voyage difficulty downgrade does not grant Master song completion credit'
+  );
+
+  for (const [sid, sDef] of Object.entries(SONGS)) {
+    const mSim = new OceanSim();
+    mSim.startVoyage(sDef, sDef.recommendedDeparture, masterGs);
+    mSim.rationsRemaining = 2.0;
+    mSim.arrivedIsland = ISLANDS[sDef.toIsland];
+    achMgr.evaluateLandfall(mSim, masterGs, sDef.toIsland);
+    assert(Boolean(achMgr.masterCompletedSongs[sid]), `Recorded Master completion for ${sid}`);
+  }
+  assert(
+    achMgr.isUnlocked('all_songs_master_difficulty') &&
+      achMgr.isUnlocked('reach_hawaii') &&
+      achMgr.isUnlocked('fog_without_recall'),
+    'Completing all 17 songs on Master Navigator unlocks all_songs_master_difficulty, reach_hawaii, and fog_without_recall'
+  );
+
+  // F. Eye Trial 5-streak, fumes landfall, off-window landfall, full crew + Vaka Moana, 11 sky teachings, and all 17 shores
+  achMgr.evaluateEyeTrialStreak(5, masterGs, 'raiatea');
+  assert(achMgr.isUnlocked('eye_trial_streak_5'), '5-streak in Eye Trial unlocks eye_trial_streak_5');
+
+  const fumesSim = new OceanSim();
+  fumesSim.startVoyage(SONGS.song_02, DepartureWindow.MIDNIGHT, masterGs); // off-window!
+  fumesSim.rationsRemaining = 0.32;
+  achMgr.evaluateLandfall(fumesSim, masterGs, 'huahine');
+  assert(
+    achMgr.isUnlocked('landfall_on_fumes') && achMgr.isUnlocked('off_window_landfall'),
+    'Low-ration (<0.5) and off-window landfalls unlock landfall_on_fumes and off_window_landfall'
+  );
+
+  masterGs.upgradeVakaTier(3);
+  masterGs.hullCondition = 100.0;
+  masterGs.sailCondition = 100.0;
+  masterGs.lashingsCondition = 100.0;
+  masterGs.recruitCrew('tama');
+  masterGs.recruitCrew('moana');
+  masterGs.recruitCrew('kahu');
+  for (const cLes of Object.values(CONSTELLATION_LESSONS)) {
+    masterGs.learnConstellation(cLes.unlockKey);
+  }
+  for (const iid of Object.keys(ISLANDS)) {
+    masterGs.discoveredIslands[iid] = true;
+  }
+  achMgr.evaluateAshoreState(masterGs, 'fatu_hiva');
+  achMgr.evaluateLandfall(fumesSim, masterGs, 'hawaii');
+  assert(
+    achMgr.isUnlocked('full_crew_and_vaka_moana') &&
+      achMgr.isUnlocked('all_constellations_learned') &&
+      achMgr.isUnlocked('chart_all_shores'),
+    'Unlocked full_crew_and_vaka_moana, all_constellations_learned, and chart_all_shores'
+  );
+
+  // G. Verify Start Over (`clearSavedProgress`) resets Objectives while preserving Achievements in storage!
+  activateIslandArrivalObjective(masterGs, 'tahaa');
+  masterGs.clearSavedProgress();
+  const postResetObjs = getActiveObjectivesForDisplay(masterGs);
+  const reloadedAchMgr = new AchievementsManager({ storage: memStorage });
+  const finalSummary = reloadedAchMgr.getSummary();
+  assert(
+    postResetObjs.length === 1 &&
+      postResetObjs[0].id === 'meet_raiatea_elder' &&
+      finalSummary.unlockedCount === 12 &&
+      finalSummary.remainingMysteryCount === 0 &&
+      unlockedEvents.length === 12 &&
+      formatAchievementDateLabel('2026-11-17T18:30:00.000Z').includes('2026'),
+    'Start Over resets active objectives to Raʻiatea while preserving all 12 unlocked achievements and metadata'
+  );
 }
 
 logLine(`\nALL PHASE 1 TESTS PASSED! (${passedCount} assertions verified)`);

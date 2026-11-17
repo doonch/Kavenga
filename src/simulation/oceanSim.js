@@ -6,6 +6,7 @@
  */
 
 import {
+  Difficulty,
   GameConstants,
   degToRad,
   departureWindowToHour,
@@ -112,8 +113,16 @@ export class OceanSim {
     this.lostReason = '';
     this.reflectionText = '';
 
-    // Midday leaping bonito school state
+    // Midday leaping bonito schools state (`fishSchool` dynamically aliases nearest unharvested school)
+    this.fishSchools = [];
     this.fishSchool = null;
+    this.fishSchoolsHarvestedCount = 0;
+
+    // Voyage telemetry for achievements & survival feats
+    this.elapsedGameHours = 0.0;
+    this._emitted24hSurvival = false;
+    this.usedRecallThisVoyage = false;
+    this.sailedPureMasterNavigator = false;
 
     // Telemetry for cue-relative reflection if the player gets Lost at Sea
     this.offCueAccumSec = 0.0;
@@ -150,6 +159,11 @@ export class OceanSim {
     this.song = song;
     this.status = VoyageStatus.SAILING;
     this.elapsedRealSec = 0.0;
+    this.elapsedGameHours = 0.0;
+    this._emitted24hSurvival = false;
+    this.usedRecallThisVoyage = false;
+    this.sailedPureMasterNavigator =
+      gameState?.difficulty === Difficulty.MASTER_NAVIGATOR;
     this.verseIndex = 0;
     this.fastForward = false;
     this.arrivedIsland = null;
@@ -235,16 +249,44 @@ export class OceanSim {
     const trueInitialAz = posMod(radToDeg(Math.atan2(dx, dy)), 360.0);
     this.headingDeg = posMod(trueInitialAz + 12.0, 360.0);
 
-    // Optional midday fish school along route (GDD 5.5.2 & Song 2)
-    this.fishSchool = null;
+    // Midday fish schools along & beside the route (primary school at 52% matches GDD 5.5.2;
+    // off-beam secondary schools at ~1.25 units lateral offset reward explorers steering to two schools!)
+    this.fishSchools = [];
+    this.fishSchoolsHarvestedCount = 0;
+    const routeLen = Math.max(1.0, Math.hypot(dx, dy));
+    const perpX = -dy / routeLen;
+    const perpY = dx / routeLen;
+
     if (song.spawnsMiddayFishSchool || song.expectedDurationMin >= 7.0) {
-      this.fishSchool = {
+      this.fishSchools.push({
         x: this.pos.x + dx * 0.52,
         y: this.pos.y + dy * 0.52,
         radius: 0.55,
         harvested: false,
-      };
+      });
+    } else {
+      this.fishSchools.push({
+        x: this.pos.x + dx * 0.44 + perpX * 1.18,
+        y: this.pos.y + dy * 0.44 + perpY * 1.18,
+        radius: 0.55,
+        harvested: false,
+      });
     }
+    this.fishSchools.push(
+      {
+        x: this.pos.x + dx * 0.30 + perpX * 2.05,
+        y: this.pos.y + dy * 0.30 + perpY * 2.05,
+        radius: 0.55,
+        harvested: false,
+      },
+      {
+        x: this.pos.x + dx * 0.76 - perpX * 2.15,
+        y: this.pos.y + dy * 0.76 - perpY * 2.15,
+        radius: 0.55,
+        harvested: false,
+      }
+    );
+    this._syncNearestFishSchool();
 
     this.offCueAccumSec = 0.0;
     this.worstCueLabel = song.verses[0]?.cueLabel ?? 'the star path';
@@ -326,7 +368,9 @@ export class OceanSim {
     const hrsPerMin =
       this.song.gameHoursPerRealMin ??
       60.0 / GameConstants.REAL_SECONDS_PER_GAME_HOUR;
-    this.solarHour = posMod(this.solarHour + dtMin * hrsPerMin, 24.0);
+    const deltaGameHours = dtMin * hrsPerMin;
+    this.elapsedGameHours += deltaGameHours;
+    this.solarHour = posMod(this.solarHour + deltaGameHours, 24.0);
 
     // 5. Ration consumption & Midday bonito school foraging
     const effectiveCrewLoad = 1.0 + 0.55 * Math.max(0, this.crewCount - 1);
@@ -346,21 +390,33 @@ export class OceanSim {
       this.events.push({ type: 'low_rations_warning' });
     }
 
-    if (this.fishSchool && !this.fishSchool.harvested) {
+    this._syncNearestFishSchool();
+    if (this.fishSchools.length > 0) {
       const isDaytime = this.sunState.altDeg > 8.0;
-      const fDist = Math.hypot(
-        this.fishSchool.x - this.pos.x,
-        this.fishSchool.y - this.pos.y
-      );
-      if (isDaytime && fDist <= this.fishSchool.radius) {
-        this.fishSchool.harvested = true;
-        const bonus = this.hasFisher ? 1.5 : 0.85;
-        this.rationsRemaining = Math.min(
-          this.initialRations + 1.0,
-          this.rationsRemaining + bonus
-        );
-        this.fastForward = false;
-        this.events.push({ type: 'fish_school_foraged', bonus });
+      if (isDaytime) {
+        for (const school of this.fishSchools) {
+          if (school.harvested) continue;
+          const fDist = Math.hypot(
+            school.x - this.pos.x,
+            school.y - this.pos.y
+          );
+          if (fDist <= school.radius) {
+            school.harvested = true;
+            this.fishSchoolsHarvestedCount += 1;
+            const bonus = this.hasFisher ? 1.5 : 0.85;
+            this.rationsRemaining = Math.min(
+              this.initialRations + 1.0,
+              this.rationsRemaining + bonus
+            );
+            this.fastForward = false;
+            this.events.push({
+              type: 'fish_school_foraged',
+              bonus,
+              voyageHarvestCount: this.fishSchoolsHarvestedCount,
+            });
+          }
+        }
+        this._syncNearestFishSchool();
       }
     }
 
@@ -434,7 +490,35 @@ export class OceanSim {
       return this.events;
     }
 
+    if (!this._emitted24hSurvival && this.elapsedGameHours >= 24.0) {
+      this._emitted24hSurvival = true;
+      this.events.push({
+        type: 'survived_24h_at_sea',
+        elapsedGameHours: this.elapsedGameHours,
+      });
+    }
+
     return this.events;
+  }
+
+  _syncNearestFishSchool() {
+    if (!Array.isArray(this.fishSchools) || this.fishSchools.length === 0) {
+      if (this.fishSchool && this.fishSchool.harvested) {
+        this.fishSchool = null;
+      }
+      return;
+    }
+    let nearest = null;
+    let bestDist = Infinity;
+    for (const school of this.fishSchools) {
+      if (!school || school.harvested) continue;
+      const d = Math.hypot(school.x - this.pos.x, school.y - this.pos.y);
+      if (d < bestDist) {
+        bestDist = d;
+        nearest = school;
+      }
+    }
+    this.fishSchool = nearest;
   }
 
   /**
@@ -644,15 +728,17 @@ export class OceanSim {
     }
 
     // Check if any island lies within the forward +/-60 deg cone within reasonable reach
+    // (Secret Rapa Nui lies ~23.4 units beyond Mangareva, so allow a 32-unit forward reach for secret shores!)
     for (const isl of Object.values(this.activeIslands)) {
       const dx = isl.simPos.x - this.pos.x;
       const dy = isl.simPos.y - this.pos.y;
       const d = Math.hypot(dx, dy);
       const brg = posMod(radToDeg(Math.atan2(dx, dy)), 360.0);
       const angleDiff = Math.abs(wrapDeg180(brg - this.courseOverGroundDeg));
+      const allowedReach = isl.isSecret ? 32.0 : maxThreshold * 0.95;
       if (
         angleDiff <= GameConstants.MERCY_FORWARD_CONE_HALF_DEG &&
-        d <= maxThreshold * 0.95
+        d <= allowedReach
       ) {
         return false;
       }

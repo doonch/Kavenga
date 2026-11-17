@@ -340,4 +340,70 @@ export class ChantAndDrumEngine {
       osc.stop(now + i * 0.14 + 0.42);
     });
   }
+
+  /**
+   * Warm three-note rising vivo cadence when an ashore Objective is cleared.
+   */
+  playObjectiveClearedChime() {
+    const ctx = this.ensureContext();
+    if (!ctx || this.muted) return;
+    const now = ctx.currentTime + 0.015;
+    [392.0, 493.88, 587.33].forEach((hz, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      const t0 = now + i * 0.11;
+      osc.frequency.setValueAtTime(hz * 0.99, t0);
+      osc.frequency.linearRampToValueAtTime(hz, t0 + 0.05);
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.linearRampToValueAtTime(0.082, t0 + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0005, t0 + 0.42);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(t0);
+      osc.stop(t0 + 0.46);
+    });
+  }
+
+  /**
+   * Celebratory warm conch undertone + four-note harmonic vivo arpeggio when a Surprise Achievement unlocks.
+   */
+  playAchievementUnlockedFanfare() {
+    const ctx = this.ensureContext();
+    if (!ctx || this.muted) return;
+    const now = ctx.currentTime + 0.02;
+
+    // Warm resonant shell root
+    const rootOsc = ctx.createOscillator();
+    const rootFilter = ctx.createBiquadFilter();
+    const rootGain = ctx.createGain();
+    rootOsc.type = 'triangle';
+    rootOsc.frequency.setValueAtTime(196.0, now);
+    rootFilter.type = 'lowpass';
+    rootFilter.frequency.value = 540.0;
+    rootGain.gain.setValueAtTime(0.0001, now);
+    rootGain.gain.linearRampToValueAtTime(0.11, now + 0.12);
+    rootGain.gain.exponentialRampToValueAtTime(0.0006, now + 1.15);
+    rootOsc.connect(rootFilter);
+    rootFilter.connect(rootGain);
+    rootGain.connect(this.masterGain);
+    rootOsc.start(now);
+    rootOsc.stop(now + 1.2);
+
+    // Sparkling pentatonic vivo overtones
+    [392.0, 493.88, 587.33, 783.99].forEach((hz, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      const t0 = now + 0.06 + i * 0.115;
+      osc.frequency.setValueAtTime(hz, t0);
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.linearRampToValueAtTime(0.085, t0 + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0005, t0 + 0.62);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(t0);
+      osc.stop(t0 + 0.66);
+    });
+  }
 }

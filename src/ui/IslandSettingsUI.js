@@ -82,11 +82,22 @@ export class IslandSettingsUI {
             </div>
           </div>
 
-          <!-- 3. Start Over (gated by confirmation popup) -->
+          <!-- 3. Achievements Gallery Shortcut -->
+          <div class="settings-section settings-reset-row">
+            <div class="settings-reset-copy">
+              <strong>🏆 Wayfinder Achievements</strong>
+              <span>Review extraordinary feats unlocked across your voyages (preserved across resets).</span>
+            </div>
+            <button class="secondary-btn" id="btnSettingsOpenAchievements" type="button">
+              🏆 View Achievements
+            </button>
+          </div>
+
+          <!-- 4. Start Over (gated by confirmation popup) -->
           <div class="settings-section settings-reset-row">
             <div class="settings-reset-copy">
               <strong>Start Over</strong>
-              <span>Erase all saved progress and begin anew on Ra'iatea.</span>
+              <span>Erase saved campaign progress and begin anew on Ra'iatea (unlocked achievements are kept).</span>
             </div>
             <button class="danger-outline-btn" id="btnSettingsStartOver" type="button">
               ↺ Start Over...
@@ -159,7 +170,15 @@ export class IslandSettingsUI {
       });
     });
 
-    // 3. Start Over + "Are you sure?" confirmation handlers
+    // 3. View Achievements shortcut + Start Over confirmation handlers
+    this.rootEl
+      .querySelector('#btnSettingsOpenAchievements')
+      .addEventListener('click', (e) => {
+        e.currentTarget.blur();
+        this.hide();
+        this.callbacks.onOpenAchievements?.();
+      });
+
     const confirmModal = this.rootEl.querySelector('#startOverConfirmModal');
     this.rootEl
       .querySelector('#btnSettingsStartOver')

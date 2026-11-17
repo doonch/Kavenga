@@ -9,15 +9,18 @@
 import * as THREE from 'three';
 import { ChantAndDrumEngine } from './audio/ChantAndDrumEngine.js';
 import { SpatialSeaAudio } from './audio/SpatialSeaAudio.js';
+import { AchievementsManager } from './core/achievementsManager.js';
 import { onVoyageLandfall } from './core/campaignManager.js';
 import {
   DepartureWindow,
+  Difficulty,
   departureWindowToHour,
   GameConstants,
   posMod,
   wrapDeg180,
 } from './core/gameConstants.js';
 import { GameState } from './core/gameState.js';
+import { activateIslandArrivalObjective } from './core/objectivesManager.js';
 import {
   CONSTELLATION_LESSONS,
   getAvailableUnlearnedLessonForIsland,
@@ -40,6 +43,7 @@ import {
   OceanSim,
   VoyageStatus,
 } from './simulation/oceanSim.js';
+import { AchievementsUI } from './ui/AchievementsUI.js';
 import { ElderVigilPromptUI } from './ui/ElderVigilPromptUI.js';
 import { IslandHubUI } from './ui/IslandHubUI.js';
 import { IslandSettingsUI } from './ui/IslandSettingsUI.js';
@@ -57,10 +61,16 @@ class KavengaApp {
     this.hubRootEl = document.getElementById('island-hub');
     this.settingsRootEl = document.getElementById('island-settings-ui');
     this.elderPromptRootEl = document.getElementById('elder-vigil-prompt-ui');
+    this.achievementsRootEl = document.getElementById('achievements-ui');
 
-    // 1. State & Simulation
+    // 1. State, Objectives & Persistent Achievements
     this.gameState = new GameState();
     const hasSavedProgress = this.gameState.loadFromLocalStorage();
+    activateIslandArrivalObjective(
+      this.gameState,
+      this.gameState.currentIslandId
+    );
+    this.achievementsManager = new AchievementsManager();
     this.oceanSim = new OceanSim();
     this.phase = 'shore'; // 'shore' | 'sailing' | 'sky_vigil'
     this.isWalkableHubOpen = false;
@@ -139,11 +149,24 @@ class KavengaApp {
     this.spatialAudio = new SpatialSeaAudio(this.chantEngine);
 
     // 4. UI Layers
+    this.achievementsUI = new AchievementsUI(this.achievementsRootEl, {
+      getAchievementsManager: () => this.achievementsManager,
+      onClose: () => {
+        this.cameraCtrl.keysDown.clear();
+      },
+    });
+    this.achievementsManager.onUnlock((unlockedRecord) => {
+      this.chantEngine.playAchievementUnlockedFanfare();
+      this.achievementsUI.showAchievementUnlocked(unlockedRecord);
+      this._refreshShoreOverlays();
+    });
+
     this.islandSettingsUI = new IslandSettingsUI(this.settingsRootEl, {
       getGameState: () => this.gameState,
       getIsSoundMuted: () => this.chantEngine.muted,
       onSetSoundMuted: (muted) => this.setSoundMuted(muted),
       onChangeDifficulty: (mode) => this.setDifficulty(mode),
+      onOpenAchievements: () => this.openIslandAchievements(),
       onConfirmStartOver: () => this.resetCampaignAndReload(),
       onClose: () => {
         this.cameraCtrl.keysDown.clear();
@@ -164,8 +187,16 @@ class KavengaApp {
 
     this.islandHub = new IslandHubUI(this.hubRootEl, {
       getGameState: () => this.gameState,
+      getAchievementsSummary: () => this.achievementsManager.getSummary(),
       getIsSoundMuted: () => this.chantEngine.muted,
       onOpenSettings: () => this.openIslandSettings(),
+      onOpenAchievements: () => this.openIslandAchievements(),
+      onSanctuaryInteracted: (res) => this._handleSanctuaryInteracted(res),
+      onAshoreStateChanged: () =>
+        this.achievementsManager.evaluateAshoreState(
+          this.gameState,
+          this.gameState.currentIslandId
+        ),
       onChangeDifficulty: (mode) => this.setDifficulty(mode),
       onLaunchVoyage: (song, depWindow) =>
         this.requestLaunchVoyage(song, depWindow),
@@ -176,8 +207,16 @@ class KavengaApp {
 
     this.walkableIslandUI = new WalkableIslandUI(this.walkableUiRootEl, {
       getGameState: () => this.gameState,
+      getAchievementsSummary: () => this.achievementsManager.getSummary(),
       getIsSoundMuted: () => this.chantEngine.muted,
       onOpenSettings: () => this.openIslandSettings(),
+      onOpenAchievements: () => this.openIslandAchievements(),
+      onSanctuaryInteracted: (res) => this._handleSanctuaryInteracted(res),
+      onAshoreStateChanged: () =>
+        this.achievementsManager.evaluateAshoreState(
+          this.gameState,
+          this.gameState.currentIslandId
+        ),
       onChangeDifficulty: (mode) => this.setDifficulty(mode),
       onLaunchVoyage: (song, depWindow) =>
         this.requestLaunchVoyage(song, depWindow),
@@ -191,11 +230,19 @@ class KavengaApp {
       getCameraCtrl: () => this.cameraCtrl,
       onExitVigil: () => this.exitSkyVigil(),
       onPlayChime: () => this.chantEngine.playStarSightedChime(),
+      onEyeTrialStreak: (streak) => {
+        this.achievementsManager.evaluateEyeTrialStreak(
+          streak,
+          this.gameState,
+          this.skyVigilUI.activeIslandId
+        );
+      },
       onConstellationLearned: () => {
-        if (this.walkableIslandScene.active) {
-          this.walkableIslandUI.refresh();
-        }
-        this.islandHub.refresh();
+        this.achievementsManager.evaluateAshoreState(
+          this.gameState,
+          this.gameState.currentIslandId
+        );
+        this._refreshShoreOverlays();
       },
     });
 
@@ -235,7 +282,7 @@ class KavengaApp {
     this.sailingHud.hide();
     this.skyVigilUI.hide();
     this._enterShoreMode({
-      hubDefaultTab: hasSavedProgress ? 'landing' : 'sanctuary',
+      hubDefaultTab: 'landing',
       spawnMode: 'canoe',
     });
 
@@ -312,8 +359,9 @@ class KavengaApp {
     if (urlIsland && ISLANDS[urlIsland]) {
       this.gameState.currentIslandId = urlIsland;
       this.gameState.currentBasinId = ISLANDS[urlIsland].basinId;
+      activateIslandArrivalObjective(this.gameState, urlIsland);
       this.oceanSim.setShoreIsland(urlIsland);
-      this._enterShoreMode({ hubDefaultTab: 'sanctuary', spawnMode: 'canoe' });
+      this._enterShoreMode({ hubDefaultTab: 'landing', spawnMode: 'canoe' });
     }
 
     if (urlMode === 'sky_vigil' || params.get('vigil') === '1') {
@@ -616,6 +664,10 @@ class KavengaApp {
   _enterShoreMode({ hubDefaultTab = 'landing', spawnMode = 'canoe' } = {}) {
     this.phase = 'shore';
     this.isWalkableHubOpen = false;
+    activateIslandArrivalObjective(
+      this.gameState,
+      this.gameState.currentIslandId
+    );
     this.oceanSim.setShoreIsland(this.gameState.currentIslandId);
     this.skyLabelsEl
       .querySelectorAll('.sky-star-label')
@@ -682,8 +734,43 @@ class KavengaApp {
   openIslandSettings() {
     if (this.phase !== 'shore') return;
     this.elderVigilPromptUI.hide();
+    this.achievementsUI.hideModal();
     this.cameraCtrl.keysDown.clear();
     this.islandSettingsUI.show();
+  }
+
+  openIslandAchievements() {
+    if (this.phase !== 'shore') return;
+    this.elderVigilPromptUI.hide();
+    this.islandSettingsUI.hide();
+    this.cameraCtrl.keysDown.clear();
+    this.achievementsUI.showModal();
+  }
+
+  _refreshShoreOverlays() {
+    if (this.phase !== 'shore') return;
+    if (this.walkableIslandScene.active) {
+      this.walkableIslandUI.refresh();
+      if (this.isWalkableHubOpen) {
+        this.islandHub.refresh();
+      }
+    } else {
+      this.islandHub.refresh();
+    }
+  }
+
+  _handleSanctuaryInteracted(sanctuaryResult) {
+    if (sanctuaryResult?.clearedObjectives?.length) {
+      this.chantEngine.playObjectiveClearedChime();
+      for (const clearedObj of sanctuaryResult.clearedObjectives) {
+        this.achievementsUI.showObjectiveCleared(clearedObj);
+      }
+    }
+    this.achievementsManager.evaluateAshoreState(
+      this.gameState,
+      this.gameState.currentIslandId
+    );
+    this._refreshShoreOverlays();
   }
 
   setSoundMuted(muted) {
@@ -709,6 +796,7 @@ class KavengaApp {
 
   resetCampaignAndReload() {
     this.islandSettingsUI.hide();
+    this.achievementsUI.hideModal();
     this.elderVigilPromptUI.hide();
     this.chantEngine.stop();
     this.spatialAudio.stop();
@@ -721,6 +809,8 @@ class KavengaApp {
   enterSkyVigil(opts = {}) {
     this.isWalkableHubOpen = false;
     this.islandSettingsUI.hide();
+    this.achievementsUI.hideModal();
+    this.achievementsUI.clearObjectiveBanners();
     this.elderVigilPromptUI.hide();
     this._resetLaunchAnimation();
     this._resetLandfallAnimation();
@@ -753,6 +843,9 @@ class KavengaApp {
     this.gameState.saveToLocalStorage();
     this.skyVigilUI.syncDifficultyDefault(mode);
     if (this.phase === 'sailing') {
+      if (mode !== Difficulty.MASTER_NAVIGATOR) {
+        this.oceanSim.sailedPureMasterNavigator = false;
+      }
       this.chantEngine.syncState({
         difficulty: mode,
         fastForward: this.oceanSim.fastForward,
@@ -798,6 +891,8 @@ class KavengaApp {
     this.gameState.savePreVoyageSnapshot();
     this.isWalkableHubOpen = false;
     this.islandSettingsUI.hide();
+    this.achievementsUI.hideModal();
+    this.achievementsUI.clearObjectiveBanners();
     this.elderVigilPromptUI.hide();
     this.walkableIslandScene.exit();
     this.walkableIslandUI.hide();
@@ -848,6 +943,14 @@ class KavengaApp {
     this.chantEngine.stop();
     this.spatialAudio.stop();
 
+    onVoyageLandfall(this.gameState, arrivedId);
+    this.achievementsManager.evaluateLandfall(
+      this.oceanSim,
+      this.gameState,
+      arrivedId
+    );
+    this.achievementsManager.evaluateAshoreState(this.gameState, arrivedId);
+
     // Persist remaining voyage rations rounded up to whole baskets (minimum 1)
     this.gameState.loadedRations = Math.max(
       1,
@@ -856,9 +959,10 @@ class KavengaApp {
         Math.ceil(this.oceanSim.rationsRemaining)
       )
     );
-    onVoyageLandfall(this.gameState, arrivedId);
+    this.gameState.saveToLocalStorage();
+
     this._enterShoreMode({
-      hubDefaultTab: ISLANDS[arrivedId]?.inhabited ? 'sanctuary' : 'landing',
+      hubDefaultTab: 'landing',
       spawnMode: 'canoe',
     });
   }
@@ -926,11 +1030,13 @@ class KavengaApp {
           inputBlocked:
             this.isWalkableHubOpen ||
             this.islandSettingsUI.isOpen() ||
+            this.achievementsUI.isOpen() ||
             this.elderVigilPromptUI.isOpen() ||
             this.walkableIslandUI.isBlockingMovement(),
           hideLabels:
             this.isWalkableHubOpen ||
             this.islandSettingsUI.isOpen() ||
+            this.achievementsUI.isOpen() ||
             this.elderVigilPromptUI.isOpen(),
         }
       );
@@ -993,7 +1099,20 @@ class KavengaApp {
       for (const ev of events) {
         if (ev.type === 'fish_school_foraged') {
           this.sailingHud.showToast(
-            'Fresh bonito caught from the leaping school — ration baskets replenished!'
+            ev.voyageHarvestCount >= 2
+              ? 'Second leaping bonito school harvested — woven baskets brimming!'
+              : 'Fresh bonito caught from the leaping school — ration baskets replenished!'
+          );
+          this.achievementsManager.evaluateSeaEvent(
+            ev,
+            this.oceanSim,
+            this.gameState
+          );
+        } else if (ev.type === 'survived_24h_at_sea') {
+          this.achievementsManager.evaluateSeaEvent(
+            ev,
+            this.oceanSim,
+            this.gameState
           );
         } else if (ev.type === 'low_rations_warning') {
           this.chantEngine.playLowRationsWarning();
@@ -1003,6 +1122,18 @@ class KavengaApp {
         } else if (ev.type === 'landfall') {
           this._logVoyageDebugMapUrl(ev);
           this.chantEngine.playLandfallConch();
+          this.achievementsManager.evaluateLandfall(
+            this.oceanSim,
+            {
+              difficulty: this.gameState.difficulty,
+              currentBasinId: this.gameState.currentBasinId,
+              discoveredIslands: {
+                ...this.gameState.discoveredIslands,
+                [ev.islandId]: true,
+              },
+            },
+            ev.islandId
+          );
           this._beginLandfallAnimation(ev.islandId);
           justStartedLandfall = true;
         } else if (ev.type === 'lost_at_sea') {

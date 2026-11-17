@@ -20,6 +20,7 @@ import {
   interactWithIslandSanctuary,
   performBeachCareeningAndRestock,
 } from '../core/campaignManager.js';
+import { getActiveObjectivesForDisplay } from '../core/objectivesManager.js';
 import {
   getAvailableConstellationLessonForIsland,
   getAvailableUnlearnedLessonForIsland,
@@ -44,6 +45,7 @@ export class IslandHubUI {
     this.walkableMode = false;
     this.walkableActivePoiId = null;
     this.walkableMoveNotice = '';
+    this._recentlyClearedObjectives = [];
 
     this._buildDOM();
   }
@@ -58,6 +60,16 @@ export class IslandHubUI {
             <p class="hub-island-sub" id="hubIslandSubtitle"></p>
           </div>
           <div class="hub-header-right">
+            <button
+              class="island-settings-btn island-achievements-btn"
+              id="btnHubOpenAchievements"
+              type="button"
+              title="View Wayfinder Achievements"
+            >
+              <span aria-hidden="true">🏆</span>
+              <span class="island-settings-label">Achievements</span>
+              <span class="island-settings-pill" id="hubAchievementsSummary">0/12</span>
+            </button>
             <button
               class="island-settings-btn"
               id="btnHubOpenSettings"
@@ -86,6 +98,9 @@ export class IslandHubUI {
           <button class="poi-tab-btn" data-tab="sanctuary" data-poi="elder_marae" id="tabBtnSanctuary">🌺 Village &amp; Marae</button>
           <span class="hub-walkable-status hidden" id="hubWalkableStatus"></span>
         </nav>
+
+        <!-- Ashore Active Objectives Strip (strictly island-only; never shown while sailing) -->
+        <section class="hub-objectives-strip hidden" id="hubObjectivesStrip" aria-live="polite"></section>
 
         <main class="hub-content">
           <!-- TAB 1: CANOE LANDING & VOYAGE LAUNCH -->
@@ -393,12 +408,18 @@ export class IslandHubUI {
       }
     });
 
-    // Settings modal opener
+    // Settings & Achievements modal openers
     this.rootEl
       .querySelector('#btnHubOpenSettings')
       .addEventListener('click', (e) => {
         e.currentTarget.blur();
         this.callbacks.onOpenSettings?.();
+      });
+    this.rootEl
+      .querySelector('#btnHubOpenAchievements')
+      .addEventListener('click', (e) => {
+        e.currentTarget.blur();
+        this.callbacks.onOpenAchievements?.();
       });
 
     // Ration +/- buttons
@@ -422,6 +443,7 @@ export class IslandHubUI {
         const gs = this.callbacks.getGameState();
         const msg = performBeachCareeningAndRestock(gs);
         this.rootEl.querySelector('#hubCareenFeedback').textContent = msg;
+        this.callbacks.onAshoreStateChanged?.();
         this.refresh();
       });
 
@@ -490,12 +512,80 @@ export class IslandHubUI {
     const gs = this.callbacks.getGameState();
     if (!gs) return;
     this.lastSanctuaryResult = interactWithIslandSanctuary(gs);
+    if (this.lastSanctuaryResult?.clearedObjectives?.length) {
+      this.flashClearedObjectives(this.lastSanctuaryResult.clearedObjectives);
+    }
+    this.callbacks.onSanctuaryInteracted?.(this.lastSanctuaryResult);
     const routes = getAvailableRoutesFromCurrentIsland(gs);
     if (routes.length > 0) {
       const newest = routes[routes.length - 1].song;
       this.selectedSongId = newest.id;
       this.selectedDeparture = newest.recommendedDeparture;
     }
+  }
+
+  flashClearedObjectives(clearedList) {
+    if (!Array.isArray(clearedList) || clearedList.length === 0) return;
+    for (const def of clearedList) {
+      this._recentlyClearedObjectives.push(def);
+    }
+    this._renderObjectivesStrip();
+    clearTimeout(this._clearedObjTimer);
+    this._clearedObjTimer = setTimeout(() => {
+      this._recentlyClearedObjectives = [];
+      this._renderObjectivesStrip();
+    }, 2800);
+  }
+
+  _renderObjectivesStrip() {
+    const stripEl = this.rootEl.querySelector('#hubObjectivesStrip');
+    if (!stripEl) return;
+
+    const gs = this.callbacks.getGameState();
+    const activeItems = getActiveObjectivesForDisplay(gs);
+    const recentCleared = this._recentlyClearedObjectives || [];
+
+    if (activeItems.length === 0 && recentCleared.length === 0) {
+      stripEl.classList.add('hidden');
+      return;
+    }
+
+    stripEl.classList.remove('hidden');
+    const pills = [];
+    for (const c of recentCleared) {
+      pills.push(`
+        <div class="shore-obj-item cleared-flash">
+          <span class="shore-obj-check">✓</span>
+          <div class="shore-obj-copy">
+            <strong>${c.glyph || '✦'} ${c.title}</strong>
+            <span class="shore-obj-cleared-tag">Objective Cleared</span>
+          </div>
+        </div>
+      `);
+    }
+    for (const item of activeItems) {
+      pills.push(`
+        <div class="shore-obj-item ${item.isHere ? 'is-local' : ''} ${item.hasRequiredCargo ? 'cargo-ready' : ''}">
+          <span class="shore-obj-bullet" aria-hidden="true">${item.glyph || '✦'}</span>
+          <div class="shore-obj-copy">
+            <div class="shore-obj-title-row">
+              <strong>${item.title}</strong>
+              ${
+                item.statusBadge
+                  ? `<span class="shore-obj-badge">${item.statusBadge}</span>`
+                  : ''
+              }
+            </div>
+            <span class="shore-obj-detail">${item.detail}</span>
+          </div>
+        </div>
+      `);
+    }
+
+    stripEl.innerHTML = `
+      <div class="hub-objectives-label">✦ Objectives Ashore</div>
+      <div class="hub-objectives-items">${pills.join('')}</div>
+    `;
   }
 
   _showCharacterLightbox({ eyebrow, name, role, portrait, alt }) {
@@ -618,11 +708,6 @@ export class IslandHubUI {
     if (tabId === 'sand') {
       this.refresh();
       this._renderSelectedShoreLesson(true);
-    } else if (tabId === 'sanctuary') {
-      if (!this.lastSanctuaryResult) {
-        this._triggerSanctuaryInteraction();
-      }
-      this.refresh();
     } else {
       this.refresh();
     }
@@ -650,6 +735,16 @@ export class IslandHubUI {
       const isMuted = Boolean(this.callbacks.getIsSoundMuted?.());
       summaryEl.textContent = formatShortSettingsSummary(gs.difficulty, isMuted);
     }
+
+    const achSummaryEl = this.rootEl.querySelector('#hubAchievementsSummary');
+    if (achSummaryEl) {
+      const achSummary = this.callbacks.getAchievementsSummary?.();
+      achSummaryEl.textContent = achSummary
+        ? `${achSummary.unlockedCount}/${achSummary.totalCount}`
+        : '0/12';
+    }
+
+    this._renderObjectivesStrip();
 
     // POI Tab titles from island POIs (or exact 4-POI walkable spec when in walkable overlay)
     const [pLanding, pSand, pSanctuary] = isl.pois;

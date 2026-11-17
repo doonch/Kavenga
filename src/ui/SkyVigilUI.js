@@ -384,6 +384,9 @@ export class SkyVigilUI {
       .querySelector('#btnVigilQuizPeek')
       .addEventListener('click', () => {
         this.quizPeekHints = !this.quizPeekHints;
+        if (this.quizPeekHints) {
+          this.quizStreak = 0;
+        }
         this._refreshQuizDOM();
       });
     this.rootEl
@@ -1244,7 +1247,12 @@ export class SkyVigilUI {
           if (this.quizHoldSec >= QUIZ_HOLD_SEC) {
             this.quizResolved = true;
             this.quizScore += 1;
-            this.quizStreak += 1;
+            if (!this.quizPeekHints && !this.quizRevealedByHelper) {
+              this.quizStreak += 1;
+              this.callbacks.onEyeTrialStreak?.(this.quizStreak);
+            } else {
+              this.quizStreak = 0;
+            }
             this.callbacks.onPlayChime?.();
             this._refreshQuizDOM();
           }

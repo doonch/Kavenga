@@ -13,6 +13,11 @@ import {
   performBeachCareeningAndRestock,
 } from '../src/core/campaignManager.js';
 import { GameState } from '../src/core/gameState.js';
+import { getActiveObjectivesForDisplay } from '../src/core/objectivesManager.js';
+import {
+  ISLAND_ARRIVAL_OBJECTIVE_MAP,
+  OBJECTIVES_ORDER,
+} from '../src/data/objectivesData.js';
 import { getAvailableUnlearnedLessonForIsland } from '../src/data/constellationLessonsData.js';
 import { NAVIGATION_STARS } from '../src/data/constellationsData.js';
 import { OceanSim, VoyageStatus } from '../src/simulation/oceanSim.js';
@@ -61,8 +66,15 @@ for (const [k, v] of Object.entries(POI_LABELS)) {
   auditText(v, `POI ${k}`);
 }
 
-// 2. Execute complete 17-leg player journey from Ra'iatea to Rapa Nui!
+// 2. Execute complete 17-leg player journey from Ra'iatea to Hawai'i!
 const gs = new GameState();
+const visitedSanctuaries = new Set();
+
+// Verify Ra'iatea arrival objective is immediately active upon setting foot on the starting island
+assert(
+  getActiveObjectivesForDisplay(gs).some((o) => o.id === 'meet_raiatea_elder'),
+  "Immediate starting objective on Ra'iatea calls on player to speak with Elder Metua"
+);
 
 const CAMPAIGN_STEPS = [
   { expectedIsland: 'raiatea', sailSongId: 'song_01' },
@@ -91,8 +103,38 @@ for (let i = 0; i < CAMPAIGN_STEPS.length; i += 1) {
     `Step ${i + 1}: expected to be on ${step.expectedIsland}, got ${gs.currentIslandId}`
   );
 
+  const isFirstSanctuaryVisit = !visitedSanctuaries.has(step.expectedIsland);
+  const expectedArrivalObjId = ISLAND_ARRIVAL_OBJECTIVE_MAP[step.expectedIsland];
+  if (isFirstSanctuaryVisit && expectedArrivalObjId) {
+    assert(
+      Boolean(gs.activeObjectives[expectedArrivalObjId]),
+      `Step ${i + 1}: arrival objective ${expectedArrivalObjId} must be active upon arriving at ${step.expectedIsland}`
+    );
+  }
+
   // Visit Sanctuary / Mentor / Outpost
   const sanct = interactWithIslandSanctuary(gs);
+  visitedSanctuaries.add(step.expectedIsland);
+  if (isFirstSanctuaryVisit && expectedArrivalObjId) {
+    assert(
+      sanct.clearedObjectives.some((o) => o.id === expectedArrivalObjId) &&
+        Boolean(gs.clearedObjectives[expectedArrivalObjId]) &&
+        !gs.activeObjectives[expectedArrivalObjId],
+      `Step ${i + 1}: interacting with ${step.expectedIsland} sanctuary clears ${expectedArrivalObjId}`
+    );
+  }
+  if (step.expectedIsland === 'raiatea' && i === 0) {
+    assert(
+      Boolean(gs.activeObjectives.quest_kura_feathers_raiatea),
+      "Elder Metua assigns quest_kura_feathers_raiatea objective on Ra'iatea"
+    );
+  }
+  if (step.expectedIsland === 'raiatea' && i === 5) {
+    assert(
+      sanct.clearedObjectives.some((o) => o.id === 'quest_kura_feathers_raiatea'),
+      "Presenting Red Kura Feathers on Ra'iatea clears quest_kura_feathers_raiatea"
+    );
+  }
   auditText(sanct.title, `${step.expectedIsland} sanctuary title`);
   auditText(sanct.speech, `${step.expectedIsland} sanctuary speech`);
   for (const rw of sanct.rewardsList) {
@@ -179,9 +221,19 @@ for (let i = 0; i < CAMPAIGN_STEPS.length; i += 1) {
 
 // Final arrival interaction on Hawai'i
 assert(gs.currentIslandId === 'hawaii', "Reached Hawai'i at end of Song 16");
+assert(
+  Boolean(gs.activeObjectives.meet_hawaii_council) &&
+    Boolean(gs.activeObjectives.quest_tridacna_to_hawaii),
+  "Arriving on Hawai'i displays Ancestral Council arrival objective and Tridacna Shell delivery quest"
+);
 const finaleSanct = interactWithIslandSanctuary(gs);
 auditText(finaleSanct.title, "Hawai'i finale title");
 auditText(finaleSanct.speech, "Hawai'i finale speech");
+assert(
+  getActiveObjectivesForDisplay(gs).length === 0 &&
+    OBJECTIVES_ORDER.every((oid) => Boolean(gs.clearedObjectives[oid])),
+  `All ${OBJECTIVES_ORDER.length} campaign objectives across Acts I-III are cleared upon completing Hawai'i finale`
+);
 
 assert(
   Object.keys(gs.discoveredIslands).length === 16,

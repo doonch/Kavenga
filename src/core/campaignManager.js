@@ -7,6 +7,10 @@
 import { ISLANDS } from '../data/islandsData.js';
 import { SAND_LESSONS } from '../data/sandDiagramsData.js';
 import { SONGS, buildReturnSong } from '../data/songsData.js';
+import {
+  activateIslandArrivalObjective,
+  recordSanctuaryObjectiveProgress,
+} from './objectivesManager.js';
 
 export const CARGO_CATALOG = Object.freeze({
   kava_bundle: {
@@ -147,6 +151,7 @@ export function onVoyageLandfall(gameState, islandId) {
 
   const wasNew = !gameState.discoveredIslands[islandId];
   gameState.markIslandDiscovered(islandId, isl.basinId);
+  activateIslandArrivalObjective(gameState, islandId);
   if (wasNew) {
     notes.push(`Charted ${isl.name} (${isl.subtitle}) in your memory.`);
   }
@@ -222,6 +227,26 @@ export function performBeachCareeningAndRestock(gameState) {
  * Returns { title, speech, unlockedItems, canCompleteNow } with strictly cue-relative copy.
  */
 export function interactWithIslandSanctuary(gameState) {
+  const hadTridacnaBefore = Boolean(
+    gameState?.hasCargoItem?.('sacred_tridacna_shell')
+  );
+  const rawResult = _interactWithIslandSanctuaryCore(gameState);
+  const objDelta = recordSanctuaryObjectiveProgress(
+    gameState,
+    gameState?.currentIslandId,
+    { hadTridacnaBefore }
+  );
+  if (objDelta.cleared.length > 0 || objDelta.activated.length > 0) {
+    gameState.saveToLocalStorage();
+  }
+  return {
+    ...rawResult,
+    clearedObjectives: objDelta.cleared,
+    activatedObjectives: objDelta.activated,
+  };
+}
+
+function _interactWithIslandSanctuaryCore(gameState) {
   const id = gameState.currentIslandId;
   const isl = ISLANDS[id];
   if (!isl) {
