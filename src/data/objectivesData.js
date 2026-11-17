@@ -291,7 +291,7 @@ export const OBJECTIVES = Object.freeze({
     islandId: 'hawaii',
     glyph: '🌺',
     title: 'Stand Before the Council of Ancestral Wayfinders at the Great Heiau',
-    detail: "Walk up from Kealakekua Sands to the Great Ancestral Heiau Ahu on Hawai'i.",
+    detail: "Gather above Kealakekua Sands at the Great Ancestral Heiau Ahu on Hawai'i.",
   }),
 });
 

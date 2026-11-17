@@ -63,9 +63,9 @@ export class WalkableIslandUI {
           <div class="walkable-top-left">
             <button
               class="walkable-island-btn"
-              id="btnOpenIslandHub"
+              id="btnReturnShoreStage"
               type="button"
-              title="Open Island Hub to inspect locations or move straight to a Point of Interest"
+              title="Return to the 4-Station Shore Diorama Stage (Esc)"
             >
               <span class="walkable-island-btn-icon" aria-hidden="true">🏝️</span>
               <span class="walkable-island-btn-copy">
@@ -75,10 +75,10 @@ export class WalkableIslandUI {
                   <span id="walkIslandSubtitle">Sacred High Island</span>
                 </span>
               </span>
-              <span class="walkable-island-btn-cta">Island Hub ▾</span>
+              <span class="walkable-island-btn-cta">← Shore Stage</span>
             </button>
             <div class="walkable-controls-hint">
-              Arrow Keys (or WASD) to walk · Drag view to orbit · Click island button above for quick hub
+              Arrow Keys (or WASD) to walk · Drag view to orbit · Click ← Shore Stage (or Esc) when ready
             </div>
 
             <!-- Ashore Active Objectives Tracker (strictly island-only; never shown while sailing) -->
@@ -186,10 +186,10 @@ export class WalkableIslandUI {
     );
 
     this.rootEl
-      .querySelector('#btnOpenIslandHub')
+      .querySelector('#btnReturnShoreStage')
       .addEventListener('click', (e) => {
         e.currentTarget.blur();
-        this.callbacks.onOpenIslandHub?.(this.currentPoi);
+        this.callbacks.onExitWalkMode?.(this.currentPoi);
       });
 
     this.rootEl
@@ -270,6 +270,8 @@ export class WalkableIslandUI {
         } else if (this.currentPoi && !this.minimizedPoiId) {
           this.minimizedPoiId = this.currentPoi.id;
           this._syncPopupVisibility();
+        } else {
+          this.callbacks.onExitWalkMode?.(this.currentPoi);
         }
       }
     });

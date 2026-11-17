@@ -178,33 +178,36 @@ assert(
   'Master Navigator character represents a 50 year old elder with a gray beard'
 );
 
-// Walkable 3D Island Scope Check (Ra'iatea, Taha'a, Hawai'i, and Rapa Nui)
+// Walkable 3D Island Scope Check (Optional Walk Shore mode on Ra'iatea, Taha'a, Hawai'i, and Rapa Nui)
 const expectedWalkableIds = ['raiatea', 'tahaa', 'hawaii', 'rapa_nui'];
 assert(
   WALKABLE_ISLAND_IDS.size === expectedWalkableIds.length &&
     expectedWalkableIds.every((id) => isWalkableIsland(id) === true),
-  "Ra'iatea, Taha'a, Hawai'i, and Rapa Nui use 3D Walkable Island mode"
+  "Ra'iatea, Taha'a, Hawai'i, and Rapa Nui support optional 3D Walk Shore mode on canonical island models"
 );
 for (const iid of Object.keys(ISLANDS)) {
   if (!expectedWalkableIds.includes(iid)) {
     assert(
       isWalkableIsland(iid) === false,
-      `Non-walkable island ${iid} retains classic IslandHubUI mode`
+      `Island ${iid} uses Unified 3D Shore Diorama stage without Walk Shore toggle`
     );
   }
 }
 for (const wid of expectedWalkableIds) {
   const wSpec = getWalkableIslandSpec(wid);
   assert(
-    wSpec && wSpec.pois.length === 4,
-    `Walkable ${wid} defines 4 visual POIs (canoe, hut, observation circle, sanctuary/ahu)`
+    wSpec &&
+      wSpec.pois.length === 4 &&
+      Number.isFinite(wSpec.canonicalScale) &&
+      wSpec.canonicalScale >= 1.0,
+    `Walkable ${wid} defines 4 visual POIs and canonicalScale >= 1.0`
   );
   const spawnToCanoeDist = Math.hypot(
     wSpec.initialSpawn.x - wSpec.mooredCanoe.x,
     wSpec.initialSpawn.z - wSpec.mooredCanoe.z
   );
   assert(
-    spawnToCanoeDist > 3.5 && spawnToCanoeDist < 8.5,
+    spawnToCanoeDist > 3.5 && spawnToCanoeDist < 12.0,
     `Walkable ${wid}: player spawns ashore right next to the moored canoe`
   );
   const canoePoi = wSpec.pois.find((p) => p.id === 'canoe_landing');
@@ -218,8 +221,8 @@ for (const wid of expectedWalkableIds) {
   );
   for (const p of wSpec.pois) {
     assert(
-      ['landing', 'sand', 'sanctuary'].includes(p.hubTab),
-      `Walkable ${wid} POI ${p.id} maps to a valid IslandHubUI tab`
+      ['landing', 'sand', 'vigil', 'sanctuary'].includes(p.hubTab),
+      `Walkable ${wid} POI ${p.id} maps to a valid 4-station Shore Stage tab`
     );
     const dArr = Math.hypot(
       (p.arrivalSpot?.x ?? 999) - p.x,
