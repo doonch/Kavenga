@@ -318,14 +318,18 @@ class KavengaApp {
 
     if (urlMode === 'sky_vigil' || params.get('vigil') === '1') {
       const urlLesson = params.get('lesson');
-      const islObj = urlIsland && ISLANDS[urlIsland] ? ISLANDS[urlIsland] : null;
-      const resolvedMaster =
-        urlMaster ||
-        islObj?.starMasterId ||
-        (islObj && islObj.latDeg > 0 ? 'akura' : 'terai');
+      const fallbackMasterIsl =
+        urlMaster === 'akura'
+          ? 'kiritimati'
+          : urlMaster === 'terai'
+            ? 'maupiti'
+            : null;
+      const resolvedIslId =
+        urlIsland && ISLANDS[urlIsland]
+          ? urlIsland
+          : fallbackMasterIsl || this.gameState.currentIslandId;
       this.enterSkyVigil({
-        masterId: resolvedMaster,
-        islandId: islObj ? islObj.id : undefined,
+        islandId: resolvedIslId,
         mode: urlTab || undefined,
         guidedLessonId:
           urlLesson && CONSTELLATION_LESSONS[urlLesson] ? urlLesson : undefined,

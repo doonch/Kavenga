@@ -26,7 +26,6 @@ import {
 } from '../data/constellationLessonsData.js';
 import { ISLANDS, OCEAN_BASINS } from '../data/islandsData.js';
 import { getPlayerCharacterProfile } from '../data/playerCharactersData.js';
-import { STAR_MASTERS } from '../data/skyVigilData.js';
 import { SONGS } from '../data/songsData.js';
 import { getWalkableIslandSpec } from '../data/walkableIslandsData.js';
 import { formatShortSettingsSummary } from './IslandSettingsUI.js';
@@ -177,14 +176,6 @@ export class IslandHubUI {
                   <button class="primary-btn vigil-primary-launch-btn" id="btnLaunchLocalVigil" type="button">
                     ✨ Enter Star-Stone Vigil
                   </button>
-                  <div class="vigil-quick-masters">
-                    <button class="secondary-btn small-btn" id="btnQuickVigilTerai" type="button">
-                      🐢 First Master Tera'i · Maupiti
-                    </button>
-                    <button class="secondary-btn small-btn" id="btnQuickVigilAkura" type="button">
-                      ✦ Keeper Akura · Kiritimati
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>
@@ -457,33 +448,16 @@ export class IslandHubUI {
       this._renderSelectedShoreLesson(true);
     });
 
-    // Star-Stone Vigil Launchers inside Navigator's Shore
+    // Star-Stone Vigil Launcher inside Navigator's Shore (strictly local island sky)
     this.rootEl
       .querySelector('#btnLaunchLocalVigil')
       .addEventListener('click', () => {
         const gs = this.callbacks.getGameState();
         const isl = ISLANDS[gs?.currentIslandId] || ISLANDS.raiatea;
-        const masterId =
-          isl.starMasterId || (isl.latDeg > 0 ? 'akura' : 'terai');
+        const unlearnedLocal = getAvailableUnlearnedLessonForIsland(gs, isl.id);
         this.callbacks.onOpenSkyVigil?.({
-          masterId,
           islandId: isl.id,
-        });
-      });
-    this.rootEl
-      .querySelector('#btnQuickVigilTerai')
-      .addEventListener('click', () => {
-        this.callbacks.onOpenSkyVigil?.({
-          masterId: 'terai',
-          islandId: 'maupiti',
-        });
-      });
-    this.rootEl
-      .querySelector('#btnQuickVigilAkura')
-      .addEventListener('click', () => {
-        this.callbacks.onOpenSkyVigil?.({
-          masterId: 'akura',
-          islandId: 'kiritimati',
+          guidedLessonId: unlearnedLocal ? unlearnedLocal.id : undefined,
         });
       });
 
@@ -908,17 +882,18 @@ export class IslandHubUI {
     const gs = this.callbacks.getGameState();
     const curIsl = ISLANDS[gs?.currentIslandId] || ISLANDS.raiatea;
 
-    // Populate the prominent Star-Stone Night-Sky Vigil banner in Navigator's Shore
-    const localMasterId =
-      curIsl.starMasterId || (curIsl.latDeg > 0 ? 'akura' : 'terai');
-    const master = STAR_MASTERS[localMasterId];
+    // Populate the local Star-Stone Night-Sky Vigil banner in Navigator's Shore
     const thumbEl = this.rootEl.querySelector('#shoreVigilThumb');
-    thumbEl.src = master.portrait;
-    thumbEl.alt = master.mentorName;
-
     const launchBtn = this.rootEl.querySelector('#btnLaunchLocalVigil');
+    const localConstLesson = getAvailableConstellationLessonForIsland(
+      gs,
+      curIsl.id
+    );
     const unlearnedLocal = getAvailableUnlearnedLessonForIsland(gs, curIsl.id);
+    const basin = OCEAN_BASINS[curIsl.basinId];
+
     if (unlearnedLocal) {
+      thumbEl.classList.remove('hidden');
       thumbEl.src = unlearnedLocal.portrait;
       thumbEl.alt = unlearnedLocal.elderName;
       this.rootEl.querySelector('#shoreVigilEyebrow').textContent =
@@ -926,24 +901,34 @@ export class IslandHubUI {
       this.rootEl.querySelector('#shoreVigilTitle').textContent =
         `${unlearnedLocal.elderName} Introduces ${unlearnedLocal.title}`;
       this.rootEl.querySelector('#shoreVigilDesc').textContent =
-        `Join ${unlearnedLocal.elderName} in the Star-Stone Ring to trace ${unlearnedLocal.title} across the night dome and unlock its chalk lines and star names at sea.`;
+        `Join ${unlearnedLocal.elderName} in the Star-Stone Ring on ${curIsl.name} to trace ${unlearnedLocal.title} across the night dome and unlock its chalk lines and star names at sea.`;
       launchBtn.textContent = `✨ Begin ${unlearnedLocal.elderName}'s Guided Vigil (${unlearnedLocal.title})`;
-    } else if (curIsl.starMasterId) {
+    } else if (localConstLesson) {
+      thumbEl.classList.remove('hidden');
+      thumbEl.src = localConstLesson.portrait;
+      thumbEl.alt = localConstLesson.elderName;
       this.rootEl.querySelector('#shoreVigilEyebrow').textContent =
-        `✦ Home Star-Stone Ring · ${master.skyRealmLabel}`;
+        `✦ Star-Stone Ring of ${curIsl.name} · ${basin ? basin.name : ''}`;
       this.rootEl.querySelector('#shoreVigilTitle').textContent =
-        `${master.ringTitle} — ${master.mentorName}`;
+        `${curIsl.name} Star-Stone Vigil — ${localConstLesson.title} Learned`;
       this.rootEl.querySelector('#shoreVigilDesc').textContent =
-        master.welcomeIntro;
-      launchBtn.textContent = `✨ Enter Star-Stone Vigil with ${master.mentorName}`;
+        `Stand within the stone circle of ${curIsl.name} to study your learned constellations across tonight's sky or replay ${localConstLesson.elderName}'s teaching.`;
+      launchBtn.textContent = `✨ Enter ${curIsl.name} Star-Stone Vigil`;
     } else {
+      if (curIsl.inhabited && curIsl.mentorPortrait) {
+        thumbEl.classList.remove('hidden');
+        thumbEl.src = curIsl.mentorPortrait;
+        thumbEl.alt = curIsl.mentorName;
+      } else {
+        thumbEl.classList.add('hidden');
+      }
       this.rootEl.querySelector('#shoreVigilEyebrow').textContent =
-        `✦ Grounded Night-Sky Observatory · ${master.skyRealmLabel}`;
+        `✦ Grounded Night-Sky Observatory · ${curIsl.name}`;
       this.rootEl.querySelector('#shoreVigilTitle').textContent =
-        `The Star-Stone Vigil — Observe Tonight's Sky From ${curIsl.name}`;
+        `${curIsl.name} Star-Stone Ring`;
       this.rootEl.querySelector('#shoreVigilDesc').textContent =
-        `Step into a calm, motionless stone circle ashore to study the constellations above ${curIsl.name} without a rocking hull, or jump straight to First Master Tera'i (Maupiti) or Keeper Akura (Kiritimati) below.`;
-      launchBtn.textContent = `✨ Observe ${curIsl.name} Night Sky (${master.mentorName})`;
+        `Step into the quiet coastal stone circle on ${curIsl.name} to watch tonight's stars wheel overhead in stillness and review the constellations you have learned.`;
+      launchBtn.textContent = `✨ Observe ${curIsl.name} Night Sky`;
     }
 
     const lessons = getLearnedSandLessonsList(gs);

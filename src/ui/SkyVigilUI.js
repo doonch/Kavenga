@@ -1,13 +1,14 @@
 /**
- * Grounded On-Shore Observatory & Guided Sky Tutorial UI:
+ * Grounded On-Shore Observatory & Elder-Guided Sky Vigil UI:
  * The Star-Stone Vigil (Ahu Feti'a).
  *
  * Features:
- * - Dual-Hemisphere Star Masters: First Master Tera'i (Maupiti) & Keeper Akura (Kiritimati)
- * - Instant Island Sky Switcher across all 16 islands (matches each island's exact latitude)
- * - 3 Modes: Master's Lessons (4 chapters per Master), Constellation Atlas (all 10 animals),
- *   and a 100% Optional "Wayfinder's Eye" Sight-Alignment Practice Trial
- * - Continuous Nocturnal Time Scrubber & Night-Wheel Spin + Chalk/Label Layer Toggles
+ * - Always observes the true night sky of the island where the player currently stands
+ * - 3 Modes:
+ *     1. Elder's Guided Constellation Teaching (when the local island elder teaches a constellation)
+ *     2. Constellation Atlas & Free Stargazing (displays only constellations already learned)
+ *     3. Optional "Wayfinder's Eye" Sight-Alignment Practice (Horizon Stones + learned stars)
+ * - Continuous Nocturnal Time Scrubber & Night-Wheel Spin + Chalk/Label/Silhouette Layer Toggles
  * - Strictly Zero-Compass & Zero-Degrees in all player-facing text
  */
 
@@ -27,8 +28,7 @@ import {
 import { ISLANDS, OCEAN_BASINS } from '../data/islandsData.js';
 import {
   CONSTELLATION_GUIDE,
-  STAR_MASTERS,
-  getQuizPromptsForMaster,
+  getQuizPromptsForIsland,
 } from '../data/skyVigilData.js';
 import { altAzToDirectionVec3 } from '../simulation/celestialSim.js';
 
@@ -56,11 +56,8 @@ export class SkyVigilUI {
     this.rootEl = rootEl;
     this.callbacks = callbacks;
 
-    this.activeMasterId = 'terai';
-    this.activeIslandId = 'maupiti';
-    this.mode = 'lessons'; // 'guided' | 'lessons' | 'atlas' | 'quiz'
-    this.chapterIndex = 0;
-    this.sightedChapters = new Set();
+    this.activeIslandId = 'raiatea';
+    this.mode = 'atlas'; // 'guided' | 'atlas' | 'quiz'
 
     // Elder-Guided Constellation Introduction state
     this.guidedLesson = null;
@@ -95,73 +92,32 @@ export class SkyVigilUI {
     );
     this._userToggledAnimals = false;
     this.spinMode = 0; // 0 = still, 1 = gentle wheel, 2 = swift wheel
-    this.sliderHour = 20.3;
+    this.sliderHour = 21.4;
 
-    // Reusable gaze vectors
+    // Reusable gaze vector
     this._gazeVec = new THREE.Vector3();
-    this._lastTargetDeg = 90.0;
-    this._chapterChimePlayedFor = null;
 
     this._buildDOM();
   }
 
   _buildDOM() {
-    // Build Island Sky options grouped by Act without forbidden compass words
-    const act12Options = [];
-    const act3Options = [];
-    for (const isl of Object.values(ISLANDS)) {
-      if (isl.isSecret) continue;
-      const basin = OCEAN_BASINS[isl.basinId];
-      const starBadge = isl.starMasterId ? ' ✦ Star Ring' : '';
-      const optHtml = `<option value="${isl.id}">${isl.name}${starBadge} (Act ${basin.act})</option>`;
-      if (basin.act === 3) {
-        act3Options.push(optHtml);
-      } else {
-        act12Options.push(optHtml);
-      }
-    }
-
     this.rootEl.innerHTML = `
-      <!-- Subtle Center Sighting Ring for Lessons & Eye Trial -->
-      <div class="vigil-sight-reticle" id="vigilSightReticle">
+      <!-- Subtle Center Sighting Ring for Optional Eye Trial -->
+      <div class="vigil-sight-reticle hidden" id="vigilSightReticle">
         <div class="vigil-reticle-ring" id="vigilReticleRing"></div>
         <div class="vigil-reticle-dot"></div>
       </div>
 
-      <!-- Top Bar: Ring Title, Master & Island Sky Switchers, Mode Tabs, Return -->
+      <!-- Top Bar: Local Island Ring Title, Mode Tabs, Return to Shore -->
       <header class="vigil-top-bar">
         <div class="vigil-title-cluster">
           <div class="vigil-ring-eyebrow" id="vigilRealmBadge"></div>
           <h2 class="vigil-ring-title" id="vigilRingTitle"></h2>
         </div>
 
-        <div class="vigil-switcher-cluster">
-          <div class="vigil-master-pills" role="group" aria-label="Choose Star Master">
-            <button class="vigil-pill-btn active" id="btnVigilMasterTerai" type="button" title="Jump to First Master Tera'i on Maupiti">
-              🐢 Tera'i · Maupiti
-            </button>
-            <button class="vigil-pill-btn" id="btnVigilMasterAkura" type="button" title="Jump to Keeper Akura on Kiritimati">
-              ✦ Akura · Kiritimati
-            </button>
-          </div>
-
-          <label class="vigil-island-picker" title="Preview the exact night sky seen from any of the 16 islands">
-            <span>Island Sky:</span>
-            <select id="vigilIslandSelect">
-              <optgroup label="Realm of the Sea Turtle's Pivot (Acts I–II)">
-                ${act12Options.join('')}
-              </optgroup>
-              <optgroup label="Realm of the Steadfast Peg (Act III)">
-                ${act3Options.join('')}
-              </optgroup>
-            </select>
-          </label>
-        </div>
-
         <div class="vigil-mode-tabs" role="tablist">
           <button class="vigil-mode-btn hidden" id="btnVigilModeGuided" data-mode="guided" type="button">✨ Elder Teaching</button>
-          <button class="vigil-mode-btn active" data-mode="lessons" type="button">📖 Master's Lessons</button>
-          <button class="vigil-mode-btn" data-mode="atlas" type="button">🌌 Constellation Atlas</button>
+          <button class="vigil-mode-btn active" data-mode="atlas" type="button">🌌 Constellation Atlas</button>
           <button class="vigil-mode-btn" data-mode="quiz" type="button">🎯 Optional Eye Trial</button>
         </div>
 
@@ -174,7 +130,7 @@ export class SkyVigilUI {
       <div class="vigil-bottom-deck">
         <!-- LEFT PANEL -->
         <section class="vigil-main-card" id="vigilMainCard">
-          <!-- MODE 0: ELDER-GUIDED CONSTELLATION INTRODUCTION -->
+          <!-- MODE 1: ELDER-GUIDED CONSTELLATION INTRODUCTION -->
           <div class="vigil-pane hidden" id="vigilPaneGuided">
             <div class="vigil-mentor-row">
               <button class="vigil-mentor-thumb-btn" id="btnVigilEnlargeGuidedMentor" type="button" title="Click to inspect full-body portrait">
@@ -202,45 +158,18 @@ export class SkyVigilUI {
             </div>
           </div>
 
-          <!-- MODE 1: GUIDED LESSONS -->
-          <div class="vigil-pane" id="vigilPaneLessons">
+          <!-- MODE 2: CONSTELLATION ATLAS & LOCAL STARGAZING -->
+          <div class="vigil-pane" id="vigilPaneAtlas">
             <div class="vigil-elder-callout hidden" id="vigilIslandElderCallout">
               <span id="vigilIslandElderCalloutText"></span>
               <button class="primary-btn small-btn" id="btnVigilStartIslandElder" type="button">
                 ✨ Begin Elder's Teaching
               </button>
             </div>
-            <div class="vigil-mentor-row">
-              <button class="vigil-mentor-thumb-btn" id="btnVigilEnlargeMentor" type="button" title="Click to inspect full-body portrait">
-                <img class="vigil-mentor-thumb" id="vigilMentorImg" alt="" />
-              </button>
-              <div class="vigil-mentor-head">
-                <div class="vigil-chapter-steps" id="vigilChapterSteps"></div>
-                <h3 class="vigil-card-heading" id="vigilLessonTitle"></h3>
-                <div class="vigil-mentor-byline" id="vigilMentorByline"></div>
-              </div>
-            </div>
 
-            <p class="vigil-speech" id="vigilLessonSpeech"></p>
-            <div class="vigil-hint-line" id="vigilLessonHint"></div>
-
-            <div class="vigil-action-bar">
-              <div class="vigil-sight-status" id="vigilLessonSightBadge"></div>
-              <div class="vigil-action-btns">
-                <button class="secondary-btn small-btn" id="btnVigilPointTarget" type="button">
-                  ✦ Look Where Master Points
-                </button>
-                <button class="secondary-btn small-btn" id="btnVigilPrevChapter" type="button">← Prev</button>
-                <button class="primary-btn small-btn" id="btnVigilNextChapter" type="button">Next Lesson →</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- MODE 2: CONSTELLATION ATLAS -->
-          <div class="vigil-pane hidden" id="vigilPaneAtlas">
             <div class="vigil-atlas-header">
               <div>
-                <span class="vigil-eyebrow">Ten Ancestral Sky Animals</span>
+                <span class="vigil-eyebrow" id="vigilAtlasEyebrow">Ancestral Sky Animals</span>
                 <h3 class="vigil-card-heading" id="vigilAtlasTitle"></h3>
               </div>
               <span class="vigil-status-pill" id="vigilAtlasStatusPill"></span>
@@ -255,7 +184,7 @@ export class SkyVigilUI {
               <span class="vigil-drag-tip">Drag the sky or press W/A/S/D or I/J/K/L to look freely</span>
               <div class="vigil-action-btns">
                 <button class="secondary-btn small-btn hidden" id="btnVigilReplayGuided" type="button">
-                  ✨ Replay Elder Teaching
+                  ✨ Replay Local Teaching
                 </button>
                 <button class="secondary-btn small-btn" id="btnVigilPanAtlas" type="button">
                   ✦ Turn Gaze to Constellation
@@ -290,7 +219,7 @@ export class SkyVigilUI {
                   Show Me Where It Sits
                 </button>
                 <button class="primary-btn small-btn" id="btnVigilQuizNext" type="button">
-                  Next Star Prompt →
+                  Next Prompt →
                 </button>
               </div>
             </div>
@@ -316,7 +245,7 @@ export class SkyVigilUI {
             min="18.4"
             max="29.6"
             step="0.03"
-            value="20.3"
+            value="21.4"
             aria-label="Scrub night sky from evening dusk to pre-dawn"
           />
           <div class="vigil-slider-ends">
@@ -335,7 +264,7 @@ export class SkyVigilUI {
             <button class="vigil-toggle-chip active" id="btnToggleVigilStones" type="button">
               ✦ Stone Houses
             </button>
-            <button class="vigil-toggle-chip" id="btnToggleVigilAnimals" type="button" title="Show or hide constellation animal silhouettes on the night dome">
+            <button class="vigil-toggle-chip" id="btnToggleVigilAnimals" type="button" title="Show or hide learned constellation animal silhouettes on the night dome">
               🐢 Animal Silhouettes
             </button>
             <button class="vigil-toggle-chip vigil-toggle-chip-wide" id="btnVigilLookZenith" type="button" title="Tilt gaze straight overhead to inspect zenith stars">
@@ -345,7 +274,7 @@ export class SkyVigilUI {
         </aside>
       </div>
 
-      <!-- Full-Body Star Master Portrait Modal inside Vigil -->
+      <!-- Full-Body Local Elder Portrait Modal inside Vigil -->
       <div class="modal-backdrop hidden" id="vigilPortraitModal">
         <div class="mentor-lightbox-card">
           <div class="mentor-lightbox-header">
@@ -368,29 +297,6 @@ export class SkyVigilUI {
   }
 
   _bindEvents() {
-    // Master Switchers
-    this.rootEl
-      .querySelector('#btnVigilMasterTerai')
-      .addEventListener('click', () => {
-        this.selectMasterAndIsland('terai', 'maupiti', true);
-      });
-    this.rootEl
-      .querySelector('#btnVigilMasterAkura')
-      .addEventListener('click', () => {
-        this.selectMasterAndIsland('akura', 'kiritimati', true);
-      });
-
-    // Island Sky Picker (all 16 islands)
-    this.rootEl
-      .querySelector('#vigilIslandSelect')
-      .addEventListener('change', (e) => {
-        const islId = e.target.value;
-        const isl = ISLANDS[islId];
-        if (!isl) return;
-        const pairedMaster = isl.latDeg > 0 ? 'akura' : 'terai';
-        this.selectMasterAndIsland(pairedMaster, islId, false);
-      });
-
     // Mode Tabs
     this.rootEl.querySelectorAll('.vigil-mode-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -405,31 +311,7 @@ export class SkyVigilUI {
         this.callbacks.onExitVigil?.();
       });
 
-    // Lesson actions
-    this.rootEl
-      .querySelector('#btnVigilPointTarget')
-      .addEventListener('click', () => {
-        this.panToActiveLessonTarget();
-      });
-    this.rootEl
-      .querySelector('#btnVigilPrevChapter')
-      .addEventListener('click', () => {
-        if (this.chapterIndex > 0) {
-          this.setChapter(this.chapterIndex - 1, true);
-        }
-      });
-    this.rootEl
-      .querySelector('#btnVigilNextChapter')
-      .addEventListener('click', () => {
-        const chapters = STAR_MASTERS[this.activeMasterId].chapters;
-        if (this.chapterIndex < chapters.length - 1) {
-          this.setChapter(this.chapterIndex + 1, true);
-        } else {
-          this.setMode('atlas');
-        }
-      });
-
-    // Atlas pan & guided replay
+    // Atlas pan & local guided replay
     this.rootEl
       .querySelector('#btnVigilPanAtlas')
       .addEventListener('click', () => {
@@ -438,10 +320,14 @@ export class SkyVigilUI {
     this.rootEl
       .querySelector('#btnVigilReplayGuided')
       .addEventListener('click', () => {
-        const lesson = getLessonByUnlockKey(this.selectedConstellationId);
-        if (lesson) {
+        // Only replay if the selected constellation's teaching belongs to this island!
+        if (
+          this.guidedLesson &&
+          this.guidedLesson.constellationId === this.selectedConstellationId &&
+          this.guidedLesson.islandId === this.activeIslandId
+        ) {
           this._guidedLaunchedFromAtlas = true;
-          this.startGuidedLesson(lesson.id);
+          this.startGuidedLesson(this.guidedLesson.id);
         }
       });
 
@@ -573,20 +459,7 @@ export class SkyVigilUI {
         }
       });
 
-    // Portrait Lightbox
-    this.rootEl
-      .querySelector('#btnVigilEnlargeMentor')
-      .addEventListener('click', () => {
-        const master = STAR_MASTERS[this.activeMasterId];
-        this.rootEl.querySelector('#vigilModalEyebrow').textContent =
-          `${master.ringTitle} · ${master.skyRealmLabel}`;
-        this.rootEl.querySelector('#vigilModalName').textContent = master.mentorName;
-        this.rootEl.querySelector('#vigilModalRole').textContent = master.mentorRole;
-        const img = this.rootEl.querySelector('#vigilModalImg');
-        img.src = master.portrait;
-        img.alt = master.mentorName;
-        this.rootEl.querySelector('#vigilPortraitModal').classList.remove('hidden');
-      });
+    // Portrait Lightbox close
     this.rootEl
       .querySelector('#btnCloseVigilModal')
       .addEventListener('click', () => {
@@ -623,11 +496,22 @@ export class SkyVigilUI {
     this._refreshControlsDOM();
   }
 
+  _pickDefaultAtlasConstellation(gs) {
+    if (this.guidedLesson && gs?.hasLearnedConstellation(this.guidedLesson.constellationId)) {
+      return this.guidedLesson.constellationId;
+    }
+    if (gs) {
+      const firstLearned = CONSTELLATIONS.find((c) =>
+        gs.hasLearnedConstellation(c.id)
+      );
+      if (firstLearned) return firstLearned.id;
+    }
+    return this.selectedConstellationId || 'the_sea_turtle';
+  }
+
   show({
-    masterId = 'terai',
     islandId = null,
     mode = null,
-    chapterIndex = 0,
     guidedLessonId = null,
   } = {}) {
     const gs = this.callbacks?.getGameState?.();
@@ -643,41 +527,58 @@ export class SkyVigilUI {
       return;
     }
 
-    const resolvedMaster = STAR_MASTERS[masterId] ? masterId : 'terai';
     const resolvedIsland =
       islandId && ISLANDS[islandId]
         ? islandId
-        : STAR_MASTERS[resolvedMaster].islandId;
+        : gs?.currentIslandId && ISLANDS[gs.currentIslandId]
+          ? gs.currentIslandId
+          : 'raiatea';
 
-    // If entering the local Star-Stone Ring on an island with an unlearned elder constellation teaching
-    // and no explicit non-guided mode was requested, start directly in that elder's Guided Vigil!
+    // Map legacy 'lessons' URL tab gracefully to 'guided' (if local elder exists) or 'atlas'
+    const requestedMode = mode === 'lessons' ? null : mode;
+
+    // If entering the Star-Stone Ring on an island with an unlearned local elder constellation teaching
+    // and no explicit 'atlas' or 'quiz' mode was requested, begin that local elder's Guided Vigil!
     const unlearnedLocal = getAvailableUnlearnedLessonForIsland(
       gs,
       resolvedIsland
     );
-    if (!mode && unlearnedLocal) {
+    if (!requestedMode && unlearnedLocal) {
       this._guidedLaunchedFromAtlas = false;
       this.startGuidedLesson(unlearnedLocal.id);
       return;
     }
 
-    this.guidedLesson = getAvailableConstellationLessonForIsland(
-      gs,
-      resolvedIsland
-    );
-    this.mode = ['guided', 'lessons', 'atlas', 'quiz'].includes(mode)
-      ? mode
-      : 'lessons';
-    if (this.mode === 'guided' && this.guidedLesson) {
+    this.activeIslandId = resolvedIsland;
+    this.guidedLesson =
+      getAvailableConstellationLessonForIsland(gs, resolvedIsland) || null;
+
+    if (requestedMode === 'guided' && this.guidedLesson) {
       this._guidedLaunchedFromAtlas = false;
       this.startGuidedLesson(this.guidedLesson.id);
       return;
     }
-    if (this.mode === 'guided') {
-      this.mode = 'lessons';
+
+    this.mode = requestedMode === 'quiz' ? 'quiz' : 'atlas';
+    this.selectedConstellationId = this._pickDefaultAtlasConstellation(gs);
+
+    const sim = this.callbacks.getOceanSim?.();
+    if (sim) {
+      sim.headingDeg = 0.0;
+      sim.setShoreIsland(this.activeIslandId);
     }
-    this.chapterIndex = chapterIndex || 0;
-    this.selectMasterAndIsland(resolvedMaster, resolvedIsland, true);
+
+    this.quizIndex = 0;
+    this._syncHeaderDOM();
+    this._syncModeTabsDOM();
+
+    if (this.mode === 'quiz') {
+      this.quizPeekHints = false;
+      this.setQuizPrompt(0);
+    } else {
+      this.selectConstellation(this.selectedConstellationId, true);
+    }
+    this._refreshControlsDOM();
   }
 
   hide() {
@@ -686,47 +587,20 @@ export class SkyVigilUI {
     this.rootEl.classList.add('hidden');
   }
 
-  selectMasterAndIsland(masterId, islandId, autoPan = true) {
-    this.activeMasterId = STAR_MASTERS[masterId] ? masterId : 'terai';
-    const master = STAR_MASTERS[this.activeMasterId];
-    this.activeIslandId =
-      islandId && ISLANDS[islandId] ? islandId : master.islandId;
+  _syncHeaderDOM() {
+    const isl = ISLANDS[this.activeIslandId] || ISLANDS.raiatea;
+    const basin = OCEAN_BASINS[isl.basinId];
 
-    const gs = this.callbacks.getGameState?.();
-    const localLesson = getAvailableConstellationLessonForIsland(
-      gs,
-      this.activeIslandId
-    );
-    if (this.mode !== 'guided') {
-      this.guidedLesson = localLesson || null;
-    }
+    this.rootEl.querySelector('#vigilRealmBadge').textContent =
+      `Observing Night Sky From ${isl.name}${basin ? ` · ${basin.name}` : ''}`;
 
-    const sim = this.callbacks.getOceanSim?.();
-    if (sim) {
-      sim.headingDeg = 0.0;
-      sim.setShoreIsland(this.activeIslandId);
-    }
-
-    // Clamp chapter & quiz indices
-    if (this.chapterIndex >= master.chapters.length) {
-      this.chapterIndex = 0;
-    }
-    this.quizIndex = 0;
-
-    this._syncHeaderDOM();
-    this._syncModeTabsDOM();
     if (this.mode === 'guided' && this.guidedLesson) {
-      this.startGuidedLesson(this.guidedLesson.id);
-      return;
-    }
-    if (this.mode === 'lessons') {
-      this.setChapter(this.chapterIndex, autoPan);
-    } else if (this.mode === 'atlas') {
-      this.selectConstellation(this.selectedConstellationId, autoPan);
+      this.rootEl.querySelector('#vigilRingTitle').textContent =
+        `${this.guidedLesson.elderName}'s Sky Vigil · ${isl.name}`;
     } else {
-      this.setQuizPrompt(0);
+      this.rootEl.querySelector('#vigilRingTitle').textContent =
+        `${isl.name} Star-Stone Ring`;
     }
-    this._refreshControlsDOM();
   }
 
   _syncModeTabsDOM() {
@@ -747,9 +621,6 @@ export class SkyVigilUI {
       .querySelector('#vigilPaneGuided')
       ?.classList.toggle('hidden', this.mode !== 'guided');
     this.rootEl
-      .querySelector('#vigilPaneLessons')
-      .classList.toggle('hidden', this.mode !== 'lessons');
-    this.rootEl
       .querySelector('#vigilPaneAtlas')
       .classList.toggle('hidden', this.mode !== 'atlas');
     this.rootEl
@@ -758,7 +629,7 @@ export class SkyVigilUI {
   }
 
   setMode(nextMode) {
-    if (!['guided', 'lessons', 'atlas', 'quiz'].includes(nextMode)) return;
+    if (!['guided', 'atlas', 'quiz'].includes(nextMode)) return;
     if (nextMode === 'guided') {
       if (this.guidedLesson) {
         this._guidedLaunchedFromAtlas = false;
@@ -768,11 +639,10 @@ export class SkyVigilUI {
     }
     this.mode = nextMode;
     this.spinMode = 0;
+    this._syncHeaderDOM();
     this._syncModeTabsDOM();
 
-    if (nextMode === 'lessons') {
-      this.setChapter(this.chapterIndex, true);
-    } else if (nextMode === 'atlas') {
+    if (nextMode === 'atlas') {
       this.selectConstellation(this.selectedConstellationId, true);
     } else {
       this.quizPeekHints = false;
@@ -787,8 +657,6 @@ export class SkyVigilUI {
     this.guidedLesson = lesson;
     this.mode = 'guided';
     this.activeIslandId = lesson.islandId;
-    this.activeMasterId =
-      ISLANDS[lesson.islandId]?.latDeg > 0 ? 'akura' : 'terai';
 
     const sim = this.callbacks.getOceanSim?.();
     if (sim) {
@@ -855,7 +723,6 @@ export class SkyVigilUI {
       this._guidedTargetLines = 1.0;
       this._guidedTargetSilhouette = lesson.hasSilhouette ? 1.0 : 0.0;
       this._guidedTargetLabels = 1.0;
-      // Elder turns on the Night-Wheel "Play" button to demonstrate sky rotation!
       this.spinMode = 1;
       const gs = this.callbacks.getGameState?.();
       if (gs && !gs.hasLearnedConstellation(lesson.unlockKey)) {
@@ -877,7 +744,6 @@ export class SkyVigilUI {
       return;
     }
 
-    // Final beat completed -> ensure constellation is recorded & return smoothly
     const gs = this.callbacks.getGameState?.();
     if (gs && !gs.hasLearnedConstellation(lesson.unlockKey)) {
       gs.learnConstellation(lesson.unlockKey);
@@ -987,55 +853,22 @@ export class SkyVigilUI {
       beat.buttonLabel;
   }
 
-  setChapter(index, autoPan = true) {
-    const master = STAR_MASTERS[this.activeMasterId];
-    this.chapterIndex = Math.max(0, Math.min(master.chapters.length - 1, index));
-    this._chapterChimePlayedFor = null;
-    const ch = master.chapters[this.chapterIndex];
-
-    const sim = this.callbacks.getOceanSim?.();
-    if (sim) {
-      sim.solarRaDeg = ch.solarRaDeg;
-      this.sliderHour = hourToNocturnalSlider(ch.solarHour);
-      sim.solarHour = this.sliderHour % 24.0;
-      sim._refreshEnvironment(0);
-    }
-
-    this._refreshLessonDOM();
-    this._refreshControlsDOM();
-    if (autoPan) {
-      this.panToActiveLessonTarget();
-    }
-  }
-
-  panToActiveLessonTarget() {
-    const master = STAR_MASTERS[this.activeMasterId];
-    const ch = master.chapters[this.chapterIndex];
-    const sim = this.callbacks.getOceanSim?.();
-    const camCtrl = this.callbacks.getCameraCtrl?.();
-    if (!sim || !camCtrl || !ch) return;
-
-    if (ch.promptTarget?.type === 'star') {
-      const st = sim.starsState[ch.promptTarget.id];
-      if (st && st.altDeg > -4.0) {
-        camCtrl.panToAltAz(Math.max(4.0, st.altDeg), st.azDeg, sim.headingDeg);
-        return;
-      }
-    }
-    const house = HORIZON_HOUSES.find((h) => h.id === ch.highlightHouseId);
-    if (house) {
-      camCtrl.panToAltAz(8.0, house.engineAzDeg, sim.headingDeg);
-    }
-  }
-
   selectConstellation(constId, autoPan = true) {
-    const guide = CONSTELLATION_GUIDE[constId] || CONSTELLATION_GUIDE.the_bull;
+    const guide = CONSTELLATION_GUIDE[constId] || CONSTELLATION_GUIDE.the_sea_turtle;
     this.selectedConstellationId = guide.id;
 
+    const gs = this.callbacks.getGameState?.();
+    const isLearned = !gs || gs.hasLearnedConstellation(guide.id);
     const sim = this.callbacks.getOceanSim?.();
+
     if (sim) {
-      sim.solarRaDeg = guide.bestSolarRaDeg;
-      this.sliderHour = hourToNocturnalSlider(guide.bestSolarHour);
+      if (isLearned) {
+        sim.solarRaDeg = guide.bestSolarRaDeg;
+        this.sliderHour = hourToNocturnalSlider(guide.bestSolarHour);
+      } else {
+        sim.solarRaDeg = 180.0;
+        this.sliderHour = 21.4;
+      }
       sim.solarHour = this.sliderHour % 24.0;
       sim._refreshEnvironment(0);
     }
@@ -1043,11 +876,21 @@ export class SkyVigilUI {
     this._refreshAtlasDOM();
     this._refreshControlsDOM();
     if (autoPan) {
-      this.panToSelectedConstellation();
+      if (isLearned) {
+        this.panToSelectedConstellation();
+      } else {
+        const camCtrl = this.callbacks.getCameraCtrl?.();
+        if (camCtrl && sim) {
+          camCtrl.panToAltAz(16.0, 90.0, sim.headingDeg);
+        }
+      }
     }
   }
 
   panToSelectedConstellation() {
+    const gs = this.callbacks.getGameState?.();
+    if (gs && !gs.hasLearnedConstellation(this.selectedConstellationId)) return;
+
     const guide = CONSTELLATION_GUIDE[this.selectedConstellationId];
     const sim = this.callbacks.getOceanSim?.();
     const camCtrl = this.callbacks.getCameraCtrl?.();
@@ -1059,7 +902,6 @@ export class SkyVigilUI {
       return;
     }
 
-    // Fallback: any visible star of this constellation, else its Horizon Stone
     const memberStars = Object.values(NAVIGATION_STARS).filter(
       (s) => s.constellation === guide.id
     );
@@ -1082,7 +924,7 @@ export class SkyVigilUI {
   }
 
   _getFilteredQuizPool() {
-    const rawPool = getQuizPromptsForMaster(this.activeMasterId);
+    const rawPool = getQuizPromptsForIsland(this.activeIslandId);
     const gs = this.callbacks.getGameState?.();
     if (!gs) return rawPool;
     const filtered = rawPool.filter(
@@ -1143,96 +985,40 @@ export class SkyVigilUI {
     sim._refreshEnvironment(0);
   }
 
-  _syncHeaderDOM() {
-    const master = STAR_MASTERS[this.activeMasterId];
-    const isl = ISLANDS[this.activeIslandId];
-    const isHomeRing = this.activeIslandId === master.islandId;
-
-    this.rootEl.querySelector('#vigilRealmBadge').textContent =
-      `Observing Sky From ${isl.name} · ${master.skyRealmLabel}`;
-    this.rootEl.querySelector('#vigilRingTitle').textContent = isHomeRing
-      ? master.ringTitle
-      : `${isl.name} Shore Sky · Guided by ${master.mentorName}`;
-
-    this.rootEl
-      .querySelector('#btnVigilMasterTerai')
-      .classList.toggle(
-        'active',
-        this.activeMasterId === 'terai' && this.activeIslandId === 'maupiti'
-      );
-    this.rootEl
-      .querySelector('#btnVigilMasterAkura')
-      .classList.toggle(
-        'active',
-        this.activeMasterId === 'akura' && this.activeIslandId === 'kiritimati'
-      );
-    this.rootEl.querySelector('#vigilIslandSelect').value = this.activeIslandId;
-  }
-
-  _refreshLessonDOM() {
-    const master = STAR_MASTERS[this.activeMasterId];
-    const ch = master.chapters[this.chapterIndex];
+  _refreshAtlasDOM() {
+    const guide = CONSTELLATION_GUIDE[this.selectedConstellationId];
+    const constObj = CONSTELLATIONS.find((c) => c.id === guide.id);
+    const sim = this.callbacks.getOceanSim?.();
     const gs = this.callbacks.getGameState?.();
+    const isl = ISLANDS[this.activeIslandId] || ISLANDS.raiatea;
+    const isNorth = isl.latDeg > 0;
+    const isLearned = !gs || gs.hasLearnedConstellation(guide.id);
+    const learnedCount = gs
+      ? CONSTELLATIONS.filter((c) => gs.hasLearnedConstellation(c.id)).length
+      : CONSTELLATIONS.length;
 
+    // Show callout inside Atlas if the current island's local elder has an available constellation vigil!
     const calloutEl = this.rootEl.querySelector('#vigilIslandElderCallout');
     const localLesson = getAvailableConstellationLessonForIsland(
       gs,
       this.activeIslandId
     );
     if (calloutEl) {
-      if (localLesson) {
-        const isDone = Boolean(gs?.hasLearnedConstellation(localLesson.unlockKey));
+      if (localLesson && !gs?.hasLearnedConstellation(localLesson.unlockKey)) {
         calloutEl.classList.remove('hidden');
         this.rootEl.querySelector('#vigilIslandElderCalloutText').textContent =
-          isDone
-            ? `✦ ${localLesson.elderName}'s Constellation Teaching (${localLesson.title}) — Learned`
-            : `✨ ${localLesson.elderName} awaits at this ring to introduce ${localLesson.title}!`;
+          `✨ ${localLesson.elderName} awaits at this ring on ${isl.name} to introduce ${localLesson.title}!`;
         this.rootEl.querySelector('#btnVigilStartIslandElder').textContent =
-          isDone
-            ? `Replay ${localLesson.title}`
-            : `Learn ${localLesson.title} →`;
+          `Learn ${localLesson.title} →`;
       } else {
         calloutEl.classList.add('hidden');
       }
     }
 
-    const img = this.rootEl.querySelector('#vigilMentorImg');
-    img.src = master.portrait;
-    img.alt = master.mentorName;
-
-    const stepsEl = this.rootEl.querySelector('#vigilChapterSteps');
-    stepsEl.innerHTML = '';
-    master.chapters.forEach((item, idx) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      const done = this.sightedChapters.has(item.id);
-      b.className = `vigil-step-dot ${idx === this.chapterIndex ? 'active' : ''} ${done ? 'sighted' : ''}`;
-      b.textContent = done ? `✦ ${item.number}` : `Lesson ${item.number}`;
-      b.addEventListener('click', () => this.setChapter(idx, true));
-      stepsEl.appendChild(b);
-    });
-
-    this.rootEl.querySelector('#vigilLessonTitle').textContent =
-      `${ch.number}. ${ch.title}`;
-    this.rootEl.querySelector('#vigilMentorByline').textContent =
-      `${master.mentorName} · ${master.mentorRole}`;
-    this.rootEl.querySelector('#vigilLessonSpeech').textContent = ch.speech;
-    this.rootEl.querySelector('#vigilLessonHint').textContent = ch.hint;
-
-    this.rootEl.querySelector('#btnVigilPrevChapter').disabled =
-      this.chapterIndex === 0;
-    this.rootEl.querySelector('#btnVigilNextChapter').textContent =
-      this.chapterIndex < master.chapters.length - 1
-        ? 'Next Lesson →'
-        : 'Open Constellation Atlas →';
-  }
-
-  _refreshAtlasDOM() {
-    const guide = CONSTELLATION_GUIDE[this.selectedConstellationId];
-    const constObj = CONSTELLATIONS.find((c) => c.id === guide.id);
-    const sim = this.callbacks.getOceanSim?.();
-    const gs = this.callbacks.getGameState?.();
-    const isLearned = !gs || gs.hasLearnedConstellation(guide.id);
+    const eyebrowEl = this.rootEl.querySelector('#vigilAtlasEyebrow');
+    if (eyebrowEl) {
+      eyebrowEl.textContent = `Constellations Known: ${learnedCount} of ${CONSTELLATIONS.length}`;
+    }
 
     this.rootEl.querySelectorAll('.vigil-const-chip').forEach((chip) => {
       const cid = chip.getAttribute('data-const-id');
@@ -1248,30 +1034,43 @@ export class SkyVigilUI {
 
     if (!isLearned) {
       this.rootEl.querySelector('#vigilAtlasTitle').textContent =
-        'Uncharted Sky Pattern';
+        learnedCount === 0 ? `${isl.name} Night Vault` : 'Uncharted Sky Pattern';
       this.rootEl.querySelector('#vigilAtlasStatusPill').textContent =
-        'Awaiting Elder Teaching Ashore';
+        learnedCount === 0
+          ? 'Twelve Carved Horizon Stones'
+          : 'Awaiting Elder Teaching Ashore';
       this.rootEl.querySelector('#vigilAtlasNote').textContent =
-        'You have not yet been introduced to this constellation. Speak with wayfinder elders as you voyage from island to island—each elder guides your eyes to recognize a new animal in the night vault.';
+        learnedCount === 0
+          ? `Stand quietly inside the twelve Horizon Stones of ${isl.name} and turn your gaze across the raw, unnamed stars overhead. As you voyage to neighboring islands, local elders will guide your eyes to recognize each sky animal one by one.`
+          : 'You have not yet been introduced to this constellation. Speak with wayfinder elders on each island you reach—each elder teaches a new animal in the night vault.';
       this.rootEl.querySelector('#vigilAtlasStarRoster').innerHTML =
-        '<span class="vigil-star-pill below-sea">◌ Stars appear unmarked in the sky until taught by an elder</span>';
+        '<span class="vigil-star-pill below-sea">◌ Stars appear unmarked in the sky until taught by an island elder</span>';
       if (panBtn) panBtn.classList.add('hidden');
       if (replayBtn) replayBtn.classList.add('hidden');
       return;
     }
 
     if (panBtn) panBtn.classList.remove('hidden');
+    // Only show "Replay Local Teaching" when standing on the island whose elder taught this constellation!
     const matchedLesson = getLessonByUnlockKey(guide.id);
+    const isLocalElderHere = Boolean(
+      matchedLesson && matchedLesson.islandId === this.activeIslandId
+    );
     if (replayBtn) {
-      replayBtn.classList.toggle('hidden', !matchedLesson);
+      replayBtn.classList.toggle('hidden', !isLocalElderHere);
+      if (isLocalElderHere) {
+        replayBtn.textContent = `✨ Replay ${matchedLesson.elderName}'s Teaching`;
+      }
     }
 
     this.rootEl.querySelector('#vigilAtlasTitle').textContent =
       constObj?.name || guide.id;
-    this.rootEl.querySelector('#vigilAtlasStatusPill').textContent =
-      this.activeMasterId === 'akura' ? guide.akuraStatus : guide.teraiStatus;
-    this.rootEl.querySelector('#vigilAtlasNote').textContent =
-      this.activeMasterId === 'akura' ? guide.akuraNote : guide.teraiNote;
+    this.rootEl.querySelector('#vigilAtlasStatusPill').textContent = isNorth
+      ? guide.northStatus
+      : guide.southStatus;
+    this.rootEl.querySelector('#vigilAtlasNote').textContent = isNorth
+      ? guide.northNote
+      : guide.southNote;
 
     const rosterEl = this.rootEl.querySelector('#vigilAtlasStarRoster');
     const stars = Object.values(NAVIGATION_STARS).filter(
@@ -1305,7 +1104,7 @@ export class SkyVigilUI {
     const feedbackEl = this.rootEl.querySelector('#vigilQuizFeedback');
     if (this.quizResolved) {
       feedbackEl.textContent = this.quizRevealedByHelper
-        ? `Master's Pointer: Study where it sits in the dome, then try the next prompt whenever you wish.`
+        ? 'Study where it sits above the stone ring, then try the next prompt whenever you wish.'
         : `✦ ${q.successNote}`;
       feedbackEl.classList.add('sighted-ok');
     } else {
@@ -1362,9 +1161,6 @@ export class SkyVigilUI {
       ?.classList.toggle('active', effectiveAnimals);
   }
 
-  /**
-   * Computes angular distance in degrees between camera gaze and a star or horizon stone.
-   */
   _measureAngleToTarget(target, oceanSim, cameraCtrl) {
     if (!target || !oceanSim || !cameraCtrl) return 180.0;
     cameraCtrl.getGazeWorldDir(this._gazeVec);
@@ -1394,9 +1190,6 @@ export class SkyVigilUI {
     return (Math.acos(dot) * 180.0) / Math.PI;
   }
 
-  /**
-   * Per-frame update while in `phase === 'sky_vigil'`.
-   */
   update(dtSec, oceanSim, cameraCtrl) {
     if (!oceanSim || !cameraCtrl) return;
 
@@ -1433,48 +1226,11 @@ export class SkyVigilUI {
         (this._guidedTargetLabels - this.guidedLabelsAlpha) * stepFade;
     }
 
-    // 2. Evaluate sight-ring alignment for Guided Lessons & Optional Eye Trial
+    // 2. Evaluate sight-ring alignment for Optional Eye Trial
     const reticleEl = this.rootEl.querySelector('#vigilSightReticle');
     const ringEl = this.rootEl.querySelector('#vigilReticleRing');
 
-    if (this.mode === 'guided') {
-      reticleEl.classList.add('hidden');
-      return;
-    }
-
-    if (this.mode === 'lessons') {
-      reticleEl.classList.remove('hidden');
-      const master = STAR_MASTERS[this.activeMasterId];
-      const ch = master.chapters[this.chapterIndex];
-      const angDeg = this._measureAngleToTarget(
-        ch.promptTarget,
-        oceanSim,
-        cameraCtrl
-      );
-      this._lastTargetDeg = angDeg;
-      const aligned = angDeg <= ALIGN_THRESHOLD_DEG;
-      ringEl.classList.toggle('aligned', aligned);
-
-      const badge = this.rootEl.querySelector('#vigilLessonSightBadge');
-      if (aligned) {
-        if (!this.sightedChapters.has(ch.id)) {
-          this.sightedChapters.add(ch.id);
-          this._refreshLessonDOM();
-        }
-        if (this._chapterChimePlayedFor !== ch.id) {
-          this._chapterChimePlayedFor = ch.id;
-          this.callbacks.onPlayChime?.();
-        }
-        badge.textContent = `✦ Sighted: ${ch.promptTarget.label}`;
-        badge.className = 'vigil-sight-status sighted';
-      } else if (angDeg < 28.0) {
-        badge.textContent = `◌ Drawing Near: ${ch.promptTarget.label}`;
-        badge.className = 'vigil-sight-status near';
-      } else {
-        badge.textContent = `◌ Seek: ${ch.promptTarget.label}`;
-        badge.className = 'vigil-sight-status';
-      }
-    } else if (this.mode === 'quiz') {
+    if (this.mode === 'quiz') {
       reticleEl.classList.remove('hidden');
       const pool = this._getFilteredQuizPool();
       const q = pool[this.quizIndex % pool.length];
@@ -1506,9 +1262,6 @@ export class SkyVigilUI {
     }
   }
 
-  /**
-   * Returns rendering overrides for `SkyDomeRenderer.update(...)`.
-   */
   getSkyDomeOverrides() {
     const shimmerStarIds = new Set();
     const revealLabelStarIds = new Set();
@@ -1537,28 +1290,6 @@ export class SkyVigilUI {
           silhouetteAlpha: this.guidedSilhouetteAlpha,
           labelsAlpha: this.guidedLabelsAlpha,
         },
-      };
-    }
-
-    if (this.mode === 'lessons') {
-      const ch = STAR_MASTERS[this.activeMasterId].chapters[this.chapterIndex];
-      if (
-        ch?.focusStarId &&
-        (!gs || gs.isStarLearned(ch.focusStarId, NAVIGATION_STARS))
-      ) {
-        shimmerStarIds.add(ch.focusStarId);
-        revealLabelStarIds.add(ch.focusStarId);
-        focusConstellationId =
-          NAVIGATION_STARS[ch.focusStarId]?.constellation || null;
-      }
-      return {
-        forceClearSky: true,
-        showLines: this.showLines,
-        showStarLabels: this.showStarLabels,
-        showAnimalSilhouettes: this.showAnimalSilhouettes,
-        shimmerStarIds,
-        focusConstellationId,
-        revealLabelStarIds,
       };
     }
 
@@ -1610,9 +1341,6 @@ export class SkyVigilUI {
     };
   }
 
-  /**
-   * Returns rendering overrides for `StarRingRenderer.update(...)`.
-   */
   getStarRingOverrides() {
     if (this.mode === 'guided' && this.guidedLesson) {
       const hId = this.guidedLesson.startHouseId || null;
@@ -1620,17 +1348,6 @@ export class SkyVigilUI {
         showStoneLabels: this.showStoneLabels,
         highlightHouseId: hId,
         revealHouseIds: hId ? new Set([hId]) : null,
-      };
-    }
-
-    if (this.mode === 'lessons') {
-      const ch = STAR_MASTERS[this.activeMasterId].chapters[this.chapterIndex];
-      return {
-        showStoneLabels: this.showStoneLabels,
-        highlightHouseId: ch?.highlightHouseId || null,
-        revealHouseIds: ch?.highlightHouseId
-          ? new Set([ch.highlightHouseId])
-          : null,
       };
     }
 

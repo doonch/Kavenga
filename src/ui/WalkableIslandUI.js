@@ -754,9 +754,7 @@ export class WalkableIslandUI {
     });
 
     bodyEl.querySelector('#btnWalkEnterVigil').addEventListener('click', () => {
-      const masterId = isl.starMasterId || (isl.latDeg > 0 ? 'akura' : 'terai');
       this.callbacks.onOpenSkyVigil?.({
-        masterId,
         islandId: isl.id,
         guidedLessonId: unlearnedConst ? unlearnedConst.id : undefined,
       });

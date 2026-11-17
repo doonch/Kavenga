@@ -35,8 +35,7 @@ import {
 import { SAND_LESSONS } from '../src/data/sandDiagramsData.js';
 import {
   CONSTELLATION_GUIDE,
-  STAR_MASTERS,
-  getQuizPromptsForMaster,
+  getQuizPromptsForIsland,
 } from '../src/data/skyVigilData.js';
 import { SONGS, buildReturnSong } from '../src/data/songsData.js';
 import {
@@ -131,7 +130,12 @@ assert(
 );
 assert(Object.keys(SONGS).length === 17, 'Expected 17 authored Songs (1-16 + 14R)');
 assert(Object.keys(SAND_LESSONS).length === 16, 'Expected 16 Sand Lessons');
-assert(Object.keys(STAR_MASTERS).length === 2, 'Expected exactly 2 Star Masters (Southern & Northern)');
+assert(
+  Object.keys(CONSTELLATION_GUIDE).length === 10 &&
+    getQuizPromptsForIsland('raiatea').length >= 6 &&
+    getQuizPromptsForIsland('kiritimati').length >= 6,
+  'Expected 10 Constellation Atlas entries and local-hemisphere Eye Trial pools'
+);
 assert(
   Object.keys(PLAYER_CHARACTER_PROFILES).length === 4,
   'Expected 4 Player Character designs (Easy, Medium, Hard, Master Navigator)'
@@ -459,29 +463,18 @@ for (const [iid, isl] of Object.entries(ISLANDS)) {
 assert(mentorPortraitCount === 15, 'Expected 15 full-body mentor portraits across inhabited islands');
 assert(starMasterIslandCount === 2, 'Expected exactly 2 Star Master islands (Maupiti & Kiritimati)');
 
-// Audit all Star-Stone Vigil Master dialogues, Constellation Atlas notes & Quiz prompts
-for (const [mid, m] of Object.entries(STAR_MASTERS)) {
-  auditText(m.mentorName, `StarMaster ${mid}.mentorName`);
-  auditText(m.mentorRole, `StarMaster ${mid}.mentorRole`);
-  auditText(m.ringTitle, `StarMaster ${mid}.ringTitle`);
-  auditText(m.skyRealmLabel, `StarMaster ${mid}.skyRealmLabel`);
-  auditText(m.welcomeIntro, `StarMaster ${mid}.welcomeIntro`);
-  for (const ch of m.chapters) {
-    auditText(ch.title, `${mid} ${ch.id}.title`);
-    auditText(ch.speech, `${mid} ${ch.id}.speech`);
-    auditText(ch.hint, `${mid} ${ch.id}.hint`);
-    if (ch.promptTarget?.label) auditText(ch.promptTarget.label, `${mid} ${ch.id}.promptLabel`);
-  }
-  for (const q of getQuizPromptsForMaster(mid)) {
+// Audit all Star-Stone Vigil Constellation Atlas notes & Optional Eye Trial Quiz prompts
+for (const sampleIsl of ['raiatea', 'kiritimati']) {
+  for (const q of getQuizPromptsForIsland(sampleIsl)) {
     auditText(q.prompt, `Quiz ${q.id}.prompt`);
     auditText(q.successNote, `Quiz ${q.id}.successNote`);
   }
 }
 for (const [cid, cg] of Object.entries(CONSTELLATION_GUIDE)) {
-  auditText(cg.teraiStatus, `ConstellationGuide ${cid}.teraiStatus`);
-  auditText(cg.akuraStatus, `ConstellationGuide ${cid}.akuraStatus`);
-  auditText(cg.teraiNote, `ConstellationGuide ${cid}.teraiNote`);
-  auditText(cg.akuraNote, `ConstellationGuide ${cid}.akuraNote`);
+  auditText(cg.southStatus, `ConstellationGuide ${cid}.southStatus`);
+  auditText(cg.northStatus, `ConstellationGuide ${cid}.northStatus`);
+  auditText(cg.southNote, `ConstellationGuide ${cid}.southNote`);
+  auditText(cg.northNote, `ConstellationGuide ${cid}.northNote`);
 }
 
 // ---------------------------------------------------------------------------

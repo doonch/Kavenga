@@ -8,8 +8,6 @@ Sail a traditional double-hulled voyaging canoe (*vaka moana*) across Pacific la
 
 * **Cinematic 3D Intro:** [https://doonch.github.io/Kavenga/intro.html](https://doonch.github.io/Kavenga/intro.html)
 * **Play the Game:** [https://doonch.github.io/Kavenga/](https://doonch.github.io/Kavenga/)
-* **Star-Stone Vigil (Southern Sky — *First Master Teraʻi*, Maupiti):** [https://doonch.github.io/Kavenga/?mode=sky_vigil&master=terai](https://doonch.github.io/Kavenga/?mode=sky_vigil&master=terai)
-* **Star-Stone Vigil (Northern Sky — *Keeper Akura*, Kiritimati):** [https://doonch.github.io/Kavenga/?mode=sky_vigil&master=akura](https://doonch.github.io/Kavenga/?mode=sky_vigil&master=akura)
 * **3D Asset Debug Viewer:** [https://doonch.github.io/Kavenga/asset-viewer.html](https://doonch.github.io/Kavenga/asset-viewer.html)
 * **Developer Ocean & Route Map:** [https://doonch.github.io/Kavenga/map.html](https://doonch.github.io/Kavenga/map.html)
 
@@ -30,13 +28,13 @@ Then open in any modern WebGL browser:
 ### Cinematic 3D Introduction (`intro.html`)
 Open **`http://127.0.0.1:8123/intro.html`** to watch the real-time 3D title sequence showcasing the fully upgraded *Vaka Moana* and child apprentice navigator across shifting Pacific skies, clouds, seabird flocks, foggy night bonito leaps, and a golden sunset into starry nightfall before launching `index.html` via **Start** (press `Esc` to skip directly to the dusk title finale).
 
-### Instant Star-Stone Vigil Test Entry (Zero Playthrough Required)
-You can enter the grounded 3D night-sky observatory (**The Star-Stone Vigil / *Ahu Fetiʻa***) immediately without sailing through prior islands:
-- **In-Game:** Walk to the **Observation Circle** or **Sanctuary** on any inhabited island to join the local elder's 5-beat **Guided Sky Vigil**, or open the **`🐚 Navigator's Shore`** tab and click **Enter Star-Stone Vigil**.
-- **Direct URL Parameters:**
-  - Southern Hemisphere Star Master (*First Master Teraʻi* on Maupiti): `http://127.0.0.1:8123/?mode=sky_vigil&master=terai`
-  - Northern Hemisphere Star Master (*Keeper Akura* on Kiritimati): `http://127.0.0.1:8123/?mode=sky_vigil&master=akura`
-  - Specific Island Sky & Tab (`lessons`, `atlas`, or optional `quiz`): `http://127.0.0.1:8123/?mode=sky_vigil&island=hawaii&tab=atlas`
+### Instant Star-Stone Vigil Dev Entry
+The grounded 3D night-sky observatory (**The Star-Stone Vigil / *Ahu Fetiʻa***) always shows the true night sky of the island where you currently stand, guided by that island's local elder when a constellation teaching is available:
+- **In-Game:** Walk to the **Observation Circle** or **Sanctuary** on any island to stargaze over the twelve Horizon Stones or join the local elder's 5-beat **Guided Sky Vigil**.
+- **Direct Dev URL Parameters:**
+  - Specific Island Guided Sky Vigil (e.g. *Hina* on Tahaʻa): `http://127.0.0.1:8123/?mode=sky_vigil&island=tahaa`
+  - Northern Mist Isles Sky Vigil (e.g. *Keeper Akura* on Kiritimati): `http://127.0.0.1:8123/?mode=sky_vigil&island=kiritimati`
+  - Specific Island Sky & Tab (`guided`, `atlas`, or optional `quiz`): `http://127.0.0.1:8123/?mode=sky_vigil&island=hawaii&tab=atlas`
 
 ### Instant Landfall Arrival Preview (Zero Playthrough Required)
 Preview the 3D Ring 4 shoreline glide and camera pullback on any campaign island directly via URL parameters:
@@ -117,7 +115,7 @@ Switch modes anytime from the ashore **⚙ Settings** button or in-voyage **Opti
 │   │   ├── islandsData.js                   # 3 regional ocean basins & 17 islands with per-island latitudes
 │   │   ├── playerCharactersData.js          # Persona profiles for the 4 difficulty-linked wayfinders
 │   │   ├── sandDiagramsData.js              # Stick-and-shell shore teaching diagrams
-│   │   ├── skyVigilData.js                  # Dual-hemisphere Star Masters, Constellation Atlas & Eye Trial
+│   │   ├── skyVigilData.js                  # Local-hemisphere Constellation Atlas lore & Eye Trial prompts
 │   │   ├── songsData.js                     # 18 authored route chants & dynamic return-song builder
 │   │   └── walkableIslandsData.js           # Walkable 3D shore layouts & proximity POIs for all 17 islands
 │   ├── simulation/
@@ -151,7 +149,7 @@ Switch modes anytime from the ashore **⚙ Settings** button or in-voyage **Opti
 │       ├── IslandSettingsUI.js              # Ashore Settings modal (sound, difficulty & Start Over)
 │       ├── SailingHUD.js                    # Strict Zero-Compass HUD, Landfall & Lost-at-Sea mist overlays
 │       ├── SandCanvas.js                    # Animated shore sand-drawing lessons & static Recall renderer
-│       ├── SkyVigilUI.js                    # Guided elder Sky Vigils, Master lessons, Atlas & optional quiz
+│       ├── SkyVigilUI.js                    # Local island Star-Stone Vigil, Elder Teachings, Atlas & quiz
 │       └── WalkableIslandUI.js              # 3D walkable shore HUD, proximity POI cards & sand-lesson modal
 └── tests/
     ├── runPhase1Tests.mjs                   # Astronomy, silhouettes, zero-compass & campaign autopilot suite
