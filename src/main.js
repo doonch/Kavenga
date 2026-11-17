@@ -67,6 +67,14 @@ class KavengaApp {
     this.vigilRootEl = document.getElementById('sky-vigil-ui');
     this.walkableUiRootEl = document.getElementById('walkable-island-ui');
     this.hubRootEl = document.getElementById('island-hub');
+    this.shoreTopControlsEl = document.getElementById('shore-top-controls');
+    this.btnShoreWalkToggle = document.getElementById('btnShoreWalkToggle');
+    this.btnShoreToggleSound = document.getElementById('btnShoreToggleSound');
+    this.shoreSoundGlyphEl = document.getElementById('shoreSoundGlyph');
+    this.btnShoreOpenAchievements = document.getElementById(
+      'btnShoreOpenAchievements'
+    );
+    this.btnShoreOpenSettings = document.getElementById('btnShoreOpenSettings');
     this.settingsRootEl = document.getElementById('island-settings-ui');
     this.elderPromptRootEl = document.getElementById('elder-vigil-prompt-ui');
     this.achievementsRootEl = document.getElementById('achievements-ui');
@@ -79,6 +87,8 @@ class KavengaApp {
     this._announcedObjectiveIds = new Set(
       hasSavedProgress ? Object.keys(this.gameState.activeObjectives || {}) : []
     );
+    this._pendingObjectiveIds = new Set();
+    this._newlyRevealedObjectiveIds = new Set();
     activateIslandArrivalObjective(
       this.gameState,
       this.gameState.currentIslandId
@@ -212,6 +222,12 @@ class KavengaApp {
       getGameState: () => this.gameState,
       getAchievementsSummary: () => this.achievementsManager.getSummary(),
       getIsSoundMuted: () => this.chantEngine.muted,
+      isObjectivePending: (id) => this._pendingObjectiveIds.has(id),
+      consumeObjectiveSwipeIn: (id) => {
+        if (!this._newlyRevealedObjectiveIds.has(id)) return false;
+        this._newlyRevealedObjectiveIds.delete(id);
+        return true;
+      },
       onOpenSettings: () => this.openIslandSettings(),
       onOpenAchievements: () => this.openIslandAchievements(),
       onSanctuaryInteracted: (res) => this._handleSanctuaryInteracted(res),
@@ -239,6 +255,12 @@ class KavengaApp {
       getGameState: () => this.gameState,
       getAchievementsSummary: () => this.achievementsManager.getSummary(),
       getIsSoundMuted: () => this.chantEngine.muted,
+      isObjectivePending: (id) => this._pendingObjectiveIds.has(id),
+      consumeObjectiveSwipeIn: (id) => {
+        if (!this._newlyRevealedObjectiveIds.has(id)) return false;
+        this._newlyRevealedObjectiveIds.delete(id);
+        return true;
+      },
       onOpenSettings: () => this.openIslandSettings(),
       onOpenAchievements: () => this.openIslandAchievements(),
       onSanctuaryInteracted: (res) => this._handleSanctuaryInteracted(res),
@@ -311,6 +333,17 @@ class KavengaApp {
 
     this.sailingHud.hide();
     this.skyVigilUI.hide();
+    this._bindShoreTopControls();
+
+    // Pre-mark fresh starting arrival objective as pending before initial shore render
+    // so it only swipes into the Objectives Ashore panel after its toast animation finishes.
+    const startObjId =
+      !hasSavedProgress &&
+      ISLAND_ARRIVAL_OBJECTIVE_MAP[this.gameState.currentIslandId];
+    if (startObjId && this.gameState.activeObjectives?.[startObjId]) {
+      this._pendingObjectiveIds.add(startObjId);
+    }
+
     this._enterShoreMode({ suppressArrivalToast: true });
 
     // Direct URL boot support for instant testing:
@@ -322,15 +355,13 @@ class KavengaApp {
     this._checkStartupUrlParams();
 
     // On a brand-new campaign (or after Start Over), toast the initial arrival objective ashore
-    if (!hasSavedProgress && this.phase === 'shore') {
-      const startObjId =
-        ISLAND_ARRIVAL_OBJECTIVE_MAP[this.gameState.currentIslandId];
-      if (startObjId && this.gameState.activeObjectives?.[startObjId]) {
-        this._announceNewObjectives([OBJECTIVES[startObjId]], {
-          delayMs: 320,
-          playSound: false,
-        });
-      }
+    if (startObjId && this.phase === 'shore') {
+      this._announceNewObjectives([OBJECTIVES[startObjId]], {
+        delayMs: 320,
+        playSound: false,
+      });
+    } else if (startObjId) {
+      this._pendingObjectiveIds.delete(startObjId);
     }
 
     window.addEventListener('resize', () => this._onResize());
@@ -750,15 +781,28 @@ class KavengaApp {
 
     for (const def of freshList) {
       this._announcedObjectiveIds.add(def.id);
+      this._pendingObjectiveIds.add(def.id);
     }
 
+    const revealObjective = (def) => {
+      if (!def?.id) return;
+      this._pendingObjectiveIds.delete(def.id);
+      this._newlyRevealedObjectiveIds.add(def.id);
+      this._refreshShoreOverlays();
+    };
+
     const emitNow = () => {
-      if (this.phase !== 'shore') return;
+      if (this.phase !== 'shore') {
+        for (const def of freshList) {
+          this._pendingObjectiveIds.delete(def.id);
+        }
+        return;
+      }
       if (playSound) {
         this.chantEngine.playObjectiveAddedChime();
       }
       for (const def of freshList) {
-        this.achievementsUI.showObjectiveAdded(def);
+        this.achievementsUI.showObjectiveAdded(def, revealObjective);
       }
     };
 
@@ -784,6 +828,13 @@ class KavengaApp {
       this.gameState,
       this.gameState.currentIslandId
     );
+    if (!suppressArrivalToast && newlyActivatedArrival.length > 0) {
+      for (const def of newlyActivatedArrival) {
+        if (def?.id && !this._announcedObjectiveIds.has(def.id)) {
+          this._pendingObjectiveIds.add(def.id);
+        }
+      }
+    }
     this.oceanSim.setShoreIsland(this.gameState.currentIslandId);
     this.skyLabelsEl
       .querySelectorAll('.sky-star-label')
@@ -806,12 +857,74 @@ class KavengaApp {
       stationId: this.islandHub.activeTab,
       selectedDeparture: this.islandHub.selectedDeparture,
     });
+    this._syncShoreTopControls();
 
     if (!suppressArrivalToast && newlyActivatedArrival.length > 0) {
       this._announceNewObjectives(newlyActivatedArrival, {
         delayMs: 240,
         playSound: true,
       });
+    }
+  }
+
+  _bindShoreTopControls() {
+    this.btnShoreWalkToggle?.addEventListener('click', (e) => {
+      e.currentTarget.blur();
+      if (this.walkableIslandScene.active) {
+        this.exitWalkableShoreMode();
+      } else {
+        this.enterWalkableShoreMode();
+      }
+    });
+    this.btnShoreToggleSound?.addEventListener('click', (e) => {
+      e.currentTarget.blur();
+      this.setSoundMuted(!this.chantEngine.muted);
+    });
+    this.btnShoreOpenAchievements?.addEventListener('click', (e) => {
+      e.currentTarget.blur();
+      this.openIslandAchievements();
+    });
+    this.btnShoreOpenSettings?.addEventListener('click', (e) => {
+      e.currentTarget.blur();
+      this.openIslandSettings();
+    });
+  }
+
+  _syncShoreTopControls() {
+    if (!this.shoreTopControlsEl) return;
+    if (this.phase !== 'shore') {
+      this.shoreTopControlsEl.classList.add('hidden');
+      return;
+    }
+    this.shoreTopControlsEl.classList.remove('hidden');
+
+    const walkable = isWalkableIsland(this.gameState.currentIslandId);
+    const isWalking = Boolean(this.walkableIslandScene.active);
+    if (this.btnShoreWalkToggle) {
+      this.btnShoreWalkToggle.classList.toggle('hidden', !walkable);
+      this.btnShoreWalkToggle.classList.toggle('active', isWalking);
+      this.btnShoreWalkToggle.setAttribute(
+        'title',
+        isWalking
+          ? 'Return to 4-Station Shore Stage'
+          : 'Walk Shore in 3rd-person (Arrow Keys / WASD)'
+      );
+      this.btnShoreWalkToggle.setAttribute(
+        'aria-pressed',
+        String(isWalking)
+      );
+    }
+
+    const muted = Boolean(this.chantEngine.muted);
+    if (this.shoreSoundGlyphEl) {
+      this.shoreSoundGlyphEl.textContent = muted ? '🔇' : '🔊';
+    }
+    if (this.btnShoreToggleSound) {
+      this.btnShoreToggleSound.setAttribute(
+        'title',
+        muted ? 'Sound Muted — Click to Unmute' : 'Sound On — Click to Mute'
+      );
+      this.btnShoreToggleSound.setAttribute('aria-pressed', String(!muted));
     }
   }
 
@@ -833,6 +946,7 @@ class KavengaApp {
       gameState: this.gameState,
     });
     this.walkableIslandUI.show();
+    this._syncShoreTopControls();
   }
 
   exitWalkableShoreMode(activePoi = null) {
@@ -901,6 +1015,7 @@ class KavengaApp {
       this.chantEngine.playStarSightedChime();
     }
     if (this.phase === 'shore') {
+      this._syncShoreTopControls();
       if (this.walkableIslandScene.active) {
         this.walkableIslandUI.refresh();
       } else {
@@ -929,6 +1044,7 @@ class KavengaApp {
     this.islandSettingsUI.hide();
     this.achievementsUI.hideModal();
     this.achievementsUI.clearObjectiveBanners();
+    this._pendingObjectiveIds.clear();
     this.elderVigilPromptUI.hide();
     this._resetLaunchAnimation();
     this._resetLandfallAnimation();
@@ -940,6 +1056,7 @@ class KavengaApp {
     this.spatialAudio.stop();
 
     this.phase = 'sky_vigil';
+    this._syncShoreTopControls();
     this.islandHub.hide();
     this.sailingHud.hide();
 
@@ -1016,6 +1133,7 @@ class KavengaApp {
     this.islandSettingsUI.hide();
     this.achievementsUI.hideModal();
     this.achievementsUI.clearObjectiveBanners();
+    this._pendingObjectiveIds.clear();
     this.elderVigilPromptUI.hide();
     this.shoreDiorama.exit();
     this.walkableIslandScene.exit();
@@ -1025,6 +1143,7 @@ class KavengaApp {
     this._resetLaunchAnimation();
 
     this.phase = 'sailing';
+    this._syncShoreTopControls();
     this.skyVigilUI.hide();
     this.starRing.setVisible(false);
     this.cameraCtrl.setVigilMode(false);

@@ -34,8 +34,6 @@ import {
 import { ISLANDS, OCEAN_BASINS } from '../data/islandsData.js';
 import { getPlayerCharacterProfile } from '../data/playerCharactersData.js';
 import { SONGS } from '../data/songsData.js';
-import { isWalkableIsland } from '../data/walkableIslandsData.js';
-import { formatShortSettingsSummary } from './IslandSettingsUI.js';
 import { SandCanvas } from './SandCanvas.js';
 
 const TOTAL_SKY_TEACHINGS = Object.keys(CONSTELLATION_LESSONS).length;
@@ -91,35 +89,6 @@ export class IslandHubUI {
           <header class="hub-header">
             <div class="hub-header-top-row">
               <div class="hub-act-badge" id="hubActBadge"></div>
-              <div class="hub-header-actions">
-                <button
-                  class="island-settings-btn hub-walk-opt-btn hidden"
-                  id="btnEnterWalkMode"
-                  type="button"
-                  title="Optional: Walk this shore in 3rd-person (Arrow Keys / WASD)"
-                >
-                  <span aria-hidden="true">🚶</span>
-                  <span class="island-settings-label">Walk Shore</span>
-                </button>
-                <button
-                  class="island-settings-btn island-achievements-btn"
-                  id="btnHubOpenAchievements"
-                  type="button"
-                  title="View Wayfinder Achievements"
-                >
-                  <span aria-hidden="true">🏆</span>
-                  <span class="island-settings-pill" id="hubAchievementsSummary">0/12</span>
-                </button>
-                <button
-                  class="island-settings-btn"
-                  id="btnHubOpenSettings"
-                  type="button"
-                  title="Open Island Settings (Sound, Difficulty &amp; Start Over)"
-                >
-                  <span class="island-settings-gear" aria-hidden="true">⚙</span>
-                  <span class="island-settings-pill" id="hubSettingsSummary">Wayfinder · 🔊</span>
-                </button>
-              </div>
             </div>
             <div class="hub-title-row">
               <h1 class="hub-island-name" id="hubIslandName"></h1>
@@ -396,28 +365,6 @@ export class IslandHubUI {
         this.callbacks.onResetOrbit?.();
       });
 
-    // Optional Walk Ashore mode trigger
-    this.rootEl
-      .querySelector('#btnEnterWalkMode')
-      .addEventListener('click', (e) => {
-        e.currentTarget.blur();
-        this.callbacks.onEnterWalkMode?.();
-      });
-
-    // Settings & Achievements openers
-    this.rootEl
-      .querySelector('#btnHubOpenSettings')
-      .addEventListener('click', (e) => {
-        e.currentTarget.blur();
-        this.callbacks.onOpenSettings?.();
-      });
-    this.rootEl
-      .querySelector('#btnHubOpenAchievements')
-      .addEventListener('click', (e) => {
-        e.currentTarget.blur();
-        this.callbacks.onOpenAchievements?.();
-      });
-
     // Portrait Lightbox triggers
     this.rootEl
       .querySelector('#btnEnlargeSanctuaryPortrait')
@@ -606,15 +553,24 @@ export class IslandHubUI {
     if (!cardEl || !listEl) return;
 
     const gs = this.callbacks.getGameState();
-    const activeItems = getActiveObjectivesForDisplay(gs);
+    const activeItems = getActiveObjectivesForDisplay(gs).filter(
+      (item) => !this.callbacks.isObjectivePending?.(item.id)
+    );
     const recentCleared = this._recentlyClearedObjectives || [];
 
     if (activeItems.length === 0 && recentCleared.length === 0) {
       cardEl.classList.add('hidden');
+      cardEl.classList.remove('swipe-in-top');
       return;
     }
 
+    const wasHidden = cardEl.classList.contains('hidden');
     cardEl.classList.remove('hidden');
+    if (wasHidden) {
+      cardEl.classList.remove('swipe-in-top');
+      void cardEl.offsetWidth;
+      cardEl.classList.add('swipe-in-top');
+    }
     if (headEl) {
       headEl.textContent =
         activeItems.length > 0
@@ -643,11 +599,12 @@ export class IslandHubUI {
     }
 
     for (const item of activeItems) {
+      const swipeIn = Boolean(this.callbacks.consumeObjectiveSwipeIn?.(item.id));
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = `shore-obj-item shore-obj-btn ${item.isHere ? 'is-local' : ''} ${
         item.hasRequiredCargo ? 'cargo-ready' : ''
-      }`;
+      } ${swipeIn ? 'swipe-in-top' : ''}`;
       btn.title = item.isHere
         ? 'Jump to Elder & Sanctuary station on this shore'
         : 'Jump to Set Sail station to plan route';
@@ -807,25 +764,6 @@ export class IslandHubUI {
       : 'Uninhabited Wild Atoll';
     this.rootEl.querySelector('#hubIslandSubtitle').textContent =
       `${isl.subtitle}${isl.mentorName ? ` · ${isl.mentorName}` : ` · ${uninhabitedLabel}`}`;
-
-    // Optional Walk Shore button (enabled only on the 4 showcase walkable islands)
-    this.rootEl
-      .querySelector('#btnEnterWalkMode')
-      ?.classList.toggle('hidden', !isWalkableIsland(isl.id));
-
-    const summaryEl = this.rootEl.querySelector('#hubSettingsSummary');
-    if (summaryEl) {
-      const isMuted = Boolean(this.callbacks.getIsSoundMuted?.());
-      summaryEl.textContent = formatShortSettingsSummary(gs.difficulty, isMuted);
-    }
-
-    const achSummaryEl = this.rootEl.querySelector('#hubAchievementsSummary');
-    if (achSummaryEl) {
-      const achSummary = this.callbacks.getAchievementsSummary?.();
-      achSummaryEl.textContent = achSummary
-        ? `${achSummary.unlockedCount}/${achSummary.totalCount}`
-        : '0/12';
-    }
 
     // Station 1 tab title adapts naturally to inhabited vs wild / monolith shores
     this.rootEl.querySelector('#tabGlyphSanctuary').textContent = isl.isSecret

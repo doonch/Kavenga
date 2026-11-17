@@ -31,7 +31,6 @@ import { ISLANDS, OCEAN_BASINS } from '../data/islandsData.js';
 import { getPlayerCharacterProfile } from '../data/playerCharactersData.js';
 import { SONGS } from '../data/songsData.js';
 import { getWalkableIslandSpec } from '../data/walkableIslandsData.js';
-import { formatShortSettingsSummary } from './IslandSettingsUI.js';
 import { SandCanvas } from './SandCanvas.js';
 
 export class WalkableIslandUI {
@@ -89,29 +88,6 @@ export class WalkableIslandUI {
               </button>
               <div class="shore-objectives-list" id="walkObjectivesList"></div>
             </section>
-          </div>
-
-          <div class="walkable-top-right-btns">
-            <button
-              class="island-settings-btn island-achievements-btn"
-              id="btnWalkOpenAchievements"
-              type="button"
-              title="View Wayfinder Achievements"
-            >
-              <span aria-hidden="true">🏆</span>
-              <span class="island-settings-label">Achievements</span>
-              <span class="island-settings-pill" id="walkAchievementsSummary">0/12</span>
-            </button>
-            <button
-              class="island-settings-btn"
-              id="btnWalkOpenSettings"
-              type="button"
-              title="Open Island Settings (Sound, Difficulty &amp; Start Over)"
-            >
-              <span class="island-settings-gear" aria-hidden="true">⚙</span>
-              <span class="island-settings-label">Settings</span>
-              <span class="island-settings-pill" id="walkSettingsSummary">Wayfinder · 🔊</span>
-            </button>
           </div>
         </header>
 
@@ -190,20 +166,6 @@ export class WalkableIslandUI {
       .addEventListener('click', (e) => {
         e.currentTarget.blur();
         this.callbacks.onExitWalkMode?.(this.currentPoi);
-      });
-
-    this.rootEl
-      .querySelector('#btnWalkOpenSettings')
-      .addEventListener('click', (e) => {
-        e.currentTarget.blur();
-        this.callbacks.onOpenSettings?.();
-      });
-
-    this.rootEl
-      .querySelector('#btnWalkOpenAchievements')
-      .addEventListener('click', (e) => {
-        e.currentTarget.blur();
-        this.callbacks.onOpenAchievements?.();
       });
 
     this.rootEl
@@ -387,20 +349,6 @@ export class WalkableIslandUI {
     this.rootEl.querySelector('#walkIslandName').textContent = isl.name;
     this.rootEl.querySelector('#walkIslandSubtitle').textContent = isl.subtitle;
 
-    const summaryEl = this.rootEl.querySelector('#walkSettingsSummary');
-    if (summaryEl) {
-      const isMuted = Boolean(this.callbacks.getIsSoundMuted?.());
-      summaryEl.textContent = formatShortSettingsSummary(gs.difficulty, isMuted);
-    }
-
-    const achSummaryEl = this.rootEl.querySelector('#walkAchievementsSummary');
-    if (achSummaryEl) {
-      const achSummary = this.callbacks.getAchievementsSummary?.();
-      achSummaryEl.textContent = achSummary
-        ? `${achSummary.unlockedCount}/${achSummary.totalCount}`
-        : '0/12';
-    }
-
     this._renderObjectivesTracker();
 
     if (this.currentPoi) {
@@ -428,15 +376,24 @@ export class WalkableIslandUI {
     if (!cardEl || !listEl) return;
 
     const gs = this.callbacks.getGameState();
-    const activeItems = getActiveObjectivesForDisplay(gs);
+    const activeItems = getActiveObjectivesForDisplay(gs).filter(
+      (item) => !this.callbacks.isObjectivePending?.(item.id)
+    );
     const recentCleared = this._recentlyClearedObjectives || [];
 
     if (activeItems.length === 0 && recentCleared.length === 0) {
       cardEl.classList.add('hidden');
+      cardEl.classList.remove('swipe-in-top');
       return;
     }
 
+    const wasHidden = cardEl.classList.contains('hidden');
     cardEl.classList.remove('hidden');
+    if (wasHidden) {
+      cardEl.classList.remove('swipe-in-top');
+      void cardEl.offsetWidth;
+      cardEl.classList.add('swipe-in-top');
+    }
     listEl.classList.toggle('hidden', this.objectivesCollapsed);
     if (chevEl) {
       chevEl.textContent = this.objectivesCollapsed ? '▸' : '▾';
@@ -455,8 +412,9 @@ export class WalkableIslandUI {
       `);
     }
     for (const item of activeItems) {
+      const swipeIn = Boolean(this.callbacks.consumeObjectiveSwipeIn?.(item.id));
       rows.push(`
-        <div class="shore-obj-item ${item.isHere ? 'is-local' : ''} ${item.hasRequiredCargo ? 'cargo-ready' : ''}">
+        <div class="shore-obj-item ${item.isHere ? 'is-local' : ''} ${item.hasRequiredCargo ? 'cargo-ready' : ''} ${swipeIn ? 'swipe-in-top' : ''}">
           <span class="shore-obj-bullet" aria-hidden="true">${item.glyph || '✦'}</span>
           <div class="shore-obj-copy">
             <div class="shore-obj-title-row">

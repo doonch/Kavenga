@@ -46,7 +46,6 @@ export class AchievementsUI {
             </div>
             <div class="achievements-header-right">
               <div class="achievements-tally-pills" id="achievementsTallyPills"></div>
-              <button class="walkable-close-btn" id="btnCloseAchievementsModal" type="button" title="Close Achievements (Esc)">✕</button>
             </div>
           </div>
 
@@ -60,12 +59,6 @@ export class AchievementsUI {
     `;
 
     const backdrop = this.rootEl.querySelector('#achievementsModalBackdrop');
-    this.rootEl
-      .querySelector('#btnCloseAchievementsModal')
-      .addEventListener('click', (e) => {
-        e.currentTarget.blur();
-        this.hideModal();
-      });
     this.rootEl
       .querySelector('#btnDoneAchievementsModal')
       .addEventListener('click', (e) => {
@@ -123,11 +116,18 @@ export class AchievementsUI {
 
   /**
    * Displays a warm tapa-amber toast when a new Objective is given ashore.
+   * Calls `onComplete(objectiveDef)` once the toast finishes its exit animation.
    */
-  showObjectiveAdded(objectiveDef) {
-    if (!objectiveDef) return;
+  showObjectiveAdded(objectiveDef, onComplete = null) {
+    if (!objectiveDef) {
+      onComplete?.(objectiveDef);
+      return;
+    }
     const stack = this.rootEl.querySelector('#celebrationToastStack');
-    if (!stack) return;
+    if (!stack) {
+      onComplete?.(objectiveDef);
+      return;
+    }
 
     const card = document.createElement('div');
     card.className = 'celebration-banner objective-added-banner';
@@ -154,6 +154,7 @@ export class AchievementsUI {
       const tRem = setTimeout(() => {
         card.remove();
         this._bannerTimers.delete(tRem);
+        onComplete?.(objectiveDef);
       }, 420);
       this._bannerTimers.add(tRem);
       this._bannerTimers.delete(tOut);
@@ -246,7 +247,6 @@ export class AchievementsUI {
     if (pillsEl) {
       pillsEl.innerHTML = `
         <span class="ach-tally-pill unlocked">✦ ${summary.unlockedCount} / ${summary.totalCount} Unlocked</span>
-        <span class="ach-tally-pill mystery">??? ${summary.remainingMysteryCount} Uncharted</span>
       `;
     }
 

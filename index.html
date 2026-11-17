@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="./assets/icons/favicon-32.png" />
   <link rel="icon" type="image/png" sizes="64x64" href="./assets/icons/favicon-64.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="./assets/icons/apple-touch-icon.png" />
-  <link rel="stylesheet" href="./styles.css?v=20261117i" />
+  <link rel="stylesheet" href="./styles.css?v=20261117l" />
   <script type="importmap">
     {
       "imports": {
@@ -33,12 +33,12 @@
         "./src/rendering/WalkableIslandScene.js": "./src/rendering/WalkableIslandScene.js?v=20261117g",
         "./src/rendering/WorldCuesRenderer.js": "./src/rendering/WorldCuesRenderer.js?v=20261117g",
         "./src/audio/ChantAndDrumEngine.js": "./src/audio/ChantAndDrumEngine.js?v=20261117i",
-        "./src/ui/AchievementsUI.js": "./src/ui/AchievementsUI.js?v=20261117i",
+        "./src/ui/AchievementsUI.js": "./src/ui/AchievementsUI.js?v=20261117l",
         "./src/ui/ElderVigilPromptUI.js": "./src/ui/ElderVigilPromptUI.js?v=20261117g",
-        "./src/ui/IslandHubUI.js": "./src/ui/IslandHubUI.js?v=20261117g",
+        "./src/ui/IslandHubUI.js": "./src/ui/IslandHubUI.js?v=20261117l",
         "./src/ui/SailingHUD.js": "./src/ui/SailingHUD.js?v=20261117g",
         "./src/ui/SkyVigilUI.js": "./src/ui/SkyVigilUI.js?v=20261117g",
-        "./src/ui/WalkableIslandUI.js": "./src/ui/WalkableIslandUI.js?v=20261117g",
+        "./src/ui/WalkableIslandUI.js": "./src/ui/WalkableIslandUI.js?v=20261117l",
         "./src/ui/IslandSettingsUI.js": "./src/ui/IslandSettingsUI.js?v=20261117g"
       }
     }
@@ -63,6 +63,46 @@
   <!-- Unified 3D Shore Diorama & 4-Station Docked Panel -->
   <div id="island-hub"></div>
 
+  <!-- Shared Ashore Top-Right Icon Controls (outside Hub & Walk UI) -->
+  <div id="shore-top-controls" class="shore-top-controls hidden" aria-label="Shore Controls">
+    <button
+      class="island-settings-btn shore-icon-btn hub-walk-opt-btn hidden"
+      id="btnShoreWalkToggle"
+      type="button"
+      title="Walk Shore in 3rd-person (Arrow Keys / WASD)"
+      aria-label="Walk Shore"
+    >
+      <span aria-hidden="true">🚶</span>
+    </button>
+    <button
+      class="island-settings-btn shore-icon-btn"
+      id="btnShoreToggleSound"
+      type="button"
+      title="Sound On — Click to Mute"
+      aria-label="Toggle Sound"
+    >
+      <span id="shoreSoundGlyph" aria-hidden="true">🔊</span>
+    </button>
+    <button
+      class="island-settings-btn shore-icon-btn island-achievements-btn"
+      id="btnShoreOpenAchievements"
+      type="button"
+      title="View Wayfinder Achievements"
+      aria-label="Achievements"
+    >
+      <span aria-hidden="true">🏆</span>
+    </button>
+    <button
+      class="island-settings-btn shore-icon-btn"
+      id="btnShoreOpenSettings"
+      type="button"
+      title="Open Island Settings"
+      aria-label="Settings"
+    >
+      <span class="island-settings-gear" aria-hidden="true">⚙</span>
+    </button>
+  </div>
+
   <!-- Ashore Settings Modal & Start-Over Confirmation (Island Phase Only) -->
   <div id="island-settings-ui" class="hidden"></div>
 
@@ -72,6 +112,6 @@
   <!-- Global Celebration Banners (Sea & Shore) + Ashore Achievements Gallery Modal -->
   <div id="achievements-ui"></div>
 
-  <script type="module" src="./src/main.js?v=20261117i"></script>
+  <script type="module" src="./src/main.js?v=20261117l"></script>
 </body>
 </html>
