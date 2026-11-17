@@ -799,10 +799,10 @@ export function createDetailedIslandAssembly(islandId) {
       group.add(motu);
     }
 
-    // 3. Sacred Marae Taputapuatea Stone Courtyard & Stepped Ahu on the Eastern Headland
+    // 3. Sacred Marae Taputapuatea Stone Courtyard, Stepped Coral Ahu & Thatched Fare Pote'e
     const basaltStoneMat = trackMat(
       new THREE.MeshStandardMaterial({
-        color: 0x3d3a37,
+        color: 0x45413d,
         roughness: 0.92,
         transparent: true,
         opacity: 1.0,
@@ -810,12 +810,44 @@ export function createDetailedIslandAssembly(islandId) {
     );
     const coralSlabMat = trackMat(
       new THREE.MeshStandardMaterial({
-        color: 0xcfc4ab,
+        color: 0xd8cdb4,
         roughness: 0.85,
         transparent: true,
         opacity: 1.0,
       })
     );
+    const maraeTimberMat = trackMat(
+      new THREE.MeshStandardMaterial({
+        color: 0x5c3a21,
+        roughness: 0.86,
+        transparent: true,
+        opacity: 1.0,
+      })
+    );
+    const maraeThatchMat = trackMat(
+      new THREE.MeshStandardMaterial({
+        color: 0xc29c5a,
+        roughness: 0.9,
+        transparent: true,
+        opacity: 1.0,
+      })
+    );
+    const maraeUnuRedMat = trackMat(
+      new THREE.MeshStandardMaterial({
+        color: 0x8f2d1f,
+        roughness: 0.82,
+        transparent: true,
+        opacity: 1.0,
+      })
+    );
+    const maraeFlameMat = trackMat(
+      new THREE.MeshBasicMaterial({
+        color: 0xffa83e,
+        transparent: true,
+        opacity: 0.95,
+      })
+    );
+    maraeFlameMat.userData.baseOpacity = 0.95;
 
     const maraeGroup = new THREE.Group();
     const capeTheta = -0.35;
@@ -825,19 +857,113 @@ export function createDetailedIslandAssembly(islandId) {
     maraeGroup.position.set(capeX, capeY, capeZ);
     maraeGroup.rotation.y = -capeTheta;
 
-    const pavement = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.8, 9.6), basaltStoneMat);
-    pavement.position.y = 0.25;
+    // Low stone courtyard terrace (paepae) with fitted perimeter curb blocks
+    const pavement = new THREE.Mesh(
+      new THREE.BoxGeometry(7.8, 0.52, 10.4),
+      basaltStoneMat
+    );
+    pavement.position.y = 0.1;
     maraeGroup.add(pavement);
 
-    const ahuAltar = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.9, 7.6), coralSlabMat);
-    ahuAltar.position.set(2.1, 1.2, 0.0);
-    maraeGroup.add(ahuAltar);
-
-    for (let s = -2; s <= 2; s += 1) {
-      const upright = new THREE.Mesh(new THREE.BoxGeometry(0.45, 2.3, 0.55), basaltStoneMat);
-      upright.position.set(-1.8, 1.4, s * 1.75);
-      maraeGroup.add(upright);
+    for (let c = -3; c <= 3; c += 1) {
+      const curbW = new THREE.Mesh(
+        new THREE.BoxGeometry(0.45, 0.28, 1.15),
+        coralSlabMat
+      );
+      curbW.position.set(-3.65, 0.42, c * 1.42);
+      curbW.rotation.y = (c % 2) * 0.04;
+      maraeGroup.add(curbW);
     }
+
+    // Two-tier low stepped coral-stone Ahu (altar platform, ~1.05m total height)
+    const ahuTier1 = new THREE.Mesh(
+      new THREE.BoxGeometry(2.4, 0.42, 7.8),
+      coralSlabMat
+    );
+    ahuTier1.position.set(1.9, 0.52, 0.0);
+    maraeGroup.add(ahuTier1);
+
+    const ahuTier2 = new THREE.Mesh(
+      new THREE.BoxGeometry(1.45, 0.36, 6.2),
+      coralSlabMat
+    );
+    ahuTier2.position.set(2.15, 0.88, 0.0);
+    maraeGroup.add(ahuTier2);
+
+    // Three shorter, broad, tapered basalt backrest slabs (ofai) with natural variation
+    const backrestGeo = new THREE.CylinderGeometry(0.26, 0.42, 1.0, 4);
+    for (const [bz, bh, lean] of [
+      [-2.4, 0.82, -0.05],
+      [0.0, 1.08, 0.02],
+      [2.45, 0.88, 0.06],
+    ]) {
+      const slab = new THREE.Mesh(backrestGeo, basaltStoneMat);
+      slab.scale.set(0.36, bh, 1.05);
+      slab.rotation.y = Math.PI * 0.25;
+      slab.rotation.z = lean;
+      slab.position.set(-1.6, 0.34 + bh * 0.48, bz);
+      maraeGroup.add(slab);
+    }
+
+    // Two carved red-ochre unu boards & glowing kukui torches flanking the Ahu
+    for (const uz of [-3.35, 3.35]) {
+      const unu = new THREE.Mesh(
+        new THREE.BoxGeometry(0.14, 1.35, 0.36),
+        maraeUnuRedMat
+      );
+      unu.position.set(2.35, 1.15, uz);
+      maraeGroup.add(unu);
+
+      const torchPole = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.06, 0.08, 1.45, 6),
+        maraeTimberMat
+      );
+      torchPole.position.set(-0.2, 1.05, uz * 1.18);
+      maraeGroup.add(torchPole);
+
+      const flame = new THREE.Mesh(
+        new THREE.ConeGeometry(0.16, 0.36, 6),
+        maraeFlameMat
+      );
+      flame.position.set(-0.2, 1.92, uz * 1.18);
+      maraeGroup.add(flame);
+    }
+
+    // Open-sided thatched Fare Pote'e council pavilion beside the courtyard
+    const fareGroup = new THREE.Group();
+    fareGroup.position.set(-1.1, 0.36, -6.9);
+    const farePlinth = new THREE.Mesh(
+      new THREE.BoxGeometry(3.4, 0.3, 4.4),
+      coralSlabMat
+    );
+    farePlinth.position.y = 0.08;
+    fareGroup.add(farePlinth);
+
+    const postGeo = new THREE.CylinderGeometry(0.09, 0.11, 1.45, 6);
+    for (const pxOff of [-1.25, 1.25]) {
+      for (const pzOff of [-1.55, 0.0, 1.55]) {
+        const post = new THREE.Mesh(postGeo, maraeTimberMat);
+        post.position.set(pxOff, 0.9, pzOff);
+        fareGroup.add(post);
+      }
+    }
+    const fareRoof = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.16, 2.25, 1.85, 4),
+      maraeThatchMat
+    );
+    fareRoof.rotation.y = Math.PI * 0.25;
+    fareRoof.scale.set(0.92, 1.0, 1.32);
+    fareRoof.position.y = 2.42;
+    fareGroup.add(fareRoof);
+
+    const fareRidge = new THREE.Mesh(
+      new THREE.BoxGeometry(0.18, 0.16, 4.4),
+      maraeTimberMat
+    );
+    fareRidge.position.y = 3.28;
+    fareGroup.add(fareRidge);
+    maraeGroup.add(fareGroup);
+
     group.add(maraeGroup);
 
     // 4. Highland Waterfall Cascade below Mount Temehani Plateau

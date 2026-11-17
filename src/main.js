@@ -1199,6 +1199,11 @@ class KavengaApp {
       this.gameState,
       arrivedId
     );
+    for (const def of newlyActivatedOnArrival) {
+      if (def?.id && !this._announcedObjectiveIds.has(def.id)) {
+        this._pendingObjectiveIds.add(def.id);
+      }
+    }
     onVoyageLandfall(this.gameState, arrivedId);
     this.achievementsManager.evaluateLandfall(
       this.oceanSim,
