@@ -154,7 +154,7 @@ export const WALKABLE_ISLAND_SPECS = Object.freeze({
     }),
     vigilExitSpawn: Object.freeze({
       x: 0.0,
-      z: 33.8,
+      z: 5.5,
       facingYawRad: 0.0,
     }),
     mooredCanoe: Object.freeze({
@@ -216,16 +216,16 @@ export const WALKABLE_ISLAND_SPECS = Object.freeze({
         subtitle: 'Study morning bird & post-shadow sand diagrams or enter the Night-Sky Vigil',
         promptHint: 'Study Post-Shadow Sand & Sky',
         circleDesc:
-          'Ringed with giant clam shells on a breezy coral knoll above the calm bay, this upright wooden post casts crisp sun-shadows across swept cream sand — teaching how deck lashings hold a morning course.',
+          'Ringed with giant clam shells on the breezy summit knoll above the five-lobed lagoon, this upright wooden post casts crisp sun-shadows across swept cream sand — teaching how deck lashings hold a morning course.',
         x: 0.0,
-        z: 31.2,
-        triggerRadiusM: 5.4,
-        markerRadiusM: 3.5,
+        z: 0.0,
+        triggerRadiusM: 6.0,
+        markerRadiusM: 3.8,
         arrivalSpot: Object.freeze({
-          x: 0.0,
-          z: 33.6,
-          facingYawRad: 0.0,
-          camYawRad: 0.08,
+          x: 3.2,
+          z: 4.8,
+          facingYawRad: 0.55,
+          camYawRad: 0.48,
         }),
       }),
       Object.freeze({
@@ -271,8 +271,8 @@ export const WALKABLE_ISLAND_SPECS = Object.freeze({
       camYawRad: 0.25,
     }),
     vigilExitSpawn: Object.freeze({
-      x: -14.0,
-      z: 45.2,
+      x: -21.5,
+      z: 32.0,
       facingYawRad: 0.0,
     }),
     mooredCanoe: Object.freeze({
@@ -335,15 +335,15 @@ export const WALKABLE_ISLAND_SPECS = Object.freeze({
         promptHint: 'Study Star-Gourd Ring & Sky',
         circleDesc:
           'High on a black basalt bluff between snow-dusted Mauna summits and glowing volcanic fissures, wayfinders sight the unmoving Steadfast Peg and trace every wave and star diagram.',
-        x: -14.5,
-        z: 42.8,
-        triggerRadiusM: 5.6,
-        markerRadiusM: 3.6,
+        x: -24.0,
+        z: 28.0,
+        triggerRadiusM: 6.0,
+        markerRadiusM: 3.8,
         arrivalSpot: Object.freeze({
-          x: -14.2,
-          z: 45.4,
-          facingYawRad: 0.0,
-          camYawRad: 0.08,
+          x: -21.5,
+          z: 32.0,
+          facingYawRad: 0.45,
+          camYawRad: 0.4,
         }),
       }),
       Object.freeze({
@@ -389,8 +389,8 @@ export const WALKABLE_ISLAND_SPECS = Object.freeze({
       camYawRad: 0.22,
     }),
     vigilExitSpawn: Object.freeze({
-      x: 2.0,
-      z: 40.5,
+      x: 0.5,
+      z: 22.5,
       facingYawRad: 0.0,
     }),
     mooredCanoe: Object.freeze({
@@ -454,14 +454,14 @@ export const WALKABLE_ISLAND_SPECS = Object.freeze({
         promptHint: 'Study Navel-Stone Ring & Sky',
         circleDesc:
           'Set upon a windswept grassy terrace overlooking volcanic sea stacks, a sun-warmed round boulder and basalt markers frame etched swell rings in pale coral sand.',
-        x: 2.0,
-        z: 38.0,
-        triggerRadiusM: 5.6,
-        markerRadiusM: 3.6,
+        x: 0.0,
+        z: 18.0,
+        triggerRadiusM: 6.0,
+        markerRadiusM: 3.8,
         arrivalSpot: Object.freeze({
-          x: 2.0,
-          z: 40.5,
-          facingYawRad: 0.0,
+          x: 0.5,
+          z: 22.5,
+          facingYawRad: 0.1,
           camYawRad: 0.08,
         }),
       }),

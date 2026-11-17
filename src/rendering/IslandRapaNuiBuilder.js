@@ -352,7 +352,14 @@ export function evalRapaNuiPoint(wx, wz) {
   }
 
   // Apply 50% lower hill elevation scale!
-  const h = baseH * H_SCALE;
+  let h = baseH * H_SCALE;
+
+  // Level panoramic southern bluff overlook at world (0, 18) -> local (7.16, 16.52)
+  const knollDist = Math.hypot(wx - 7.16, wz - 16.52);
+  if (knollDist < 10.5) {
+    const knollFlat = smoothstep(10.5, 4.8, knollDist);
+    h = lerp(h, 12.5, knollFlat);
+  }
 
   // Surface Biome & Geological Color Masks
   const isCoralSand =

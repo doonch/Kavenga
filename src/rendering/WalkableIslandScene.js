@@ -270,17 +270,74 @@ export class WalkableIslandScene {
     this._buildPoiWorldLabels();
   }
 
-  _buildRaiateaSummitStonePath(basaltMat, coralStoneMat, addKukuiTorch) {
-    const waypoints = [
-      new THREE.Vector3(4.5, 0, 50.5), // Trailhead beside Marae Taputapuatea & Fare Pote'e
-      new THREE.Vector3(14.5, 0, 44.5), // Coastal curve onto gentle eastern ridge
-      new THREE.Vector3(21.0, 0, 32.5), // Lower ridge bend overlooking lagoon
-      new THREE.Vector3(17.2, 0, 20.5), // Mid-slope ascent along open ridge
-      new THREE.Vector3(10.0, 0, 11.8), // Upper ridge shoulder
-      new THREE.Vector3(3.4, 0, 5.2), // Summit Observation Knoll entrance
-    ];
-    const curve = new THREE.CatmullRomCurve3(waypoints);
-    const stepCount = 34;
+  _buildSummitStonePath(islandId, basaltMat, coralStoneMat, addKukuiTorch) {
+    const trailSpecs = {
+      raiatea: {
+        waypoints: [
+          new THREE.Vector3(4.5, 0, 50.5),
+          new THREE.Vector3(14.5, 0, 44.5),
+          new THREE.Vector3(21.0, 0, 32.5),
+          new THREE.Vector3(17.2, 0, 20.5),
+          new THREE.Vector3(10.0, 0, 11.8),
+          new THREE.Vector3(3.4, 0, 5.2),
+        ],
+        steps: 34,
+        torches: [
+          [5.6, 49.4],
+          [22.2, 32.0],
+          [11.0, 11.2],
+        ],
+      },
+      tahaa: {
+        waypoints: [
+          new THREE.Vector3(12.8, 0, 39.2),
+          new THREE.Vector3(17.5, 0, 32.0),
+          new THREE.Vector3(17.0, 0, 22.0),
+          new THREE.Vector3(11.5, 0, 13.5),
+          new THREE.Vector3(3.4, 0, 5.0),
+        ],
+        steps: 28,
+        torches: [
+          [14.0, 38.2],
+          [18.2, 22.0],
+          [4.8, 6.2],
+        ],
+      },
+      hawaii: {
+        waypoints: [
+          new THREE.Vector3(-12.2, 0, 48.2),
+          new THREE.Vector3(-16.0, 0, 42.5),
+          new THREE.Vector3(-19.2, 0, 36.8),
+          new THREE.Vector3(-21.8, 0, 32.0),
+        ],
+        steps: 18,
+        torches: [
+          [-11.2, 47.4],
+          [-17.2, 38.2],
+          [-20.6, 33.2],
+        ],
+      },
+      rapa_nui: {
+        waypoints: [
+          new THREE.Vector3(1.5, 0, 44.5),
+          new THREE.Vector3(2.2, 0, 36.5),
+          new THREE.Vector3(1.4, 0, 29.0),
+          new THREE.Vector3(0.4, 0, 22.2),
+        ],
+        steps: 22,
+        torches: [
+          [2.8, 44.0],
+          [2.8, 33.0],
+          [1.6, 23.2],
+        ],
+      },
+    };
+
+    const spec = trailSpecs[islandId];
+    if (!spec) return;
+
+    const curve = new THREE.CatmullRomCurve3(spec.waypoints);
+    const stepCount = spec.steps;
     const stepGeo = new THREE.CylinderGeometry(0.58, 0.7, 0.14, 7);
     const kerbGeo = new THREE.DodecahedronGeometry(0.26, 0);
 
@@ -345,9 +402,9 @@ export class WalkableIslandScene {
     }
 
     // Warm kukui-nut torch markers at trailhead, ridge bend, and summit approach
-    addKukuiTorch(5.6, 49.4, 1.65);
-    addKukuiTorch(22.2, 32.0, 1.65);
-    addKukuiTorch(11.0, 11.2, 1.65);
+    for (const [tx, tz] of spec.torches) {
+      addKukuiTorch(tx, tz, 1.65);
+    }
   }
 
   _buildPoiMarkersAndAshoreProps(islandId) {
@@ -413,13 +470,12 @@ export class WalkableIslandScene {
       this.root.add(tGrp);
     };
 
-    if (islandId === 'raiatea') {
-      this._buildRaiateaSummitStonePath(
-        basaltMat,
-        coralStoneMat,
-        addKukuiTorch
-      );
-    }
+    this._buildSummitStonePath(
+      islandId,
+      basaltMat,
+      coralStoneMat,
+      addKukuiTorch
+    );
 
     for (const poi of this.spec.pois) {
       const groundY = this.getGroundHeight(poi.x, poi.z);

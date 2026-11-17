@@ -171,19 +171,36 @@ function evalTahaaPoint(x, z) {
   }
 
   const inland = 1.0 - u;
-  // Lower, rounder volcanic shield dome (~43m summit vs Ra'iatea's ~57m plateau)
-  const dome = 40.5 * Math.pow(smoothstep(0.05, 0.92, inland), 1.48);
+  // Soft rolling volcanic shield dome (~23.5m summit, gentle walkable slopes)
+  const dome = 22.0 * Math.pow(smoothstep(0.05, 0.92, inland), 1.48);
 
   // 5 soft rolling peninsula ridges aligned with the 5 coastal lobes
   const lobeRidge = Math.pow(0.5 + 0.5 * Math.cos(5.0 * theta + 0.55), 1.35);
   const ridgeEnv = smoothstep(0.06, 0.34, inland) * smoothstep(0.95, 0.45, inland);
-  const ridgeRelief = (lobeRidge - 0.28) * 11.5 * ridgeEnv;
+  const ridgeRelief = (lobeRidge - 0.28) * 6.5 * ridgeEnv;
 
   // Offset twin-hill caldera saddle (Mount Ohiri & Mount Puurauti)
-  const ohiri = 6.2 * Math.exp(-Math.pow(Math.hypot(x - 4.2, z + 3.0) / 9.5, 2.0));
-  const puurauti = 4.8 * Math.exp(-Math.pow(Math.hypot(x + 7.5, z - 5.5) / 8.5, 2.0));
+  const ohiri = 3.2 * Math.exp(-Math.pow(Math.hypot(x - 4.2, z + 3.0) / 9.5, 2.0));
+  const puurauti = 2.6 * Math.exp(-Math.pow(Math.hypot(x + 7.5, z - 5.5) / 8.5, 2.0));
 
   let h = Math.max(0.0, dome + ridgeRelief + ohiri + puurauti);
+
+  // Gentle walkable eastern ridge face (theta ~ -0.18 rad -> world +X/+Z) leading smoothly to hilltop
+  const rampAngDiff = Math.abs(Math.atan2(Math.sin(theta + 0.18), Math.cos(theta + 0.18)));
+  if (rampAngDiff < 0.82 && u < 0.98) {
+    const angMask = smoothstep(0.82, 0.25, rampAngDiff);
+    const rampT = clamp01((inland - 0.02) / 0.80);
+    const rampProfile = lerp(0.8, 23.5, rampT);
+    const rampBlend = angMask * smoothstep(0.98, 0.88, u);
+    h = lerp(h, rampProfile, rampBlend * 0.96);
+  }
+
+  // Level summit clearing at the top of Taha'a for the Observation Knoll
+  const summitDist = Math.hypot(x, z);
+  if (summitDist < 6.8) {
+    const flatBlend = smoothstep(6.8, 3.4, summitDist);
+    h = lerp(h, 23.5, flatBlend);
+  }
 
   // Wide, tranquil cream-sand beaches wrapping deep inside all 5 sheltered bays
   const isBeachCove = bayLobe < 0.38;

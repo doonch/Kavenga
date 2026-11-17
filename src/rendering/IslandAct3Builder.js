@@ -787,6 +787,30 @@ function evalHawaiiPoint(x, z) {
     h = lerp(h, 5.4, heiauTerrace * 0.82);
   }
 
+  // Gentle walkable ramp & level coastal overlook bluff at world (-24, 28) -> local (21.74, 9.75)
+  const kx = 21.74;
+  const kz = 9.75;
+  const sx = 31.0;
+  const sz = -6.5;
+  const abx = kx - sx;
+  const abz = kz - sz;
+  const abLenSq = abx * abx + abz * abz;
+  const tProj = Math.max(0.0, Math.min(1.0, ((x - sx) * abx + (z - sz) * abz) / abLenSq));
+  const px = sx + abx * tProj;
+  const pz = sz + abz * tProj;
+  const dRamp = Math.hypot(x - px, z - pz);
+  const rampT = Math.min(1.0, tProj / 0.78);
+  if (dRamp < 7.8) {
+    const rampMask = smoothstep(7.8, 4.2, dRamp);
+    const rampH = lerp(1.6, 11.5, rampT);
+    h = lerp(h, rampH, rampMask);
+  }
+  const dKnoll = Math.hypot(x - kx, z - kz);
+  if (dKnoll < 4.8) {
+    const knollFlat = smoothstep(4.8, 2.4, dKnoll);
+    h = lerp(h, 11.5, knollFlat);
+  }
+
   if (inBay && u > 0.8) {
     h = lerp(h, 1.45 * (1.0 - smoothstep(0.8, 1.0, u)), 0.82);
   }
