@@ -183,10 +183,42 @@
     .intro-start-btn:active {
       transform: translateY(0) scale(0.99);
     }
+
+    .intro-audio-btn {
+      position: fixed;
+      top: 16px;
+      right: 20px;
+      z-index: 6;
+      pointer-events: auto;
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: rgba(9, 21, 35, 0.72);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(231, 181, 99, 0.42);
+      color: #f3e3c3;
+      font-size: 18px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.34);
+      transition: border-color 0.16s ease, background 0.16s ease, transform 0.12s ease;
+    }
+
+    .intro-audio-btn:hover {
+      background: rgba(15, 33, 52, 0.9);
+      border-color: #e7b563;
+      transform: translateY(-1px);
+    }
   </style>
 </head>
 <body>
   <div id="intro-webgl"></div>
+
+  <audio id="intro-theme-audio" src="./assets/audio/tide.mp3" preload="auto" loop autoplay playsinline></audio>
+  <button id="btn-intro-audio" class="intro-audio-btn" type="button" title="Toggle Theme Audio" aria-label="Toggle Theme Audio">🔊</button>
 
   <div class="intro-overlay">
     <div class="intro-title-stack">
@@ -207,6 +239,68 @@
     </div>
   </div>
 
+  <script>
+    (() => {
+      const audio = document.getElementById('intro-theme-audio');
+      const btn = document.getElementById('btn-intro-audio');
+      if (!audio || !btn) return;
+
+      let userMuted = false;
+
+      const syncBtn = () => {
+        const isAudible = !audio.paused && !audio.muted && !userMuted;
+        btn.textContent = isAudible ? '🔊' : '🔇';
+        btn.title = isAudible ? 'Theme Audio On — Click to Mute' : 'Theme Audio Off — Click to Play';
+        btn.setAttribute('aria-pressed', String(isAudible));
+      };
+
+      const tryPlay = () => {
+        if (userMuted) return;
+        audio.muted = false;
+        audio.volume = 0.72;
+        const p = audio.play();
+        if (p && typeof p.then === 'function') {
+          p.then(syncBtn).catch(() => {
+            syncBtn();
+          });
+        } else {
+          syncBtn();
+        }
+      };
+
+      // Unlock playback on first user interaction if browser blocks unmuted autoplay
+      const unlockOnGesture = (e) => {
+        if (e.target === btn) return;
+        if (!userMuted && audio.paused) {
+          tryPlay();
+        }
+        if (!audio.paused) {
+          window.removeEventListener('pointerdown', unlockOnGesture, true);
+          window.removeEventListener('keydown', unlockOnGesture, true);
+          window.removeEventListener('touchstart', unlockOnGesture, true);
+        }
+      };
+      window.addEventListener('pointerdown', unlockOnGesture, true);
+      window.addEventListener('keydown', unlockOnGesture, true);
+      window.addEventListener('touchstart', unlockOnGesture, true);
+
+      btn.addEventListener('click', (e) => {
+        e.currentTarget.blur();
+        if (audio.paused || audio.muted || userMuted) {
+          userMuted = false;
+          tryPlay();
+        } else {
+          userMuted = true;
+          audio.pause();
+          syncBtn();
+        }
+      });
+
+      audio.addEventListener('play', syncBtn);
+      audio.addEventListener('pause', syncBtn);
+      tryPlay();
+    })();
+  </script>
   <script type="module" src="./src/intro.js?v=20261117e"></script>
 </body>
 </html>
