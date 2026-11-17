@@ -1786,7 +1786,7 @@ const ISLAND_SHORE_RADIUS_M = Object.freeze({
   kauai: 35.5,
   oahu: 34.5,
   kiritimati: 36.5,
-  hawaii: 37.8,
+  hawaii: 74.5,
   rapa_nui: 55.0,
 });
 

@@ -305,16 +305,16 @@ export class WalkableIslandScene {
       },
       hawaii: {
         waypoints: [
-          new THREE.Vector3(-12.2, 0, 48.2),
-          new THREE.Vector3(-16.0, 0, 42.5),
-          new THREE.Vector3(-19.2, 0, 36.8),
-          new THREE.Vector3(-21.8, 0, 32.0),
+          new THREE.Vector3(-20.9, 0, 61.0),
+          new THREE.Vector3(-11.8, 0, 60.5),
+          new THREE.Vector3(-2.8, 0, 60.0),
+          new THREE.Vector3(4.7, 0, 59.6),
         ],
-        steps: 18,
+        steps: 22,
         torches: [
-          [-11.2, 47.4],
-          [-17.2, 38.2],
-          [-20.6, 33.2],
+          [-18.0, 60.8],
+          [-7.5, 60.2],
+          [2.0, 59.7],
         ],
       },
       rapa_nui: {

@@ -275,7 +275,7 @@ export class ShoreDioramaRenderer {
     const isl = ISLANDS[this.currentIslandId] || ISLANDS.raiatea;
     const shoreR = getIslandShoreRadiusM(isl.id, isl.archetype);
     const isAtoll = isl.archetype === 'coral_atoll';
-    const isWide = isl.id === 'rapa_nui';
+    const isWide = isl.id === 'rapa_nui' || isl.id === 'hawaii';
     const peakH = isAtoll ? 12.0 : isl.peakHeightM ?? 64.0;
     const wideBoost = isWide ? 42.0 : 0.0;
 
