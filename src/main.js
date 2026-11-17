@@ -29,6 +29,10 @@ import {
   getAvailableUnlearnedLessonForIsland,
 } from './data/constellationLessonsData.js';
 import { ISLANDS } from './data/islandsData.js';
+import {
+  ISLAND_ARRIVAL_OBJECTIVE_MAP,
+  OBJECTIVES,
+} from './data/objectivesData.js';
 import { buildReturnSong, SONGS } from './data/songsData.js';
 import { isWalkableIsland } from './data/walkableIslandsData.js';
 import { CameraController } from './rendering/CameraController.js';
@@ -70,10 +74,20 @@ class KavengaApp {
     // 1. State, Objectives & Persistent Achievements
     this.gameState = new GameState();
     const hasSavedProgress = this.gameState.loadFromLocalStorage();
+    // Track objective IDs already toasted so saved sessions don't re-toast on browser refresh,
+    // while every genuinely newly given objective (at start, landfall, or elder quest) shows a toast!
+    this._announcedObjectiveIds = new Set(
+      hasSavedProgress ? Object.keys(this.gameState.activeObjectives || {}) : []
+    );
     activateIslandArrivalObjective(
       this.gameState,
       this.gameState.currentIslandId
     );
+    if (hasSavedProgress) {
+      for (const id of Object.keys(this.gameState.activeObjectives || {})) {
+        this._announcedObjectiveIds.add(id);
+      }
+    }
     this.achievementsManager = new AchievementsManager();
     this.oceanSim = new OceanSim();
     this.phase = 'shore'; // 'shore' | 'sailing' | 'sky_vigil'
@@ -297,7 +311,7 @@ class KavengaApp {
 
     this.sailingHud.hide();
     this.skyVigilUI.hide();
-    this._enterShoreMode();
+    this._enterShoreMode({ suppressArrivalToast: true });
 
     // Direct URL boot support for instant testing:
     //   ?island=<id>&tab=sanctuary|sand|vigil|landing
@@ -306,6 +320,18 @@ class KavengaApp {
     //   ?mode=landfall&island=<id>&window=dawn|midday|dusk|midnight&lead=<sec>
     //   ?mode=launch&island=<id>&window=dawn|midday|dusk|midnight
     this._checkStartupUrlParams();
+
+    // On a brand-new campaign (or after Start Over), toast the initial arrival objective ashore
+    if (!hasSavedProgress && this.phase === 'shore') {
+      const startObjId =
+        ISLAND_ARRIVAL_OBJECTIVE_MAP[this.gameState.currentIslandId];
+      if (startObjId && this.gameState.activeObjectives?.[startObjId]) {
+        this._announceNewObjectives([OBJECTIVES[startObjId]], {
+          delayMs: 320,
+          playSound: false,
+        });
+      }
+    }
 
     window.addEventListener('resize', () => this._onResize());
 
@@ -379,7 +405,6 @@ class KavengaApp {
     if (urlIsland && ISLANDS[urlIsland]) {
       this.gameState.currentIslandId = urlIsland;
       this.gameState.currentBasinId = ISLANDS[urlIsland].basinId;
-      activateIslandArrivalObjective(this.gameState, urlIsland);
       this.oceanSim.setShoreIsland(urlIsland);
       this._enterShoreMode({ hubDefaultTab: validShoreTab });
     } else if (
@@ -713,15 +738,49 @@ class KavengaApp {
     return 'landing';
   }
 
+  _announceNewObjectives(
+    objectiveDefs,
+    { delayMs = 0, playSound = true } = {}
+  ) {
+    if (!Array.isArray(objectiveDefs) || objectiveDefs.length === 0) return;
+    const freshList = objectiveDefs.filter(
+      (def) => def && def.id && !this._announcedObjectiveIds.has(def.id)
+    );
+    if (freshList.length === 0) return;
+
+    for (const def of freshList) {
+      this._announcedObjectiveIds.add(def.id);
+    }
+
+    const emitNow = () => {
+      if (this.phase !== 'shore') return;
+      if (playSound) {
+        this.chantEngine.playObjectiveAddedChime();
+      }
+      for (const def of freshList) {
+        this.achievementsUI.showObjectiveAdded(def);
+      }
+    };
+
+    if (delayMs > 0 && typeof setTimeout === 'function') {
+      setTimeout(emitNow, delayMs);
+    } else {
+      emitNow();
+    }
+  }
+
   /**
    * Transitions into the Unified 3D Shore Diorama Stage across all 17 islands:
    * - Left ~60% viewport: canonical 3D island (`IslandTerrainBuilder`) + moored `VakaRenderer`
    * - Right docked panel: 4 shore stations (`sanctuary`, `sand`, `vigil`, `landing`)
    * - Optional secondary `Walk Shore` mode remains accessible on walkable islands via header button.
    */
-  _enterShoreMode({ hubDefaultTab = null } = {}) {
+  _enterShoreMode({
+    hubDefaultTab = null,
+    suppressArrivalToast = false,
+  } = {}) {
     this.phase = 'shore';
-    activateIslandArrivalObjective(
+    const newlyActivatedArrival = activateIslandArrivalObjective(
       this.gameState,
       this.gameState.currentIslandId
     );
@@ -747,6 +806,13 @@ class KavengaApp {
       stationId: this.islandHub.activeTab,
       selectedDeparture: this.islandHub.selectedDeparture,
     });
+
+    if (!suppressArrivalToast && newlyActivatedArrival.length > 0) {
+      this._announceNewObjectives(newlyActivatedArrival, {
+        delayMs: 240,
+        playSound: true,
+      });
+    }
   }
 
   enterWalkableShoreMode({ spawnMode = 'canoe' } = {}) {
@@ -806,11 +872,20 @@ class KavengaApp {
   }
 
   _handleSanctuaryInteracted(sanctuaryResult) {
-    if (sanctuaryResult?.clearedObjectives?.length) {
+    const clearedList = sanctuaryResult?.clearedObjectives || [];
+    const activatedList = sanctuaryResult?.activatedObjectives || [];
+
+    if (clearedList.length > 0) {
       this.chantEngine.playObjectiveClearedChime();
-      for (const clearedObj of sanctuaryResult.clearedObjectives) {
+      for (const clearedObj of clearedList) {
         this.achievementsUI.showObjectiveCleared(clearedObj);
       }
+    }
+    if (activatedList.length > 0) {
+      this._announceNewObjectives(activatedList, {
+        delayMs: clearedList.length > 0 ? 420 : 0,
+        playSound: true,
+      });
     }
     this.achievementsManager.evaluateAshoreState(
       this.gameState,
@@ -981,6 +1056,15 @@ class KavengaApp {
     this.chantEngine.stop();
     this.spatialAudio.stop();
     this.gameState.restorePreVoyageSnapshot();
+    // Sync announced objective set with restored snapshot so rolled-back objectives can toast again
+    for (const id of Array.from(this._announcedObjectiveIds)) {
+      if (
+        !this.gameState.activeObjectives?.[id] &&
+        !this.gameState.clearedObjectives?.[id]
+      ) {
+        this._announcedObjectiveIds.delete(id);
+      }
+    }
     this._enterShoreMode({ hubDefaultTab: 'landing' });
   }
 
@@ -992,6 +1076,10 @@ class KavengaApp {
     this.chantEngine.stop();
     this.spatialAudio.stop();
 
+    const newlyActivatedOnArrival = activateIslandArrivalObjective(
+      this.gameState,
+      arrivedId
+    );
     onVoyageLandfall(this.gameState, arrivedId);
     this.achievementsManager.evaluateLandfall(
       this.oceanSim,
@@ -1011,6 +1099,12 @@ class KavengaApp {
     this.gameState.saveToLocalStorage();
 
     this._enterShoreMode();
+    if (newlyActivatedOnArrival.length > 0) {
+      this._announceNewObjectives(newlyActivatedOnArrival, {
+        delayMs: 240,
+        playSound: true,
+      });
+    }
   }
 
   _logVoyageDebugMapUrl(outcomeEvent) {

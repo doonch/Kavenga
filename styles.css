@@ -2960,13 +2960,14 @@ body {
 
 .celebration-toast-stack {
   position: fixed;
-  top: 72px;
-  right: 22px;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 75;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  width: min(410px, calc(100vw - 32px));
+  width: min(410px, calc(100vw - 28px));
   pointer-events: none;
 }
 
@@ -2979,7 +2980,7 @@ body {
   backdrop-filter: blur(12px);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.62);
   opacity: 0;
-  transform: translate3d(24px, -8px, 0) scale(0.96);
+  transform: translate3d(0, -14px, 0) scale(0.96);
   transition:
     opacity 0.36s cubic-bezier(0.22, 1, 0.36, 1),
     transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
@@ -2988,6 +2989,32 @@ body {
 .celebration-banner.visible {
   opacity: 1;
   transform: translate3d(0, 0, 0) scale(1);
+}
+
+.objective-added-banner {
+  background: linear-gradient(135deg, rgba(31, 24, 14, 0.95), rgba(12, 26, 42, 0.95));
+  border: 1.5px solid rgba(231, 181, 99, 0.8);
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.65),
+    0 0 22px rgba(231, 181, 99, 0.22);
+}
+
+.objective-added-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(255, 224, 152, 0.34), rgba(32, 21, 9, 0.9));
+  border: 1px solid rgba(244, 198, 114, 0.72);
+  color: #ffe29e;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.objective-added-eyebrow {
+  color: #ffd685;
 }
 
 .objective-cleared-banner {

@@ -342,6 +342,30 @@ export class ChantAndDrumEngine {
   }
 
   /**
+   * Gentle two-note rising vivo fourth when a new Objective is given ashore.
+   */
+  playObjectiveAddedChime() {
+    const ctx = this.ensureContext();
+    if (!ctx || this.muted) return;
+    const now = ctx.currentTime + 0.015;
+    [329.63, 440.0].forEach((hz, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      const t0 = now + i * 0.125;
+      osc.frequency.setValueAtTime(hz * 0.992, t0);
+      osc.frequency.linearRampToValueAtTime(hz, t0 + 0.045);
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.linearRampToValueAtTime(0.068, t0 + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0005, t0 + 0.38);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(t0);
+      osc.stop(t0 + 0.42);
+    });
+  }
+
+  /**
    * Warm three-note rising vivo cadence when an ashore Objective is cleared.
    */
   playObjectiveClearedChime() {

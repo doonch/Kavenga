@@ -111,12 +111,54 @@ export class AchievementsUI {
   }
 
   /**
-   * Immediately removes any ashore-only Objective Cleared banners (called when entering Sailing or Vigil).
+   * Immediately removes any ashore-only Objective banners (called when entering Sailing or Vigil).
    */
   clearObjectiveBanners() {
     const stack = this.rootEl.querySelector('#celebrationToastStack');
     if (!stack) return;
-    stack.querySelectorAll('.objective-cleared-banner').forEach((el) => el.remove());
+    stack
+      .querySelectorAll('.objective-cleared-banner, .objective-added-banner')
+      .forEach((el) => el.remove());
+  }
+
+  /**
+   * Displays a warm tapa-amber toast when a new Objective is given ashore.
+   */
+  showObjectiveAdded(objectiveDef) {
+    if (!objectiveDef) return;
+    const stack = this.rootEl.querySelector('#celebrationToastStack');
+    if (!stack) return;
+
+    const card = document.createElement('div');
+    card.className = 'celebration-banner objective-added-banner';
+    card.innerHTML = `
+      <div class="objective-added-badge" aria-hidden="true">${escapeHtml(objectiveDef.glyph || '✦')}</div>
+      <div class="celebration-banner-copy">
+        <div class="celebration-eyebrow objective-added-eyebrow">✦ New Objective</div>
+        <div class="celebration-title">${escapeHtml(objectiveDef.title)}</div>
+        ${
+          objectiveDef.detail
+            ? `<div class="celebration-desc">${escapeHtml(objectiveDef.detail)}</div>`
+            : ''
+        }
+      </div>
+    `;
+    stack.appendChild(card);
+
+    requestAnimationFrame(() => {
+      card.classList.add('visible');
+    });
+
+    const tOut = setTimeout(() => {
+      card.classList.remove('visible');
+      const tRem = setTimeout(() => {
+        card.remove();
+        this._bannerTimers.delete(tRem);
+      }, 420);
+      this._bannerTimers.add(tRem);
+      this._bannerTimers.delete(tOut);
+    }, 4500);
+    this._bannerTimers.add(tOut);
   }
 
   /**

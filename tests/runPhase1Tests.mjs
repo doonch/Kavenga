@@ -16,6 +16,7 @@ import {
   showsSongLyrics,
 } from '../src/core/gameConstants.js';
 import { GameState } from '../src/core/gameState.js';
+import { interactWithIslandSanctuary } from '../src/core/campaignManager.js';
 import {
   AchievementsManager,
   formatAchievementDateLabel,
@@ -845,7 +846,8 @@ logLine('\n[8/8] Verifying Objectives Lifecycle, Multi-Fish Harvest, 24h Ocean S
     removeItem: (k) => memStoreMap.delete(k),
   };
 
-  // A. Fresh GameState starts immediately with Ra'iatea elder objective active
+  // A. Fresh GameState starts immediately with Ra'iatea elder objective active,
+  //    and sanctuary/landfall interactions emit newly activated objectives for New Objective toasts
   const freshGs = new GameState();
   const initialObjs = getActiveObjectivesForDisplay(freshGs);
   assert(
@@ -853,6 +855,21 @@ logLine('\n[8/8] Verifying Objectives Lifecycle, Multi-Fish Harvest, 24h Ocean S
       initialObjs[0].id === 'meet_raiatea_elder' &&
       initialObjs[0].isHere === true,
     "Fresh GameState on Ra'iatea immediately displays 'Speak with Elder Metua' objective"
+  );
+  const raiateaSanctuaryRes = interactWithIslandSanctuary(freshGs);
+  assert(
+    raiateaSanctuaryRes.clearedObjectives.some((o) => o.id === 'meet_raiatea_elder') &&
+      raiateaSanctuaryRes.activatedObjectives.some(
+        (o) => o.id === 'quest_kura_feathers_raiatea' && o.title && o.detail
+      ),
+    "Speaking with Elder Metua clears meet_raiatea_elder and emits quest_kura_feathers_raiatea for New Objective toast"
+  );
+  const tahaaArrivalActivated = activateIslandArrivalObjective(freshGs, 'tahaa');
+  assert(
+    tahaaArrivalActivated.length === 1 &&
+      tahaaArrivalActivated[0].id === 'meet_tahaa_hina' &&
+      activateIslandArrivalObjective(freshGs, 'tahaa').length === 0,
+    "Arriving on Taha'a emits meet_tahaa_hina once for New Objective toast and does not duplicate on repeat check"
   );
 
   const unlockedEvents = [];
