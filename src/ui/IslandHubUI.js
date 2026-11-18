@@ -1413,7 +1413,10 @@ export class IslandHubUI {
 
   _getDefaultRoute(routes) {
     if (!routes || routes.length === 0) return null;
-    return routes.find((r) => !r.isReturn) || routes[0];
+    const forwardRoutes = routes.filter((r) => !r.isReturn);
+    return forwardRoutes.length > 0
+      ? forwardRoutes[forwardRoutes.length - 1]
+      : routes[0];
   }
 
   _getSelectedSongObject() {
