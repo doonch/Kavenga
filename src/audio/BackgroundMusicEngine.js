@@ -41,6 +41,7 @@ export class BackgroundMusicEngine {
     this.discoveredIslands = { ...discoveredIslands };
     this.targetVolume = volume;
     this.enabled = this._loadEnabledPref();
+    this.muted = false;
     this.currentTrack = null;
     this._queue = [];
     this._audio = null;
@@ -225,6 +226,13 @@ export class BackgroundMusicEngine {
           this._audio.pause();
         }
       });
+    }
+  }
+
+  setMuted(muted) {
+    this.muted = Boolean(muted);
+    if (this._audio) {
+      this._audio.muted = this.muted;
     }
   }
 

@@ -54,6 +54,7 @@ export class IslandHubUI {
     this.objectivesCollapsed = false;
     this.orbitCustomized = false;
     this._lightboxMentor = null;
+    this._userPickedRoute = false;
 
     this._buildDOM();
   }
@@ -154,9 +155,8 @@ export class IslandHubUI {
                   </div>
                 </div>
 
-                <div class="sanctuary-actions">
+                <div class="sanctuary-actions" id="sanctuaryActions">
                   <button class="secondary-btn" id="btnSpeakMentor" type="button">Greet Mentor</button>
-                  <button class="secondary-btn hidden" id="btnSanctuaryNextStep" type="button"></button>
                 </div>
 
                 <!-- Voyaging Crewmate Encounter Card (Taha'a -> Tama, Ua Pou -> Moana, Hiva Oa -> Kahu) -->
@@ -271,10 +271,6 @@ export class IslandHubUI {
                 </div>
 
                 <div class="song-preview-box" id="hubSongPreview"></div>
-
-                <button class="secondary-btn launch-voyage-btn" id="btnLaunchVoyage" type="button">
-                  ⛵ Push Off Through the Reef Pass
-                </button>
               </div>
 
               <div class="hub-card readiness-station-card">
@@ -498,16 +494,6 @@ export class IslandHubUI {
       });
     });
 
-    // Launch Voyage button
-    this.rootEl
-      .querySelector('#btnLaunchVoyage')
-      .addEventListener('click', () => {
-        const song = this._getSelectedSongObject();
-        if (song) {
-          this.callbacks.onLaunchVoyage?.(song, this.selectedDeparture);
-        }
-      });
-
     // Redraw Sand button
     this.rootEl.querySelector('#btnRedrawSand').addEventListener('click', () => {
       this._renderSelectedShoreLesson(true);
@@ -538,10 +524,11 @@ export class IslandHubUI {
     }
     this.callbacks.onSanctuaryInteracted?.(this.lastSanctuaryResult);
     const routes = getAvailableRoutesFromCurrentIsland(gs);
-    if (routes.length > 0) {
-      const newest = routes[routes.length - 1].song;
-      this.selectedSongId = newest.id;
-      this.selectedDeparture = newest.recommendedDeparture;
+    const defaultRoute = this._getDefaultRoute(routes);
+    if (defaultRoute) {
+      this._userPickedRoute = false;
+      this.selectedSongId = defaultRoute.song.id;
+      this.selectedDeparture = defaultRoute.song.recommendedDeparture;
     }
   }
 
@@ -693,13 +680,15 @@ export class IslandHubUI {
       this.lastSanctuaryResult = null;
       this.selectedSongId = null;
       this.selectedLessonId = null;
+      this._userPickedRoute = false;
     }
 
     // Ensure selectedDeparture matches the default available song if not yet picked
     const routes = this._getAvailableRoutes();
-    if (routes.length > 0 && !this.selectedSongId) {
-      this.selectedSongId = routes[0].song.id;
-      this.selectedDeparture = routes[0].song.recommendedDeparture;
+    const defaultRoute = this._getDefaultRoute(routes);
+    if (defaultRoute && !this._userPickedRoute) {
+      this.selectedSongId = defaultRoute.song.id;
+      this.selectedDeparture = defaultRoute.song.recommendedDeparture;
     }
 
     this.rootEl.querySelector('#hubCareenFeedback').textContent = '';
@@ -1026,14 +1015,15 @@ export class IslandHubUI {
 
     const layoutEl = this.rootEl.querySelector('#sanctuaryEncounterLayout');
     const portraitPanel = this.rootEl.querySelector('#sanctuaryPortraitPanel');
+    const actionsEl = this.rootEl.querySelector('#sanctuaryActions');
     const speakBtn = this.rootEl.querySelector('#btnSpeakMentor');
-    const nextBtn = this.rootEl.querySelector('#btnSanctuaryNextStep');
 
     const activeObjs = getActiveObjectivesForDisplay(gs);
     const hasLocalAction = activeObjs.some(
       (o) => o.isHere && (o.kind !== 'quest' || o.hasRequiredCargo)
     );
     const hasGiftHere = activeObjs.some((o) => o.isHere && o.hasRequiredCargo);
+    const hideSpeakAgain = Boolean(this.lastSanctuaryResult && !hasLocalAction);
 
     if (isl.inhabited && isl.mentorPortrait) {
       layoutEl.classList.remove('no-mentor');
@@ -1046,13 +1036,9 @@ export class IslandHubUI {
       this.rootEl.querySelector('#sanctuaryMentorRole').textContent =
         isl.mentorRole || isl.subtitle;
 
-      if (hasGiftHere) {
-        speakBtn.textContent = `Present Offering to ${isl.mentorName}`;
-      } else if (this.lastSanctuaryResult && !hasLocalAction) {
-        speakBtn.textContent = `Speak Again with ${isl.mentorName}`;
-      } else {
-        speakBtn.textContent = `Greet ${isl.mentorName}`;
-      }
+      speakBtn.textContent = hasGiftHere
+        ? `Present Offering to ${isl.mentorName}`
+        : `Greet ${isl.mentorName}`;
       speakBtn.className = 'secondary-btn';
     } else {
       layoutEl.classList.add('no-mentor');
@@ -1062,6 +1048,7 @@ export class IslandHubUI {
         : 'Harvest Wild Rookery & Shallows';
       speakBtn.className = 'secondary-btn';
     }
+    actionsEl?.classList.toggle('hidden', hideSpeakAgain);
 
     const res = this.lastSanctuaryResult || {
       title: isl.mentorName
@@ -1084,29 +1071,6 @@ export class IslandHubUI {
     )
       .map((r) => `<li>✦ ${r}</li>`)
       .join('');
-
-    // Smart Next-Step CTA once greeted (guides player cleanly through lessons -> canoe)
-    const unlearnedVigil = getAvailableUnlearnedLessonForIsland(gs, isl.id);
-    const hasUnseenSand = (isl.sandLessons || []).some(
-      (lid) => gs.learnedSandLessons?.[lid] && !this._seenSandLessons.has(lid)
-    );
-    if (this.lastSanctuaryResult || !hasLocalAction) {
-      nextBtn.classList.remove('hidden');
-      nextBtn.className = 'secondary-btn';
-      if (unlearnedVigil) {
-        nextBtn.textContent = `✨ Next: Learn ${unlearnedVigil.title} →`;
-        nextBtn.onclick = () => this.switchTab('vigil');
-      } else if (hasUnseenSand) {
-        nextBtn.textContent = '🐚 Next: Study Sand Diagram →';
-        nextBtn.onclick = () => this.switchTab('sand');
-      } else {
-        nextBtn.textContent = '🛶 Ready Canoe & Set Sail →';
-        nextBtn.onclick = () => this.switchTab('landing');
-      }
-    } else {
-      nextBtn.classList.add('hidden');
-      nextBtn.onclick = null;
-    }
 
     // Crewmate Encounter Card on Taha'a, Ua Pou, Hiva Oa
     const crewCardEl = this.rootEl.querySelector('#sanctuaryCrewCard');
@@ -1447,11 +1411,17 @@ export class IslandHubUI {
     return getAvailableRoutesFromCurrentIsland(gs);
   }
 
+  _getDefaultRoute(routes) {
+    if (!routes || routes.length === 0) return null;
+    return routes.find((r) => !r.isReturn) || routes[0];
+  }
+
   _getSelectedSongObject() {
     const routes = this._getAvailableRoutes();
     if (!routes.length) return null;
     const match = routes.find((r) => r.song.id === this.selectedSongId);
-    return match ? match.song : routes[0].song;
+    if (match) return match.song;
+    return (this._getDefaultRoute(routes) || routes[0]).song;
   }
 
   _refreshRoutePanel() {
@@ -1475,18 +1445,19 @@ export class IslandHubUI {
         ?.addEventListener('click', () => this.switchTab('sanctuary'));
       depSection.classList.add('hidden');
       previewEl.innerHTML = '';
-      this.rootEl.querySelector('#btnLaunchVoyage').disabled = true;
       return;
     }
 
     depSection.classList.remove('hidden');
-    this.rootEl.querySelector('#btnLaunchVoyage').disabled = false;
+    const defaultRoute = this._getDefaultRoute(routes);
     if (
+      !this._userPickedRoute ||
       !this.selectedSongId ||
       !routes.some((r) => r.song.id === this.selectedSongId)
     ) {
-      this.selectedSongId = routes[0].song.id;
-      this.selectedDeparture = routes[0].song.recommendedDeparture;
+      this._userPickedRoute = false;
+      this.selectedSongId = defaultRoute.song.id;
+      this.selectedDeparture = defaultRoute.song.recommendedDeparture;
     }
 
     listEl.innerHTML = '';
@@ -1505,9 +1476,11 @@ export class IslandHubUI {
         </div>
       `;
       btn.addEventListener('click', () => {
+        this._userPickedRoute = true;
         this.selectedSongId = song.id;
         this.selectedDeparture = song.recommendedDeparture;
         this._refreshRoutePanel();
+        this._refreshCriticalCta();
         this.callbacks.onDepartureChanged?.(this.selectedDeparture);
       });
       listEl.appendChild(btn);

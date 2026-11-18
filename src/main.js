@@ -341,12 +341,16 @@ class KavengaApp {
         else this.cameraCtrl.keysDown.delete(code);
       },
       onChangeDifficulty: (mode) => this.setDifficulty(mode),
-      onToggleMute: () => this.chantEngine.toggleMute(),
+      onToggleMute: () => {
+        this.setSoundMuted(!this.chantEngine.muted);
+        return this.chantEngine.muted;
+      },
       onRestorePreVoyage: () => this.restoreBeforeVoyage(),
       onConfirmLandfall: () => this.completeLandfallTransition(),
     });
 
     this.sailingHud.hide();
+    this.sailingHud.setSoundMutedState(this.chantEngine.muted);
     this.skyVigilUI.hide();
     this._bindShoreTopControls();
 
@@ -1044,6 +1048,8 @@ class KavengaApp {
   setSoundMuted(muted) {
     const nextMuted = Boolean(muted);
     this.chantEngine.setMuted(nextMuted);
+    this.musicEngine.setMuted(nextMuted);
+    this.sailingHud?.setSoundMutedState(nextMuted);
     if (!nextMuted) {
       this.chantEngine.playStarSightedChime();
     }

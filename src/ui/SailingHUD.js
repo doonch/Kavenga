@@ -62,6 +62,15 @@ export class SailingHUD {
             <span class="btn-glyph">🐚</span>
             <span class="btn-text">Recall</span>
           </button>
+          <button
+            class="hud-icon-btn"
+            id="btnHudSoundToggle"
+            type="button"
+            title="Sound On — Click to Mute"
+            aria-label="Toggle Sound"
+          >
+            <span class="btn-glyph" id="hudSoundGlyph" aria-hidden="true">🔊</span>
+          </button>
           <button class="hud-icon-btn" id="btnPauseMenu" title="Voyage & Mode Options">
             <span class="btn-glyph">☰</span>
             <span class="btn-text">Options</span>
@@ -179,6 +188,12 @@ export class SailingHUD {
     this.rootEl.querySelector('#btnPauseMenu').addEventListener('click', () => {
       this.setPauseModal(true);
     });
+    this.rootEl
+      .querySelector('#btnHudSoundToggle')
+      .addEventListener('click', (e) => {
+        e.currentTarget.blur();
+        this.callbacks.onToggleMute?.();
+      });
     this.rootEl.querySelector('#btnResumeSailing').addEventListener('click', () => {
       this.setPauseModal(false);
     });
@@ -279,6 +294,21 @@ export class SailingHUD {
       this.rootEl.querySelector('#recallNarration').textContent = lesson.narration;
       // STRICTLY STATIC (animate: false) per GDD Inviolable Zero-Compass Rule!
       this.sandCanvas.renderLesson(lesson, { animate: false });
+    }
+  }
+
+  setSoundMutedState(muted) {
+    const isMuted = Boolean(muted);
+    const glyphEl = this.rootEl.querySelector('#hudSoundGlyph');
+    const btnEl = this.rootEl.querySelector('#btnHudSoundToggle');
+    if (glyphEl) {
+      glyphEl.textContent = isMuted ? '🔇' : '🔊';
+    }
+    if (btnEl) {
+      btnEl.title = isMuted
+        ? 'Sound Muted — Click to Unmute'
+        : 'Sound On — Click to Mute';
+      btnEl.setAttribute('aria-pressed', String(!isMuted));
     }
   }
 
