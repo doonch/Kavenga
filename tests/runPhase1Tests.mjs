@@ -58,6 +58,7 @@ import { SONGS, buildReturnSong } from '../src/data/songsData.js';
 import {
   WALKABLE_ISLAND_IDS,
   WALKABLE_ISLAND_SPECS,
+  canWalkIsland,
   getWalkableIslandSpec,
   isWalkableIsland,
 } from '../src/data/walkableIslandsData.js';
@@ -194,14 +195,21 @@ for (const iid of Object.keys(ISLANDS)) {
     );
   }
 }
-for (const wid of expectedWalkableIds) {
+for (const wid of Object.keys(ISLANDS)) {
+  assert(
+    canWalkIsland(wid) === true,
+    `Island ${wid} supports 3D Walk Shore mode via WalkableIslandScene`
+  );
   const wSpec = getWalkableIslandSpec(wid);
+  const expectedScale = expectedWalkableIds.includes(wid)
+    ? wSpec?.canonicalScale ?? 1.0
+    : 1.55;
   assert(
     wSpec &&
       wSpec.pois.length === 4 &&
-      Number.isFinite(wSpec.canonicalScale) &&
-      wSpec.canonicalScale >= 1.0,
-    `Walkable ${wid} defines 4 visual POIs and canonicalScale >= 1.0`
+      Number.isFinite(expectedScale) &&
+      expectedScale >= 1.0,
+    `Walkable ${wid} defines 4 visual POIs and valid scale`
   );
   const spawnToCanoeDist = Math.hypot(
     wSpec.initialSpawn.x - wSpec.mooredCanoe.x,

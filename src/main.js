@@ -35,7 +35,10 @@ import {
   OBJECTIVES,
 } from './data/objectivesData.js';
 import { buildReturnSong, SONGS } from './data/songsData.js';
-import { isWalkableIsland } from './data/walkableIslandsData.js';
+import {
+  canWalkIsland,
+  isWalkableIsland,
+} from './data/walkableIslandsData.js';
 import { CameraController } from './rendering/CameraController.js';
 import { getIslandShoreRadiusM } from './rendering/IslandTerrainBuilder.js';
 import { OceanRenderer } from './rendering/OceanRenderer.js';
@@ -70,6 +73,7 @@ class KavengaApp {
     this.hubRootEl = document.getElementById('island-hub');
     this.shoreTopControlsEl = document.getElementById('shore-top-controls');
     this.btnShoreWalkToggle = document.getElementById('btnShoreWalkToggle');
+    this.shoreWalkGlyphEl = document.getElementById('shoreWalkGlyph');
     this.btnShoreToggleSound = document.getElementById('btnShoreToggleSound');
     this.shoreSoundGlyphEl = document.getElementById('shoreSoundGlyph');
     this.btnShoreOpenAchievements = document.getElementById(
@@ -902,8 +906,11 @@ class KavengaApp {
     }
     this.shoreTopControlsEl.classList.remove('hidden');
 
-    const walkable = isWalkableIsland(this.gameState.currentIslandId);
+    const walkable = canWalkIsland(this.gameState.currentIslandId);
     const isWalking = Boolean(this.walkableIslandScene.active);
+    if (this.shoreWalkGlyphEl) {
+      this.shoreWalkGlyphEl.textContent = isWalking ? '🏝️' : '🚶';
+    }
     if (this.btnShoreWalkToggle) {
       this.btnShoreWalkToggle.classList.toggle('hidden', !walkable);
       this.btnShoreWalkToggle.classList.toggle('active', isWalking);
@@ -912,6 +919,10 @@ class KavengaApp {
         isWalking
           ? 'Return to 4-Station Shore Stage'
           : 'Walk Shore in 3rd-person (Arrow Keys / WASD)'
+      );
+      this.btnShoreWalkToggle.setAttribute(
+        'aria-label',
+        isWalking ? 'Return to Shore Stage' : 'Walk Shore'
       );
       this.btnShoreWalkToggle.setAttribute(
         'aria-pressed',
@@ -935,7 +946,7 @@ class KavengaApp {
   enterWalkableShoreMode({ spawnMode = 'canoe' } = {}) {
     if (
       this.phase !== 'shore' ||
-      !isWalkableIsland(this.gameState.currentIslandId)
+      !canWalkIsland(this.gameState.currentIslandId)
     ) {
       return;
     }
