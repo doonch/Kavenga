@@ -166,6 +166,7 @@ export class OceanSim {
       gameState?.difficulty === Difficulty.MASTER_NAVIGATOR;
     this.verseIndex = 0;
     this.fastForward = false;
+    this.debugSuperFastForward = false;
     this.debugAutoSail = { active: false, speedUnitsPerSec: 0.0 };
     this.arrivedIsland = null;
     this.lostReason = '';
@@ -320,9 +321,11 @@ export class OceanSim {
   setFastForward(enabled) {
     if (this.status !== VoyageStatus.SAILING) {
       this.fastForward = false;
+      this.debugSuperFastForward = false;
       return;
     }
     this.fastForward = Boolean(enabled);
+    this.debugSuperFastForward = false;
   }
 
   /**
@@ -358,7 +361,11 @@ export class OceanSim {
       return this.events;
     }
 
-    const mult = this.fastForward ? GameConstants.FAST_FORWARD_MULTIPLIER : 1.0;
+    const mult = this.debugSuperFastForward
+      ? 10.0
+      : this.fastForward
+        ? GameConstants.FAST_FORWARD_MULTIPLIER
+        : 1.0;
     const simDtSec = Math.max(0.0, realDtSec * mult);
     const dtMin = simDtSec / 60.0;
 
@@ -481,6 +488,7 @@ export class OceanSim {
         this.status = VoyageStatus.ARRIVED;
         this.arrivedIsland = this.activeIslands[det.islandId];
         this.fastForward = false;
+        this.debugSuperFastForward = false;
         this.debugAutoSail = { active: false, speedUnitsPerSec: 0.0 };
         this.events.push({
           type: 'landfall',

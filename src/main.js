@@ -409,9 +409,10 @@ class KavengaApp {
 
     window.addEventListener('resize', () => this._onResize());
 
-    // [DEBUG CHEAT] Shift+G while sailing: direct canoe toward target island & arrive in ~2.4s
+    // [DEBUG CHEAT] Shift+G: target homing (~2.4s arrival); Shift+F: toggle 10x super-fast-forward
     window.addEventListener('keydown', (e) => {
-      if (e.repeat || !e.shiftKey || e.code !== 'KeyG') return;
+      if (e.repeat || !e.shiftKey) return;
+      if (e.code !== 'KeyG' && e.code !== 'KeyF') return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const tag = document.activeElement?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
@@ -424,8 +425,17 @@ class KavengaApp {
         return;
       }
       e.preventDefault();
-      this._resetLaunchAnimation();
-      this.oceanSim.activateDebugTargetHoming(2.4);
+      if (e.code === 'KeyG') {
+        this._resetLaunchAnimation();
+        this.oceanSim.activateDebugTargetHoming(2.4);
+      } else if (e.code === 'KeyF') {
+        this.oceanSim.debugSuperFastForward = !this.oceanSim.debugSuperFastForward;
+        this.sailingHud.showToast(
+          this.oceanSim.debugSuperFastForward
+            ? 'Super Fast Wind (10×) active'
+            : 'Super Fast Wind off'
+        );
+      }
     });
 
     this._lastFrameMs = performance.now();
