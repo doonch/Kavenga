@@ -56,6 +56,7 @@ import {
   VoyageStatus,
 } from './simulation/oceanSim.js';
 import { AchievementsUI } from './ui/AchievementsUI.js';
+import { CrewSplashUI } from './ui/CrewSplashUI.js';
 import { ElderVigilPromptUI } from './ui/ElderVigilPromptUI.js';
 import { IslandHubUI } from './ui/IslandHubUI.js';
 import { IslandSettingsUI } from './ui/IslandSettingsUI.js';
@@ -71,6 +72,7 @@ class KavengaApp {
     this.vigilRootEl = document.getElementById('sky-vigil-ui');
     this.walkableUiRootEl = document.getElementById('walkable-island-ui');
     this.hubRootEl = document.getElementById('island-hub');
+    this.crewSplashRootEl = document.getElementById('crew-splash-ui');
     this.shoreTopControlsEl = document.getElementById('shore-top-controls');
     this.btnShoreWalkToggle = document.getElementById('btnShoreWalkToggle');
     this.shoreWalkGlyphEl = document.getElementById('shoreWalkGlyph');
@@ -200,6 +202,12 @@ class KavengaApp {
       this.chantEngine.playAchievementUnlockedFanfare();
       this.achievementsUI.showAchievementUnlocked(unlockedRecord);
       this._refreshShoreOverlays();
+    });
+
+    this.crewSplashUI = new CrewSplashUI(this.crewSplashRootEl, {
+      onShown: () => {
+        this.chantEngine.playCrewRecruitedChime();
+      },
     });
 
     this.islandSettingsUI = new IslandSettingsUI(this.settingsRootEl, {
@@ -1016,6 +1024,9 @@ class KavengaApp {
         playSound: true,
       });
     }
+    if (sanctuaryResult?.newlyRecruitedCrew?.length > 0) {
+      this.crewSplashUI.enqueue(sanctuaryResult.newlyRecruitedCrew);
+    }
     this.achievementsManager.evaluateAshoreState(
       this.gameState,
       this.gameState.currentIslandId
@@ -1052,6 +1063,7 @@ class KavengaApp {
   resetCampaignAndReload({ deleteAchievements = false } = {}) {
     this.islandSettingsUI.hide();
     this.achievementsUI.hideModal();
+    this.crewSplashUI.hide();
     this.elderVigilPromptUI.hide();
     this.chantEngine.stop();
     this.spatialAudio.stop();

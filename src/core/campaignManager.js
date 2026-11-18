@@ -230,7 +230,11 @@ export function interactWithIslandSanctuary(gameState) {
   const hadTridacnaBefore = Boolean(
     gameState?.hasCargoItem?.('sacred_tridacna_shell')
   );
+  const recruitedBefore = new Set(gameState?.recruitedCrew || []);
   const rawResult = _interactWithIslandSanctuaryCore(gameState);
+  const newlyRecruitedCrew = (gameState?.recruitedCrew || []).filter(
+    (id) => !recruitedBefore.has(id)
+  );
   const objDelta = recordSanctuaryObjectiveProgress(
     gameState,
     gameState?.currentIslandId,
@@ -241,6 +245,7 @@ export function interactWithIslandSanctuary(gameState) {
   }
   return {
     ...rawResult,
+    newlyRecruitedCrew,
     clearedObjectives: objDelta.cleared,
     activatedObjectives: objDelta.activated,
   };

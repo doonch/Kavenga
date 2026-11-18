@@ -3341,3 +3341,101 @@ body {
   border: 1px solid rgba(232, 198, 142, 0.22);
   color: var(--sand-warm);
 }
+
+/* ============================================================
+   Island Hub Pinned Critical-Path CTA Bar
+   ============================================================ */
+
+.hub-critical-cta-bar {
+  flex-shrink: 0;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(232, 198, 142, 0.22);
+}
+
+.hub-critical-cta-btn {
+  box-shadow: 0 8px 22px rgba(231, 181, 99, 0.26);
+}
+
+/* ============================================================
+   Crew Recruitment Splash Popup
+   ============================================================ */
+
+.crew-splash-card {
+  width: min(440px, 92vw);
+  background: radial-gradient(circle at top, rgba(24, 52, 78, 0.96), rgba(9, 20, 33, 0.98));
+  border: 1px solid rgba(232, 198, 142, 0.48);
+  border-radius: 22px;
+  padding: 22px 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  box-shadow: 0 28px 72px rgba(0, 0, 0, 0.72);
+  animation: crewSplashPop 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes crewSplashPop {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.crew-splash-eyebrow {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--lapa-jade);
+}
+
+.crew-splash-title {
+  margin: 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 22px;
+  line-height: 1.25;
+  color: var(--sand-warm);
+}
+
+.crew-splash-role {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #ffd98e;
+}
+
+.crew-splash-portrait-wrap {
+  margin: 4px 0;
+  width: 196px;
+  height: 236px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(232, 198, 142, 0.35);
+  background: rgba(6, 15, 25, 0.75);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+
+.crew-splash-portrait {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  display: block;
+}
+
+.crew-splash-trait {
+  margin: 2px 0 6px;
+  font-size: 14px;
+  line-height: 1.48;
+  color: #e4edf5;
+  max-width: 36ch;
+}
+
+.crew-splash-actions {
+  width: 100%;
+  margin-top: 2px;
+}

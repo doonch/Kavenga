@@ -430,4 +430,45 @@ export class ChantAndDrumEngine {
       osc.stop(t0 + 0.66);
     });
   }
+
+  /**
+   * Warm wooden marimba / chime arpeggio when a new companion joins the vaka crew.
+   */
+  playCrewRecruitedChime() {
+    const ctx = this.ensureContext();
+    if (!ctx || this.muted) return;
+    const now = ctx.currentTime + 0.015;
+    // Rising Polynesian pentatonic marimba strike (C5 - E5 - G5 - A5 - C6)
+    [523.25, 659.25, 783.99, 880.0, 1046.5].forEach((hz, i) => {
+      const t0 = now + i * 0.09;
+
+      const bodyOsc = ctx.createOscillator();
+      const bodyFilter = ctx.createBiquadFilter();
+      const bodyGain = ctx.createGain();
+      bodyOsc.type = 'triangle';
+      bodyOsc.frequency.setValueAtTime(hz, t0);
+      bodyFilter.type = 'lowpass';
+      bodyFilter.frequency.setValueAtTime(hz * 2.4, t0);
+      bodyGain.gain.setValueAtTime(0.0001, t0);
+      bodyGain.gain.linearRampToValueAtTime(0.11, t0 + 0.008);
+      bodyGain.gain.exponentialRampToValueAtTime(0.0005, t0 + 0.42);
+      bodyOsc.connect(bodyFilter);
+      bodyFilter.connect(bodyGain);
+      bodyGain.connect(this.masterGain);
+      bodyOsc.start(t0);
+      bodyOsc.stop(t0 + 0.45);
+
+      const chimeOsc = ctx.createOscillator();
+      const chimeGain = ctx.createGain();
+      chimeOsc.type = 'sine';
+      chimeOsc.frequency.setValueAtTime(hz * 2, t0);
+      chimeGain.gain.setValueAtTime(0.0001, t0);
+      chimeGain.gain.linearRampToValueAtTime(0.032, t0 + 0.005);
+      chimeGain.gain.exponentialRampToValueAtTime(0.0004, t0 + 0.22);
+      chimeOsc.connect(chimeGain);
+      chimeGain.connect(this.masterGain);
+      chimeOsc.start(t0);
+      chimeOsc.stop(t0 + 0.25);
+    });
+  }
 }

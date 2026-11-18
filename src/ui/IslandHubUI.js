@@ -154,6 +154,11 @@ export class IslandHubUI {
                   </div>
                 </div>
 
+                <div class="sanctuary-actions">
+                  <button class="secondary-btn" id="btnSpeakMentor" type="button">Greet Mentor</button>
+                  <button class="secondary-btn hidden" id="btnSanctuaryNextStep" type="button"></button>
+                </div>
+
                 <!-- Voyaging Crewmate Encounter Card (Taha'a -> Tama, Ua Pou -> Moana, Hiva Oa -> Kahu) -->
                 <div class="sanctuary-crew-card hidden" id="sanctuaryCrewCard">
                   <button class="sanctuary-crew-thumb-btn" id="btnEnlargeSanctuaryCrew" type="button" title="Click to inspect full-body portrait">
@@ -164,11 +169,6 @@ export class IslandHubUI {
                     <strong id="sanctuaryCrewName"></strong>
                     <span id="sanctuaryCrewTrait"></span>
                   </div>
-                </div>
-
-                <div class="sanctuary-actions">
-                  <button class="primary-btn" id="btnSpeakMentor" type="button">Greet Mentor</button>
-                  <button class="secondary-btn hidden" id="btnSanctuaryNextStep" type="button"></button>
                 </div>
 
                 <!-- Unlocked after Hawai'i Finale: Free Replay Any of the 17 Chants! -->
@@ -226,7 +226,7 @@ export class IslandHubUI {
                   </div>
                 </div>
 
-                <button class="primary-btn full-width-btn vigil-primary-launch-btn" id="btnLaunchLocalVigil" type="button">
+                <button class="secondary-btn full-width-btn vigil-primary-launch-btn" id="btnLaunchLocalVigil" type="button">
                   ✨ Enter Star-Stone Vigil
                 </button>
 
@@ -272,7 +272,7 @@ export class IslandHubUI {
 
                 <div class="song-preview-box" id="hubSongPreview"></div>
 
-                <button class="primary-btn launch-voyage-btn" id="btnLaunchVoyage" type="button">
+                <button class="secondary-btn launch-voyage-btn" id="btnLaunchVoyage" type="button">
                   ⛵ Push Off Through the Reef Pass
                 </button>
               </div>
@@ -314,6 +314,11 @@ export class IslandHubUI {
               </div>
             </section>
           </main>
+
+          <!-- Always-Visible Pinned Critical-Path CTA -->
+          <div class="hub-critical-cta-bar" id="hubCriticalCtaBar">
+            <button class="primary-btn full-width-btn hub-critical-cta-btn" id="btnHubCriticalCta" type="button"></button>
+          </div>
         </aside>
       </div>
 
@@ -507,6 +512,14 @@ export class IslandHubUI {
     this.rootEl.querySelector('#btnRedrawSand').addEventListener('click', () => {
       this._renderSelectedShoreLesson(true);
     });
+
+    // Always-visible pinned critical-path CTA
+    this.rootEl
+      .querySelector('#btnHubCriticalCta')
+      .addEventListener('click', (e) => {
+        e.currentTarget.blur();
+        this._handleCriticalCtaClick();
+      });
   }
 
   setOrbitCustomized(customized) {
@@ -789,6 +802,119 @@ export class IslandHubUI {
     this._refreshVigilPanel();
     this._refreshLandingReadinessAndRoutes();
     this._updateStationBadges();
+    this._refreshCriticalCta();
+  }
+
+  _resolveCriticalNextStep(gs) {
+    const isl = ISLANDS[gs.currentIslandId] || ISLANDS.raiatea;
+    const activeObjs = getActiveObjectivesForDisplay(gs);
+    const hasLocalAction = activeObjs.some(
+      (o) => o.isHere && (o.kind !== 'quest' || o.hasRequiredCargo)
+    );
+    const hasGiftHere = activeObjs.some((o) => o.isHere && o.hasRequiredCargo);
+    const routes = this._getAvailableRoutes();
+
+    // 1. Meet Elder / Harvest Wild Outpost
+    if (hasLocalAction || (routes.length === 0 && !this.lastSanctuaryResult)) {
+      const label = isl.inhabited
+        ? hasGiftHere
+          ? `🌺 Present Offering to ${isl.mentorName}`
+          : `🌺 Greet ${isl.mentorName}`
+        : isl.isSecret
+          ? '🗿 Survey the Silent Moai Terrace'
+          : '🌴 Harvest Wild Rookery & Shallows';
+      return {
+        kind: 'sanctuary',
+        label,
+        run: () => {
+          if (this.activeTab !== 'sanctuary') {
+            this.switchTab('sanctuary');
+          }
+          this._triggerSanctuaryInteraction();
+          this.refresh();
+        },
+      };
+    }
+
+    // 2. Sky Vigil (unlearned constellation teaching on this island)
+    const unlearnedLocal = getAvailableUnlearnedLessonForIsland(gs, isl.id);
+    if (unlearnedLocal) {
+      return {
+        kind: 'vigil',
+        label: `✨ Sky Vigil: Learn ${unlearnedLocal.title}`,
+        run: () => {
+          this.callbacks.onOpenSkyVigil?.({
+            islandId: isl.id,
+            guidedLessonId: unlearnedLocal.id,
+          });
+        },
+      };
+    }
+
+    // 3. Prep Canoe (careen hull/sail/lashings & fill ration baskets)
+    const minCond = Math.min(
+      gs.hullCondition,
+      gs.sailCondition,
+      gs.lashingsCondition
+    );
+    const maxRations = Math.max(1, gs.maxCargoSlots - gs.cargoItems.length);
+    if (routes.length > 0 && (minCond < 78.0 || gs.loadedRations < maxRations)) {
+      return {
+        kind: 'prep',
+        label: '🛠️ Careen Canoe & Fill Rations',
+        run: () => {
+          const msg = performBeachCareeningAndRestock(gs);
+          this.rootEl.querySelector('#hubCareenFeedback').textContent = msg;
+          this.callbacks.onAshoreStateChanged?.();
+          if (this.activeTab !== 'landing') {
+            this.switchTab('landing');
+          } else {
+            this.refresh();
+          }
+        },
+      };
+    }
+
+    // 4. Set Sail for the Newly Discovered / Selected Song
+    if (routes.length > 0) {
+      const song = this._getSelectedSongObject();
+      const dstName =
+        ISLANDS[song?.toIsland]?.name || song?.toIsland || 'Next Island';
+      return {
+        kind: 'sail',
+        label: `⛵ Set Sail → ${dstName}`,
+        run: () => {
+          if (song) {
+            this.callbacks.onLaunchVoyage?.(song, this.selectedDeparture);
+          }
+        },
+      };
+    }
+
+    // 5. Post-Finale Fallback (no vigil/prep/route remaining): switch to Canoe Landing
+    return {
+      kind: 'landing',
+      label: '🛶 Go to Canoe Landing & Set Sail →',
+      run: () => {
+        this.switchTab('landing');
+      },
+    };
+  }
+
+  _refreshCriticalCta() {
+    const gs = this.callbacks.getGameState();
+    const btn = this.rootEl.querySelector('#btnHubCriticalCta');
+    if (!gs || !btn) return;
+    const step = this._resolveCriticalNextStep(gs);
+    this._currentCriticalStep = step;
+    btn.textContent = step.label;
+  }
+
+  _handleCriticalCtaClick() {
+    const gs = this.callbacks.getGameState();
+    if (!gs) return;
+    const step = this._resolveCriticalNextStep(gs);
+    step.run();
   }
 
   _setBadge(el, text, variant) {
@@ -904,7 +1030,9 @@ export class IslandHubUI {
     const nextBtn = this.rootEl.querySelector('#btnSanctuaryNextStep');
 
     const activeObjs = getActiveObjectivesForDisplay(gs);
-    const hasLocalAction = activeObjs.some((o) => o.isHere);
+    const hasLocalAction = activeObjs.some(
+      (o) => o.isHere && (o.kind !== 'quest' || o.hasRequiredCargo)
+    );
     const hasGiftHere = activeObjs.some((o) => o.isHere && o.hasRequiredCargo);
 
     if (isl.inhabited && isl.mentorPortrait) {
@@ -920,24 +1048,19 @@ export class IslandHubUI {
 
       if (hasGiftHere) {
         speakBtn.textContent = `Present Offering to ${isl.mentorName}`;
-        speakBtn.className = 'primary-btn';
       } else if (this.lastSanctuaryResult && !hasLocalAction) {
         speakBtn.textContent = `Speak Again with ${isl.mentorName}`;
-        speakBtn.className = 'secondary-btn';
       } else {
         speakBtn.textContent = `Greet ${isl.mentorName}`;
-        speakBtn.className = 'primary-btn';
       }
+      speakBtn.className = 'secondary-btn';
     } else {
       layoutEl.classList.add('no-mentor');
       portraitPanel.classList.add('hidden');
       speakBtn.textContent = isl.isSecret
         ? 'Survey the Silent Moai Terrace'
         : 'Harvest Wild Rookery & Shallows';
-      speakBtn.className =
-        this.lastSanctuaryResult && !hasLocalAction
-          ? 'secondary-btn'
-          : 'primary-btn';
+      speakBtn.className = 'secondary-btn';
     }
 
     const res = this.lastSanctuaryResult || {
@@ -969,7 +1092,7 @@ export class IslandHubUI {
     );
     if (this.lastSanctuaryResult || !hasLocalAction) {
       nextBtn.classList.remove('hidden');
-      nextBtn.className = 'primary-btn';
+      nextBtn.className = 'secondary-btn';
       if (unlearnedVigil) {
         nextBtn.textContent = `✨ Next: Learn ${unlearnedVigil.title} →`;
         nextBtn.onclick = () => this.switchTab('vigil');
@@ -1342,7 +1465,7 @@ export class IslandHubUI {
       listEl.innerHTML = `
         <div class="empty-route-callout">
           <p>Speak with this island's wayfinder in the <strong>Elder</strong> station first to learn the next route chant.</p>
-          <button class="primary-btn small-btn" id="btnJumpToElderForRoute" type="button">
+          <button class="secondary-btn small-btn" id="btnJumpToElderForRoute" type="button">
             🌺 Go to Elder Station →
           </button>
         </div>
