@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kavenga: Songs of the Star Path</title>
+  <link rel="icon" href="./favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="32x32" href="./assets/icons/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="64x64" href="./assets/icons/favicon-64.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="./assets/icons/apple-touch-icon.png" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three.module.min.js",
+        "./src/core/gameConstants.js": "./src/core/gameConstants.js?v=20261117c",
+        "./src/core/gameState.js": "./src/core/gameState.js?v=20261117c",
+        "./src/data/constellationSilhouettesData.js": "./src/data/constellationSilhouettesData.js?v=20261117c",
+        "./src/simulation/oceanSim.js": "./src/simulation/oceanSim.js?v=20261117c",
+        "./src/rendering/CloudSculptBuilder.js": "./src/rendering/CloudSculptBuilder.js?v=20261117c",
+        "./src/rendering/IslandTerrainBuilder.js": "./src/rendering/IslandTerrainBuilder.js?v=20261117c",
+        "./src/rendering/SkyDomeRenderer.js": "./src/rendering/SkyDomeRenderer.js?v=20261117c",
+        "./src/rendering/OceanRenderer.js": "./src/rendering/OceanRenderer.js?v=20261117c",
+        "./src/rendering/PlayerCharacterBuilder.js": "./src/rendering/PlayerCharacterBuilder.js?v=20261117h",
+        "./src/rendering/VakaRenderer.js": "./src/rendering/VakaRenderer.js?v=20261117h",
+        "./src/rendering/WorldCuesRenderer.js": "./src/rendering/WorldCuesRenderer.js?v=20261117c"
+      }
+    }
+  </script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #060e1b;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: #f6efe2;
+      user-select: none;
+    }
+
+    #intro-webgl {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+    }
+
+    #intro-webgl canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .intro-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 4;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: clamp(14px, 3vh, 34px) 20px clamp(28px, 6.5vh, 58px);
+    }
+
+    .intro-title-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      width: min(680px, 86vw);
+    }
+
+    /* Cropped to the exact opaque woodcarving band (y: 33.7%..70.7%) of 2752x1536 assets/banner.png
+       so "Kavenga" sits near the top edge and "Songs of the Star Path" tucks right beneath it */
+    .intro-banner-wrap {
+      width: min(590px, 82vw);
+      aspect-ratio: 2752 / 680;
+      overflow: hidden;
+      opacity: 0;
+      transform: translate3d(0, -16px, 0) scale(0.965);
+      transition:
+        opacity 3.2s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 3.2s cubic-bezier(0.22, 1, 0.36, 1);
+      filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.65))
+        drop-shadow(0 0 26px rgba(255, 190, 98, 0.22));
+    }
+
+    .intro-banner-wrap.visible {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+
+    .intro-banner-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: 50% 53.9%;
+      display: block;
+    }
+
+    .intro-subtitle {
+      margin-top: -4px;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: clamp(19px, 2.55vw, 31px);
+      font-weight: 400;
+      font-style: italic;
+      letter-spacing: 0.14em;
+      color: #ffe8be;
+      text-shadow:
+        0 2px 14px rgba(0, 0, 0, 0.85),
+        0 0 24px rgba(235, 178, 92, 0.38);
+      opacity: 0;
+      transform: translate3d(0, 10px, 0);
+      transition:
+        opacity 2.1s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 2.1s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .intro-subtitle.visible {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+
+    .intro-start-wrap {
+      opacity: 0;
+      transform: translate3d(0, 14px, 0);
+      pointer-events: none;
+      transition:
+        opacity 1.8s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 1.8s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .intro-start-wrap.visible {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+      pointer-events: auto;
+    }
+
+    .intro-start-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 196px;
+      padding: 14px 44px;
+      border-radius: 999px;
+      text-decoration: none;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #1b1106;
+      background: linear-gradient(180deg, #f6d596 0%, #dfab58 55%, #c58835 100%);
+      border: 1.5px solid rgba(255, 240, 204, 0.78);
+      box-shadow:
+        0 10px 30px rgba(0, 0, 0, 0.62),
+        0 0 28px rgba(235, 181, 96, 0.36),
+        inset 0 1px 0 rgba(255, 250, 235, 0.65);
+      cursor: pointer;
+      transition:
+        transform 0.18s ease,
+        box-shadow 0.18s ease,
+        filter 0.18s ease;
+    }
+
+    .intro-start-btn:hover,
+    .intro-start-btn:focus-visible {
+      transform: translateY(-2px) scale(1.025);
+      filter: brightness(1.06);
+      box-shadow:
+        0 14px 36px rgba(0, 0, 0, 0.7),
+        0 0 38px rgba(246, 202, 122, 0.56),
+        inset 0 1px 0 rgba(255, 252, 240, 0.8);
+      outline: none;
+    }
+
+    .intro-start-btn:active {
+      transform: translateY(0) scale(0.99);
+    }
+
+    .intro-audio-btn {
+      position: fixed;
+      top: 16px;
+      right: 20px;
+      z-index: 6;
+      pointer-events: auto;
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: rgba(9, 21, 35, 0.72);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(231, 181, 99, 0.42);
+      color: #f3e3c3;
+      font-size: 18px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.34);
+      transition: border-color 0.16s ease, background 0.16s ease, transform 0.12s ease;
+    }
+
+    .intro-audio-btn:hover {
+      background: rgba(15, 33, 52, 0.9);
+      border-color: #e7b563;
+      transform: translateY(-1px);
+    }
+  </style>
+</head>
+<body>
+  <div id="intro-webgl"></div>
+
+  <audio id="intro-theme-audio" src="./assets/audio/tide.mp3" preload="auto" loop autoplay playsinline></audio>
+  <button id="btn-intro-audio" class="intro-audio-btn" type="button" title="Toggle Theme Audio" aria-label="Toggle Theme Audio">🔊</button>
+
+  <div class="intro-overlay">
+    <div class="intro-title-stack">
+      <div id="intro-banner" class="intro-banner-wrap">
+        <img
+          src="./assets/banner.png"
+          alt="Kavenga"
+          class="intro-banner-img"
+        />
+      </div>
+      <div id="intro-subtitle" class="intro-subtitle">
+        Songs of the Star Path
+      </div>
+    </div>
+
+    <div id="intro-start-wrap" class="intro-start-wrap">
+      <a id="btn-intro-start" href="./index.html" class="intro-start-btn">Start</a>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const audio = document.getElementById('intro-theme-audio');
+      const btn = document.getElementById('btn-intro-audio');
+      if (!audio || !btn) return;
+
+      let userMuted = false;
+
+      const syncBtn = () => {
+        const isAudible = !audio.paused && !audio.muted && !userMuted;
+        btn.textContent = isAudible ? '🔊' : '🔇';
+        btn.title = isAudible ? 'Theme Audio On — Click to Mute' : 'Theme Audio Off — Click to Play';
+        btn.setAttribute('aria-pressed', String(isAudible));
+      };
+
+      const tryPlay = () => {
+        if (userMuted) return;
+        audio.muted = false;
+        audio.volume = 0.72;
+        const p = audio.play();
+        if (p && typeof p.then === 'function') {
+          p.then(syncBtn).catch(() => {
+            syncBtn();
+          });
+        } else {
+          syncBtn();
+        }
+      };
+
+      // Unlock playback on first user interaction if browser blocks unmuted autoplay
+      const unlockOnGesture = (e) => {
+        if (e.target === btn) return;
+        if (!userMuted && audio.paused) {
+          tryPlay();
+        }
+        if (!audio.paused) {
+          window.removeEventListener('pointerdown', unlockOnGesture, true);
+          window.removeEventListener('keydown', unlockOnGesture, true);
+          window.removeEventListener('touchstart', unlockOnGesture, true);
+        }
+      };
+      window.addEventListener('pointerdown', unlockOnGesture, true);
+      window.addEventListener('keydown', unlockOnGesture, true);
+      window.addEventListener('touchstart', unlockOnGesture, true);
+
+      btn.addEventListener('click', (e) => {
+        e.currentTarget.blur();
+        if (audio.paused || audio.muted || userMuted) {
+          userMuted = false;
+          tryPlay();
+        } else {
+          userMuted = true;
+          audio.pause();
+          syncBtn();
+        }
+      });
+
+      audio.addEventListener('play', syncBtn);
+      audio.addEventListener('pause', syncBtn);
+      tryPlay();
+    })();
+  </script>
+  <script>
+    window.__KAVENGA_INTRO_CUT_SEC__ = 4.0;
+  </script>
+  <script type="module" src="./src/intro.js?v=20261118i"></script>
+</body>
+</html>

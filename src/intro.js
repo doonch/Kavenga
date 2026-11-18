@@ -49,8 +49,11 @@ import { OceanRenderer } from './rendering/OceanRenderer.js';
 import { VakaRenderer } from './rendering/VakaRenderer.js';
 import { WorldCuesRenderer } from './rendering/WorldCuesRenderer.js';
 
-// Timeline cue timestamps (seconds) — each Part-3 cut lasts 1.9s (<= 2.0s)
-const CUT_DURATION_SEC = 1.9;
+// Timeline cue timestamps (seconds) — each Part-3 cut defaults to 1.9s (4.0s in intro_long.html)
+const CUT_DURATION_SEC =
+  typeof window !== 'undefined' && Number(window.__KAVENGA_INTRO_CUT_SEC__) > 0
+    ? Number(window.__KAVENGA_INTRO_CUT_SEC__)
+    : 1.9;
 const T_MOVE_TO_STERN_START = 3.0;
 const T_ARRIVE_BEHIND_NAVIGATOR = 5.7;
 const T_ORBIT_TO_LEFT_START = 6.0;
