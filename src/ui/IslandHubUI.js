@@ -203,12 +203,6 @@ export class IslandHubUI {
                   </button>
                 </div>
                 <div class="lesson-list" id="hubLessonList"></div>
-
-                <div class="station-step-footer">
-                  <button class="secondary-btn full-width-btn" id="btnSandNextStation" type="button">
-                    ✨ Next: Star-Stone Sky Vigil →
-                  </button>
-                </div>
               </div>
             </section>
 
@@ -239,12 +233,6 @@ export class IslandHubUI {
                     Constellations taught by island elders reveal their star names, chalk outlines, and sky-animal forms when sailing at night.
                   </p>
                   <div class="vigil-learned-chips" id="vigilLearnedChips"></div>
-                </div>
-
-                <div class="station-step-footer">
-                  <button class="secondary-btn full-width-btn" id="btnVigilToLanding" type="button">
-                    🛶 Ready Canoe &amp; Set Sail →
-                  </button>
                 </div>
               </div>
             </section>
@@ -427,24 +415,6 @@ export class IslandHubUI {
       .addEventListener('click', () => {
         this._triggerSanctuaryInteraction();
         this.refresh();
-      });
-
-    // Next-step navigation buttons across stations
-    this.rootEl
-      .querySelector('#btnSandNextStation')
-      .addEventListener('click', () => {
-        const gs = this.callbacks.getGameState();
-        const unlearnedLocal = getAvailableUnlearnedLessonForIsland(
-          gs,
-          gs?.currentIslandId
-        );
-        this.switchTab(unlearnedLocal ? 'vigil' : 'landing');
-      });
-
-    this.rootEl
-      .querySelector('#btnVigilToLanding')
-      .addEventListener('click', () => {
-        this.switchTab('landing');
       });
 
     // Star-Stone Vigil Launcher inside Station 3
@@ -1187,14 +1157,6 @@ export class IslandHubUI {
     } else {
       this._sandMentorIsland = null;
       miniMentorBtn.classList.add('hidden');
-    }
-
-    const unlearnedLocal = getAvailableUnlearnedLessonForIsland(gs, curIsl.id);
-    const nextSandBtn = this.rootEl.querySelector('#btnSandNextStation');
-    if (nextSandBtn) {
-      nextSandBtn.textContent = unlearnedLocal
-        ? `✨ Next: Learn ${unlearnedLocal.title} in Sky Vigil →`
-        : '🛶 Ready Canoe & Set Sail →';
     }
 
     if (this.activeTab === 'sand') {
