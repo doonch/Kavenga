@@ -2,29 +2,34 @@
  * Cinematic Real-Time 3D Introduction Sequence for Kavenga: Songs of the Star Path (`intro.html`).
  *
  * Choreography:
- *  1. [0.0s – 3.5s]  Mid-ocean, midday, fully upgraded Tier-3 Vaka Moana with nothing around
- *                    but endless swells and waves.
- *  2. [3.5s – 6.8s]  Camera swoops cinematically behind the stern ("canoe view"), showcasing
- *                    the canoe and the child navigator (`Difficulty.EASY`) from behind.
- *  3. [6.8s – 14.4s] Camera glides smoothly from behind around to the left (port, `-X`) side
+ *  1. [0.0s – 3.0s]  Mid-ocean, midday, fully upgraded Tier-3 Vaka Moana from far away,
+ *                    very slightly zooming in across endless swells and waves.
+ *  2. [3.0s – 6.3s]  Camera swoops cinematically behind the stern ("canoe view"), showcasing
+ *                    the canoe and the young wayfinder (`Difficulty.MEDIUM`) from behind.
+ *  3. [6.3s – 13.9s] Camera glides smoothly from behind around to the left (port, `-X`) side
  *                    while the environment abruptly cuts every 1.9s (<= 2.0s per cut) around
  *                    the unchanging, continuously wave-riding canoe:
- *                      - [6.8s  – 8.7s]  Clear starry night (bright stars & Te Mangoroa visible)
- *                      - [8.7s  – 10.6s] Golden-coral twilight with 2x marching trade-wind clouds
- *                      - [10.6s – 12.5s] Bright day with sculpted Huahine fully visible behind the
+ *                      - [6.3s  – 8.2s]  Clear starry night (bright stars & Te Mangoroa visible)
+ *                      - [8.2s  – 10.1s] Golden-coral twilight with 2x marching trade-wind clouds
+ *                      - [10.1s – 12.0s] Bright day with sculpted Huahine fully visible behind the
  *                                        canoe on the left side of the screen & bird flocks flying
  *                                        directly toward Huahine
- *                      - [12.5s – 14.4s] Foggy night with silver fish jumping next to the canoe
- *  4. [14.4s – ∞]    Abrupt cut to golden dusk on the port-beam profile view with the sun
- *                    setting directly behind the visible canoe:
+ *                      - [12.0s – 13.9s] Foggy night with silver fish jumping next to the canoe
+ *  4. [13.9s – ∞]    Abrupt cut to golden dusk on the port-beam profile view with the sun
+ *                    setting directly behind the visible canoe at true in-game solar speed:
  *                      - `assets/banner.png` ("Kavenga") slowly eases in at the top
  *                      - "Songs of the Star Path" appears right beneath it
- *                      - The sun sets completely below the horizon and starry night falls
- *                      - The canoe keeps bouncing naturally on the waves as "Start" appears
+ *                      - "Start" button appears when the sun disk touches the horizon
+ *                      - The sun slowly sinks below the horizon at in-game speed into starry night
+ *                        while the canoe keeps bouncing naturally on the waves
  */
 
 import * as THREE from 'three';
-import { DepartureWindow, Difficulty } from './core/gameConstants.js';
+import {
+  DepartureWindow,
+  Difficulty,
+  GameConstants,
+} from './core/gameConstants.js';
 import { GameState } from './core/gameState.js';
 import { SONGS } from './data/songsData.js';
 import { altAzToDirectionVec3 } from './simulation/celestialSim.js';
@@ -46,20 +51,22 @@ import { WorldCuesRenderer } from './rendering/WorldCuesRenderer.js';
 
 // Timeline cue timestamps (seconds) — each Part-3 cut lasts 1.9s (<= 2.0s)
 const CUT_DURATION_SEC = 1.9;
-const T_MOVE_TO_STERN_START = 3.5;
-const T_ARRIVE_BEHIND_NAVIGATOR = 6.2;
-const T_ORBIT_TO_LEFT_START = 6.5;
+const T_MOVE_TO_STERN_START = 3.0;
+const T_ARRIVE_BEHIND_NAVIGATOR = 5.7;
+const T_ORBIT_TO_LEFT_START = 6.0;
 
-const T_CUT_STARRY_NIGHT = 6.8;
-const T_CUT_TWILIGHT_CLOUDS = T_CUT_STARRY_NIGHT + CUT_DURATION_SEC;      // 8.7s
-const T_CUT_DAY_BIRDS = T_CUT_TWILIGHT_CLOUDS + CUT_DURATION_SEC;         // 10.6s
-const T_CUT_FOG_NIGHT_FISH = T_CUT_DAY_BIRDS + CUT_DURATION_SEC;          // 12.5s
-const T_CUT_DUSK_FINALE = T_CUT_FOG_NIGHT_FISH + CUT_DURATION_SEC;        // 14.4s
+const T_CUT_STARRY_NIGHT = 6.3;
+const T_CUT_TWILIGHT_CLOUDS = T_CUT_STARRY_NIGHT + CUT_DURATION_SEC;      // 8.2s
+const T_CUT_DAY_BIRDS = T_CUT_TWILIGHT_CLOUDS + CUT_DURATION_SEC;         // 10.1s
+const T_CUT_FOG_NIGHT_FISH = T_CUT_DAY_BIRDS + CUT_DURATION_SEC;          // 12.0s
+const T_CUT_DUSK_FINALE = T_CUT_FOG_NIGHT_FISH + CUT_DURATION_SEC;        // 13.9s
 
-const T_BANNER_IN = T_CUT_DUSK_FINALE + 0.5;                              // 14.9s
-const T_SUBTITLE_IN = T_CUT_DUSK_FINALE + 3.8;                            // 18.2s
-const T_SUNSET_COMPLETE = T_CUT_DUSK_FINALE + 8.4;                        // 22.8s
-const T_START_BTN_IN = T_CUT_DUSK_FINALE + 8.7;                           // 23.1s
+const T_BANNER_IN = T_CUT_DUSK_FINALE + 0.5;                              // 14.4s
+const T_SUBTITLE_IN = T_CUT_DUSK_FINALE + 3.8;                            // 17.7s
+const DUSK_START_SOLAR_HOUR = 17.74;
+const DUSK_END_SOLAR_HOUR = 18.92;
+const IN_GAME_SOLAR_HOURS_PER_SEC = 1.0 / GameConstants.REAL_SECONDS_PER_GAME_HOUR;
+const SUN_HORIZON_TOUCH_ALT_DEG = 0.5;
 
 // Sculpted Huahine world position during Stage 3 (behind the canoe on the left side of the screen)
 const HUAHINE_POS = Object.freeze({ x: 182.0, y: 0.52, z: -129.0 });
@@ -111,10 +118,10 @@ class KavengaIntroDirector {
     this.renderer.toneMappingExposure = 1.06;
     this.container.appendChild(this.renderer.domElement);
 
-    // Build fully upgraded Tier-3 Vaka Moana state with the child navigator (`Difficulty.EASY`)
+    // Build fully upgraded Tier-3 Vaka Moana state with the Wayfinder (`Difficulty.MEDIUM`)
     // and 0 learned constellations so night skies showcase pure, sparkling, unmarked stars.
     this.gameState = new GameState();
-    this.gameState.difficulty = Difficulty.EASY;
+    this.gameState.difficulty = Difficulty.MEDIUM;
     this.gameState.vakaTier = 3;
     this.gameState.hullCondition = 100.0;
     this.gameState.sailCondition = 100.0;
@@ -480,9 +487,12 @@ class KavengaIntroDirector {
       showFish = true;
       instantFog = 0.86;
     } else {
-      // 6. Abrupt cut -> Dusk behind the canoe (17.74 -> 18.92), sun sets completely & night falls!
-      const sunsetProgress = smootherstep(T_CUT_DUSK_FINALE, T_SUNSET_COMPLETE, t);
-      solarHour = lerp(17.74, 18.92, sunsetProgress);
+      // 6. Abrupt cut -> Dusk behind the canoe (17.74 -> 18.92) at true in-game solar speed!
+      const duskElapsed = Math.max(0.0, t - T_CUT_DUSK_FINALE);
+      solarHour = Math.min(
+        DUSK_END_SOLAR_HOUR,
+        DUSK_START_SOLAR_HOUR + duskElapsed * IN_GAME_SOLAR_HOURS_PER_SEC
+      );
       weather = 'clear';
       instantFog = 0.0;
     }
@@ -611,27 +621,29 @@ class KavengaIntroDirector {
     const gentleBobY = hull ? hull.heaveM * 0.22 : 0.0;
 
     if (t <= T_MOVE_TO_STERN_START) {
-      // Opening wide mid-ocean midday hold: endless swells around the Vaka Moana
+      // Opening far mid-ocean midday hold: very slight 3s zoom-in across endless swells
       const u = smootherstep(0.0, T_MOVE_TO_STERN_START, t);
       this._camPos.set(
-        lerp(-22.5, -18.2, u),
-        lerp(11.4, 9.4, u) + gentleBobY,
-        lerp(-25.5, -20.0, u)
+        lerp(-42.0, -36.5, u),
+        lerp(18.5, 16.0, u) + gentleBobY * 0.6,
+        lerp(-48.0, -41.5, u)
       );
-      this._camLook.set(0.0, lerp(2.0, 2.2, u) + gentleBobY * 0.6, 0.2);
+      this._camLook.set(0.0, lerp(1.9, 2.1, u) + gentleBobY * 0.5, 0.2);
     } else if (t <= T_ARRIVE_BEHIND_NAVIGATOR) {
-      // Cinematic swoop around port (-X) into the stern "canoe view" behind the child navigator
+      // Cinematic swoop around port (-X) into the stern "canoe view" behind the navigator
       const u = smootherstep(T_MOVE_TO_STERN_START, T_ARRIVE_BEHIND_NAVIGATOR, t);
-      const angle = lerp(-2.32, 0.0, u);
-      const radius = lerp(27.0, 8.55, u);
+      const startAngle = Math.atan2(-36.5, -41.5);
+      const startRadius = Math.hypot(-36.5, -41.5);
+      const angle = lerp(startAngle, 0.0, u);
+      const radius = lerp(startRadius, 8.55, u);
       const camX = Math.sin(angle) * radius - 0.38 * u;
       const camZ = Math.cos(angle) * radius;
-      const camY = lerp(9.4, 2.48, u) + gentleBobY * (0.4 + 0.6 * u);
+      const camY = lerp(16.0, 2.48, u) + gentleBobY * (0.6 + 0.4 * u);
 
       this._camPos.set(camX, camY, camZ);
       this._camLook.set(
         lerp(0.0, -0.08, u),
-        lerp(2.2, 2.15, u) + gentleBobY * 0.8,
+        lerp(2.1, 2.15, u) + gentleBobY * 0.8,
         lerp(0.2, -3.2, u)
       );
     } else {
@@ -664,9 +676,12 @@ class KavengaIntroDirector {
       this._subtitleShown = true;
       this.subtitleEl?.classList.add('visible');
     }
-    if (!this._startShown && t >= T_START_BTN_IN) {
-      this._startShown = true;
-      this.startWrapEl?.classList.add('visible');
+    if (!this._startShown && this._activeEnvStage === 5) {
+      const sunAltDeg = this.oceanSim.sunState?.altDeg ?? 90.0;
+      if (sunAltDeg <= SUN_HORIZON_TOUCH_ALT_DEG) {
+        this._startShown = true;
+        this.startWrapEl?.classList.add('visible');
+      }
     }
   }
 
@@ -684,13 +699,13 @@ class KavengaIntroDirector {
     // 2. Position camera along the cinematic spline
     this._updateCamera(t);
 
-    // 3. Update Sky, Ocean & Fully Upgraded Vaka + Child Navigator
+    // 3. Update Sky, Ocean & Fully Upgraded Vaka + Wayfinder (`Difficulty.MEDIUM`)
     const steerSubtle = Math.sin(t * 0.85) * 0.12;
     this.skyRenderer.update(
       dtSec,
       t,
       this.oceanSim,
-      Difficulty.EASY,
+      Difficulty.MEDIUM,
       this.camera,
       null,
       this.worldCues.group.visible ? this.worldCues : null,
@@ -699,7 +714,7 @@ class KavengaIntroDirector {
     this.oceanRenderer.update(dtSec, t, this.oceanSim, false, 0.0, null);
     this.vakaRenderer.update(dtSec, t, this.oceanSim, this.gameState, steerSubtle, {
       showPlayerOnCanoe: true,
-      difficultyOverride: Difficulty.EASY,
+      difficultyOverride: Difficulty.MEDIUM,
       playerOpacity: 1.0,
       lookYawDeg: Math.sin(t * 0.52) * 8.0,
     });
