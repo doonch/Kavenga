@@ -46,11 +46,11 @@ export class SailingHUD {
             </span>
             <span class="btn-text" id="btnCameraViewLabel">Canoe View</span>
           </button>
-          <button class="hud-icon-btn" id="btnFreeLook" title="Drag sky to look around (or click to glance astern / recenter)">
+          <button class="hud-icon-btn" id="btnFreeLook" title="Look Astern / recenter (X)">
             <span class="btn-glyph">↩</span>
             <span class="btn-text" id="btnFreeLookLabel">Look Astern</span>
           </button>
-          <button class="hud-icon-btn" id="btnLookZenith" title="Tilt gaze straight up to the mast-top zenith">
+          <button class="hud-icon-btn" id="btnLookZenith" title="Tilt gaze straight up to the mast-top zenith (Z)">
             <span class="btn-glyph">✦</span>
             <span class="btn-text">Mast-Top</span>
           </button>
@@ -242,12 +242,17 @@ export class SailingHUD {
       });
     });
 
-    // Keyboard shortcuts (F = Fast Forward, R = Recall, Escape = close modal)
+    // Keyboard shortcuts (X = Look Astern, Z = Mast-Top, F = Fast Forward, R = Recall, Escape = close modal)
     window.addEventListener('keydown', (e) => {
       if (this.rootEl.classList.contains('hidden')) return;
-      if (e.code === 'KeyF') {
+      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (!e.shiftKey && e.code === 'KeyX') {
+        this.callbacks.onLookAstern?.();
+      } else if (!e.shiftKey && e.code === 'KeyZ') {
+        this.callbacks.onLookZenith?.();
+      } else if (!e.shiftKey && e.code === 'KeyF') {
         this.callbacks.onToggleFastForward?.();
-      } else if (e.code === 'KeyR') {
+      } else if (!e.shiftKey && e.code === 'KeyR') {
         this.toggleRecallModal();
       } else if (e.code === 'Escape') {
         this.setRecallModal(false);

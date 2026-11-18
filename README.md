@@ -41,7 +41,7 @@ Because all ES module imports and `<script type="importmap">` paths are strictly
 | **Trim-Lock Steering (At Sea)** | `A` / `D` or `Left` / `Right` Arrow (`Q` / `E` for fine trim, or on-screen Prow buttons) |
 | **360° Free-Look Gaze** | Click-drag sky/ocean or `I` / `J` / `K` / `L` (`Space` or `C` snaps gaze dead ahead) |
 | **Camera View (At Sea)** | Toggle **Deck View** (1st-person) vs. **Canoe View** (3rd-person orbit showing your wayfinder at the sweep) |
-| **Look Astern / Mast-Top** | Top-right **Look Astern** (check wake leeway & stern stars) and **Mast-Top** (zenith stars) buttons |
+| **Look Astern / Mast-Top** | `X` key or **Look Astern** (check wake leeway & stern stars); `Z` key or **Mast-Top** (zenith stars) |
 | **Fast Wind (`2.75x`)** | `F` key or **Fast Wind** button (automatically returns to `1x` on verse changes, island rings, or fish schools) |
 | **Static Sand Recall** | `R` key or **Recall** button (views the static stick-in-the-sand lesson ashore; disabled at sea in *Master Navigator*) |
 
