@@ -1667,8 +1667,8 @@ export class WorldCuesRenderer {
           ? smoothstep(r2 * 1.12, r2 * 0.78, distUnits)
           : 0.0;
 
-      const landEntryDist = isl?.peaksPierceFog ? r2 * 1.04 : r3 * 1.1;
-      const landFullAlphaDist = Math.max(r4, landEntryDist * 0.68);
+      const landEntryDist = isl?.peaksPierceFog ? r2 * 1.08 : r3 * 1.25;
+      const landFullAlphaDist = Math.max(r4, landEntryDist * 0.78);
       const targetLandAlpha =
         isLandfallTarget || isLaunchOrigin
           ? 1.0
@@ -1679,7 +1679,7 @@ export class WorldCuesRenderer {
         isLandfallTarget || isLaunchOrigin
           ? 1.0
           : effectiveInRange
-            ? smoothstep(landEntryDist, r4 * 1.12, distUnits)
+            ? smoothstep(landEntryDist, r4 * 0.15, distUnits)
             : 0.0;
 
       if (isLaunchOrigin) {
@@ -1792,9 +1792,13 @@ export class WorldCuesRenderer {
         slot.lapaCloud.scale.setScalar(0.86 + 0.14 * slot.lapaAlpha);
       }
 
-      // 3D Island Landmass smooth horizon rise & sea-haze fade
+      // 3D Island Landmass smooth horizon rise + scale growth & sea-haze fade
       slot.landGroup.visible = slot.landAlpha > 0.003;
       if (slot.landGroup.visible && isl) {
+        const riseT = Math.max(0.0, Math.min(1.0, slot.riseFactor));
+        const landScale = 0.08 + 0.92 * riseT;
+        slot.landGroup.scale.setScalar(landScale);
+
         if (hasDetailedIslandModel(isl.id)) {
           slot.mainPeak.visible = false;
           slot.secondPeak.visible = false;
@@ -1809,7 +1813,8 @@ export class WorldCuesRenderer {
             slot.landGroup.add(detailed.group);
           }
           applyDetailedIslandAlpha(detailed, slot.landAlpha);
-          slot.landGroup.position.y = -detailed.sinkDepthM * (1.0 - slot.riseFactor);
+          slot.landGroup.position.y =
+            -detailed.sinkDepthM * 0.1 * (1.0 - riseT);
         } else {
           this._detachDetailedIslandFromSlot(slot);
           const isAtoll = isl.archetype === 'coral_atoll';
@@ -1829,10 +1834,8 @@ export class WorldCuesRenderer {
           slot.stoneMat.opacity = slot.landAlpha;
           slot.stoneMat.depthWrite = slot.landAlpha > 0.35;
 
-          // Sink distant peaks smoothly below sea curvature (-58m hides the +60m summit at riseFactor = 0)
-          slot.landGroup.position.y = isAtoll
-            ? -9.5 * (1.0 - slot.riseFactor)
-            : -58.0 * (1.0 - slot.riseFactor);
+          const baseSink = isAtoll ? 9.5 : 58.0;
+          slot.landGroup.position.y = -baseSink * 0.1 * (1.0 - riseT);
         }
       }
     }
