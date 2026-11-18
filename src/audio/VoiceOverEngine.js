@@ -16,6 +16,7 @@ export class VoiceOverEngine {
     this.volume = volume;
     this.onSpeakingChange = onSpeakingChange;
     this.enabled = this._loadEnabledPref();
+    this.muted = false;
     this.currentVoiceId = null;
     this.speaking = false;
     this._audio = null;
@@ -68,7 +69,7 @@ export class VoiceOverEngine {
   }
 
   play(voiceId) {
-    if (!voiceId || !this.enabled) {
+    if (!voiceId || !this.enabled || this.muted) {
       this.stop();
       return;
     }
@@ -111,6 +112,15 @@ export class VoiceOverEngine {
     this.enabled = next;
     this._saveEnabledPref();
     if (!this.enabled) {
+      this.stop();
+    }
+  }
+
+  setMuted(muted) {
+    const next = Boolean(muted);
+    if (this.muted === next) return;
+    this.muted = next;
+    if (this.muted) {
       this.stop();
     }
   }

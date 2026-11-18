@@ -191,9 +191,11 @@ class KavengaApp {
     this.musicEngine = new BackgroundMusicEngine({
       discoveredIslands: this.gameState.discoveredIslands,
     });
+    this.musicEngine.setMuted(this.chantEngine.muted);
     this.voiceEngine = new VoiceOverEngine({
       onSpeakingChange: (speaking) => this.musicEngine.setDucked(speaking),
     });
+    this.voiceEngine.setMuted(this.chantEngine.muted);
 
     // 4. UI Layers
     this.achievementsUI = new AchievementsUI(this.achievementsRootEl, {
@@ -223,9 +225,9 @@ class KavengaApp {
 
     this.islandSettingsUI = new IslandSettingsUI(this.settingsRootEl, {
       getGameState: () => this.gameState,
-      getIsMusicEnabled: () => this.musicEngine.enabled,
+      getIsMusicEnabled: () => !this.chantEngine.muted && this.musicEngine.enabled,
       onSetMusicEnabled: (enabled) => this.setMusicEnabled(enabled),
-      getIsVoiceEnabled: () => this.voiceEngine.enabled,
+      getIsVoiceEnabled: () => !this.chantEngine.muted && this.voiceEngine.enabled,
       onSetVoiceEnabled: (enabled) => this.setVoiceEnabled(enabled),
       onChangeDifficulty: (mode) => this.setDifficulty(mode),
       onConfirmStartOver: (opts) => this.resetCampaignAndReload(opts),
@@ -1080,6 +1082,9 @@ class KavengaApp {
   }
 
   setMusicEnabled(enabled) {
+    if (enabled && this.chantEngine.muted) {
+      this.setSoundMuted(false);
+    }
     this.musicEngine.setEnabled(enabled);
     if (this.phase === 'shore' && this.islandSettingsUI.isOpen()) {
       this.islandSettingsUI.refresh();
@@ -1087,6 +1092,9 @@ class KavengaApp {
   }
 
   setVoiceEnabled(enabled) {
+    if (enabled && this.chantEngine.muted) {
+      this.setSoundMuted(false);
+    }
     this.voiceEngine.setEnabled(enabled);
     if (this.phase === 'shore' && this.islandSettingsUI.isOpen()) {
       this.islandSettingsUI.refresh();
@@ -1097,6 +1105,7 @@ class KavengaApp {
     const nextMuted = Boolean(muted);
     this.chantEngine.setMuted(nextMuted);
     this.musicEngine.setMuted(nextMuted);
+    this.voiceEngine.setMuted(nextMuted);
     this.sailingHud?.setSoundMutedState(nextMuted);
     if (!nextMuted) {
       this.chantEngine.playStarSightedChime();
