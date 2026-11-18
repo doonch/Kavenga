@@ -827,10 +827,13 @@ export class IslandHubUI {
       gs.lashingsCondition
     );
     const maxRations = Math.max(1, gs.maxCargoSlots - gs.cargoItems.length);
-    if (routes.length > 0 && (minCond < 78.0 || gs.loadedRations < maxRations)) {
+    const needsCareen = isl.inhabited && minCond < 78.0;
+    if (routes.length > 0 && (needsCareen || gs.loadedRations < maxRations)) {
       return {
         kind: 'prep',
-        label: '🛠️ Careen Canoe & Fill Rations',
+        label: isl.inhabited
+          ? '🛠️ Careen Canoe & Fill Rations'
+          : '🥥 Restock Coconuts & Water',
         run: () => {
           const msg = performBeachCareeningAndRestock(gs);
           this.rootEl.querySelector('#hubCareenFeedback').textContent = msg;
@@ -969,9 +972,10 @@ export class IslandHubUI {
       gs.lashingsCondition
     );
     const maxRations = Math.max(1, gs.maxCargoSlots - gs.cargoItems.length);
+    const needsCareen = isl.inhabited && minCond < 78.0;
     if (!routes.length) {
       this._setBadge(this.rootEl.querySelector('#badgeLanding'), '', '');
-    } else if (minCond < 78.0 || gs.loadedRations < maxRations) {
+    } else if (needsCareen || gs.loadedRations < maxRations) {
       this._setBadge(
         this.rootEl.querySelector('#badgeLanding'),
         'Prep',
