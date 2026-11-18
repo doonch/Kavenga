@@ -306,14 +306,14 @@ export class ShoreDioramaRenderer {
     }
 
     if (stationId === 'vigil') {
-      // Evening coral-indigo twilight framing island crown & emerging night sky
+      // Evening coral-indigo twilight zoomed onto the coastal observation knoll
       return {
-        cx: 0.0,
-        cy: isAtoll ? 7.5 : Math.min(24.0, peakH * 0.30 + 6.0),
-        cz: shoreR * 0.25,
-        theta: 0.20,
-        phi: 0.16,
-        dist: shoreR * 1.88 + 34.0 + wideBoost,
+        cx: isWide ? -6.0 : 4.5,
+        cy: isAtoll ? 5.2 : Math.min(22.0, peakH * 0.28 + 5.5),
+        cz: shoreR * 0.34,
+        theta: -0.36,
+        phi: 0.20,
+        dist: shoreR * 1.18 + 22.0 + wideBoost * 0.48,
         solarHour: 18.78,
       };
     }
