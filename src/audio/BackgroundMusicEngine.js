@@ -1,7 +1,7 @@
 /**
  * Background Music Rotation Engine for Kavenga: Songs of the Star Path.
  *
- * Rotates through core voyage/island tracks (`dawn`, `thunder`, `lineage`, `tide`)
+ * Rotates through core voyage/island tracks (`dawn`, `thunder`, `lineage`, `tide`, `lagoon`)
  * and supports extensible island-specific tracks (`ISLAND_MUSIC_TRACKS`).
  * When an island with a dedicated track (e.g. Hawai'i) is reached for the first time,
  * that track plays immediately and is permanently unlocked in the global rotation
@@ -15,6 +15,7 @@ export const BASE_MUSIC_TRACKS = Object.freeze([
   'thunder',
   'lineage',
   'tide',
+  'lagoon',
 ]);
 
 /**
