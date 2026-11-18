@@ -2,14 +2,12 @@
 
 **Kavenga: Songs of the Star Path** is a contemplative 3D Polynesian wayfinding game built with **Zero-Build ES2022 Modules**, **Three.js (`r170`)**, **Web Audio API**, and **HTML5 2D Canvas**.
 
-Sail a traditional double-hulled voyaging canoe (*vaka moana*) across Pacific lagoons, volcanic archipelagos, and coral atolls from *Raʻiātea* across the Southern Hemisphere (Acts I–II, including *Rapa Nui*) into the Northern Hemisphere *Hawaiʻi Mist Chain* (*Kauaʻi*, *Oʻahu*, *Kiritimati*, and *Hawaiʻi* in Act III)—learning each animal constellation one by one from island elders, and navigating strictly by rising and setting star paths (*kavenga*), hemisphere-true polar anchors (*The Sea Turtle* & *The Frigatebird* in the South; *The Steadfast Peg* & *The Horse* in the North), stationary island peak clouds, turquoise coral-lagoon cloud reflections (*lapa*), dawn/dusk homing terns and boobies, solar sighting-post (*pou*) crossbeam shadows, and 4-beat ocean swells—with **zero maps, zero compasses, and zero degree numbers**.
+Sail a traditional double-hulled voyaging canoe (*vaka moana*) across Pacific lagoons, volcanic archipelagos, and coral atolls from *Raʻiātea* across the Southern Hemisphere and into northern mist seas—learning each animal constellation one by one from island elders, and navigating strictly by rising and setting star paths (*kavenga*), hemisphere-true polar anchors, stationary island peak clouds, turquoise coral-lagoon cloud reflections (*lapa*), dawn/dusk homing terns and boobies, solar sighting-post (*pou*) crossbeam shadows, and 4-beat ocean swells—with **zero maps, zero compasses, and zero degree numbers**.
 
 ## Live Deployment (GitHub Pages)
 
 * **Cinematic 3D Intro:** [https://doonch.github.io/Kavenga/intro.html](https://doonch.github.io/Kavenga/intro.html)
 * **Play the Game:** [https://doonch.github.io/Kavenga/](https://doonch.github.io/Kavenga/)
-* **3D Asset Debug Viewer:** [https://doonch.github.io/Kavenga/asset-viewer.html](https://doonch.github.io/Kavenga/asset-viewer.html)
-* **Developer Ocean & Route Map:** [https://doonch.github.io/Kavenga/map.html](https://doonch.github.io/Kavenga/map.html)
 
 ---
 
@@ -26,25 +24,7 @@ Then open in any modern WebGL browser:
 - **Direct Game Entry:** **http://127.0.0.1:8123/**
 
 ### Cinematic 3D Introduction (`intro.html`)
-Open **`http://127.0.0.1:8123/intro.html`** to watch the real-time 3D title sequence showcasing the fully upgraded *Vaka Moana* and child apprentice navigator across shifting Pacific skies, clouds, seabird flocks, foggy night bonito leaps, and a golden sunset into starry nightfall before launching `index.html` via **Start** (press `Esc` to skip directly to the dusk title finale).
-
-### Instant Star-Stone Vigil Dev Entry
-The grounded 3D night-sky observatory (**The Star-Stone Vigil / *Ahu Fetiʻa***) always shows the true night sky of the island where you currently stand, guided by that island's local elder when a constellation teaching is available:
-- **In-Game:** Walk to the **Observation Circle** or **Sanctuary** on any island to stargaze over the twelve Horizon Stones or join the local elder's 5-beat **Guided Sky Vigil**.
-- **Direct Dev URL Parameters:**
-  - Specific Island Guided Sky Vigil (e.g. *Hina* on Tahaʻa): `http://127.0.0.1:8123/?mode=sky_vigil&island=tahaa`
-  - Northern Mist Isles Sky Vigil (e.g. *Keeper Akura* on Kiritimati): `http://127.0.0.1:8123/?mode=sky_vigil&island=kiritimati`
-  - Specific Island Sky & Tab (`guided`, `atlas`, or optional `quiz`): `http://127.0.0.1:8123/?mode=sky_vigil&island=hawaii&tab=atlas`
-
-### Instant Landfall Arrival Preview (Zero Playthrough Required)
-Preview the 3D Ring 4 shoreline glide and camera pullback on any campaign island directly via URL parameters:
-- Default Tahaʻa Lagoon Arrival (~1.6s approach lead-in): `http://127.0.0.1:8123/?mode=landfall`
-- Any Island & Lighting Window (`dawn`, `midday`, `dusk`, `midnight`): `http://127.0.0.1:8123/?mode=landfall&island=raiatea&window=dusk` or `http://127.0.0.1:8123/?mode=landfall&island=hawaii`
-- Immediate Ring 4 Trigger (`lead=0` or `instant=1`): `http://127.0.0.1:8123/?mode=landfall&island=tahaa&lead=0`
-
-### 3D Asset Debug Viewer & Developer Ocean Map
-- **3D Asset Debug Viewer (`http://127.0.0.1:8123/asset-viewer.html`):** Inspect all procedural 3D assets in an interactive orbit/zoom studio (Canoe Tiers 1–3, 4 player wayfinder characters, flapping White Tern & Brown Booby seabirds, Trade-Wind / Peak / *Lapa* clouds, leaping Bonito fish, and all 17 campaign islands in both Ocean/Landfall and Walkable Shore views).
-- **Developer Ocean Map (`http://127.0.0.1:8123/map.html`):** Out-of-game basin chart for inspecting island ring radii, authored routes, and post-voyage trajectory traces.
+Open **`http://127.0.0.1:8123/intro.html`** to watch the real-time 3D title sequence showcasing the *Vaka Moana* and child apprentice navigator across shifting Pacific skies, clouds, seabird flocks, foggy night bonito leaps, and a golden sunset into starry nightfall before launching `index.html` via **Start** (press `Esc` to skip directly to the dusk title finale).
 
 ### Hosting on GitHub Pages
 Because all ES module imports and `<script type="importmap">` paths are strictly relative, this repository deploys directly to **GitHub Pages** with zero CI/build step:
@@ -85,8 +65,6 @@ Switch modes anytime from the ashore **⚙ Settings** button or in-voyage **Opti
 ├── README.md                                # Quick-start guide, links, controls & architecture overview
 ├── intro.html                               # Real-time 3D cinematic introduction sequence & title screen
 ├── index.html                               # Zero-build main game entry point & Three.js importmap
-├── asset-viewer.html                        # Standalone 3D asset & island orbit/zoom debug studio
-├── map.html                                 # Standalone developer ocean-basin & route-trace visualizer
 ├── styles.css                               # Walkable Shore, Island Hub, Sky Vigil & Sailing HUD styling
 ├── favicon.ico                              # Multi-size Polynesian crab-claw canoe favicon
 ├── .agents/
@@ -102,8 +80,6 @@ Switch modes anytime from the ashore **⚙ Settings** button or in-voyage **Opti
 ├── src/
 │   ├── main.js                              # Application loop, Walkable Shore <-> Ocean <-> Sky Vigil orchestrator
 │   ├── intro.js                             # Real-time 3D cinematic intro director for intro.html
-│   ├── assetViewer.js                       # Live 3D asset catalog & studio orbit inspector
-│   ├── oceanMap.js                          # 2D ocean basin, detection-ring & sailed-route map inspector
 │   ├── core/
 │   │   ├── gameConstants.js                 # Astronomical, ocean-ring, ration & difficulty constants
 │   │   ├── gameState.js                     # Progression, learned constellations, cargo, crew & snapshots
@@ -130,8 +106,7 @@ Switch modes anytime from the ashore **⚙ Settings** button or in-voyage **Opti
 │   │   ├── IslandTerrainBuilder.js          # Unified 3D ocean/landfall island assembly dispatcher
 │   │   ├── IslandAct1RemainBuilder.js       # Bespoke 3D Society Islands terrain & lagoon assemblies
 │   │   ├── IslandAct2Builder.js             # Bespoke 3D Marquesas, Tuamotu & Mangareva island assemblies
-│   │   ├── IslandAct3Builder.js             # Bespoke 3D Hawai'i Mist Chain & Kiritimati island assemblies
-│   │   ├── IslandRapaNuiBuilder.js          # Bespoke 3D Rapa Nui craters, cliffs & ahu moai assemblies
+│   │   ├── IslandAct3Builder.js             # Bespoke 3D Act III island assemblies
 │   │   ├── OceanRenderer.js                 # Swell/refraction/reflection water shader & wake renderer
 │   │   ├── PlayerCharacterBuilder.js        # Articulated 3D wayfinder rigs across all 4 difficulty personas
 │   │   ├── SkyDomeRenderer.js               # Twilight shader, Milky Way, stars, lines, silhouettes & weather
@@ -153,8 +128,39 @@ Switch modes anytime from the ashore **⚙ Settings** button or in-voyage **Opti
 │       └── WalkableIslandUI.js              # 3D walkable shore HUD, proximity POI cards & sand-lesson modal
 └── tests/
     ├── runPhase1Tests.mjs                   # Astronomy, silhouettes, zero-compass & campaign autopilot suite
-    └── runCampaignWalkthroughTests.mjs      # Full Ra'iatea -> Hawai'i campaign progression & economy suite
+    └── runCampaignWalkthroughTests.mjs      # Full campaign progression & economy suite
 ```
+
+---
+
+<details>
+<summary><strong>Spoilers</strong> (Developer Map, 3D Asset Viewer, Direct URLs &amp; Debug Cheats)</summary>
+
+### Live Deployment Debug Links
+* **3D Asset Debug Viewer:** [https://doonch.github.io/Kavenga/asset-viewer.html](https://doonch.github.io/Kavenga/asset-viewer.html)
+* **Developer Ocean & Route Map:** [https://doonch.github.io/Kavenga/map.html](https://doonch.github.io/Kavenga/map.html)
+
+### Local Debug Viewers
+- **3D Asset Debug Viewer (`http://127.0.0.1:8123/asset-viewer.html`):** Inspect all procedural 3D assets in an interactive orbit/zoom studio (Canoe Tiers 1–3, 4 player wayfinder characters, flapping White Tern & Brown Booby seabirds, Trade-Wind / Peak / *Lapa* clouds, leaping Bonito fish, and all 17 campaign islands in both Ocean/Landfall and Walkable Shore views).
+- **Developer Ocean Map (`http://127.0.0.1:8123/map.html`):** Out-of-game basin chart for inspecting island ring radii, authored routes, and post-voyage trajectory traces.
+
+### Sailing Debug Cheats
+| Shortcut | Effect (While Sailing) |
+| :--- | :--- |
+| `Shift + G` | Directs the canoe straight toward the target island at high speed so it arrives within ~2–3 seconds |
+| `Shift + F` | Toggles **Super Fast Wind (`10×`)** speedup for movement, solar progression, and ration consumption |
+
+### Instant Star-Stone Vigil Dev Entry
+- Specific Island Guided Sky Vigil (e.g. *Hina* on Tahaʻa): `http://127.0.0.1:8123/?mode=sky_vigil&island=tahaa`
+- Northern Mist Isles Sky Vigil (e.g. *Keeper Akura* on Kiritimati): `http://127.0.0.1:8123/?mode=sky_vigil&island=kiritimati`
+- Specific Island Sky & Tab (`guided`, `atlas`, or optional `quiz`): `http://127.0.0.1:8123/?mode=sky_vigil&island=hawaii&tab=atlas`
+
+### Instant Landfall Arrival Preview
+- Default Tahaʻa Lagoon Arrival (~1.6s approach lead-in): `http://127.0.0.1:8123/?mode=landfall`
+- Any Island & Lighting Window (`dawn`, `midday`, `dusk`, `midnight`): `http://127.0.0.1:8123/?mode=landfall&island=raiatea&window=dusk` or `http://127.0.0.1:8123/?mode=landfall&island=hawaii`
+- Immediate Ring 4 Trigger (`lead=0` or `instant=1`): `http://127.0.0.1:8123/?mode=landfall&island=tahaa&lead=0`
+
+</details>
 
 ---
 
