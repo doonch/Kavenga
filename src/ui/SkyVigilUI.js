@@ -586,6 +586,7 @@ export class SkyVigilUI {
 
   hide() {
     this.spinMode = 0;
+    this.callbacks?.onStopVoice?.();
     this.rootEl.querySelector('#vigilPortraitModal')?.classList.add('hidden');
     this.rootEl.classList.add('hidden');
   }
@@ -645,6 +646,7 @@ export class SkyVigilUI {
     }
     this.mode = nextMode;
     this.spinMode = 0;
+    this.callbacks?.onStopVoice?.();
     this._syncHeaderDOM();
     this._syncModeTabsDOM();
 
@@ -689,6 +691,9 @@ export class SkyVigilUI {
     this.guidedBeatIndex = clamped;
     this.guidedBeatElapsedSec = 0.0;
     const beat = lesson.beats[clamped];
+    if (beat?.voiceId) {
+      this.callbacks?.onPlayVoice?.(beat.voiceId);
+    }
 
     const sim = this.callbacks.getOceanSim?.();
     if (beat.kind !== 'spin' && sim) {

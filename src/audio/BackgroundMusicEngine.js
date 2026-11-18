@@ -40,6 +40,8 @@ export class BackgroundMusicEngine {
   constructor({ discoveredIslands = {}, volume = 0.36 } = {}) {
     this.discoveredIslands = { ...discoveredIslands };
     this.targetVolume = volume;
+    this.duckedVolume = Math.min(0.1, volume * 0.28);
+    this.ducked = false;
     this.enabled = this._loadEnabledPref();
     this.muted = false;
     this.currentTrack = null;
@@ -163,6 +165,10 @@ export class BackgroundMusicEngine {
     }
   }
 
+  _activeTargetVolume() {
+    return this.ducked ? this.duckedVolume : this.targetVolume;
+  }
+
   _playTrack(trackId, { fadeMs = 450 } = {}) {
     this.currentTrack = trackId;
     if (!this._audio) return;
@@ -174,7 +180,7 @@ export class BackgroundMusicEngine {
       if (this.enabled) {
         this._audio.volume = 0;
         this._attemptPlay();
-        this._fadeTo(this.targetVolume, fadeMs);
+        this._fadeTo(this._activeTargetVolume(), fadeMs);
       }
     };
 
@@ -218,7 +224,7 @@ export class BackgroundMusicEngine {
       } else {
         this._audio.volume = 0;
         this._attemptPlay();
-        this._fadeTo(this.targetVolume, 450);
+        this._fadeTo(this._activeTargetVolume(), 450);
       }
     } else {
       this._fadeTo(0, 280, () => {
@@ -226,6 +232,15 @@ export class BackgroundMusicEngine {
           this._audio.pause();
         }
       });
+    }
+  }
+
+  setDucked(isDucked) {
+    const next = Boolean(isDucked);
+    if (this.ducked === next) return;
+    this.ducked = next;
+    if (this._audio && this.enabled && !this._audio.paused) {
+      this._fadeTo(this._activeTargetVolume(), 240);
     }
   }
 

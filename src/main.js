@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { BackgroundMusicEngine } from './audio/BackgroundMusicEngine.js';
 import { ChantAndDrumEngine } from './audio/ChantAndDrumEngine.js';
 import { SpatialSeaAudio } from './audio/SpatialSeaAudio.js';
+import { VoiceOverEngine } from './audio/VoiceOverEngine.js';
 import { AchievementsManager } from './core/achievementsManager.js';
 import { onVoyageLandfall } from './core/campaignManager.js';
 import {
@@ -190,6 +191,9 @@ class KavengaApp {
     this.musicEngine = new BackgroundMusicEngine({
       discoveredIslands: this.gameState.discoveredIslands,
     });
+    this.voiceEngine = new VoiceOverEngine({
+      onSpeakingChange: (speaking) => this.musicEngine.setDucked(speaking),
+    });
 
     // 4. UI Layers
     this.achievementsUI = new AchievementsUI(this.achievementsRootEl, {
@@ -208,12 +212,21 @@ class KavengaApp {
       onShown: () => {
         this.chantEngine.playCrewRecruitedChime();
       },
+      onAllDismissed: () => {
+        const pendingVoiceId = this._pendingPostCrewSplashVoiceId;
+        this._pendingPostCrewSplashVoiceId = null;
+        if (pendingVoiceId && this.phase === 'shore') {
+          this.voiceEngine.play(pendingVoiceId);
+        }
+      },
     });
 
     this.islandSettingsUI = new IslandSettingsUI(this.settingsRootEl, {
       getGameState: () => this.gameState,
       getIsMusicEnabled: () => this.musicEngine.enabled,
       onSetMusicEnabled: (enabled) => this.setMusicEnabled(enabled),
+      getIsVoiceEnabled: () => this.voiceEngine.enabled,
+      onSetVoiceEnabled: (enabled) => this.setVoiceEnabled(enabled),
       onChangeDifficulty: (mode) => this.setDifficulty(mode),
       onConfirmStartOver: (opts) => this.resetCampaignAndReload(opts),
       onClose: () => {
@@ -222,6 +235,8 @@ class KavengaApp {
     });
 
     this.elderVigilPromptUI = new ElderVigilPromptUI(this.elderPromptRootEl, {
+      onPlayVoice: (voiceId) => this.voiceEngine.play(voiceId),
+      onStopVoice: () => this.voiceEngine.stop(),
       onGoToTeaching: (lesson) => {
         this.enterSkyVigil({
           guidedLessonId: lesson.id,
@@ -246,6 +261,8 @@ class KavengaApp {
       onOpenSettings: () => this.openIslandSettings(),
       onOpenAchievements: () => this.openIslandAchievements(),
       onSanctuaryInteracted: (res) => this._handleSanctuaryInteracted(res),
+      onPlayVoice: (voiceId) => this.voiceEngine.play(voiceId),
+      onStopVoice: () => this.voiceEngine.stop(),
       onAshoreStateChanged: () =>
         this.achievementsManager.evaluateAshoreState(
           this.gameState,
@@ -279,6 +296,8 @@ class KavengaApp {
       onOpenSettings: () => this.openIslandSettings(),
       onOpenAchievements: () => this.openIslandAchievements(),
       onSanctuaryInteracted: (res) => this._handleSanctuaryInteracted(res),
+      onPlayVoice: (voiceId) => this.voiceEngine.play(voiceId),
+      onStopVoice: () => this.voiceEngine.stop(),
       onAshoreStateChanged: () =>
         this.achievementsManager.evaluateAshoreState(
           this.gameState,
@@ -297,6 +316,8 @@ class KavengaApp {
       getCameraCtrl: () => this.cameraCtrl,
       onExitVigil: () => this.exitSkyVigil(),
       onPlayChime: () => this.chantEngine.playStarSightedChime(),
+      onPlayVoice: (voiceId) => this.voiceEngine.play(voiceId),
+      onStopVoice: () => this.voiceEngine.stop(),
       onEyeTrialStreak: (streak) => {
         this.achievementsManager.evaluateEyeTrialStreak(
           streak,
@@ -1029,6 +1050,7 @@ class KavengaApp {
       });
     }
     if (sanctuaryResult?.newlyRecruitedCrew?.length > 0) {
+      this._pendingPostCrewSplashVoiceId = sanctuaryResult?.voiceId || null;
       this.crewSplashUI.enqueue(sanctuaryResult.newlyRecruitedCrew);
     }
     this.achievementsManager.evaluateAshoreState(
@@ -1040,6 +1062,13 @@ class KavengaApp {
 
   setMusicEnabled(enabled) {
     this.musicEngine.setEnabled(enabled);
+    if (this.phase === 'shore' && this.islandSettingsUI.isOpen()) {
+      this.islandSettingsUI.refresh();
+    }
+  }
+
+  setVoiceEnabled(enabled) {
+    this.voiceEngine.setEnabled(enabled);
     if (this.phase === 'shore' && this.islandSettingsUI.isOpen()) {
       this.islandSettingsUI.refresh();
     }

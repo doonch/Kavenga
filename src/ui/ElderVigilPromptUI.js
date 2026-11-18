@@ -130,6 +130,9 @@ export class ElderVigilPromptUI {
     imgEl.alt = lesson.elderName;
 
     this.rootEl.classList.remove('hidden');
+    if (lesson.promptVoiceId) {
+      this.callbacks.onPlayVoice?.(lesson.promptVoiceId);
+    }
   }
 
   hide() {
@@ -138,5 +141,6 @@ export class ElderVigilPromptUI {
     this.pendingSong = null;
     this.pendingDepartureWindow = null;
     this.rootEl.classList.add('hidden');
+    this.callbacks.onStopVoice?.();
   }
 }

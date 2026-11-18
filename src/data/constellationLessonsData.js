@@ -641,6 +641,13 @@ export const CONSTELLATION_LESSONS = Object.freeze({
   },
 });
 
+for (const lesson of Object.values(CONSTELLATION_LESSONS)) {
+  lesson.promptVoiceId = `prompt_${lesson.id}`;
+  for (const beat of lesson.beats) {
+    beat.voiceId = `vigil_${lesson.id}_${beat.kind}`;
+  }
+}
+
 /**
  * Returns the constellation lesson taught on a given island if its story prerequisite is met
  * (e.g., Elder Metua's Boar lesson on Ra'iatea only unlocks on your return after Mo'orea / Kura feathers,

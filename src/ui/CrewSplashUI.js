@@ -115,6 +115,7 @@ export class CrewSplashUI {
       this._showNext();
     } else {
       this.hide();
+      this.callbacks.onAllDismissed?.();
     }
   }
 

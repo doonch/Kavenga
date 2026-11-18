@@ -264,6 +264,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
   if (id === 'raiatea') {
     if (gameState.completedQuests.raiatea_consecration) {
       return {
+        voiceId: 'sanctuary_raiatea_consecrated',
         title: 'Elder Metua at Marae Taputapuatea',
         speech:
           "Your consecrated vaka gleams in the lagoon light. Remember our sand wake-lesson: when strong beam winds push your hulls on the midnight crossing to Maupiti, glance astern and lean half a prow into the wind.",
@@ -289,6 +290,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       rewardsList.push('Learned Song 6: The Outer Pass of Maupiti');
       gameState.saveToLocalStorage();
       return {
+        voiceId: 'sanctuary_raiatea_consecrate_complete',
         title: 'Consecration at Marae Taputapuatea',
         speech:
           "Elder Metua binds your crimson Kura feathers to the masthead pennant! 'You have circled the lagoon chain by cloud, bird, shadow, and star. Tonight I entrust you with the Midnight Chant to outer Maupiti.'",
@@ -297,6 +299,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
     }
 
     return {
+      voiceId: 'sanctuary_raiatea_welcome',
       title: 'Elder Metua at Marae Taputapuatea',
       speech:
         "Welcome to sacred Taputapuatea, young wayfinder. Sail first at Dawn toward Taha'a's motionless peak cloud (Song 1). Return here with Ceremonial Red Kura Feathers and a restored canoe to earn the outer chant to Maupiti.",
@@ -320,6 +323,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       gameState.saveToLocalStorage();
     }
     return {
+      voiceId: 'sanctuary_tahaa_visit',
       title: "Hina's Hillside Hearth",
       speech:
         "Hina binds fresh pandanus sennit across your crossbeams and motions to young Tama. 'Carry this Medicinal Kava to Elder Ari'i on twin-peaked Huahine. Launch at Dawn into the white terns' beaks, then hold the post shadow on your second left lashing!'",
@@ -332,6 +336,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
     if (!gameState.completedQuests.huahine_trade) {
       if (!gameState.hasCargoItem('kava_bundle')) {
         return {
+          voiceId: 'sanctuary_huahine_need_kava',
           title: "Ari'i's Twin-Bay Sail Loft",
           speech:
             "Elder Ari'i gazes at the twilight sky. 'Bring me the Medicinal Kava Bundle from Hina on Taha'a, and we shall weave you a new pandanus sail and sing the night-star paths.'",
@@ -350,6 +355,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       gameState.saveToLocalStorage();
     }
     return {
+      voiceId: 'sanctuary_huahine_complete',
       title: "Ari'i's Twin-Bay Sail Loft",
       speech:
         "Ari'i breathes in the fragrant kava and unfurls a golden pandanus sail. 'Sail at Dusk toward the sinking sun and Setting Bull's Horn to find uninhabited Manuae glowing jade beneath the clouds—then carry its pearl lures onward to Mo'orea!'",
@@ -385,6 +391,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
     if (!gameState.completedQuests.moorea_trade) {
       if (!gameState.hasCargoItem('pearl_shell_lures')) {
         return {
+          voiceId: 'sanctuary_moorea_need_lures',
           title: "Vaihere's Spire-Foot Sanctuary",
           speech:
             "Canoe-Wright Vaihere taps your weathered hull planking. 'Bring Giant Pearl-Shell Lures from Manuae's lagoon, and my carvers will raise your gunwales to six cargo slots and gift you a Polished Basalt Adze.'",
@@ -405,6 +412,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       gameState.saveToLocalStorage();
     }
     return {
+      voiceId: 'sanctuary_moorea_complete',
       title: "Vaihere's Spire-Foot Sanctuary",
       speech:
         "Vaihere runs her palm along your raised tamanu splash-strakes. 'Sail home to Ra'iatea at Dusk by handing the watch from Rising Bull's Horn down to Rising Rat's Nose—then consecrate your Kura feathers!'",
@@ -417,6 +425,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
     if (!gameState.completedQuests.maupiti_master) {
       if (!gameState.hasCargoItem('polished_basalt_adze')) {
         return {
+          voiceId: 'sanctuary_maupiti_need_adze',
           title: "First Master Tera'i's Cliff Sanctuary",
           speech:
             "First Master Tera'i studies your wake through the foaming pass. 'Present the Polished Basalt Adze of Mo'orea's carvers, and I shall draw the Complete Twelve-Shell Star Ring in the wet sand.'",
@@ -433,6 +442,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       gameState.saveToLocalStorage();
     }
     return {
+      voiceId: 'sanctuary_maupiti_complete',
       title: "First Master Tera'i's Cliff Sanctuary",
       speech:
         "Master Tera'i places twelve gleaming cowrie shells around a carved canoe mark in the sand. 'Beyond this reef lies empty ocean where all land sinks out of sight. Trust the three-star relay along the Boar's Path at Dusk to reach towering Nuku Hiva!'",
@@ -452,6 +462,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       gameState.saveToLocalStorage();
     }
     return {
+      voiceId: 'sanctuary_nuku_hiva_visit',
       title: "Master Teiki's Great Marae",
       speech:
         "Master Teiki welcomes your ocean-crossed vaka beneath Nuku Hiva's valley cliffs. 'At Midnight the Horse's Crown skims low above the waves without drowning while the Sea Turtle spins in your wake. Follow the Grazing Horse to basalt-spired Ua Pou!'",
@@ -474,6 +485,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       gameState.saveToLocalStorage();
     }
     return {
+      voiceId: 'sanctuary_ua_pou_visit',
       title: "Vaea's Bone-Carvers' Terrace",
       speech:
         "Sail-Tender Moana steps aboard to tend your pandanus sheet while Vaea hands over carved harpoon heads. 'Sail at Dusk down three setting stars along the Horse's Path until Rangiroa's immense lagoon paints the dawn clouds jade!'",
@@ -486,6 +498,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
     if (!gameState.completedQuests.rangiroa_trade) {
       if (!gameState.hasCargoItem('bone_harpoon_heads')) {
         return {
+          voiceId: 'sanctuary_rangiroa_need_harpoons',
           title: "Tane's Pearl-Divers' Village",
           speech: "Bring Carved Bone Harpoon Heads from Ua Pou to trade for our Mother-of-Pearl Star Discs.",
           rewardsList: ['Requires: Carved Bone Harpoon Heads from Ua Pou.'],
@@ -502,6 +515,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       gameState.saveToLocalStorage();
     }
     return {
+      voiceId: 'sanctuary_rangiroa_complete',
       title: "Tane's Pearl-Divers' Village",
       speech:
         "Tane presses luminous pearl star discs into your palm. 'Rain-squalls often curtain your prows halfway to Hiva Oa. When forward stars vanish, look straight back over your steering sweep and hold the Setting Gecko's Tongue centered in your wake!'",
@@ -514,6 +528,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
     if (!gameState.completedQuests.hiva_oa_trade) {
       if (!gameState.hasCargoItem('pearl_star_discs')) {
         return {
+          voiceId: 'sanctuary_hiva_oa_need_discs',
           title: "Tahia's Volcanic Quarry",
           speech: "Bring Mother-of-Pearl Star Discs from Rangiroa's divers so we may inlay our ceremonial carvings.",
           rewardsList: ['Requires: Mother-of-Pearl Star Discs from Rangiroa.'],
@@ -532,6 +547,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       gameState.saveToLocalStorage();
     }
     return {
+      voiceId: 'sanctuary_hiva_oa_complete',
       title: "Tahia's Volcanic Quarry",
       speech:
         "Hull-Wright Kahu stows his sennit mallets on your deck. 'Sail toward the Sea Turtle's Pivot at Dusk while watching your mast-top: the moment the Gecko's Heart passes straight overhead, turn onto the Rising Shark's Jaw for Fatu Hiva!'",
@@ -544,6 +560,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
     if (!gameState.completedQuests.fatu_hiva_upgrade) {
       if (!gameState.hasCargoItem('obsidian_adze_blanks')) {
         return {
+          voiceId: 'sanctuary_fatu_hiva_need_obsidian',
           title: "Oihanu's Great Vaka Moana Shed",
           speech: 'Bring Volcanic Obsidian Blanks from Hiva Oa so our builders can step a second crab-claw mast and finish your double-sail Vaka Moana.',
           rewardsList: ['Requires: Volcanic Obsidian Blanks from Hiva Oa.'],
@@ -563,6 +580,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       gameState.saveToLocalStorage();
     }
     return {
+      voiceId: 'sanctuary_fatu_hiva_complete',
       title: "Oihanu's Great Vaka Moana Shed",
       speech:
         "Oihanu's builders step a second pandanus crab-claw sail and lash twin deep-sea hulls capable of carrying eight full baskets across the mist seas! 'Follow the Rising Whale's Spout, Fluke, and Shark's Tail at Dusk to reach outer Mangareva.'",
@@ -581,6 +599,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       gameState.saveToLocalStorage();
     }
     return {
+      voiceId: 'sanctuary_mangareva_visit',
       title: "Elder Rongo's Gateway Marae",
       speech:
         "Elder Rongo points toward the pale mist-curtain brooding over the horizon. 'Follow the Setting Horse at Dusk where the Sea Turtle sinks astern and the Steadfast Peg lifts ahead; when morning sea-fog blinds every star, hold your steering sweep locked without wavering until Kaua'i's black crag pierces above the mist!'",
@@ -610,6 +629,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       rewardsList.push("Learned Song 15 (Kiritimati) & Song 16 (The Great Chant of Hawai'i)!");
       gameState.saveToLocalStorage();
       return {
+        voiceId: 'sanctuary_kauai_drum_complete',
         title: "Swell Master Pohaku's High Crag Sanctuary",
         speech:
           "Swell Master Pohaku hollows your O'ahu miro timber into a deep resonant Pahu drum! 'You sailed through blind mist by the feel of the ocean alone. Now cross to sacred Kiritimati (Song 15) to study the Steadfast Peg with Keeper Akura and provision for the Grand Voyage to ancestral Hawai'i!'",
@@ -619,6 +639,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
 
     if (gameState.completedQuests.kauai_drum) {
       return {
+        voiceId: 'sanctuary_kauai_after_drum',
         title: "Swell Master Pohaku's High Crag Sanctuary",
         speech:
           'Your Pahu drum beats true with the deep ocean ridge. Sail Dusk on Song 15 to Kiritimati and follow the diamond swell refraction beneath its jade lagoon cloud.',
@@ -627,6 +648,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
     }
 
     return {
+      voiceId: 'sanctuary_kauai_trial',
       title: "Swell Master Pohaku's Drum & Pebble Shore",
       speech:
         "Swell Master Pohaku closes his eyes and presses his palm to the wet sand. 'In these mist-seas stars vanish, yet the Great Ocean Swell never lies. Sail at Dawn on Song 14—let the swell lift your port cheek every four drum-beats into O'ahu's calm wave-shadow, and bring back Sacred Miro Drum-Timber!'",
@@ -647,6 +669,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       gameState.saveToLocalStorage();
     }
     return {
+      voiceId: 'sanctuary_oahu_visit',
       title: 'Misty Miro Timber Grove & Hearth',
       speech:
         "Elder Manu helps lash fragrant red miro timber onto your crossbeams. 'Sail back at Dusk on Return Chant 14R: hold the deep swell four beats upon your starboard cheek until Kaua'i's black crag rises above the morning mist!'",
@@ -671,6 +694,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       gameState.saveToLocalStorage();
     }
     return {
+      voiceId: 'sanctuary_kiritimati_visit',
       title: "Keeper Akura's Sacred Star-Mirror Shrine",
       speech:
         "Keeper Akura cradles a still lagoon-water mirror reflecting the Steadfast Peg high above the sea. 'Here across the great waters, the Sea Turtle has sunk out of sight and the Steadfast Peg anchors our night sky! Study the Star-Stone Ring with me on Navigator's Shore, then sing Song 16 at Dawn all the way to ancestral Hawai'i!'",
@@ -689,6 +713,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
     rewardsList.push('Master Navigator Mode Unlocked (Replay any of the 17 Chants!)');
     gameState.saveToLocalStorage();
     return {
+      voiceId: 'sanctuary_hawaii_finale',
       title: 'Council of Ancestral Wayfinders — Great Heiau Ahu',
       speech:
         'Carved stone guardians watch silently over Kealakekua Bay beneath snow-crowned peaks as conch shells echo from cliff to sea. Across both skies—from the spinning Sea Turtle to the unmoving Steadfast Peg—you read cloud, bird, crossbeam shadow, star-house, and four-beat ocean swell. You are named Tupaia-Nui — Master Navigator!',

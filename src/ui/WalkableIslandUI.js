@@ -255,6 +255,7 @@ export class WalkableIslandUI {
     this.sandModalOpen = false;
     this.portraitModalOpen = false;
     this.currentPoi = null;
+    this.callbacks.onStopVoice?.();
     this.rootEl.classList.add('hidden');
   }
 
@@ -755,6 +756,12 @@ export class WalkableIslandUI {
 
     bodyEl.querySelector('#btnWalkSpeakElder').addEventListener('click', () => {
       this.lastSanctuaryResult = interactWithIslandSanctuary(gs);
+      if (
+        this.lastSanctuaryResult?.voiceId &&
+        !(this.lastSanctuaryResult?.newlyRecruitedCrew?.length > 0)
+      ) {
+        this.callbacks.onPlayVoice?.(this.lastSanctuaryResult.voiceId);
+      }
       if (this.lastSanctuaryResult?.clearedObjectives?.length) {
         this.flashClearedObjectives(this.lastSanctuaryResult.clearedObjectives);
       }

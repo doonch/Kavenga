@@ -59,7 +59,20 @@ export class IslandSettingsUI {
             </div>
           </div>
 
-          <!-- 2. Difficulty: The Four Defined Levels -->
+          <!-- 2. Speech On / Off -->
+          <div class="settings-section">
+            <div class="settings-section-label">Speech</div>
+            <div class="settings-sound-toggle">
+              <button class="settings-sound-btn" id="btnSettingsVoiceOn" type="button">
+                🗣️ Speech On
+              </button>
+              <button class="settings-sound-btn" id="btnSettingsVoiceOff" type="button">
+                🔇 Speech Off
+              </button>
+            </div>
+          </div>
+
+          <!-- 3. Difficulty: The Four Defined Levels -->
           <div class="settings-section">
             <div class="settings-section-label">Difficulty &amp; Wayfinder Persona</div>
             <div class="mode-selector-grid" id="settingsDifficultyGrid">
@@ -153,7 +166,23 @@ export class IslandSettingsUI {
         this.refresh();
       });
 
-    // 2. Difficulty level handlers
+    // 2. Speech handlers
+    this.rootEl
+      .querySelector('#btnSettingsVoiceOn')
+      ?.addEventListener('click', (e) => {
+        e.currentTarget.blur();
+        this.callbacks.onSetVoiceEnabled?.(true);
+        this.refresh();
+      });
+    this.rootEl
+      .querySelector('#btnSettingsVoiceOff')
+      ?.addEventListener('click', (e) => {
+        e.currentTarget.blur();
+        this.callbacks.onSetVoiceEnabled?.(false);
+        this.refresh();
+      });
+
+    // 3. Difficulty level handlers
     this.rootEl.querySelectorAll('[data-difficulty]').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.currentTarget.blur();
@@ -250,6 +279,18 @@ export class IslandSettingsUI {
     if (musicOffBtn) {
       musicOffBtn.classList.toggle('active', !musicEnabled);
       musicOffBtn.setAttribute('aria-pressed', String(!musicEnabled));
+    }
+
+    const voiceEnabled = this.callbacks.getIsVoiceEnabled?.() ?? true;
+    const voiceOnBtn = this.rootEl.querySelector('#btnSettingsVoiceOn');
+    const voiceOffBtn = this.rootEl.querySelector('#btnSettingsVoiceOff');
+    if (voiceOnBtn) {
+      voiceOnBtn.classList.toggle('active', voiceEnabled);
+      voiceOnBtn.setAttribute('aria-pressed', String(voiceEnabled));
+    }
+    if (voiceOffBtn) {
+      voiceOffBtn.classList.toggle('active', !voiceEnabled);
+      voiceOffBtn.setAttribute('aria-pressed', String(!voiceEnabled));
     }
 
     this.rootEl.querySelectorAll('[data-difficulty]').forEach((btn) => {

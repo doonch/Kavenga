@@ -489,6 +489,12 @@ export class IslandHubUI {
     const gs = this.callbacks.getGameState();
     if (!gs) return;
     this.lastSanctuaryResult = interactWithIslandSanctuary(gs);
+    if (
+      this.lastSanctuaryResult?.voiceId &&
+      !(this.lastSanctuaryResult?.newlyRecruitedCrew?.length > 0)
+    ) {
+      this.callbacks.onPlayVoice?.(this.lastSanctuaryResult.voiceId);
+    }
     if (this.lastSanctuaryResult?.clearedObjectives?.length) {
       this.flashClearedObjectives(this.lastSanctuaryResult.clearedObjectives);
     }
@@ -673,12 +679,16 @@ export class IslandHubUI {
   hide() {
     this.shoreSandCanvas.stopAnimation();
     this.closePortraitModal();
+    this.callbacks.onStopVoice?.();
     this.rootEl.classList.add('hidden');
   }
 
   switchTab(tabId) {
     const validTabs = ['sanctuary', 'sand', 'vigil', 'landing'];
     const nextTab = validTabs.includes(tabId) ? tabId : 'sanctuary';
+    if (nextTab !== 'sanctuary') {
+      this.callbacks.onStopVoice?.();
+    }
     this.activeTab = nextTab;
 
     this.rootEl.querySelectorAll('.poi-tab-btn').forEach((btn) => {
