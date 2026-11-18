@@ -735,9 +735,13 @@ export class WalkableIslandScene {
 
     const spawn =
       spawnMode === 'vigil' ? this.spec.vigilExitSpawn : this.spec.initialSpawn;
-    this.playerPos.x = spawn.x;
-    this.playerPos.z = spawn.z;
-    this.playerPos.y = Math.max(0.0, this.getGroundHeight(spawn.x, spawn.z));
+    const safeSpawn = this._findStandablePoint(spawn.x, spawn.z);
+    this.playerPos.x = safeSpawn.x;
+    this.playerPos.z = safeSpawn.z;
+    this.playerPos.y = Math.max(
+      0.0,
+      this.getGroundHeight(safeSpawn.x, safeSpawn.z)
+    );
     this.playerYawRad = spawn.facingYawRad;
     this.walkAmount = 0.0;
 
@@ -808,6 +812,40 @@ export class WalkableIslandScene {
     }
   }
 
+  _isInsideObstacle(x, z) {
+    for (let i = 0; i < this.obstacles.length; i += 1) {
+      const ob = this.obstacles[i];
+      if (Math.hypot(x - ob.x, z - ob.z) < ob.r) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  _findStandablePoint(x, z) {
+    const maxWalkRadius = this.gridHalfSpan - 8.0;
+    const isStandable = (px, pz) =>
+      Math.abs(px) <= maxWalkRadius &&
+      Math.abs(pz) <= maxWalkRadius &&
+      this.getGroundHeight(px, pz) >= -0.18 &&
+      !this._isInsideObstacle(px, pz);
+
+    if (isStandable(x, z)) return { x, z };
+
+    // Step inward toward island center (0, 0) to snap offshore spawns onto dry beach
+    const dist = Math.hypot(x, z);
+    if (dist > 0.5) {
+      const ux = -x / dist;
+      const uz = -z / dist;
+      for (let step = 1.0; step <= dist; step += 1.5) {
+        const cx = x + ux * step;
+        const cz = z + uz * step;
+        if (isStandable(cx, cz)) return { x: cx, z: cz };
+      }
+    }
+    return { x, z };
+  }
+
   _tryMovePlayer(dx, dz) {
     if (Math.abs(dx) < 1e-6 && Math.abs(dz) < 1e-6) return 0.0;
 
@@ -821,7 +859,11 @@ export class WalkableIslandScene {
         return false;
       }
       const nh = this.getGroundHeight(nx, nz);
-      if (nh < -0.24) return false;
+      if (curH < -0.24) {
+        if (nh < curH - 0.05) return false;
+      } else if (nh < -0.24) {
+        return false;
+      }
       const stepDist = Math.max(0.05, Math.hypot(nx - startX, nz - startZ));
       const uphillSlope = (nh - curH) / stepDist;
       if (uphillSlope > 0.92 && nh > 14.0) return false;

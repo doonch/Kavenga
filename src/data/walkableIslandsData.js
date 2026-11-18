@@ -630,9 +630,9 @@ export const WALKABLE_ISLAND_SPECS = Object.freeze({
   huahine: makeStandardWalkableSpec({
     islandId: 'huahine',
     solarHourBase: 16.4,
-    canoe: { x: -14.9, z: 63.4 },
-    spawn: { x: -10.4, z: 59.8 },
-    landing: { x: -15.0, z: 57.0 },
+    canoe: { x: -14.9, z: 58.0 },
+    spawn: { x: -8.5, z: 52.5 },
+    landing: { x: -13.5, z: 48.5 },
     hut: { x: -27.0, z: 39.0 },
     circle: { x: 9.0, z: 29.0 },
     elder: { x: 27.0, z: 45.0 },
