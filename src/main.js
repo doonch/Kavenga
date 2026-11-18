@@ -407,6 +407,25 @@ class KavengaApp {
 
     window.addEventListener('resize', () => this._onResize());
 
+    // [DEBUG CHEAT] Shift+G while sailing: direct canoe toward target island & arrive in ~2.4s
+    window.addEventListener('keydown', (e) => {
+      if (e.repeat || !e.shiftKey || e.code !== 'KeyG') return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (
+        this.phase !== 'sailing' ||
+        this.oceanSim.status !== VoyageStatus.SAILING ||
+        this.landfallAnim.active ||
+        this.sailingHud.pauseOpen
+      ) {
+        return;
+      }
+      e.preventDefault();
+      this._resetLaunchAnimation();
+      this.oceanSim.activateDebugTargetHoming(2.4);
+    });
+
     this._lastFrameMs = performance.now();
     this._elapsedAppSec = 0.0;
     this._animate = this._animate.bind(this);

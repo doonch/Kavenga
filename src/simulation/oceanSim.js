@@ -166,6 +166,7 @@ export class OceanSim {
       gameState?.difficulty === Difficulty.MASTER_NAVIGATOR;
     this.verseIndex = 0;
     this.fastForward = false;
+    this.debugAutoSail = { active: false, speedUnitsPerSec: 0.0 };
     this.arrivedIsland = null;
     this.lostReason = '';
     this.reflectionText = '';
@@ -325,6 +326,30 @@ export class OceanSim {
   }
 
   /**
+   * [DEBUG CHEAT] Directs the canoe straight toward the target island at high
+   * speed so it arrives within `arrivalSeconds` (~2-3s). For debugging only.
+   */
+  activateDebugTargetHoming(arrivalSeconds = 2.4) {
+    if (this.status !== VoyageStatus.SAILING || !this.song) return false;
+    const target = this.activeIslands?.[this.song.toIsland];
+    if (!target?.simPos) return false;
+
+    const dx = target.simPos.x - this.pos.x;
+    const dy = target.simPos.y - this.pos.y;
+    const dist = Math.hypot(dx, dy);
+    const bearingDeg = posMod((Math.atan2(dx, dy) * 180.0) / Math.PI, 360.0);
+    this.headingDeg = bearingDeg;
+    this.courseOverGroundDeg = bearingDeg;
+    this.leewayDeg = 0.0;
+    this.fastForward = false;
+    this.debugAutoSail = {
+      active: true,
+      speedUnitsPerSec: Math.max(1.5, dist / Math.max(0.5, arrivalSeconds)),
+    };
+    return true;
+  }
+
+  /**
    * Advances simulation by realDtSec (at 1x; automatically scaled by FAST_FORWARD_MULTIPLIER if active).
    */
   step(realDtSec) {
@@ -337,30 +362,48 @@ export class OceanSim {
     const simDtSec = Math.max(0.0, realDtSec * mult);
     const dtMin = simDtSec / 60.0;
 
-    // 1. Neglected maintenance creep slowly pulls Trim-Lock paddle if condition < 50%
-    const creepDeg =
-      computeMaintenanceCreepDegPerSec(this.minCondition, this.hasHullWright, 1.0) *
-      simDtSec;
-    if (creepDeg !== 0.0) {
-      this.headingDeg = posMod(this.headingDeg + creepDeg, 360.0);
+    if (this.debugAutoSail?.active) {
+      const target = this.activeIslands?.[this.song.toIsland];
+      if (target?.simPos) {
+        const dx = target.simPos.x - this.pos.x;
+        const dy = target.simPos.y - this.pos.y;
+        const bearingDeg = posMod((Math.atan2(dx, dy) * 180.0) / Math.PI, 360.0);
+        this.headingDeg = bearingDeg;
+        this.leewayDeg = 0.0;
+        this.courseOverGroundDeg = bearingDeg;
+        const stepUnits = this.debugAutoSail.speedUnitsPerSec * Math.max(0.0, realDtSec);
+        const cogRad = degToRad(bearingDeg);
+        this.pos.x += Math.sin(cogRad) * stepUnits;
+        this.pos.y += Math.cos(cogRad) * stepUnits;
+      } else {
+        this.debugAutoSail.active = false;
+      }
+    } else {
+      // 1. Neglected maintenance creep slowly pulls Trim-Lock paddle if condition < 50%
+      const creepDeg =
+        computeMaintenanceCreepDegPerSec(this.minCondition, this.hasHullWright, 1.0) *
+        simDtSec;
+      if (creepDeg !== 0.0) {
+        this.headingDeg = posMod(this.headingDeg + creepDeg, 360.0);
+      }
+
+      // 2. Crosswind leeway & Course Over Ground
+      const windFrom = this.getWindFromAz();
+      this.leewayDeg = computeLeewayDeg(
+        this.headingDeg,
+        windFrom,
+        this.hasSailTender,
+        Boolean(this.song.strongCrosswind)
+      );
+      this.courseOverGroundDeg = posMod(this.headingDeg + this.leewayDeg, 360.0);
+
+      // 3. Advance 2D Basin Coordinates (X = East, Y = North)
+      const speedUnitsPerMin =
+        GameConstants.NOMINAL_SPEED_UNITS_PER_MIN * this.speedConditionFactor;
+      const cogRad = degToRad(this.courseOverGroundDeg);
+      this.pos.x += Math.sin(cogRad) * speedUnitsPerMin * dtMin;
+      this.pos.y += Math.cos(cogRad) * speedUnitsPerMin * dtMin;
     }
-
-    // 2. Crosswind leeway & Course Over Ground
-    const windFrom = this.getWindFromAz();
-    this.leewayDeg = computeLeewayDeg(
-      this.headingDeg,
-      windFrom,
-      this.hasSailTender,
-      Boolean(this.song.strongCrosswind)
-    );
-    this.courseOverGroundDeg = posMod(this.headingDeg + this.leewayDeg, 360.0);
-
-    // 3. Advance 2D Basin Coordinates (X = East, Y = North)
-    const speedUnitsPerMin =
-      GameConstants.NOMINAL_SPEED_UNITS_PER_MIN * this.speedConditionFactor;
-    const cogRad = degToRad(this.courseOverGroundDeg);
-    this.pos.x += Math.sin(cogRad) * speedUnitsPerMin * dtMin;
-    this.pos.y += Math.cos(cogRad) * speedUnitsPerMin * dtMin;
     this._appendRouteTracePoint(false);
 
     // 4. Advance Solar Time & Voyage Clock
@@ -438,6 +481,7 @@ export class OceanSim {
         this.status = VoyageStatus.ARRIVED;
         this.arrivedIsland = this.activeIslands[det.islandId];
         this.fastForward = false;
+        this.debugAutoSail = { active: false, speedUnitsPerSec: 0.0 };
         this.events.push({
           type: 'landfall',
           islandId: det.islandId,
