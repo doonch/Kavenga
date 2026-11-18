@@ -164,25 +164,8 @@ export class ChantAndDrumEngine {
     while (this.nextBeatTime < this.ctx.currentTime + lookahead) {
       if (playsSongAtSea(this.difficulty) && !this.activeStemSource) {
         const beatInBar = this.beatCounter % 4;
+        // Keep the 4-beat pahu drum pulse; synthesized chant/flute melody is disabled in favor of BackgroundMusicEngine
         this._triggerPahuDrum(this.nextBeatTime, beatInBar === 0);
-
-        // Harmonic chant phrase on Beat 1 & Beat 3
-        if (beatInBar === 0 || beatInBar === 2) {
-          this._triggerChantVoice(
-            this.nextBeatTime,
-            this.beatCounter,
-            secPerBeat * 1.85
-          );
-        }
-
-        // Vivo nose-flute breath ornament every 2nd bar on Beat 4
-        if (this.beatCounter % 8 === 3 || this.beatCounter % 8 === 7) {
-          this._triggerVivoFlute(
-            this.nextBeatTime + secPerBeat * 0.12,
-            this.beatCounter,
-            secPerBeat * 0.95
-          );
-        }
       }
 
       this.nextBeatTime += secPerBeat;
