@@ -16,6 +16,7 @@
 import * as THREE from 'three';
 import { DepartureWindow, wrapDeg180 } from '../core/gameConstants.js';
 import { ISLANDS } from '../data/islandsData.js';
+import { getWalkableIslandSpec } from '../data/walkableIslandsData.js';
 import { altAzToDirectionVec3 } from '../simulation/celestialSim.js';
 import {
   createSculptedCloudMesh,
@@ -103,6 +104,14 @@ export class ShoreDioramaRenderer {
     // Moored canoe anchor coordinates
     this.mooredCanoePos = new THREE.Vector3(-6.5, 0.0, 52.0);
     this.mooredCanoeYaw = 2.52;
+
+    // Grounded Star-Stone Observation Circle mounted onto each island's knoll
+    this._raycaster = new THREE.Raycaster();
+    this._rayOrigin = new THREE.Vector3();
+    this._rayDown = new THREE.Vector3(0, -1, 0);
+    this.observatoryPos = new THREE.Vector3(0.0, 4.0, 18.0);
+    this.observatoryRingGroup = this._buildObservatoryRingGroup();
+    this.islandMount.add(this.observatoryRingGroup);
 
     // Smooth Spherical Camera State + User Orbit Override
     this.targetCenter = new THREE.Vector3(0, 8, 22);
@@ -216,6 +225,170 @@ export class ShoreDioramaRenderer {
     });
   }
 
+  _buildObservatoryRingGroup() {
+    const grp = new THREE.Group();
+    const coralMat = new THREE.MeshStandardMaterial({
+      color: 0xe6d4ae,
+      roughness: 0.92,
+      metalness: 0.02,
+    });
+    const basaltMat = new THREE.MeshStandardMaterial({
+      color: 0x353941,
+      roughness: 0.88,
+      metalness: 0.05,
+    });
+    const grooveMat = new THREE.MeshBasicMaterial({
+      color: 0x9b8259,
+      side: THREE.DoubleSide,
+    });
+    const aitoMat = new THREE.MeshStandardMaterial({
+      color: 0x5c3a21,
+      roughness: 0.85,
+    });
+
+    const sandPad = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.55, 1.75, 0.22, 24),
+      coralMat
+    );
+    sandPad.position.y = 0.04;
+    sandPad.receiveShadow = true;
+    grp.add(sandPad);
+
+    for (const sr of [0.48, 0.92, 1.28]) {
+      const groove = new THREE.Mesh(
+        new THREE.RingGeometry(sr - 0.025, sr + 0.025, 28),
+        grooveMat
+      );
+      groove.rotation.x = -Math.PI * 0.5;
+      groove.position.y = 0.16;
+      grp.add(groove);
+    }
+
+    const centerPou = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.04, 0.055, 1.05, 7),
+      aitoMat
+    );
+    centerPou.position.y = 0.62;
+    centerPou.castShadow = true;
+    grp.add(centerPou);
+
+    for (let s = 0; s < 6; s += 1) {
+      const sAng = (s / 6) * Math.PI * 2.0 + 0.52;
+      const stone = new THREE.Mesh(
+        new THREE.BoxGeometry(0.36, 0.96, 0.24),
+        basaltMat
+      );
+      stone.position.set(
+        Math.cos(sAng) * 1.95,
+        0.44,
+        Math.sin(sAng) * 1.95
+      );
+      stone.rotation.y = -sAng + Math.PI * 0.5;
+      stone.castShadow = true;
+      stone.receiveShadow = true;
+      grp.add(stone);
+    }
+
+    return grp;
+  }
+
+  _findTerrainMesh(assemblyGroup) {
+    if (!assemblyGroup) return null;
+    let terrainMesh = null;
+    let maxVerts = 0;
+    assemblyGroup.traverse((obj) => {
+      if (
+        obj.isMesh &&
+        obj.geometry?.index &&
+        obj.geometry?.getAttribute('color')
+      ) {
+        const cnt = obj.geometry.getAttribute('position').count;
+        if (cnt > maxVerts) {
+          maxVerts = cnt;
+          terrainMesh = obj;
+        }
+      }
+    });
+    return terrainMesh;
+  }
+
+  _sampleTerrainHeight(terrainMesh, x, z) {
+    if (!terrainMesh) return null;
+    for (const [ox, oz] of [
+      [0, 0],
+      [0.25, 0],
+      [-0.25, 0],
+      [0, 0.25],
+      [0, -0.25],
+    ]) {
+      this._rayOrigin.set(x + ox, 220.0, z + oz);
+      this._raycaster.set(this._rayOrigin, this._rayDown);
+      const hits = this._raycaster.intersectObject(terrainMesh, false);
+      if (hits.length > 0) return hits[0].point.y;
+    }
+    return null;
+  }
+
+  _resolveAccessibleKnollPosition(asmGroup, islandId, shoreR) {
+    const wSpec = getWalkableIslandSpec(islandId);
+    const scale = wSpec?.canonicalScale ?? 1.55;
+    const circlePoi = wSpec?.pois?.find((p) => p.kind === 'circle');
+    const terrainMesh = this._findTerrainMesh(asmGroup);
+
+    let ox = circlePoi ? circlePoi.x / scale : 4.5;
+    let oz = circlePoi ? circlePoi.z / scale : shoreR * 0.45;
+    if (!terrainMesh) {
+      return new THREE.Vector3(ox, 2.0, oz);
+    }
+
+    const evalSpot = (x, z) => {
+      const h = this._sampleTerrainHeight(terrainMesh, x, z);
+      if (h === null || h < 0.35) return null;
+      let maxDiff = 0.0;
+      for (const [dx, dz] of [
+        [1.5, 0],
+        [-1.5, 0],
+        [0, 1.5],
+        [0, -1.5],
+      ]) {
+        const nh = this._sampleTerrainHeight(terrainMesh, x + dx, z + dz);
+        if (nh === null || nh < 0.1) return null;
+        maxDiff = Math.max(maxDiff, Math.abs(nh - h));
+      }
+      const slope = maxDiff / 1.5;
+      return { x, y: h, z, slope };
+    };
+
+    const primary = evalSpot(ox, oz);
+    if (primary) {
+      return new THREE.Vector3(primary.x, primary.y, primary.z);
+    }
+
+    // Search seaward-facing hillside/bluff arc for an accessible, unobstructed hilltop
+    let best = primary;
+    let bestScore = primary ? primary.y * 0.4 - primary.slope * 10.0 : -999.0;
+    for (let rFrac = 0.32; rFrac <= 0.78; rFrac += 0.09) {
+      const r = shoreR * rFrac;
+      for (let deg = -55; deg <= 55; deg += 15) {
+        const rad = (deg * Math.PI) / 180.0;
+        const cx = Math.sin(rad) * r;
+        const cz = Math.cos(rad) * r;
+        const cand = evalSpot(cx, cz);
+        if (!cand || cand.slope > 0.75) continue;
+        const score = Math.min(cand.y, 18.0) * 0.45 - cand.slope * 10.0;
+        if (score > bestScore) {
+          bestScore = score;
+          best = cand;
+        }
+      }
+    }
+
+    if (best) {
+      return new THREE.Vector3(best.x, best.y, best.z);
+    }
+    return new THREE.Vector3(ox, 2.0, oz);
+  }
+
   _getOrCreateCanonicalAssembly(islandId) {
     if (!hasDetailedIslandModel(islandId)) return null;
     if (!this._assemblyCache[islandId]) {
@@ -269,6 +442,16 @@ export class ShoreDioramaRenderer {
     this.mooredCanoePos.set(canoeOffsetSide, 0.0, canoeZ);
     // Angle bows (-Z local) outward-quartering toward the open ocean horizon (+Z/+X)
     this.mooredCanoeYaw = 2.48;
+
+    // Position the Observation Circle on an accessible, unobstructed hillside/bluff
+    if (asm?.group) {
+      asm.group.updateMatrixWorld(true);
+    }
+    this.observatoryPos.copy(
+      this._resolveAccessibleKnollPosition(asm?.group, resolvedId, shoreR)
+    );
+    this.observatoryRingGroup.position.copy(this.observatoryPos);
+    this.observatoryRingGroup.visible = true;
   }
 
   _computeStationPreset(stationId) {
@@ -306,14 +489,22 @@ export class ShoreDioramaRenderer {
     }
 
     if (stationId === 'vigil') {
-      // Evening coral-indigo twilight zoomed onto the coastal observation knoll
+      // Evening coral-indigo twilight zoomed directly onto the Star-Stone Observation Circle
+      const aimTheta = clamp(
+        Math.atan2(
+          this.observatoryPos.x,
+          Math.max(8.0, this.observatoryPos.z)
+        ) * 0.75,
+        -0.55,
+        0.55
+      );
       return {
-        cx: isWide ? -6.0 : 4.5,
-        cy: isAtoll ? 5.2 : Math.min(22.0, peakH * 0.28 + 5.5),
-        cz: shoreR * 0.34,
-        theta: -0.36,
-        phi: 0.20,
-        dist: shoreR * 1.18 + 22.0 + wideBoost * 0.48,
+        cx: this.observatoryPos.x,
+        cy: this.observatoryPos.y + 1.1,
+        cz: this.observatoryPos.z,
+        theta: aimTheta,
+        phi: 0.28,
+        dist: isWide ? 24.0 : 18.0,
         solarHour: 18.78,
       };
     }
