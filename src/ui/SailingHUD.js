@@ -247,7 +247,7 @@ export class SailingHUD {
       if (this.rootEl.classList.contains('hidden')) return;
       if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
       if (!e.shiftKey && e.code === 'KeyX') {
-        this.callbacks.onLookAstern?.();
+        this.callbacks.onToggleFreeLook?.();
       } else if (!e.shiftKey && e.code === 'KeyZ') {
         this.callbacks.onLookZenith?.();
       } else if (!e.shiftKey && e.code === 'KeyF') {
