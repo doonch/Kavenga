@@ -1409,6 +1409,7 @@ class KnownOceanMapApp {
           <div class="inspector-sub">${isl.subtitle} · ${basin ? basin.name : ''}</div>
         </div>
         <div style="display:flex;gap:4px;">
+          <button id="btn-visit-selected" class="icon-btn visit-btn" title="Visit ${escapeHtml(isl.name)} (Landfall Approach)">Visit</button>
           <button id="btn-focus-selected" class="icon-btn" title="Zoom to Island">Zoom</button>
           <button id="btn-clear-selected" class="icon-btn" title="Back to Overview">✕</button>
         </div>
@@ -1418,6 +1419,14 @@ class KnownOceanMapApp {
       ${routesHtml}
     `;
 
+    const visitBtn = document.getElementById('btn-visit-selected');
+    if (visitBtn) {
+      visitBtn.addEventListener('click', () => {
+        window.location.assign(
+          `./index.html?mode=landfall&island=${encodeURIComponent(isl.id)}`
+        );
+      });
+    }
     const focusBtn = document.getElementById('btn-focus-selected');
     if (focusBtn) {
       focusBtn.addEventListener('click', () => {
