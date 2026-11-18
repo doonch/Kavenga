@@ -46,7 +46,20 @@ export class IslandSettingsUI {
             <button class="walkable-close-btn" id="btnCloseIslandSettings" type="button" title="Close Settings (Esc)">✕</button>
           </div>
 
-          <!-- 1. Difficulty: The Four Defined Levels -->
+          <!-- 1. Background Music On / Off -->
+          <div class="settings-section">
+            <div class="settings-section-label">Background Music</div>
+            <div class="settings-sound-toggle">
+              <button class="settings-sound-btn" id="btnSettingsMusicOn" type="button">
+                🎵 Music On
+              </button>
+              <button class="settings-sound-btn" id="btnSettingsMusicOff" type="button">
+                🔇 Music Off
+              </button>
+            </div>
+          </div>
+
+          <!-- 2. Difficulty: The Four Defined Levels -->
           <div class="settings-section">
             <div class="settings-section-label">Difficulty &amp; Wayfinder Persona</div>
             <div class="mode-selector-grid" id="settingsDifficultyGrid">
@@ -124,7 +137,23 @@ export class IslandSettingsUI {
       }
     });
 
-    // 1. Difficulty level handlers
+    // 1. Background Music handlers
+    this.rootEl
+      .querySelector('#btnSettingsMusicOn')
+      ?.addEventListener('click', (e) => {
+        e.currentTarget.blur();
+        this.callbacks.onSetMusicEnabled?.(true);
+        this.refresh();
+      });
+    this.rootEl
+      .querySelector('#btnSettingsMusicOff')
+      ?.addEventListener('click', (e) => {
+        e.currentTarget.blur();
+        this.callbacks.onSetMusicEnabled?.(false);
+        this.refresh();
+      });
+
+    // 2. Difficulty level handlers
     this.rootEl.querySelectorAll('[data-difficulty]').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.currentTarget.blur();
@@ -210,6 +239,18 @@ export class IslandSettingsUI {
   refresh() {
     const gs = this.callbacks.getGameState?.();
     const diff = gs?.difficulty || Difficulty.MEDIUM;
+    const musicEnabled = this.callbacks.getIsMusicEnabled?.() ?? true;
+
+    const musicOnBtn = this.rootEl.querySelector('#btnSettingsMusicOn');
+    const musicOffBtn = this.rootEl.querySelector('#btnSettingsMusicOff');
+    if (musicOnBtn) {
+      musicOnBtn.classList.toggle('active', musicEnabled);
+      musicOnBtn.setAttribute('aria-pressed', String(musicEnabled));
+    }
+    if (musicOffBtn) {
+      musicOffBtn.classList.toggle('active', !musicEnabled);
+      musicOffBtn.setAttribute('aria-pressed', String(!musicEnabled));
+    }
 
     this.rootEl.querySelectorAll('[data-difficulty]').forEach((btn) => {
       btn.classList.toggle(

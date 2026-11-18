@@ -7,6 +7,7 @@
  */
 
 import * as THREE from 'three';
+import { BackgroundMusicEngine } from './audio/BackgroundMusicEngine.js';
 import { ChantAndDrumEngine } from './audio/ChantAndDrumEngine.js';
 import { SpatialSeaAudio } from './audio/SpatialSeaAudio.js';
 import { AchievementsManager } from './core/achievementsManager.js';
@@ -180,6 +181,9 @@ class KavengaApp {
     // 3. Web Audio Engines
     this.chantEngine = new ChantAndDrumEngine();
     this.spatialAudio = new SpatialSeaAudio(this.chantEngine);
+    this.musicEngine = new BackgroundMusicEngine({
+      discoveredIslands: this.gameState.discoveredIslands,
+    });
 
     // 4. UI Layers
     this.achievementsUI = new AchievementsUI(this.achievementsRootEl, {
@@ -196,6 +200,8 @@ class KavengaApp {
 
     this.islandSettingsUI = new IslandSettingsUI(this.settingsRootEl, {
       getGameState: () => this.gameState,
+      getIsMusicEnabled: () => this.musicEngine.enabled,
+      onSetMusicEnabled: (enabled) => this.setMusicEnabled(enabled),
       onChangeDifficulty: (mode) => this.setDifficulty(mode),
       onConfirmStartOver: (opts) => this.resetCampaignAndReload(opts),
       onClose: () => {
@@ -350,6 +356,7 @@ class KavengaApp {
     //   ?mode=landfall&island=<id>&window=dawn|midday|dusk|midnight&lead=<sec>
     //   ?mode=launch&island=<id>&window=dawn|midday|dusk|midnight
     this._checkStartupUrlParams();
+    this.musicEngine.start();
 
     // On a brand-new campaign (or after Start Over), toast the initial arrival objective ashore
     if (startObjId && this.phase === 'shore') {
@@ -1005,6 +1012,13 @@ class KavengaApp {
     this._refreshShoreOverlays();
   }
 
+  setMusicEnabled(enabled) {
+    this.musicEngine.setEnabled(enabled);
+    if (this.phase === 'shore' && this.islandSettingsUI.isOpen()) {
+      this.islandSettingsUI.refresh();
+    }
+  }
+
   setSoundMuted(muted) {
     const nextMuted = Boolean(muted);
     this.chantEngine.setMuted(nextMuted);
@@ -1204,7 +1218,12 @@ class KavengaApp {
         this._pendingObjectiveIds.add(def.id);
       }
     }
+    const wasNewIsland = !this.gameState.discoveredIslands?.[arrivedId];
     onVoyageLandfall(this.gameState, arrivedId);
+    this.musicEngine.onIslandLandfall(arrivedId, {
+      wasNewlyDiscovered: wasNewIsland,
+      discoveredIslands: this.gameState.discoveredIslands,
+    });
     this.achievementsManager.evaluateLandfall(
       this.oceanSim,
       this.gameState,
@@ -1407,15 +1426,21 @@ class KavengaApp {
         } else if (ev.type === 'landfall') {
           this._logVoyageDebugMapUrl(ev);
           this.chantEngine.playLandfallConch();
+          const wasNewIsland = !this.gameState.discoveredIslands?.[ev.islandId];
+          const nextDiscovered = {
+            ...this.gameState.discoveredIslands,
+            [ev.islandId]: true,
+          };
+          this.musicEngine.onIslandLandfall(ev.islandId, {
+            wasNewlyDiscovered: wasNewIsland,
+            discoveredIslands: nextDiscovered,
+          });
           this.achievementsManager.evaluateLandfall(
             this.oceanSim,
             {
               difficulty: this.gameState.difficulty,
               currentBasinId: this.gameState.currentBasinId,
-              discoveredIslands: {
-                ...this.gameState.discoveredIslands,
-                [ev.islandId]: true,
-              },
+              discoveredIslands: nextDiscovered,
             },
             ev.islandId
           );
