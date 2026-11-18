@@ -3418,6 +3418,15 @@ body {
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
 }
 
+.crew-splash-portrait-wrap.wide {
+  width: min(350px, 82vw);
+  height: 220px;
+}
+
+.crew-splash-portrait-wrap.wide .crew-splash-portrait {
+  object-position: center center;
+}
+
 .crew-splash-portrait {
   width: 100%;
   height: 100%;

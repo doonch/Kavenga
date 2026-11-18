@@ -1084,6 +1084,10 @@ class KavengaApp {
       this._pendingPostCrewSplashVoiceId = sanctuaryResult?.voiceId || null;
       this.crewSplashUI.enqueue(sanctuaryResult.newlyRecruitedCrew);
     }
+    if (sanctuaryResult?.newlyUpgradedVakaTier === 3) {
+      this._pendingPostCrewSplashVoiceId = sanctuaryResult?.voiceId || null;
+      this.crewSplashUI.enqueueVakaUpgrade(3);
+    }
     this.achievementsManager.evaluateAshoreState(
       this.gameState,
       this.gameState.currentIslandId

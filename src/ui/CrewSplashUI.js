@@ -68,8 +68,13 @@ export class CrewSplashUI {
   enqueue(crewIds) {
     const ids = Array.isArray(crewIds) ? crewIds : [crewIds];
     for (const id of ids) {
-      if (id && CREW_CATALOG[id] && !this._queue.includes(id) && this._activeCrewId !== id) {
-        this._queue.push(id);
+      if (
+        id &&
+        CREW_CATALOG[id] &&
+        !this._queue.some((item) => item.kind === 'crew' && item.id === id) &&
+        this._activeCrewId !== id
+      ) {
+        this._queue.push({ kind: 'crew', id });
       }
     }
     if (!this.isOpen() && this._queue.length > 0) {
@@ -77,18 +82,58 @@ export class CrewSplashUI {
     }
   }
 
+  enqueueVakaUpgrade(tier = 3) {
+    if (tier !== 3) return;
+    const key = `vaka_tier_${tier}`;
+    if (
+      !this._queue.some((item) => item.kind === 'vaka' && item.id === key) &&
+      this._activeCrewId !== key
+    ) {
+      this._queue.push({ kind: 'vaka', id: key, tier });
+    }
+    if (!this.isOpen() && this._queue.length > 0) {
+      this._showNext();
+    }
+  }
+
   _showNext() {
-    const nextId = this._queue.shift();
-    if (!nextId) {
+    const nextItem = this._queue.shift();
+    if (!nextItem) {
       this.hide();
       return;
     }
-    const cr = CREW_CATALOG[nextId];
+
+    const wrapEl = this.rootEl.querySelector('.crew-splash-portrait-wrap');
+    const imgEl = this.rootEl.querySelector('#crewSplashPortrait');
+    const btnEl = this.rootEl.querySelector('#btnDismissCrewSplash');
+
+    if (nextItem.kind === 'vaka') {
+      this._activeCrewId = nextItem.id;
+      this.rootEl.querySelector('#crewSplashEyebrow').textContent =
+        "Canoe Upgrade · Fatu Hiva";
+      this.rootEl.querySelector('#crewSplashTitle').textContent =
+        'Your Vaka Moana is Complete!';
+      this.rootEl.querySelector('#crewSplashRole').textContent =
+        'Double-Sail Deep-Ocean Voyaging Canoe';
+      wrapEl?.classList.add('wide');
+      imgEl.src = './assets/vaka_moana.jpg';
+      imgEl.alt = 'Double-hulled, double-sail Polynesian Vaka Moana';
+      this.rootEl.querySelector('#crewSplashTrait').textContent =
+        'Oihanu’s builders have stepped a second woven pandanus crab-claw sail and lashed twin deep-sea hulls—expanding your deck to 8 cargo slots and restoring 100% hull, sail, and lashing condition for the mist crossings ahead.';
+      if (btnEl) btnEl.textContent = 'Set Sail on the Vaka Moana';
+
+      this.rootEl.classList.remove('hidden');
+      this.backdropEl.classList.remove('hidden');
+      this.callbacks.onShown?.(nextItem.id);
+      return;
+    }
+
+    const cr = CREW_CATALOG[nextItem.id];
     if (!cr) {
       this._showNext();
       return;
     }
-    this._activeCrewId = nextId;
+    this._activeCrewId = nextItem.id;
     const homeIsl = ISLANDS[cr.homeIslandId];
 
     this.rootEl.querySelector('#crewSplashEyebrow').textContent = homeIsl
@@ -98,15 +143,16 @@ export class CrewSplashUI {
       `${cr.name} has joined your crew!`;
     this.rootEl.querySelector('#crewSplashRole').textContent = cr.role;
 
-    const imgEl = this.rootEl.querySelector('#crewSplashPortrait');
+    wrapEl?.classList.remove('wide');
     imgEl.src = cr.portrait || '';
     imgEl.alt = `${cr.name} · ${cr.role}`;
 
     this.rootEl.querySelector('#crewSplashTrait').textContent = cr.traitText;
+    if (btnEl) btnEl.textContent = 'Welcome Aboard';
 
     this.rootEl.classList.remove('hidden');
     this.backdropEl.classList.remove('hidden');
-    this.callbacks.onShown?.(nextId);
+    this.callbacks.onShown?.(nextItem.id);
   }
 
   dismiss() {

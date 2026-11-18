@@ -758,7 +758,8 @@ export class WalkableIslandUI {
       this.lastSanctuaryResult = interactWithIslandSanctuary(gs);
       if (
         this.lastSanctuaryResult?.voiceId &&
-        !(this.lastSanctuaryResult?.newlyRecruitedCrew?.length > 0)
+        !(this.lastSanctuaryResult?.newlyRecruitedCrew?.length > 0) &&
+        this.lastSanctuaryResult?.newlyUpgradedVakaTier !== 3
       ) {
         this.callbacks.onPlayVoice?.(this.lastSanctuaryResult.voiceId);
       }
