@@ -22,6 +22,12 @@ export function clearOnboardingDone() {
 
 const TOUR_STEPS = Object.freeze([
   {
+    selector: null,
+    title: 'Welcome to Kavenga!',
+    body: "Your adventure starts in the island of Ra'iatea.",
+    preferSide: 'center',
+  },
+  {
     selector: '#hubObjectivesCard',
     title: 'Objectives',
     body: 'Track your objectives here.',
@@ -193,7 +199,7 @@ export class OnboardingTourUI {
     }
 
     this._clearHighlight();
-    const target = document.querySelector(step.selector);
+    const target = step.selector ? document.querySelector(step.selector) : null;
     if (target) {
       target.classList.add('onboarding-highlight');
       this._highlightedEl = target;
@@ -213,33 +219,39 @@ export class OnboardingTourUI {
     const step = TOUR_STEPS[this.stepIndex];
     if (!card || !step) return;
 
-    const target = document.querySelector(step.selector);
+    const target = step.selector ? document.querySelector(step.selector) : null;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const margin = 14;
+    const cw = card.offsetWidth || 300;
+    const ch = card.offsetHeight || 130;
 
     if (!target || target.classList.contains('hidden')) {
       if (spotlight) {
-        spotlight.style.left = `${vw * 0.5}px`;
-        spotlight.style.top = `${vh * 0.5}px`;
+        spotlight.classList.add('no-target');
+        spotlight.style.left = '-20px';
+        spotlight.style.top = '-20px';
         spotlight.style.width = '0px';
         spotlight.style.height = '0px';
       }
-      card.style.left = `${Math.max(margin, (vw - card.offsetWidth) * 0.5)}px`;
-      card.style.top = `${Math.max(margin, vh - card.offsetHeight - 24)}px`;
+      card.style.left = `${Math.round(Math.max(margin, (vw - cw) * 0.5))}px`;
+      card.style.top = `${Math.round(
+        step.preferSide === 'center'
+          ? Math.max(margin, (vh - ch) * 0.5)
+          : Math.max(margin, vh - ch - 24)
+      )}px`;
       return;
     }
 
     const rect = target.getBoundingClientRect();
     if (spotlight) {
+      spotlight.classList.remove('no-target');
       const pad = 6;
       spotlight.style.left = `${Math.round(rect.left - pad)}px`;
       spotlight.style.top = `${Math.round(rect.top - pad)}px`;
       spotlight.style.width = `${Math.round(rect.width + pad * 2)}px`;
       spotlight.style.height = `${Math.round(rect.height + pad * 2)}px`;
     }
-    const cw = card.offsetWidth || 290;
-    const ch = card.offsetHeight || 130;
 
     let left = rect.left;
     let top = rect.bottom + margin;

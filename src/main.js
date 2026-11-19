@@ -414,17 +414,15 @@ class KavengaApp {
         delayMs: 320,
         playSound: false,
         onRevealed: () => {
-          setTimeout(() => {
-            if (
-              !hasSavedProgress &&
-              !hasUrlOverride &&
-              this.phase === 'shore' &&
-              !this.walkableIslandScene.active &&
-              this.gameState.currentIslandId === 'raiatea'
-            ) {
-              this.onboardingTourUI.startIfFirstTime();
-            }
-          }, 480);
+          if (
+            !hasSavedProgress &&
+            !hasUrlOverride &&
+            this.phase === 'shore' &&
+            !this.walkableIslandScene.active &&
+            this.gameState.currentIslandId === 'raiatea'
+          ) {
+            this.onboardingTourUI.startIfFirstTime();
+          }
         },
       });
     } else if (startObjId) {

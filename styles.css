@@ -3472,6 +3472,10 @@ body {
   transition: left 0.2s ease, top 0.2s ease, width 0.2s ease, height 0.2s ease;
 }
 
+.onboarding-spotlight.no-target {
+  box-shadow: 0 0 0 9999px rgba(4, 9, 16, 0.64);
+}
+
 .onboarding-card {
   position: fixed;
   z-index: 642;
