@@ -64,6 +64,8 @@ import { IslandSettingsUI } from './ui/IslandSettingsUI.js';
 import {
   clearOnboardingDone,
   OnboardingTourUI,
+  SAILING_ONBOARDING_STORAGE_KEY,
+  SAILING_TOUR_STEPS,
 } from './ui/OnboardingTourUI.js';
 import { SailingHUD } from './ui/SailingHUD.js?v=20261119h';
 import { SkyVigilUI } from './ui/SkyVigilUI.js';
@@ -89,6 +91,7 @@ class KavengaApp {
     this.btnShoreOpenSettings = document.getElementById('btnShoreOpenSettings');
     this.settingsRootEl = document.getElementById('island-settings-ui');
     this.onboardingRootEl = document.getElementById('onboarding-tour-ui');
+    this.sailingTourRootEl = document.getElementById('sailing-tour-ui');
     this.elderPromptRootEl = document.getElementById('elder-vigil-prompt-ui');
     this.achievementsRootEl = document.getElementById('achievements-ui');
 
@@ -113,7 +116,8 @@ class KavengaApp {
     }
     this.achievementsManager = new AchievementsManager();
     this.oceanSim = new OceanSim();
-    this.phase = 'shore'; // 'shore' | 'sailing' | 'sky_vigil'
+    this.phase = 'shore';
+    this.sailingTourUI?.hide(); // 'shore' | 'sailing' | 'sky_vigil'
     this._enteredVigilFromWalkMode = false;
 
     // ~2.15s 3D Landfall Arrival Cinematic state (canoe glides to island edge; camera pulls back & up)
@@ -240,6 +244,12 @@ class KavengaApp {
     });
 
     this.onboardingTourUI = new OnboardingTourUI(this.onboardingRootEl);
+    this.sailingTourUI = new OnboardingTourUI(this.sailingTourRootEl, {
+      steps: SAILING_TOUR_STEPS,
+      storageKey: SAILING_ONBOARDING_STORAGE_KEY,
+      ariaLabel: 'Sailing Interface Tour',
+      hideHubOnStepZero: false,
+    });
 
     this.islandSettingsUI = new IslandSettingsUI(this.settingsRootEl, {
       getGameState: () => this.gameState,
@@ -938,6 +948,7 @@ class KavengaApp {
     transitionFromCam = null,
   } = {}) {
     this.phase = 'shore';
+    this.sailingTourUI?.hide();
     const newlyActivatedArrival = activateIslandArrivalObjective(
       this.gameState,
       this.gameState.currentIslandId
@@ -1192,6 +1203,7 @@ class KavengaApp {
 
   resetCampaignAndReload({ deleteAchievements = false } = {}) {
     this.onboardingTourUI?.hide();
+    this.sailingTourUI?.hide();
     clearOnboardingDone();
     this.islandSettingsUI.hide();
     this.achievementsUI.hideModal();
@@ -1211,6 +1223,7 @@ class KavengaApp {
 
   enterSkyVigil(opts = {}) {
     this.onboardingTourUI?.hide();
+    this.sailingTourUI?.hide();
     this._enteredVigilFromWalkMode = Boolean(this.walkableIslandScene.active);
     this.islandSettingsUI.hide();
     this.achievementsUI.hideModal();
@@ -1449,6 +1462,7 @@ class KavengaApp {
       this.phase === 'sailing' &&
       this.oceanSim.status === VoyageStatus.SAILING &&
       !this.sailingHud.pauseOpen &&
+      !this.sailingTourUI?.open &&
       !this.launchAnim.active;
 
     if (this.phase === 'shore' && this.walkableIslandScene.active) {
@@ -1809,6 +1823,12 @@ class KavengaApp {
 
     if (this.launchAnim.active && this.launchAnim.rawT >= 0.999) {
       this._resetLaunchAnimation();
+      if (
+        this.phase === 'sailing' &&
+        this.oceanSim.status === VoyageStatus.SAILING
+      ) {
+        this.sailingTourUI?.startIfFirstTime();
+      }
     }
 
     if (this.phase === 'sailing') {

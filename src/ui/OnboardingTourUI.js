@@ -9,11 +9,13 @@
  */
 
 export const ONBOARDING_STORAGE_KEY = 'kavenga_onboarding_done_v1';
+export const SAILING_ONBOARDING_STORAGE_KEY = 'kavenga_sailing_onboarding_done_v1';
 
 export function clearOnboardingDone() {
   try {
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem(ONBOARDING_STORAGE_KEY);
+      localStorage.removeItem(SAILING_ONBOARDING_STORAGE_KEY);
     }
   } catch {
     // Ignore storage errors in restricted contexts
@@ -53,9 +55,60 @@ const TOUR_STEPS = Object.freeze([
   },
 ]);
 
+export const SAILING_TOUR_STEPS = Object.freeze([
+  {
+    selector: null,
+    title: 'Into the Open Sea',
+    body: 'Welcome aboard! Navigate by sun, stars, clouds, birds, and swells—with zero maps or compasses.',
+    preferSide: 'center',
+  },
+  {
+    selector: '#hudChantBanner',
+    title: 'Route Chant',
+    body: "Follow your navigator's chant and cues here as each leg of the voyage unfolds.",
+    preferSide: 'bottom',
+  },
+  {
+    selector: '.hud-trim-bar',
+    title: 'Steering the Vaka',
+    body: 'Use A / D, Arrow keys, or these buttons to turn the steering sweep and lock your course.',
+    preferSide: 'top',
+  },
+  {
+    selector: '#btnCameraView',
+    title: 'Views & Gaze',
+    body: 'Toggle Canoe / Deck View (V), drag to look around, or press X (astern) and Z (mast-top).',
+    preferSide: 'bottom',
+  },
+  {
+    selector: '#btnFastForward',
+    title: 'Fast Wind',
+    body: 'Press F or click Fast Wind to speed up sailing once your course is set.',
+    preferSide: 'bottom',
+  },
+  {
+    selector: '#btnRecall',
+    title: 'Sand Recall',
+    body: 'Press R or click Recall anytime to review the shore sand lesson.',
+    preferSide: 'bottom',
+  },
+]);
+
 export class OnboardingTourUI {
-  constructor(rootEl) {
+  constructor(
+    rootEl,
+    {
+      steps = TOUR_STEPS,
+      storageKey = ONBOARDING_STORAGE_KEY,
+      ariaLabel = 'Interface Tour',
+      hideHubOnStepZero = true,
+    } = {}
+  ) {
     this.rootEl = rootEl;
+    this.steps = steps;
+    this.storageKey = storageKey;
+    this.ariaLabel = ariaLabel;
+    this.hideHubOnStepZero = Boolean(hideHubOnStepZero);
     this.open = false;
     this.stepIndex = 0;
     this._highlightedEl = null;
@@ -65,7 +118,7 @@ export class OnboardingTourUI {
 
   _buildDOM() {
     this.rootEl.innerHTML = `
-      <div class="onboarding-tour-layer" id="onboardingTourLayer" role="dialog" aria-live="polite" aria-label="Interface Tour">
+      <div class="onboarding-tour-layer" id="onboardingTourLayer" role="dialog" aria-live="polite" aria-label="${this.ariaLabel}">
         <div class="onboarding-spotlight" id="onboardingSpotlight" aria-hidden="true"></div>
         <div class="onboarding-card" id="onboardingTourCard">
           <div class="onboarding-card-head">
@@ -105,7 +158,7 @@ export class OnboardingTourUI {
       .querySelector('#btnOnboardingNext')
       .addEventListener('click', (e) => {
         e.currentTarget.blur();
-        if (this.stepIndex + 1 < TOUR_STEPS.length) {
+        if (this.stepIndex + 1 < this.steps.length) {
           this.stepIndex += 1;
           this._renderStep();
         } else {
@@ -131,7 +184,7 @@ export class OnboardingTourUI {
   hasCompleted() {
     try {
       if (typeof localStorage === 'undefined') return false;
-      return localStorage.getItem(ONBOARDING_STORAGE_KEY) === '1';
+      return localStorage.getItem(this.storageKey) === '1';
     } catch {
       return false;
     }
@@ -140,7 +193,7 @@ export class OnboardingTourUI {
   _markCompleted() {
     try {
       if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(ONBOARDING_STORAGE_KEY, '1');
+        localStorage.setItem(this.storageKey, '1');
       }
     } catch {
       // Ignore storage errors in restricted contexts
@@ -170,6 +223,7 @@ export class OnboardingTourUI {
   }
 
   _syncHubVisibility() {
+    if (!this.hideHubOnStepZero) return;
     const hubShell = document.querySelector('.island-hub-shell');
     if (!hubShell) return;
     const shouldHide = this.open && this.stepIndex < 1;
@@ -184,7 +238,7 @@ export class OnboardingTourUI {
   }
 
   _renderStep() {
-    const step = TOUR_STEPS[this.stepIndex];
+    const step = this.steps[this.stepIndex];
     if (!step) {
       this.finish();
       return;
@@ -197,11 +251,11 @@ export class OnboardingTourUI {
     const nextBtn = this.rootEl.querySelector('#btnOnboardingNext');
     backBtn.classList.toggle('hidden', this.stepIndex === 0);
     nextBtn.textContent =
-      this.stepIndex + 1 >= TOUR_STEPS.length ? 'Got It' : 'Next';
+      this.stepIndex + 1 >= this.steps.length ? 'Got It' : 'Next';
 
     const dotsEl = this.rootEl.querySelector('#onboardingDots');
     dotsEl.innerHTML = '';
-    for (let i = 0; i < TOUR_STEPS.length; i += 1) {
+    for (let i = 0; i < this.steps.length; i += 1) {
       const dot = document.createElement('span');
       dot.className = `onboarding-dot${i === this.stepIndex ? ' active' : i < this.stepIndex ? ' done' : ''}`;
       dotsEl.appendChild(dot);
@@ -226,7 +280,7 @@ export class OnboardingTourUI {
   _positionCard() {
     const card = this.rootEl.querySelector('#onboardingTourCard');
     const spotlight = this.rootEl.querySelector('#onboardingSpotlight');
-    const step = TOUR_STEPS[this.stepIndex];
+    const step = this.steps[this.stepIndex];
     if (!card || !step) return;
 
     const target = step.selector ? document.querySelector(step.selector) : null;
