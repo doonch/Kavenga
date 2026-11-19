@@ -23,6 +23,7 @@ export const BASE_MUSIC_TRACKS = Object.freeze([
  * Add future island-specific tracks here.
  */
 export const ISLAND_MUSIC_TRACKS = Object.freeze({
+  maupiti: 'kaukauwa_ni_koro',
   hawaii: 'hawaii',
 });
 
