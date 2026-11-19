@@ -147,7 +147,13 @@ export class SailingHUD {
           <div class="mist-eyebrow">The Sea-Mist Closes In</div>
           <h2>Drifted Beyond the Star Path</h2>
           <p class="mist-reflection" id="lostReflectionText"></p>
-          <button class="primary-btn" id="btnRestoreFromMist">Return to Shore (Before Departure)</button>
+          <div class="lost-map-wrap hidden" id="lostMapWrap">
+            <canvas class="lost-route-canvas" id="lostRouteCanvas" width="360" height="220"></canvas>
+          </div>
+          <div class="dialog-actions lost-mist-actions">
+            <button class="secondary-btn" id="btnLostHowDidIDo" type="button">How did I do?</button>
+            <button class="primary-btn" id="btnRestoreFromMist">Return to Shore (Before Departure)</button>
+          </div>
         </div>
       </div>
 
@@ -208,6 +214,19 @@ export class SailingHUD {
         this.callbacks.onRestorePreVoyage?.();
       });
     this.rootEl
+      .querySelector('#btnLostHowDidIDo')
+      .addEventListener('click', () => {
+        const wrap = this.rootEl.querySelector('#lostMapWrap');
+        const btn = this.rootEl.querySelector('#btnLostHowDidIDo');
+        if (!wrap || !btn) return;
+        const nextOpen = wrap.classList.contains('hidden');
+        wrap.classList.toggle('hidden', !nextOpen);
+        btn.textContent = nextOpen ? 'Hide Path' : 'How did I do?';
+        if (nextOpen) {
+          this._renderLostRouteMap();
+        }
+      });
+    this.rootEl
       .querySelector('#btnRestoreFromMist')
       .addEventListener('click', () => {
         this.callbacks.onRestorePreVoyage?.();
@@ -266,7 +285,122 @@ export class SailingHUD {
     this.setRecallModal(false);
     this.setPauseModal(false);
     this.rootEl.querySelector('#lostMistOverlay').classList.add('hidden');
+    this.rootEl.querySelector('#lostMapWrap')?.classList.add('hidden');
+    const howBtn = this.rootEl.querySelector('#btnLostHowDidIDo');
+    if (howBtn) howBtn.textContent = 'How did I do?';
     this.rootEl.querySelector('#landfallOverlay').classList.add('hidden');
+  }
+
+  _renderLostRouteMap() {
+    const canvas = this.rootEl.querySelector('#lostRouteCanvas');
+    const oceanSim = this.callbacks.getOceanSim?.();
+    if (!canvas || !oceanSim) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
+    bgGrad.addColorStop(0, '#071726');
+    bgGrad.addColorStop(1, '#0c2338');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    const fromIsl = oceanSim.activeIslands?.[oceanSim.song?.fromIsland];
+    const toIsl = oceanSim.activeIslands?.[oceanSim.song?.toIsland];
+    const trace = Array.isArray(oceanSim.routeTrace) ? oceanSim.routeTrace : [];
+
+    const pts = [...trace];
+    if (fromIsl?.simPos) pts.push(fromIsl.simPos);
+    if (toIsl?.simPos) pts.push(toIsl.simPos);
+    if (pts.length === 0) return;
+
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const p of pts) {
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    }
+
+    const spanX = Math.max(2.0, maxX - minX);
+    const spanY = Math.max(2.0, maxY - minY);
+    const pad = 34;
+    const scale = Math.min((w - pad * 2) / spanX, (h - pad * 2) / spanY);
+    const midX = (minX + maxX) * 0.5;
+    const midY = (minY + maxY) * 0.5;
+    const toPx = (p) => ({
+      x: w * 0.5 + (p.x - midX) * scale,
+      y: h * 0.5 - (p.y - midY) * scale,
+    });
+
+    // Subtle dashed direct line from origin to target
+    if (fromIsl?.simPos && toIsl?.simPos) {
+      const a = toPx(fromIsl.simPos);
+      const b = toPx(toIsl.simPos);
+      ctx.save();
+      ctx.setLineDash([4, 5]);
+      ctx.strokeStyle = 'rgba(232, 198, 142, 0.28)';
+      ctx.lineWidth = 1.25;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Sailed path marked in red
+    if (trace.length > 0) {
+      ctx.save();
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 2.6;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      trace.forEach((pt, idx) => {
+        const c = toPx(pt);
+        if (idx === 0) ctx.moveTo(c.x, c.y);
+        else ctx.lineTo(c.x, c.y);
+      });
+      ctx.stroke();
+
+      const endPt = toPx(trace[trace.length - 1]);
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.arc(endPt.x, endPt.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    const drawIslandMarker = (isl, color, ringColor = null) => {
+      if (!isl?.simPos) return;
+      const p = toPx(isl.simPos);
+      if (ringColor) {
+        ctx.strokeStyle = ringColor;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.font = '600 11px system-ui, -apple-system, sans-serif';
+      ctx.fillStyle = '#f4efe6';
+      ctx.textAlign = 'center';
+      const labelY = p.y - 11 < 14 ? p.y + 18 : p.y - 11;
+      ctx.fillText(isl.name || isl.id, p.x, labelY);
+    };
+
+    drawIslandMarker(fromIsl, '#f4d35e');
+    drawIslandMarker(toIsl, '#3ef0d0', 'rgba(62, 240, 208, 0.4)');
   }
 
   hide() {
@@ -442,6 +576,9 @@ export class SailingHUD {
         oceanSim.reflectionText;
     } else {
       lostOverlay.classList.add('hidden');
+      this.rootEl.querySelector('#lostMapWrap')?.classList.add('hidden');
+      const howBtn = this.rootEl.querySelector('#btnLostHowDidIDo');
+      if (howBtn) howBtn.textContent = 'How did I do?';
     }
 
     // Hide sailing chrome cleanly during bird's-eye launch departure & landfall arrival cinematics

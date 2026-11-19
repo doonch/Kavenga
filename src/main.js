@@ -65,7 +65,7 @@ import {
   clearOnboardingDone,
   OnboardingTourUI,
 } from './ui/OnboardingTourUI.js';
-import { SailingHUD } from './ui/SailingHUD.js';
+import { SailingHUD } from './ui/SailingHUD.js?v=20261119h';
 import { SkyVigilUI } from './ui/SkyVigilUI.js';
 import { WalkableIslandUI } from './ui/WalkableIslandUI.js';
 
