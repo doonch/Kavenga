@@ -146,7 +146,7 @@ export class AchievementsManager {
    * Unlocks `achievementId` if not already earned, persists to storage, notifies listeners,
    * and returns the enriched unlock entry (or `null` if already unlocked / invalid).
    */
-  unlock(achievementId, { difficulty = Difficulty.MEDIUM, islandId = null, basinId = null } = {}) {
+  unlock(achievementId, { difficulty = Difficulty.EASY, islandId = null, basinId = null } = {}) {
     const def = ACHIEVEMENTS[achievementId];
     if (!def || this.unlocked[achievementId]) {
       return null;
@@ -157,7 +157,7 @@ export class AchievementsManager {
     const record = {
       id: achievementId,
       unlockedAtIso: this._nowFn(),
-      difficulty: difficulty || Difficulty.MEDIUM,
+      difficulty: difficulty || Difficulty.EASY,
       islandId: islandId || null,
       basinId: resolvedBasinId,
     };
@@ -191,7 +191,7 @@ export class AchievementsManager {
     if (!event || !oceanSim) return [];
     const newlyUnlocked = [];
     const meta = {
-      difficulty: gameState?.difficulty || Difficulty.MEDIUM,
+      difficulty: gameState?.difficulty || Difficulty.EASY,
       islandId: null,
       basinId: oceanSim.basin?.id || gameState?.currentBasinId || null,
     };
@@ -232,7 +232,7 @@ export class AchievementsManager {
       oceanSim?. sailedPureMasterNavigator === false &&
       gameState.difficulty === Difficulty.MASTER_NAVIGATOR
         ? Difficulty.HARD
-        : gameState.difficulty || Difficulty.MEDIUM;
+        : gameState.difficulty || Difficulty.EASY;
 
     const meta = {
       difficulty: effectiveDifficulty,
@@ -322,7 +322,7 @@ export class AchievementsManager {
     const newlyUnlocked = [];
     const resolvedIsl = islandId || gameState.currentIslandId || null;
     const meta = {
-      difficulty: gameState.difficulty || Difficulty.MEDIUM,
+      difficulty: gameState.difficulty || Difficulty.EASY,
       islandId: resolvedIsl,
       basinId:
         (resolvedIsl && ISLANDS[resolvedIsl]?.basinId) ||
@@ -362,7 +362,7 @@ export class AchievementsManager {
     if (streakCount < 5) return [];
     const resolvedIsl = islandId || gameState?.currentIslandId || null;
     const u = this.unlock('eye_trial_streak_5', {
-      difficulty: gameState?.difficulty || Difficulty.MEDIUM,
+      difficulty: gameState?.difficulty || Difficulty.EASY,
       islandId: resolvedIsl,
       basinId:
         (resolvedIsl && ISLANDS[resolvedIsl]?.basinId) ||

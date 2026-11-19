@@ -267,7 +267,7 @@ export class IslandSettingsUI {
 
   refresh() {
     const gs = this.callbacks.getGameState?.();
-    const diff = gs?.difficulty || Difficulty.MEDIUM;
+    const diff = gs?.difficulty || Difficulty.EASY;
     const musicEnabled = this.callbacks.getIsMusicEnabled?.() ?? true;
 
     const musicOnBtn = this.rootEl.querySelector('#btnSettingsMusicOn');

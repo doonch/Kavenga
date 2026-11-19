@@ -9,7 +9,7 @@ const STORAGE_KEY = 'kavenga_campaign_save_v1';
 
 export class GameState {
   constructor() {
-    this.difficulty = Difficulty.MEDIUM;
+    this.difficulty = Difficulty.EASY;
     this.masterReplayUnlocked = false;
 
     this.currentBasinId = 'act1_raiatea';
@@ -217,7 +217,7 @@ export class GameState {
       migratedDiscovered[mapIsl(k)] = v;
     }
 
-    this.difficulty = data.difficulty ?? Difficulty.MEDIUM;
+    this.difficulty = data.difficulty ?? Difficulty.EASY;
     this.masterReplayUnlocked = Boolean(data.masterReplayUnlocked);
     this.currentBasinId = data.currentBasinId ?? 'act1_raiatea';
     this.currentIslandId = mapIsl(data.currentIslandId ?? 'raiatea');
