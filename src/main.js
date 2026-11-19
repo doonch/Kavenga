@@ -405,23 +405,26 @@ class KavengaApp {
     this.musicEngine.start();
 
     // On a brand-new campaign (or after Start Over), toast the initial arrival objective ashore
+    // and start the onboarding tour immediately alongside it
     if (startObjId && this.phase === 'shore') {
       const hasUrlOverride =
         typeof window !== 'undefined' &&
         (new URLSearchParams(window.location.search).has('mode') ||
           new URLSearchParams(window.location.search).has('walk'));
+      const canStartTour =
+        !hasSavedProgress &&
+        !hasUrlOverride &&
+        !this.walkableIslandScene.active &&
+        this.gameState.currentIslandId === 'raiatea';
+      if (canStartTour) {
+        this.onboardingTourUI.startIfFirstTime();
+      }
       this._announceNewObjectives([OBJECTIVES[startObjId]], {
         delayMs: 320,
         playSound: false,
         onRevealed: () => {
-          if (
-            !hasSavedProgress &&
-            !hasUrlOverride &&
-            this.phase === 'shore' &&
-            !this.walkableIslandScene.active &&
-            this.gameState.currentIslandId === 'raiatea'
-          ) {
-            this.onboardingTourUI.startIfFirstTime();
+          if (this.onboardingTourUI?.open) {
+            this.onboardingTourUI._positionCard();
           }
         },
       });
@@ -921,6 +924,7 @@ class KavengaApp {
   _enterShoreMode({
     hubDefaultTab = null,
     suppressArrivalToast = false,
+    transitionFromCam = null,
   } = {}) {
     this.phase = 'shore';
     const newlyActivatedArrival = activateIslandArrivalObjective(
@@ -955,6 +959,7 @@ class KavengaApp {
       islandId: this.gameState.currentIslandId,
       stationId: this.islandHub.activeTab,
       selectedDeparture: this.islandHub.selectedDeparture,
+      transitionFromCam,
     });
     this._syncShoreTopControls();
 
@@ -1060,12 +1065,20 @@ class KavengaApp {
   exitWalkableShoreMode(activePoi = null) {
     if (this.phase !== 'shore') return;
     this.cameraCtrl.keysDown.clear();
+    let transitionFromCam = null;
+    if (this.walkableIslandScene.active && this.cameraCtrl?.camera) {
+      const pos = this.cameraCtrl.camera.position.clone();
+      const dir = new THREE.Vector3();
+      this.cameraCtrl.camera.getWorldDirection(dir);
+      const lookAt = pos.clone().addScaledVector(dir, 14.0);
+      transitionFromCam = { pos, lookAt };
+    }
     const preferredTab =
       activePoi?.hubTab &&
       ['sanctuary', 'sand', 'vigil', 'landing'].includes(activePoi.hubTab)
         ? activePoi.hubTab
         : null;
-    this._enterShoreMode({ hubDefaultTab: preferredTab });
+    this._enterShoreMode({ hubDefaultTab: preferredTab, transitionFromCam });
   }
 
   openIslandSettings() {

@@ -3589,6 +3589,4 @@ body {
   outline: 2px solid #f4d35e !important;
   outline-offset: 3px;
   box-shadow: 0 0 0 4px rgba(244, 211, 94, 0.24), 0 0 18px rgba(244, 211, 94, 0.35) !important;
-  position: relative;
-  z-index: 635;
 }

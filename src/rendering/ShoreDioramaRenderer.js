@@ -544,13 +544,28 @@ export class ShoreDioramaRenderer {
     islandId,
     stationId = 'sanctuary',
     selectedDeparture = DepartureWindow.DAWN,
+    transitionFromCam = null,
   } = {}) {
     this.selectedDeparture = selectedDeparture || DepartureWindow.DAWN;
     const isSameIsland = this.active && this.currentIslandId === islandId;
     this._mountIsland(islandId);
     this.active = true;
     this.root.visible = true;
-    this._applyStationPreset(stationId, !isSameIsland);
+    if (transitionFromCam?.pos) {
+      this._applyStationPreset(stationId, false);
+      const center = transitionFromCam.lookAt
+        ? transitionFromCam.lookAt.clone()
+        : this.targetCenter.clone();
+      const off = transitionFromCam.pos.clone().sub(center);
+      const dist = Math.max(8.0, off.length());
+      const horiz = Math.max(0.001, Math.hypot(off.x, off.z));
+      this.curCenter.copy(center);
+      this.curDist = dist;
+      this.curPhi = Math.max(0.04, Math.min(1.15, Math.atan2(off.y, horiz)));
+      this.curTheta = Math.atan2(off.x, off.z);
+    } else {
+      this._applyStationPreset(stationId, !isSameIsland);
+    }
   }
 
   setStation(stationId, selectedDeparture) {

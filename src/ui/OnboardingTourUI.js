@@ -24,14 +24,8 @@ const TOUR_STEPS = Object.freeze([
   {
     selector: null,
     title: 'Welcome to Kavenga!',
-    body: "Your adventure starts in the island of Ra'iatea.",
+    body: "Your adventure starts in the island of Ra'iatea. Let's look around and see what you can do.",
     preferSide: 'center',
-  },
-  {
-    selector: '#hubObjectivesCard',
-    title: 'Objectives',
-    body: 'Track your objectives here.',
-    preferSide: 'bottom',
   },
   {
     selector: '.hub-poi-tabs',
@@ -50,6 +44,12 @@ const TOUR_STEPS = Object.freeze([
     title: 'Walk Shore',
     body: 'Explore the island on foot.',
     preferSide: 'top',
+  },
+  {
+    selector: '#hubObjectivesCard',
+    title: 'Objectives',
+    body: 'Track your objectives here.',
+    preferSide: 'bottom',
   },
 ]);
 
@@ -163,8 +163,17 @@ export class OnboardingTourUI {
 
   hide() {
     this.open = false;
+    this._syncHubVisibility();
+    this._syncHubVisibility();
     this._clearHighlight();
     this.rootEl.classList.add('hidden');
+  }
+
+  _syncHubVisibility() {
+    const hubShell = document.querySelector('.island-hub-shell');
+    if (!hubShell) return;
+    const shouldHide = this.open && this.stepIndex < 1;
+    hubShell.classList.toggle('hidden', shouldHide);
   }
 
   _clearHighlight() {
@@ -198,6 +207,7 @@ export class OnboardingTourUI {
       dotsEl.appendChild(dot);
     }
 
+    this._syncHubVisibility();
     this._clearHighlight();
     const target = step.selector ? document.querySelector(step.selector) : null;
     if (target) {
@@ -259,6 +269,9 @@ export class OnboardingTourUI {
     if (step.preferSide === 'left' && rect.left - cw - margin >= margin) {
       left = rect.left - cw - margin;
       top = rect.top + Math.max(0, (rect.height - ch) * 0.5);
+    } else if (step.preferSide === 'top' && rect.top - ch - margin >= margin) {
+      left = rect.left;
+      top = rect.top - ch - margin;
     } else if (rect.bottom + ch + margin <= vh - margin) {
       left = Math.min(rect.right - cw, rect.left);
       if (left < margin) left = rect.left;
