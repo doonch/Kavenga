@@ -3447,3 +3447,123 @@ body {
   width: 100%;
   margin-top: 2px;
 }
+
+/* -------------------------------------------------------------------------- */
+/* First-Time Shore Onboarding Tour (Lightweight Coachmark Overlay)           */
+/* -------------------------------------------------------------------------- */
+
+.onboarding-tour-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 640;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.onboarding-spotlight {
+  position: fixed;
+  z-index: 641;
+  border-radius: 10px;
+  pointer-events: none;
+  box-shadow:
+    0 0 0 9999px rgba(4, 9, 16, 0.64),
+    0 0 0 2px #f4d35e,
+    0 0 20px rgba(244, 211, 94, 0.35);
+  transition: left 0.2s ease, top 0.2s ease, width 0.2s ease, height 0.2s ease;
+}
+
+.onboarding-card {
+  position: fixed;
+  z-index: 642;
+  width: min(300px, calc(100vw - 28px));
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(11, 23, 34, 0.94);
+  border: 1.5px solid rgba(244, 211, 94, 0.65);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  color: #f4efe6;
+  pointer-events: auto;
+  backdrop-filter: blur(8px);
+}
+
+.onboarding-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.onboarding-card-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #f4d35e;
+}
+
+.onboarding-skip-btn {
+  background: transparent;
+  border: none;
+  color: rgba(244, 239, 230, 0.68);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.onboarding-skip-btn:hover {
+  color: #f4efe6;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.onboarding-card-body {
+  margin: 0 0 12px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: #e4edf5;
+}
+
+.onboarding-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.onboarding-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.onboarding-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(244, 239, 230, 0.25);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.onboarding-dot.done {
+  background: rgba(244, 211, 94, 0.55);
+}
+
+.onboarding-dot.active {
+  background: #f4d35e;
+  transform: scale(1.25);
+}
+
+.onboarding-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.onboarding-highlight {
+  outline: 2px solid #f4d35e !important;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px rgba(244, 211, 94, 0.24), 0 0 18px rgba(244, 211, 94, 0.35) !important;
+  position: relative;
+  z-index: 635;
+}

@@ -66,7 +66,7 @@ export class IslandHubUI {
         <div class="shore-viewport-overlay">
           <section class="shore-objectives-card hidden" id="hubObjectivesCard" aria-live="polite">
             <button class="shore-objectives-header" id="btnToggleHubObjectives" type="button">
-              <span class="shore-objectives-heading" id="hubObjectivesHeading">✦ Objectives Ashore</span>
+              <span class="shore-objectives-heading" id="hubObjectivesHeading">✦ Objectives</span>
               <span class="shore-objectives-chevron" id="hubObjectivesChevron">▾</span>
             </button>
             <div class="shore-objectives-list" id="hubObjectivesList"></div>
@@ -551,7 +551,7 @@ export class IslandHubUI {
     if (headEl) {
       headEl.textContent =
         activeItems.length > 0
-          ? `✦ Objectives Ashore (${activeItems.length})`
+          ? `✦ Objectives (${activeItems.length})`
           : '✦ Objective Cleared';
     }
     if (chevEl) {

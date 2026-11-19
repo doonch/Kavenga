@@ -61,6 +61,10 @@ import { CrewSplashUI } from './ui/CrewSplashUI.js';
 import { ElderVigilPromptUI } from './ui/ElderVigilPromptUI.js';
 import { IslandHubUI } from './ui/IslandHubUI.js';
 import { IslandSettingsUI } from './ui/IslandSettingsUI.js';
+import {
+  clearOnboardingDone,
+  OnboardingTourUI,
+} from './ui/OnboardingTourUI.js';
 import { SailingHUD } from './ui/SailingHUD.js';
 import { SkyVigilUI } from './ui/SkyVigilUI.js';
 import { WalkableIslandUI } from './ui/WalkableIslandUI.js';
@@ -84,6 +88,7 @@ class KavengaApp {
     );
     this.btnShoreOpenSettings = document.getElementById('btnShoreOpenSettings');
     this.settingsRootEl = document.getElementById('island-settings-ui');
+    this.onboardingRootEl = document.getElementById('onboarding-tour-ui');
     this.elderPromptRootEl = document.getElementById('elder-vigil-prompt-ui');
     this.achievementsRootEl = document.getElementById('achievements-ui');
 
@@ -222,6 +227,8 @@ class KavengaApp {
         }
       },
     });
+
+    this.onboardingTourUI = new OnboardingTourUI(this.onboardingRootEl);
 
     this.islandSettingsUI = new IslandSettingsUI(this.settingsRootEl, {
       getGameState: () => this.gameState,
@@ -399,9 +406,26 @@ class KavengaApp {
 
     // On a brand-new campaign (or after Start Over), toast the initial arrival objective ashore
     if (startObjId && this.phase === 'shore') {
+      const hasUrlOverride =
+        typeof window !== 'undefined' &&
+        (new URLSearchParams(window.location.search).has('mode') ||
+          new URLSearchParams(window.location.search).has('walk'));
       this._announceNewObjectives([OBJECTIVES[startObjId]], {
         delayMs: 320,
         playSound: false,
+        onRevealed: () => {
+          setTimeout(() => {
+            if (
+              !hasSavedProgress &&
+              !hasUrlOverride &&
+              this.phase === 'shore' &&
+              !this.walkableIslandScene.active &&
+              this.gameState.currentIslandId === 'raiatea'
+            ) {
+              this.onboardingTourUI.startIfFirstTime();
+            }
+          }, 480);
+        },
       });
     } else if (startObjId) {
       this._pendingObjectiveIds.delete(startObjId);
@@ -843,7 +867,7 @@ class KavengaApp {
 
   _announceNewObjectives(
     objectiveDefs,
-    { delayMs = 0, playSound = true } = {}
+    { delayMs = 0, playSound = true, onRevealed = null } = {}
   ) {
     if (!Array.isArray(objectiveDefs) || objectiveDefs.length === 0) return;
     const freshList = objectiveDefs.filter(
@@ -856,11 +880,16 @@ class KavengaApp {
       this._pendingObjectiveIds.add(def.id);
     }
 
+    let remaining = freshList.length;
     const revealObjective = (def) => {
       if (!def?.id) return;
       this._pendingObjectiveIds.delete(def.id);
       this._newlyRevealedObjectiveIds.add(def.id);
       this._refreshShoreOverlays();
+      remaining -= 1;
+      if (remaining <= 0) {
+        onRevealed?.();
+      }
     };
 
     const emitNow = () => {
@@ -1008,6 +1037,7 @@ class KavengaApp {
   }
 
   enterWalkableShoreMode({ spawnMode = 'canoe' } = {}) {
+    this.onboardingTourUI?.hide();
     if (
       this.phase !== 'shore' ||
       !canWalkIsland(this.gameState.currentIslandId)
@@ -1138,6 +1168,8 @@ class KavengaApp {
   }
 
   resetCampaignAndReload({ deleteAchievements = false } = {}) {
+    this.onboardingTourUI?.hide();
+    clearOnboardingDone();
     this.islandSettingsUI.hide();
     this.achievementsUI.hideModal();
     this.crewSplashUI.hide();
@@ -1154,6 +1186,7 @@ class KavengaApp {
   }
 
   enterSkyVigil(opts = {}) {
+    this.onboardingTourUI?.hide();
     this._enteredVigilFromWalkMode = Boolean(this.walkableIslandScene.active);
     this.islandSettingsUI.hide();
     this.achievementsUI.hideModal();
@@ -1241,6 +1274,7 @@ class KavengaApp {
   }
 
   launchVoyage(song, departureWindow) {
+    this.onboardingTourUI?.hide();
     // Snapshot pre-voyage state so Lost at Sea / Return to Shore restores cleanly with zero loss!
     this.gameState.savePreVoyageSnapshot();
     this._enteredVigilFromWalkMode = false;

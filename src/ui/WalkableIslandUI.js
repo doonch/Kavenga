@@ -83,7 +83,7 @@ export class WalkableIslandUI {
             <!-- Ashore Active Objectives Tracker (strictly island-only; never shown while sailing) -->
             <section class="shore-objectives-card hidden" id="walkObjectivesCard" aria-live="polite">
               <button class="shore-objectives-header" id="btnToggleWalkObjectives" type="button">
-                <span class="shore-objectives-heading">✦ Objectives Ashore</span>
+                <span class="shore-objectives-heading">✦ Objectives</span>
                 <span class="shore-objectives-chevron" id="walkObjectivesChevron">▾</span>
               </button>
               <div class="shore-objectives-list" id="walkObjectivesList"></div>
