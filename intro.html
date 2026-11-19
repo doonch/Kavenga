@@ -212,12 +212,47 @@
       border-color: #e7b563;
       transform: translateY(-1px);
     }
+
+    .intro-skip-pill {
+      position: fixed;
+      top: 16px;
+      left: 20px;
+      z-index: 6;
+      pointer-events: auto;
+      padding: 8px 16px;
+      border-radius: 999px;
+      background: rgba(9, 21, 35, 0.72);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(231, 181, 99, 0.42);
+      color: #f3e3c3;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.34);
+      transition: border-color 0.16s ease, background 0.16s ease, transform 0.12s ease;
+    }
+
+    .intro-skip-pill:hover,
+    .intro-skip-pill:focus-visible {
+      background: rgba(15, 33, 52, 0.9);
+      border-color: #e7b563;
+      transform: translateY(-1px);
+      outline: none;
+    }
   </style>
 </head>
 <body>
   <div id="intro-webgl"></div>
 
-  <audio id="intro-theme-audio" src="./assets/audio/tide.mp3" preload="auto" loop autoplay playsinline></audio>
+  <audio id="intro-theme-audio" src="./assets/audio/tide.mp3" preload="auto" loop playsinline></audio>
+  <a id="btn-intro-skip" href="./index.html" class="intro-skip-pill" title="Skip Intro to Game">Skip →</a>
   <button id="btn-intro-audio" class="intro-audio-btn" type="button" title="Toggle Theme Audio" aria-label="Toggle Theme Audio">🔊</button>
 
   <div class="intro-overlay">
@@ -245,7 +280,17 @@
       const btn = document.getElementById('btn-intro-audio');
       if (!audio || !btn) return;
 
-      let userMuted = false;
+      const isMainGameAudioOff = () => {
+        try {
+          if (localStorage.getItem('kavenga_audio_muted_v1') === '1') return true;
+          if (localStorage.getItem('kavenga_music_enabled_v1') === 'false') return true;
+        } catch {
+          // Ignore storage errors
+        }
+        return false;
+      };
+
+      let userMuted = isMainGameAudioOff();
 
       const syncBtn = () => {
         const isAudible = !audio.paused && !audio.muted && !userMuted;
@@ -298,6 +343,7 @@
 
       audio.addEventListener('play', syncBtn);
       audio.addEventListener('pause', syncBtn);
+      syncBtn();
       tryPlay();
     })();
   </script>
