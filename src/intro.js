@@ -119,6 +119,17 @@ class KavengaIntroDirector {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.06;
+    this._webglContextLost = false;
+    this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      this._webglContextLost = true;
+    });
+    this.renderer.domElement.addEventListener('webglcontextrestored', () => {
+      this._webglContextLost = false;
+    });
+    window.addEventListener('pagehide', () => {
+      this.renderer?.dispose();
+    });
     this.container.appendChild(this.renderer.domElement);
 
     // Build fully upgraded Tier-3 Vaka Moana state with the Wayfinder (`Difficulty.MEDIUM`)
@@ -725,7 +736,9 @@ class KavengaIntroDirector {
     // 4. Trigger title & Start button overlays
     this._updateOverlays(t);
 
-    this.renderer.render(this.scene, this.camera);
+    if (!this._webglContextLost) {
+      this.renderer.render(this.scene, this.camera);
+    }
     requestAnimationFrame(this._tick);
   }
 }

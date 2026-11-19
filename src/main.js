@@ -161,6 +161,17 @@ class KavengaApp {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this._webglContextLost = false;
+    this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      this._webglContextLost = true;
+    });
+    this.renderer.domElement.addEventListener('webglcontextrestored', () => {
+      this._webglContextLost = false;
+    });
+    window.addEventListener('pagehide', () => {
+      this.renderer?.dispose();
+    });
     this.container.appendChild(this.renderer.domElement);
 
     this.scene = new THREE.Scene();
@@ -1193,6 +1204,7 @@ class KavengaApp {
       this.achievementsManager.clearSavedAchievements();
     }
     if (typeof window !== 'undefined') {
+      this.renderer?.dispose();
       window.location.assign(window.location.pathname || './');
     }
   }
@@ -1809,7 +1821,9 @@ class KavengaApp {
       );
     }
 
-    this.renderer.render(this.scene, this.cameraCtrl.camera);
+    if (!this._webglContextLost) {
+      this.renderer.render(this.scene, this.cameraCtrl.camera);
+    }
     window.requestAnimationFrame(this._animate);
   }
 }
