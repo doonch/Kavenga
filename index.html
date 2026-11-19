@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="./assets/icons/favicon-32.png" />
   <link rel="icon" type="image/png" sizes="64x64" href="./assets/icons/favicon-64.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="./assets/icons/apple-touch-icon.png" />
-  <link rel="stylesheet" href="./styles.css?v=20261118w" />
+  <link rel="stylesheet" href="./styles.css?v=20261119a" />
   <script type="importmap">
     {
       "imports": {
@@ -66,17 +66,19 @@
   <!-- Unified 3D Shore Diorama & 4-Station Docked Panel -->
   <div id="island-hub"></div>
 
+  <!-- Bottom-Left Walk / Shore Mode Toggle -->
+  <button
+    class="island-settings-btn shore-walk-fab hub-walk-opt-btn hidden"
+    id="btnShoreWalkToggle"
+    type="button"
+    title="Walk Shore in 3rd-person (Arrow Keys / WASD)"
+    aria-label="Walk Shore"
+  >
+    <span id="shoreWalkGlyph" aria-hidden="true">🚶</span>
+  </button>
+
   <!-- Shared Ashore Top-Right Icon Controls (outside Hub & Walk UI) -->
   <div id="shore-top-controls" class="shore-top-controls hidden" aria-label="Shore Controls">
-    <button
-      class="island-settings-btn shore-icon-btn hub-walk-opt-btn hidden"
-      id="btnShoreWalkToggle"
-      type="button"
-      title="Walk Shore in 3rd-person (Arrow Keys / WASD)"
-      aria-label="Walk Shore"
-    >
-      <span id="shoreWalkGlyph" aria-hidden="true">🚶</span>
-    </button>
     <button
       class="island-settings-btn shore-icon-btn"
       id="btnShoreToggleSound"
@@ -121,6 +123,6 @@
   <!-- Global Celebration Banners (Sea & Shore) + Ashore Achievements Gallery Modal -->
   <div id="achievements-ui"></div>
 
-  <script type="module" src="./src/main.js?v=20261118x"></script>
+  <script type="module" src="./src/main.js?v=20261119a"></script>
 </body>
 </html>

@@ -993,6 +993,7 @@ class KavengaApp {
     if (!this.shoreTopControlsEl) return;
     if (this.phase !== 'shore') {
       this.shoreTopControlsEl.classList.add('hidden');
+      this.btnShoreWalkToggle?.classList.add('hidden');
       return;
     }
     this.shoreTopControlsEl.classList.remove('hidden');

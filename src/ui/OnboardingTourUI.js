@@ -49,7 +49,7 @@ const TOUR_STEPS = Object.freeze([
     selector: '#btnShoreWalkToggle',
     title: 'Walk Shore',
     body: 'Explore the island on foot.',
-    preferSide: 'bottom',
+    preferSide: 'top',
   },
 ]);
 
