@@ -59,7 +59,7 @@ import {
 import { AchievementsUI } from './ui/AchievementsUI.js';
 import { CrewSplashUI } from './ui/CrewSplashUI.js';
 import { ElderVigilPromptUI } from './ui/ElderVigilPromptUI.js';
-import { IslandHubUI } from './ui/IslandHubUI.js';
+import { IslandHubUI } from './ui/IslandHubUI.js?v=20261119m';
 import { IslandSettingsUI } from './ui/IslandSettingsUI.js';
 import {
   clearOnboardingDone,
@@ -68,7 +68,7 @@ import {
   SAILING_TOUR_STEPS,
   TAHAA_CLOUD_TOUR_STEPS,
   TAHAA_CLOUD_TOUR_STORAGE_KEY,
-} from './ui/OnboardingTourUI.js';
+} from './ui/OnboardingTourUI.js?v=20261119m';
 import { SailingHUD } from './ui/SailingHUD.js?v=20261119h';
 import { SkyVigilUI } from './ui/SkyVigilUI.js';
 import { WalkableIslandUI } from './ui/WalkableIslandUI.js';

@@ -55,6 +55,7 @@ export class IslandHubUI {
     this.orbitCustomized = false;
     this._lightboxMentor = null;
     this._userPickedRoute = false;
+    this._userPickedDeparture = false;
 
     this._buildDOM();
   }
@@ -458,6 +459,7 @@ export class IslandHubUI {
     // Departure window buttons (also live-preview tide-light in ShoreDioramaRenderer!)
     this.rootEl.querySelectorAll('.dep-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
+        this._userPickedDeparture = true;
         this.selectedDeparture = btn.getAttribute('data-window');
         this._refreshRoutePanel();
         this.callbacks.onDepartureChanged?.(this.selectedDeparture);
@@ -504,6 +506,7 @@ export class IslandHubUI {
     const defaultRoute = this._getDefaultRoute(routes);
     if (defaultRoute) {
       this._userPickedRoute = false;
+      this._userPickedDeparture = false;
       this.selectedSongId = defaultRoute.song.id;
       this.selectedDeparture = defaultRoute.song.recommendedDeparture;
     }
@@ -658,14 +661,18 @@ export class IslandHubUI {
       this.selectedSongId = null;
       this.selectedLessonId = null;
       this._userPickedRoute = false;
+      this._userPickedDeparture = false;
     }
 
     // Ensure selectedDeparture matches the default available song if not yet picked
     const routes = this._getAvailableRoutes();
     const defaultRoute = this._getDefaultRoute(routes);
     if (defaultRoute && !this._userPickedRoute) {
+      const changedSong = this.selectedSongId !== defaultRoute.song.id;
       this.selectedSongId = defaultRoute.song.id;
-      this.selectedDeparture = defaultRoute.song.recommendedDeparture;
+      if (changedSong || !this._userPickedDeparture) {
+        this.selectedDeparture = defaultRoute.song.recommendedDeparture;
+      }
     }
 
     this.rootEl.querySelector('#hubCareenFeedback').textContent = '';
@@ -1436,8 +1443,11 @@ export class IslandHubUI {
       !routes.some((r) => r.song.id === this.selectedSongId)
     ) {
       this._userPickedRoute = false;
+      const changedSong = this.selectedSongId !== defaultRoute.song.id;
       this.selectedSongId = defaultRoute.song.id;
-      this.selectedDeparture = defaultRoute.song.recommendedDeparture;
+      if (changedSong || !this._userPickedDeparture) {
+        this.selectedDeparture = defaultRoute.song.recommendedDeparture;
+      }
     }
 
     listEl.innerHTML = '';
@@ -1457,6 +1467,7 @@ export class IslandHubUI {
       `;
       btn.addEventListener('click', () => {
         this._userPickedRoute = true;
+        this._userPickedDeparture = false;
         this.selectedSongId = song.id;
         this.selectedDeparture = song.recommendedDeparture;
         this._refreshRoutePanel();
