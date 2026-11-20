@@ -20,6 +20,7 @@ import {
   updateCloudMaterialUniforms,
 } from './rendering/CloudSculptBuilder.js';
 import { createRapaNuiMoaiShowcaseAssembly } from './rendering/IslandRapaNuiBuilder.js';
+import { createGiantPearlShellGroup } from './rendering/IslandSculptToolkit.js';
 import {
   animatePlayerCharacterRig,
   createPlayerCharacterRig,
@@ -250,6 +251,15 @@ function buildAssetCatalog() {
       subtitle: 'Near-island Ring 3 floating vegetation trail',
       tag: 'Cue',
       kind: 'fronds',
+    },
+    {
+      id: 'cue_giant_pearl_shells',
+      category: 'Fish & Sea Cues',
+      name: 'Giant Pearl Shells — Te Pārau (Manuae)',
+      subtitle:
+        'Sculpted fluted black-lip pearl oyster & Tridacna valves with iridescent nacre, South Seas pearls & drying-rack half-shell',
+      tag: 'Manuae',
+      kind: 'pearl_shells',
     },
   ];
 
@@ -764,6 +774,8 @@ class AssetDebugViewer {
       this._mountFishSchoolAsset();
     } else if (item.kind === 'fronds') {
       this._mountFrondsAsset();
+    } else if (item.kind === 'pearl_shells') {
+      this._mountPearlShellsAsset();
     } else if (item.kind === 'moai_showcase') {
       this._mountMoaiShowcaseAsset();
     } else if (item.kind === 'island') {
@@ -1170,6 +1182,70 @@ class AssetDebugViewer {
       group.add(m);
     }
     this.stageGroup.add(group);
+  }
+
+  _mountPearlShellsAsset() {
+    const group = new THREE.Group();
+    const trackMat = (mat) => mat;
+
+    // Warm coral-sand lagoon shoal disc under the giant pearl shell cluster
+    const sandPad = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.15, 2.45, 0.14, 36),
+      new THREE.MeshStandardMaterial({
+        color: 0xe6d6b0,
+        roughness: 0.9,
+      })
+    );
+    sandPad.position.set(0, -0.07, 0);
+    sandPad.receiveShadow = true;
+    group.add(sandPad);
+
+    // 1. Hero open giant pearl shell with lustrous South Seas cream pearl
+    const heroShell = createGiantPearlShellGroup(trackMat, {
+      mode: 'open_pearl',
+      pearlType: 'cream',
+      scale: 1.15,
+      openAngleRad: 0.82,
+    });
+    heroShell.group.position.set(-0.45, 0.0, 0.15);
+    heroShell.group.rotation.y = 0.25;
+    group.add(heroShell.group);
+
+    // 2. Companion open black-lip shell cradling a shimmering dark Tahitian pearl
+    const blackShell = createGiantPearlShellGroup(trackMat, {
+      mode: 'open_pearl',
+      pearlType: 'black',
+      scale: 0.88,
+      openAngleRad: 0.74,
+    });
+    blackShell.group.position.set(0.95, 0.0, -0.45);
+    blackShell.group.rotation.y = -0.48;
+    group.add(blackShell.group);
+
+    // 3. Harvested single fluted half-valve tilted slightly to show exterior ridges & nacre bowl
+    const singleValve = createGiantPearlShellGroup(trackMat, {
+      mode: 'single_valve',
+      scale: 0.82,
+    });
+    singleValve.group.position.set(0.72, 0.14, 0.78);
+    singleValve.group.rotation.set(0.18, -0.75, -0.32);
+    group.add(singleValve.group);
+
+    this.stageGroup.add(group);
+
+    // Gentle living valve breathing motion on the hero shell
+    const tickShells = (elapsed) => {
+      if (heroShell.upperPivot) {
+        heroShell.upperPivot.rotation.x =
+          -0.82 + Math.sin(elapsed * 0.9) * 0.07;
+      }
+      if (blackShell.upperPivot) {
+        blackShell.upperPivot.rotation.x =
+          -0.74 + Math.sin(elapsed * 0.9 + 1.8) * 0.05;
+      }
+    };
+    tickShells(this.animElapsedSec);
+    this.activeTickFn = (_dt, elapsed) => tickShells(elapsed);
   }
 
   _mountMoaiShowcaseAsset() {

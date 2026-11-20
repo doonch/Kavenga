@@ -676,3 +676,250 @@ export function addWaterfallCascade(
   );
   group.add(mistPool);
 }
+
+/**
+ * Lofts a closed, watertight 3D giant black-lip pearl oyster / Tridacna valve
+ * with undulating radial ribs on the outside and concave iridescent nacre inside.
+ * Hinge umbo sits at local (0, 0, 0), fan flares along +Z.
+ */
+export function createGiantPearlValveGeometry({
+  radius = 1.0,
+  dishDepth = 0.24,
+  ribCount = 9,
+  ribAmp = 0.044,
+  thickness = 0.06,
+  uSegs = 20,
+  vSegs = 32,
+} = {}) {
+  const positions = [];
+  const colors = [];
+  const indices = [];
+
+  const pushV = (x, y, z, r, g, b) => {
+    const idx = positions.length / 3;
+    positions.push(x, y, z);
+    colors.push(r, g, b);
+    return idx;
+  };
+
+  const topGrid = [];
+  const botGrid = [];
+
+  for (let i = 0; i <= uSegs; i += 1) {
+    const u = i / uSegs;
+    const topRow = [];
+    const botRow = [];
+
+    for (let j = 0; j <= vSegs; j += 1) {
+      const vFrac = j / vSegs; // 0..1
+      const vSym = vFrac - 0.5; // -0.5..+0.5
+      const phi = vSym * Math.PI * 1.02;
+
+      // Subtle scalloped radial margin + gentle hinge auricles near u ~ 0.14
+      const ribWave = Math.cos(vSym * ribCount * Math.PI * 2.0);
+      const auricle = 0.09 * Math.exp(-Math.pow((u - 0.12) / 0.09, 2.0)) * Math.pow(Math.abs(vSym) * 2.0, 2.0);
+      const rEdge =
+        radius *
+        (0.06 +
+          0.94 * u * (0.94 + 0.06 * Math.sin(u * Math.PI)) +
+          0.045 * smoothstep(0.35, 1.0, u) * ribWave +
+          auricle);
+
+      const x = rEdge * Math.sin(phi);
+      const z = rEdge * Math.cos(phi);
+
+      const bowl = Math.sin(u * Math.PI * 0.88) * Math.cos(phi * 0.62);
+      const yMid =
+        -dishDepth * bowl +
+        ribAmp * smoothstep(0.18, 1.0, u) * ribWave;
+
+      const halfT =
+        thickness *
+        0.5 *
+        (1.2 - 0.76 * smoothstep(0.0, 1.0, u)) *
+        (0.86 + 0.14 * ribWave);
+
+      // Inner surface: glowing cream core -> turquoise/pearl shimmer -> dark black-lip rim
+      const centerGlow = 1.0 - smoothstep(0.05, 0.58, u);
+      const iridBand = smoothstep(0.18, 0.52, u) * smoothstep(0.95, 0.72, u);
+      const blackLip = smoothstep(0.81, 0.96, u);
+      const shimmerShift = 0.5 + 0.5 * Math.sin(phi * 3.5 + u * 5.2);
+
+      let nr = lerp(0.84, 0.42, iridBand * shimmerShift);
+      let ng = lerp(0.9, 0.86, iridBand);
+      let nb = lerp(0.92, 0.84, iridBand * (1.0 - 0.35 * shimmerShift));
+
+      nr = lerp(nr, 0.97, centerGlow * 0.75);
+      ng = lerp(ng, 0.96, centerGlow * 0.75);
+      nb = lerp(nb, 0.91, centerGlow * 0.75);
+
+      // Black-lip nacre outer lip (Pinctada margaritifera peacock charcoal-emerald edge)
+      nr = lerp(nr, 0.14 + 0.08 * shimmerShift, blackLip);
+      ng = lerp(ng, 0.23 + 0.12 * shimmerShift, blackLip);
+      nb = lerp(nb, 0.25 + 0.14 * shimmerShift, blackLip);
+
+      // Outer calcified shell: chalky limestone ridges & deep olive-umber fluted grooves
+      const ribShade = 0.5 + 0.5 * ribWave;
+      const umboDark = 1.0 - smoothstep(0.0, 0.36, u);
+      let sr = lerp(0.46, 0.84, ribShade);
+      let sg = lerp(0.42, 0.79, ribShade);
+      let sb = lerp(0.36, 0.7, ribShade);
+      sr = lerp(sr, 0.34, umboDark * 0.55);
+      sg = lerp(sg, 0.3, umboDark * 0.55);
+      sb = lerp(sb, 0.25, umboDark * 0.55);
+
+      topRow.push(pushV(x, yMid + halfT, z, nr, ng, nb));
+      botRow.push(pushV(x, yMid - halfT, z, sr, sg, sb));
+    }
+
+    topGrid.push(topRow);
+    botGrid.push(botRow);
+  }
+
+  for (let i = 0; i < uSegs; i += 1) {
+    for (let j = 0; j < vSegs; j += 1) {
+      const ta = topGrid[i][j];
+      const tb = topGrid[i][j + 1];
+      const tc = topGrid[i + 1][j];
+      const td = topGrid[i + 1][j + 1];
+      indices.push(ta, tc, td, ta, td, tb);
+
+      const ba = botGrid[i][j];
+      const bb = botGrid[i][j + 1];
+      const bc = botGrid[i + 1][j];
+      const bd = botGrid[i + 1][j + 1];
+      indices.push(ba, bd, bc, ba, bb, bd);
+    }
+  }
+
+  // Outer scalloped lip wall (u = uSegs)
+  for (let j = 0; j < vSegs; j += 1) {
+    const t0 = topGrid[uSegs][j];
+    const t1 = topGrid[uSegs][j + 1];
+    const b0 = botGrid[uSegs][j];
+    const b1 = botGrid[uSegs][j + 1];
+    indices.push(b0, b1, t1, b0, t1, t0);
+  }
+
+  // Side hinge skirts (v = 0 and v = vSegs) and umbo edge (u = 0)
+  for (let i = 0; i < uSegs; i += 1) {
+    indices.push(
+      botGrid[i][0],
+      topGrid[i][0],
+      topGrid[i + 1][0],
+      botGrid[i][0],
+      topGrid[i + 1][0],
+      botGrid[i + 1][0]
+    );
+    indices.push(
+      topGrid[i][vSegs],
+      botGrid[i][vSegs],
+      botGrid[i + 1][vSegs],
+      topGrid[i][vSegs],
+      botGrid[i + 1][vSegs],
+      topGrid[i + 1][vSegs]
+    );
+  }
+  for (let j = 0; j < vSegs; j += 1) {
+    indices.push(
+      topGrid[0][j],
+      topGrid[0][j + 1],
+      botGrid[0][j + 1],
+      topGrid[0][j],
+      botGrid[0][j + 1],
+      botGrid[0][j]
+    );
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/**
+ * Instantiates a sculpted Giant Pearl Shell (paired open shell with South Seas pearl,
+ * open clam pair, or harvested single half-valve).
+ */
+export function createGiantPearlShellGroup(
+  trackMat,
+  {
+    mode = 'open_pearl',
+    scale = 1.0,
+    openAngleRad = 0.78,
+    pearlType = 'cream',
+    sharedValveGeo = null,
+    sharedShellMat = null,
+  } = {}
+) {
+  const valveGeo = sharedValveGeo || createGiantPearlValveGeometry();
+  const shellMat =
+    sharedShellMat ||
+    trackMat(
+      new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        roughness: 0.34,
+        metalness: 0.22,
+        transparent: true,
+        opacity: 1.0,
+      })
+    );
+
+  const root = new THREE.Group();
+  root.scale.setScalar(scale);
+
+  // Offset so center of shell sits nicely near local origin
+  const body = new THREE.Group();
+  body.position.set(0, 0.16, -0.46);
+  root.add(body);
+
+  const lowerValve = new THREE.Mesh(valveGeo, shellMat);
+  lowerValve.rotation.x = -0.1;
+  lowerValve.castShadow = true;
+  lowerValve.receiveShadow = true;
+  body.add(lowerValve);
+
+  let upperPivot = null;
+  let pearlMesh = null;
+
+  if (mode !== 'single_valve') {
+    upperPivot = new THREE.Group();
+    upperPivot.rotation.x = -Math.max(0.25, openAngleRad);
+    const upperValve = new THREE.Mesh(valveGeo, shellMat);
+    // Flip upper valve around Z so convex ribbed back faces upward & nacre concavity faces inward!
+    upperValve.rotation.z = Math.PI;
+    upperValve.castShadow = true;
+    upperValve.receiveShadow = true;
+    upperPivot.add(upperValve);
+    body.add(upperPivot);
+
+    if (mode === 'open_pearl') {
+      const pearlSpecs = {
+        cream: { color: 0xf7f1e3, emissive: 0x3b3428 },
+        black: { color: 0x26393c, emissive: 0x0b2629 },
+        gold: { color: 0xf3d485, emissive: 0x3d2e10 },
+      };
+      const ps = pearlSpecs[pearlType] || pearlSpecs.cream;
+      const pearlMat = trackMat(
+        new THREE.MeshStandardMaterial({
+          color: ps.color,
+          roughness: 0.14,
+          metalness: 0.34,
+          emissive: ps.emissive,
+          emissiveIntensity: 0.22,
+          transparent: true,
+          opacity: 1.0,
+        })
+      );
+      pearlMesh = new THREE.Mesh(new THREE.SphereGeometry(0.145, 18, 16), pearlMat);
+      pearlMesh.position.set(0.0, -0.04, 0.56);
+      pearlMesh.scale.set(1.0, 0.92, 1.0);
+      pearlMesh.castShadow = true;
+      body.add(pearlMesh);
+    }
+  }
+
+  return { group: root, body, upperPivot, pearlMesh, valveGeo, shellMat };
+}

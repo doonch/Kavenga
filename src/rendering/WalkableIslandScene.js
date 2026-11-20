@@ -696,13 +696,18 @@ export class WalkableIslandScene {
       this.poiVisuals[poi.id] = { group: ringGrp, ringMat: outerMat, baseY: py };
     }
 
-    // 3 Graceful Sculpted Birds wheeling above the shore & cove (with land/stand/takeoff lifecycle)
-    // On Manuae exclusively, spawn the island's sacred red Kura birds!
-    this.birdPerchSpots = this._findPerchSpots();
-    const isManuaeKura = islDef?.birdSpecies === 'red_kura';
-    const birdScale = isManuaeKura ? 1.38 : 1.25;
+    // Sculpted Birds wheeling above the shore & cove (with land/stand/takeoff lifecycle)
+    // On Manuae exclusively, spawn 9 sacred red Kura birds!
+    const isManuaeKura =
+      this.builtIslandId === 'manuae' || islDef?.birdSpecies === 'red_kura';
+    const birdCount = isManuaeKura ? 9 : 3;
+    const birdScale = isManuaeKura ? 1.45 : 1.25;
+    this.birdPerchSpots = this._findPerchSpots(
+      isManuaeKura ? 14 : 6,
+      isManuaeKura ? { minZ: -24.0, maxZ: 74.0, minX: -52.0, maxX: 52.0 } : null
+    );
     if (this.worldCues) {
-      for (let i = 0; i < 3; i += 1) {
+      for (let i = 0; i < birdCount; i += 1) {
         const species = isManuaeKura
           ? 'red_kura'
           : i === 1
@@ -712,36 +717,90 @@ export class WalkableIslandScene {
         entry.root.userData.sharedGeometries = true;
         entry.root.scale.setScalar(birdScale);
         this.root.add(entry.root);
-        this.lagoonTerns.push({
+
+        const slot = i % 3;
+        const band = Math.floor(i / 3);
+        const cx = isManuaeKura
+          ? -10.0 + slot * 15.0 + (band - 1) * 4.0
+          : -4.0 + i * 14.0;
+        const cz = isManuaeKura
+          ? this.spec.mooredCanoe.z - 8.0 - band * 24.0 - slot * 3.0
+          : this.spec.mooredCanoe.z - 4.0 - i * 5.0;
+        const radius = isManuaeKura
+          ? 11.0 + slot * 4.0 + band * 2.0
+          : 14.0 + i * 4.5;
+        const altY = isManuaeKura ? 4.6 + (i % 4) * 1.35 : 14.5 + i * 2.4;
+        const speed = isManuaeKura ? 0.32 + (i % 5) * 0.045 : 0.34 + i * 0.05;
+        const orbitAngle = isManuaeKura
+          ? i * ((Math.PI * 2.0) / birdCount)
+          : i * 2.1;
+
+        let initState = 'flying';
+        let initPerch = null;
+        let initYaw = orbitAngle;
+        let stateTimer = isManuaeKura ? 1.5 + (i % 5) * 2.2 : 3.5 + i * 4.5;
+
+        // Seed up to 4 Manuae Red Kura birds already perched/standing on sandy flats & rookery sandbar!
+        if (isManuaeKura && i < 4 && this.birdPerchSpots.length > 0) {
+          const openSpot = this.birdPerchSpots.find(
+            (s) =>
+              !s.occupiedBy &&
+              Math.hypot(s.x - this.spec.initialSpawn.x, s.z - this.spec.initialSpawn.z) > 6.5
+          );
+          if (openSpot) {
+            openSpot.occupiedBy = true;
+            initState = 'standing';
+            initPerch = openSpot;
+            initYaw = (i * 1.9) % (Math.PI * 2.0);
+            stateTimer = 5.0 + i * 2.4;
+            entry.root.position.set(
+              openSpot.x,
+              openSpot.y + (entry.standFootHeight ?? 0.13) * birdScale,
+              openSpot.z
+            );
+            entry.root.rotation.set(0.0, initYaw, 0.0);
+          }
+        }
+
+        const birdRecord = {
           entry,
           group: entry.root,
           scale: birdScale,
-          cx: -4.0 + i * 14.0,
-          cz: this.spec.mooredCanoe.z - 4.0 - i * 5.0,
-          radius: 14.0 + i * 4.5,
-          altY: 14.5 + i * 2.4,
-          speed: 0.34 + i * 0.05,
-          phase: i * 2.1,
-          orbitAngle: i * 2.1,
-          state: 'flying',
-          stateTimer: 3.5 + i * 4.5,
+          cx,
+          cz,
+          radius,
+          altY,
+          speed,
+          phase: i * 1.45,
+          orbitAngle,
+          state: initState,
+          stateTimer,
           stateProgress: 0.0,
           stateDur: 1.0,
-          perchSpot: null,
-        });
+          perchSpot: initPerch,
+          currentYaw: initYaw,
+        };
+        if (initPerch) {
+          initPerch.occupiedBy = birdRecord;
+        }
+        this.lagoonTerns.push(birdRecord);
       }
     }
   }
 
-  _findPerchSpots() {
+  _findPerchSpots(maxSpots = 6, scanRange = null) {
     const spots = [];
     const pois = this.spec?.pois || [];
     const mc = this.spec?.mooredCanoe;
     const minSpacingSq = 36.0; // >= 6m between perch spots
+    const minZ = scanRange?.minZ ?? 12.0;
+    const maxZ = scanRange?.maxZ ?? 74.0;
+    const minX = scanRange?.minX ?? -44.0;
+    const maxX = scanRange?.maxX ?? 44.0;
 
     const tryCollect = (minH, maxH, maxSlope) => {
-      for (let z = 12.0; z <= 74.0; z += 4.0) {
-        for (let x = -44.0; x <= 44.0; x += 4.0) {
+      for (let z = minZ; z <= maxZ; z += 4.0) {
+        for (let x = minX; x <= maxX; x += 4.0) {
           const h = this.getGroundHeight(x, z);
           if (h < minH || h > maxH) continue;
 
@@ -779,7 +838,7 @@ export class WalkableIslandScene {
           if (blocked) continue;
 
           spots.push({ x, y: h, z, occupiedBy: null });
-          if (spots.length >= 6) return;
+          if (spots.length >= maxSpots) return;
         }
       }
     };

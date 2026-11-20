@@ -19,6 +19,10 @@ import { createAct1RemainIslandAssembly } from './IslandAct1RemainBuilder.js';
 import { createAct2IslandAssembly } from './IslandAct2Builder.js';
 import { createAct3IslandAssembly } from './IslandAct3Builder.js';
 import { createRapaNuiIslandAssembly } from './IslandRapaNuiBuilder.js';
+import {
+  createGiantPearlShellGroup,
+  createGiantPearlValveGeometry,
+} from './IslandSculptToolkit.js';
 
 function clamp01(v) {
   return Math.max(0.0, Math.min(1.0, v));
@@ -1403,6 +1407,17 @@ export function createDetailedIslandAssembly(islandId) {
     }
     group.add(atollMarae);
 
+    const sharedPearlValveGeo = createGiantPearlValveGeometry();
+    const sharedGiantShellMat = trackMat(
+      new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        roughness: 0.34,
+        metalness: 0.22,
+        transparent: true,
+        opacity: 1.0,
+      })
+    );
+
     // 6f. Pearl-Shell Drying Racks & Glowing Coral-Ring Village Hearth (Ahi)
     for (const rTheta of [-0.61, -0.85]) {
       const rr = 31.8;
@@ -1430,15 +1445,50 @@ export function createDetailedIslandAssembly(islandId) {
         rack.add(leg);
       }
       for (const zShell of [-0.65, 0.0, 0.65]) {
-        const shell = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.22, 0.22, 0.04, 8),
-          pearlShellMat
-        );
-        shell.rotation.z = Math.PI * 0.5;
-        shell.position.set(0, 0.92, zShell);
-        rack.add(shell);
+        const hangingShell = createGiantPearlShellGroup(trackMat, {
+          mode: 'single_valve',
+          scale: 0.34,
+          sharedValveGeo: sharedPearlValveGeo,
+          sharedShellMat: sharedGiantShellMat,
+        });
+        hangingShell.group.rotation.set(Math.PI * 0.48, 0.0, Math.PI * 0.5);
+        hangingShell.group.position.set(0.02, 0.96, zShell);
+        rack.add(hangingShell.group);
       }
       group.add(rack);
+    }
+
+    // 6g. Sculpted Giant Pearl Shells resting across Manuae's Pearl Shallows & Coral Lagoon Cove
+    const giantShellSpots = [
+      // Wild Seabird Rookery & Pearl Shallows (Motu 1 inner lagoon beach)
+      { r: 29.8, theta: -0.52, mode: 'open_pearl', pearlType: 'cream', scale: 0.88, openAngle: 0.82, rotY: 2.35 },
+      { r: 28.4, theta: -0.58, mode: 'open_pearl', pearlType: 'black', scale: 0.72, openAngle: 0.72, rotY: 2.85 },
+      { r: 30.6, theta: -0.46, mode: 'single_valve', scale: 0.68, rotY: 1.92 },
+      { r: 27.6, theta: -0.66, mode: 'open', scale: 0.76, openAngle: 0.64, rotY: 2.55 },
+      { r: 31.2, theta: -0.74, mode: 'open_pearl', pearlType: 'gold', scale: 0.64, openAngle: 0.78, rotY: 2.15 },
+      // Shallow lagoon coral sandbar near Navigator's Ring
+      { r: 22.8, theta: -0.38, mode: 'open_pearl', pearlType: 'black', scale: 0.84, openAngle: 0.85, rotY: 1.65 },
+      { r: 21.4, theta: -0.44, mode: 'single_valve', scale: 0.62, rotY: 0.95 },
+      // Motu 5 Calm Lagoon Cove & Motu Palm Shelter flats
+      { r: 30.8, theta: 0.38, mode: 'open_pearl', pearlType: 'cream', scale: 0.82, openAngle: 0.8, rotY: -2.1 },
+      { r: 29.5, theta: 0.48, mode: 'open', scale: 0.7, openAngle: 0.68, rotY: -2.55 },
+      { r: 31.6, theta: 0.62, mode: 'open_pearl', pearlType: 'black', scale: 0.74, openAngle: 0.76, rotY: -1.75 },
+    ];
+    for (const sp of giantShellSpots) {
+      const sx = sp.r * Math.cos(sp.theta);
+      const sz = sp.r * Math.sin(sp.theta);
+      const sy = Math.max(-0.14, evalManuaePoint(sx, sz).h);
+      const gs = createGiantPearlShellGroup(trackMat, {
+        mode: sp.mode,
+        scale: sp.scale,
+        openAngleRad: sp.openAngle ?? 0.78,
+        pearlType: sp.pearlType || 'cream',
+        sharedValveGeo: sharedPearlValveGeo,
+        sharedShellMat: sharedGiantShellMat,
+      });
+      gs.group.position.set(sx, sy + 0.02, sz);
+      gs.group.rotation.y = sp.rotY;
+      group.add(gs.group);
     }
 
     const hearthTheta = -0.99;
@@ -1562,26 +1612,6 @@ export function createDetailedIslandAssembly(islandId) {
       }
     }
     addCoastalScrubCluster(group, scrubMatA, scrubMatB, scrubSites);
-
-    // 8. Perched White Terns (Kakaia) on the Inner Rookery Sandbar & Far Rookery Motu
-    const ternGeo = new THREE.ConeGeometry(0.2, 0.55, 5);
-    ternGeo.rotateX(Math.PI * 0.42);
-    for (const [tx, tz] of [
-      [-4.8, -5.8],
-      [-6.2, -6.6],
-      [-5.4, -7.2],
-      [-6.8, -5.6],
-      [-34.5, -15.5],
-      [-33.2, -17.2],
-    ]) {
-      const ty = evalManuaePoint(tx, tz).h;
-      if (ty > 0.3) {
-        const tern = new THREE.Mesh(ternGeo, pearlShellMat);
-        tern.position.set(tx, ty + 0.18, tz);
-        tern.rotation.y = tx * 0.7;
-        group.add(tern);
-      }
-    }
 
     return { group, materials, sinkDepthM: 12.5 };
   }

@@ -60,11 +60,11 @@ import {
   VoyageStatus,
 } from './simulation/oceanSim.js';
 import { AchievementsUI } from './ui/AchievementsUI.js';
-import { CanoeModalUI } from './ui/CanoeModalUI.js?v=20261120e';
+import { CanoeModalUI } from './ui/CanoeModalUI.js?v=20261120q';
 import { CrewSplashUI } from './ui/CrewSplashUI.js';
 import { ElderVigilPromptUI } from './ui/ElderVigilPromptUI.js';
-import { IslandHubUI } from './ui/IslandHubUI.js?v=20261120a';
-import { IslandSettingsUI } from './ui/IslandSettingsUI.js?v=20261119u';
+import { IslandHubUI } from './ui/IslandHubUI.js?v=20261120q';
+import { IslandSettingsUI } from './ui/IslandSettingsUI.js?v=20261120q';
 import {
   clearOnboardingDone,
   OnboardingTourUI,
@@ -72,8 +72,8 @@ import {
   SAILING_TOUR_STEPS,
   TAHAA_CLOUD_TOUR_STEPS,
   TAHAA_CLOUD_TOUR_STORAGE_KEY,
-} from './ui/OnboardingTourUI.js?v=20261120a';
-import { SailingHUD } from './ui/SailingHUD.js?v=20261119h';
+} from './ui/OnboardingTourUI.js?v=20261120q';
+import { SailingHUD } from './ui/SailingHUD.js?v=20261120q';
 import { SkyVigilUI } from './ui/SkyVigilUI.js';
 import { WalkableIslandUI } from './ui/WalkableIslandUI.js';
 
@@ -197,7 +197,8 @@ class KavengaApp {
     this.shoreDiorama = new ShoreDioramaRenderer(
       this.scene,
       this.vakaRenderer,
-      this.renderer.domElement
+      this.renderer.domElement,
+      this.worldCues
     );
     this.walkableIslandScene = new WalkableIslandScene(
       this.scene,
@@ -1113,8 +1114,8 @@ class KavengaApp {
 
     const hasTwoSails = (this.gameState?.vakaTier || 1) >= 3;
     const canoeImgSrc = hasTwoSails
-      ? './assets/icons/vaka_button_2sails.jpg?v=20261120b'
-      : './assets/icons/vaka_button_1sail.jpg';
+      ? './assets/icons/vaka_button_2sails.jpg?v=20261120m'
+      : './assets/icons/vaka_button_1sail.jpg?v=20261120m';
     if (
       this.shoreCanoeImgEl &&
       this.shoreCanoeImgEl.getAttribute('src') !== canoeImgSrc
@@ -1136,8 +1137,8 @@ class KavengaApp {
             this.renderer,
             this.gameState.currentIslandId,
             { square: true }
-          ) || './assets/icons/walk_button.jpg'
-        : './assets/icons/walk_button.jpg';
+          ) || './assets/icons/walk_button.jpg?v=20261120m'
+        : './assets/icons/walk_button.jpg?v=20261120m';
       if (this.shoreWalkImgEl.getAttribute('src') !== targetWalkSrc) {
         this.shoreWalkImgEl.setAttribute('src', targetWalkSrc);
       }

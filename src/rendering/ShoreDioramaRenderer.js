@@ -64,10 +64,11 @@ function departureToPreviewHour(depWindow) {
 }
 
 export class ShoreDioramaRenderer {
-  constructor(scene, vakaRenderer, domElement) {
+  constructor(scene, vakaRenderer, domElement, worldCues = null) {
     this.scene = scene;
     this.vakaRenderer = vakaRenderer;
     this.domElement = domElement;
+    this.worldCues = worldCues;
 
     this.active = false;
     this.currentIslandId = null;
@@ -80,6 +81,10 @@ export class ShoreDioramaRenderer {
 
     this.islandMount = new THREE.Group();
     this.root.add(this.islandMount);
+
+    this.shoreBirdGroup = new THREE.Group();
+    this.root.add(this.shoreBirdGroup);
+    this.shoreBirds = [];
 
     // Cached canonical assemblies & 2D thumbnails keyed by islandId
     this._assemblyCache = {};
@@ -455,6 +460,85 @@ export class ShoreDioramaRenderer {
     );
     this.observatoryRingGroup.position.copy(this.observatoryPos);
     this.observatoryRingGroup.visible = true;
+
+    this._populateShoreBirds(resolvedId, asm?.group);
+  }
+
+  _clearShoreBirds() {
+    for (const b of this.shoreBirds) {
+      b.entry?.mat?.dispose?.();
+    }
+    while (this.shoreBirdGroup.children.length > 0) {
+      this.shoreBirdGroup.remove(this.shoreBirdGroup.children[0]);
+    }
+    this.shoreBirds = [];
+  }
+
+  _populateShoreBirds(islandId, asmGroup) {
+    this._clearShoreBirds();
+    const isl = ISLANDS[islandId];
+    if (
+      !this.worldCues ||
+      (islandId !== 'manuae' && isl?.birdSpecies !== 'red_kura')
+    ) {
+      return;
+    }
+
+    const terrainMesh = this._findTerrainMesh(asmGroup);
+    // 4 Red Kura birds standing along Manuae's central Rookery Sandbar & inner beaches (scale = 1.0)
+    const perchCoords = [
+      [5.4, -5.2, 0.5],
+      [6.4, -5.8, 1.8],
+      [7.4, -6.3, -1.1],
+      [-16.8, 28.2, 2.3],
+    ];
+    for (let i = 0; i < perchCoords.length; i += 1) {
+      const [px, pz, yaw] = perchCoords[i];
+      const py = this._sampleTerrainHeight(terrainMesh, px, pz);
+      if (py === null || py < 0.25) continue;
+      const entry = this.worldCues.createSeabird('red_kura', { opaque: true });
+      const sc = 1.05;
+      entry.root.scale.setScalar(sc);
+      entry.root.position.set(
+        px,
+        py + (entry.standFootHeight || 0.13) * sc,
+        pz
+      );
+      entry.root.rotation.set(0.0, yaw, 0.0);
+      this.shoreBirdGroup.add(entry.root);
+      this.shoreBirds.push({
+        kind: 'standing',
+        entry,
+        baseY: entry.root.position.y,
+        phase: i * 1.7,
+      });
+    }
+
+    // 5 Red Kura birds wheeling low across Manuae's central lagoon and beach cove
+    const orbitDefs = [
+      { cx: 4.0, cz: 4.0, radius: 13.0, altY: 5.2, speed: 0.36, phase: 0.4 },
+      { cx: -3.0, cz: 26.0, radius: 14.0, altY: 6.4, speed: 0.33, phase: 1.9 },
+      { cx: 14.0, cz: 20.0, radius: 12.0, altY: 4.6, speed: 0.39, phase: 3.1 },
+      { cx: -8.0, cz: 36.0, radius: 11.0, altY: 7.2, speed: 0.31, phase: 4.4 },
+      { cx: 8.0, cz: -6.0, radius: 15.0, altY: 8.0, speed: 0.29, phase: 5.2 },
+    ];
+    for (let i = 0; i < orbitDefs.length; i += 1) {
+      const od = orbitDefs[i];
+      const entry = this.worldCues.createSeabird('red_kura', { opaque: true });
+      entry.root.scale.setScalar(1.08);
+      this.shoreBirdGroup.add(entry.root);
+      this.shoreBirds.push({
+        kind: 'flying',
+        entry,
+        cx: od.cx,
+        cz: od.cz,
+        radius: od.radius,
+        altY: od.altY,
+        speed: od.speed,
+        phase: od.phase,
+        orbitAngle: od.phase,
+      });
+    }
   }
 
   _computeStationPreset(stationId) {
@@ -704,6 +788,37 @@ export class ShoreDioramaRenderer {
         this.vakaRenderer.hemiLight.intensity,
         0.34
       );
+    }
+
+    if (this.worldCues && this.shoreBirds.length > 0) {
+      for (let i = 0; i < this.shoreBirds.length; i += 1) {
+        const b = this.shoreBirds[i];
+        if (b.kind === 'standing') {
+          const idleLook =
+            Math.sin(elapsedSec * 1.45 + b.phase) * 0.3 +
+            Math.sin(elapsedSec * 0.6 + i) * 0.2;
+          this.worldCues.animateSeabird(b.entry, elapsedSec, b.phase, 1.0, {
+            standBlend: 1.0,
+            legExtend: 1.0,
+            foldBlend: 1.0,
+            spreadBlend: 0.0,
+            flapSpeed: 1.0,
+            flapAmp: 0.0,
+            pitchRad: 0.0,
+            lookYawRad: idleLook,
+          });
+          b.entry.root.position.y = b.baseY + (b.entry.bobY ?? 0.0);
+        } else {
+          b.orbitAngle += b.speed * dtSec;
+          const ox = b.cx + Math.cos(b.orbitAngle) * b.radius;
+          const oy = b.altY + Math.sin(b.orbitAngle * 2.0) * 0.55;
+          const oz = b.cz + Math.sin(b.orbitAngle) * b.radius;
+          const oyaw = Math.atan2(Math.sin(b.orbitAngle), -Math.cos(b.orbitAngle));
+          this.worldCues.animateSeabird(b.entry, elapsedSec, b.phase, 1.0, null);
+          b.entry.root.position.set(ox, oy + (b.entry.bobY ?? 0.0), oz);
+          b.entry.root.rotation.set(0.0, oyaw, 0.14);
+        }
+      }
     }
   }
 
