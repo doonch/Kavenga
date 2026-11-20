@@ -360,6 +360,21 @@ export class WalkableIslandScene {
           [62.0, 3.2],
         ],
       },
+      moorea: {
+        waypoints: [
+          new THREE.Vector3(18.0, 0, 42.5),
+          new THREE.Vector3(22.0, 0, 18.0),
+          new THREE.Vector3(22.5, 0, -6.0),
+          new THREE.Vector3(21.0, 0, -28.0),
+          new THREE.Vector3(19.0, 0, -45.5),
+        ],
+        steps: 68,
+        torches: [
+          [20.0, 34.0],
+          [22.2, 2.0],
+          [20.4, -36.0],
+        ],
+      },
       hawaii: {
         waypoints: [
           new THREE.Vector3(-20.9, 0, 61.0),

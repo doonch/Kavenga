@@ -399,67 +399,106 @@ function buildHuahineAssembly() {
 // ============================================================================
 // 2. MO'OREA — Twin Northern Fjord Bays, Mount Rotui & Jagged Mou'a Puta Spires
 // ============================================================================
+function smoothMax(a, b, k) {
+  const hMix = clamp01(0.5 + 0.5 * ((b - a) / k));
+  return lerp(a, b, hMix) + k * hMix * (1.0 - hMix);
+}
+
+const MOOREA_BAY_COS = Math.cos(0.35);
+const MOOREA_BAY_SIN = Math.sin(0.35);
+
+function evalMooreaReefRadius(theta) {
+  return (
+    158.0 -
+    30.0 * Math.cos(theta) +
+    10.5 * Math.cos(2.0 * theta - 0.45) +
+    5.8 * Math.sin(3.0 * theta + 0.8) +
+    3.4 * Math.cos(5.0 * theta - 0.6)
+  );
+}
+
 function evalMooreaPoint(x, z) {
   const r = Math.hypot(x, z);
   const theta = Math.atan2(z, x);
 
-  const bayA = 14.5 * Math.exp(-Math.pow((theta + 0.35) / 0.17, 2.0));
-  const bayB = 14.5 * Math.exp(-Math.pow((theta - 0.35) / 0.17, 2.0));
-  const rotuiPromontory = 4.6 * Math.exp(-Math.pow(theta / 0.15, 2.0));
-  const heartBack = 3.2 * Math.cos(3.0 * theta + Math.PI);
+  // Singularity-free 2D massif envelope + twin bay coves ('Opunohu & Cook's Bays)
+  const smoothCoastD = 144.0 - Math.hypot((x + 38.0) * 0.96, z);
 
-  const coastR = Math.max(19.0, 40.8 - bayA - bayB + rotuiPromontory + heartBack);
-  const passA = arcMask(theta, -0.35, 0.11, 0.05) * smoothstep(18.0, 30.0, r);
-  const passB = arcMask(theta, 0.35, 0.11, 0.05) * smoothstep(18.0, 30.0, r);
+  const dxA = x - 100.0;
+  const dzA = z + 37.0;
+  const uA = dxA * MOOREA_BAY_COS - dzA * MOOREA_BAY_SIN;
+  const vA = dxA * MOOREA_BAY_SIN + dzA * MOOREA_BAY_COS;
+  const bayAD = Math.hypot(uA * 0.98, vA * 1.04) - 29.8;
+
+  const dxB = x - 100.0;
+  const dzB = z - 37.0;
+  const uB = dxB * MOOREA_BAY_COS + dzB * MOOREA_BAY_SIN;
+  const vB = -dxB * MOOREA_BAY_SIN + dzB * MOOREA_BAY_COS;
+  const bayBD = Math.hypot(uB * 0.98, vB * 1.04) - 29.8;
+
+  const inlandDist = smoothMin(smoothCoastD, smoothMin(bayAD, bayBD, 8.0), 8.0);
+  const passA =
+    arcMask(theta, -0.35, 0.13, 0.06) * smoothstep(-8.0, -24.0, inlandDist);
+  const passB =
+    arcMask(theta, 0.35, 0.13, 0.06) * smoothstep(-8.0, -24.0, inlandDist);
   const passMask = clamp01(passA + passB);
 
-  if (r > coastR) {
-    const outerReefR = 50.5;
+  if (inlandDist <= 0.0) {
+    const outerReefR = evalMooreaReefRadius(theta);
+    const lagoonBed = 0.08 + 0.18 * Math.max(-5.5, inlandDist);
     if (r <= outerReefR) {
-      const floor = lerp(0.18, 0.24, smoothstep(coastR, outerReefR, r));
-      const h = lerp(floor, -2.5, passMask);
-      return { h, spireFactor: 0.0, isBeach: false };
+      const h = lerp(lagoonBed, -2.6, passMask);
+      return { h, spireFactor: 0.0, isBeach: inlandDist > -1.8 };
     }
-    const drop = smoothstep(outerReefR, 55.8, r);
+    const drop = smoothstep(outerReefR, outerReefR + 12.0, r);
     return {
-      h: lerp(lerp(0.24, -2.5, passMask), -4.2, drop),
+      h: lerp(lerp(-0.9, -2.6, passMask), -4.5, drop),
       spireFactor: 0.0,
       isBeach: false,
     };
   }
 
-  // Mount Rotui triangular peak between the twin bays + jagged cathedral amphitheater behind
-  const rotui =
-    42.0 * Math.pow(gaussian2D(x, z, 22.0, 0.0, 7.0, 5.2, 0.0), 0.82);
+  // Strictly bounded volcanic spire cones: Mount Tohivea (89.2m natural Observation Mesa),
+  // Mou'a Puta shoulder (68m), and Mount Rotui promontory (44m) between the twin bays.
+  const tohiveaCone = Math.min(
+    89.2,
+    94.7 - 0.68 * Math.hypot((x + 54.0) * 0.96, z * 0.96)
+  );
+  const rotuiCone = Math.min(
+    44.0,
+    46.5 - 0.68 * Math.hypot((x - 34.0) * 0.98, z * 1.08)
+  );
+  const mouaPutaCone = Math.min(
+    68.0,
+    70.2 - 0.68 * Math.hypot(x + 36.0, z + 52.0)
+  );
+  const ridgeMassif = smoothMax(
+    tohiveaCone,
+    smoothMax(rotuiCone, mouaPutaCone, 7.5),
+    7.5
+  );
 
-  const arcAngle = Math.atan2(z, x + 4.0);
-  const backArcMask = smoothstep(0.5, 1.35, Math.abs(arcAngle));
-  const ringDist = Math.abs(Math.hypot(x + 4.0, z) - 18.5);
-  const amphitheaterWall =
-    61.0 * Math.exp(-Math.pow(ringDist / 9.0, 1.75)) * backArcMask;
+  // Singularity-free coastal apron ramp (gentle sandy beach transitioning smoothly up flanks)
+  const coastRamp =
+    0.08 + 0.8 * inlandDist - 6.0 * Math.tanh(inlandDist / 11.5);
+  let h = smoothMin(ridgeMassif, coastRamp, 2.0);
 
+  // Subtle carved spire ridges on mid/high flanks without exceeding walkable slope limits
+  const thS = Math.atan2(z, x + 54.0);
+  const backArcMask = smoothstep(0.65, 1.45, Math.abs(thS));
+  const toothEnv =
+    smoothstep(22.0, 42.0, h) * smoothstep(78.0, 58.0, h) * backArcMask;
   const spireTeeth =
-    17.5 *
-    Math.pow(0.5 + 0.5 * Math.cos(9.0 * theta + 0.4), 2.6) *
-    Math.exp(-Math.pow(ringDist / 7.5, 2.0)) *
-    backArcMask;
-
-  const mouaPutaNeedle =
-    23.0 * Math.pow(gaussian2D(x, z, -14.0, -13.5, 4.0, 4.0, 0.0), 0.7);
-
-  const apron = 2.6 * smoothstep(coastR, coastR - 5.0, r);
-  let h = apron + rotui + amphitheaterWall + spireTeeth + mouaPutaNeedle;
+    0.55 * Math.pow(0.5 + 0.5 * Math.cos(9.0 * thS + 0.4), 2.2) * toothEnv;
+  h += spireTeeth;
 
   const isInnerBay =
-    Math.abs(theta + 0.35) < 0.22 || Math.abs(theta - 0.35) < 0.22;
-  if (isInnerBay && r > coastR - 4.2) {
-    h = lerp(h, 1.25 * smoothstep(coastR, coastR - 4.2, r), 0.72);
-  }
+    Math.abs(theta + 0.36) < 0.28 || Math.abs(theta - 0.36) < 0.28;
 
   return {
     h,
-    spireFactor: clamp01((spireTeeth + mouaPutaNeedle) / 22.0),
-    isBeach: isInnerBay || r > coastR - 2.6,
+    spireFactor: clamp01(toothEnv + smoothstep(52.0, 88.0, h) * 0.65),
+    isBeach: isInnerBay || inlandDist < 7.5,
   };
 }
 
@@ -477,23 +516,23 @@ function buildMooreaAssembly() {
 
   const terrainGeo = buildPolarTerrainGeometry({
     evalPoint: evalMooreaPoint,
-    maxRadius: 56.0,
-    nRings: 62,
-    nSegs: 98,
+    maxRadius: 202.0,
+    nRings: 98,
+    nSegs: 136,
     colorFn: (s, slope) => {
       if (s.h < 0.06) {
         return mixRgb(colLagoon, colDeepSea, clamp01(-s.h / 2.5));
       }
       if (s.h < 0.28) return colLagoon;
-      if (s.h < 2.2 && s.isBeach && slope < 0.85) {
-        return mixRgb(colGoldSand, colEmerald, smoothstep(1.0, 2.2, s.h));
+      if (s.h < 2.4 && s.isBeach && slope < 0.78) {
+        return mixRgb(colGoldSand, colEmerald, smoothstep(1.0, 2.4, s.h));
       }
-      let rgb = mixRgb(colEmerald, colCanopyShade, smoothstep(5.0, 48.0, s.h));
+      let rgb = mixRgb(colEmerald, colCanopyShade, smoothstep(8.0, 68.0, s.h));
       rgb = mixRgb(rgb, colRazorFern, s.spireFactor * 0.6);
       rgb = mixRgb(
         rgb,
         colSpireBasalt,
-        clamp01(smoothstep(1.05, 2.0, slope) * 0.88 + s.spireFactor * 0.35)
+        clamp01(smoothstep(0.82, 1.35, slope) * 0.85 + s.spireFactor * 0.42)
       );
       return rgb;
     },
@@ -510,12 +549,15 @@ function buildMooreaAssembly() {
   terrainMesh.receiveShadow = true;
   group.add(terrainMesh);
 
+  // Translucent Organic Turquoise Lagoon & Twin-Pass Barrier Reef
   const lagoonMat = trackMat(
     new THREE.MeshBasicMaterial({ color: 0x24dac4, depthWrite: false }),
     0.42
   );
-  const lagoonDisc = new THREE.Mesh(new THREE.CircleGeometry(49.8, 52), lagoonMat);
-  lagoonDisc.rotation.x = -Math.PI * 0.5;
+  const lagoonDisc = new THREE.Mesh(
+    createOrganicLagoonGeometry(evalMooreaReefRadius, 108),
+    lagoonMat
+  );
   lagoonDisc.position.y = 0.255;
   group.add(lagoonDisc);
 
@@ -527,15 +569,88 @@ function buildMooreaAssembly() {
     0.72
   );
   // Twin barrier reef passes aligned with 'Opunohu & Cook's Bays!
-  addBarrierReefArc(group, reefMat, foamMat, 49.8, -0.2, 0.2, 10);
-  addBarrierReefArc(group, reefMat, foamMat, 49.8, 0.5, Math.PI * 2.0 - 0.5, 36);
+  addOrganicBarrierReefArc(
+    group,
+    reefMat,
+    foamMat,
+    evalMooreaReefRadius,
+    -0.2,
+    0.2,
+    18
+  );
+  addOrganicBarrierReefArc(
+    group,
+    reefMat,
+    foamMat,
+    evalMooreaReefRadius,
+    0.5,
+    Math.PI * 2.0 - 0.5,
+    80
+  );
+
+  // Sculpted organic reef motu islets flanking the twin reef passes
+  const mooreaMotuSites = [];
+  for (const [mAng, rx, rz, seed] of [
+    [-0.56, 10.5, 6.8, 3.2],
+    [0.56, 9.8, 6.5, 6.4],
+    [2.15, 11.2, 7.0, 9.1],
+  ]) {
+    const mr = evalMooreaReefRadius(mAng) - 2.2;
+    const mx = mr * Math.cos(mAng);
+    const mz = mr * Math.sin(mAng);
+    const motu = new THREE.Mesh(
+      createOrganicMotuGeometry({ radiusX: rx, radiusZ: rz, height: 1.35, seed }),
+      reefMat
+    );
+    motu.position.set(mx, 0.34, mz);
+    motu.rotation.y = -mAng + Math.PI * 0.5;
+    group.add(motu);
+    mooreaMotuSites.push([mx, mz, mAng]);
+  }
+
+  // Exclusion zones in canonical coordinates (invert rotY = -0.35 - PI/2)
+  const rotY = -0.35 - Math.PI * 0.5;
+  const toCanonXZ = (wx, wz) => {
+    const c = Math.cos(-rotY);
+    const s = Math.sin(-rotY);
+    return [wx * c + wz * s, -wx * s + wz * c];
+  };
+  const [mSpawnCx, mSpawnCz] = toCanonXZ(-3.5, 72.2);
+  const [mLandCx, mLandCz] = toCanonXZ(-11.5, 65.5);
+  const [mHutCx, mHutCz] = toCanonXZ(-31.0, 54.0);
+  const [mDyeCx, mDyeCz] = toCanonXZ(11.5, 58.0);
+  const [mElderCx, mElderCz] = toCanonXZ(18.0, 46.0);
+  const mooreaBlocked = [
+    { x: -54.0, z: 0.0, r: 12.5 }, // Mount Tohivea summit Observation Circle
+    { x: mSpawnCx, z: mSpawnCz, r: 12.0 }, // Initial spawn dry beach clearing
+    { x: mLandCx, z: mLandCz, r: 7.5 }, // Vaihere's Canoe-Yard Beach clearing
+    { x: mHutCx, z: mHutCz, r: 7.0 }, // Tamanu Carvers' Shed clearing
+    { x: mDyeCx, z: mDyeCz, r: 7.5 }, // Sail-Dyeing Vats plaza clearing
+    { x: mElderCx, z: mElderCz, r: 7.5 }, // Vaihere Spire Sanctuary clearing
+  ];
+  const mooreaIsClear = (px, pz) => {
+    for (const bz of mooreaBlocked) {
+      if (Math.hypot(px - bz.x, pz - bz.z) < bz.r) return false;
+    }
+    return true;
+  };
+  const sampleMooreaInland = (ang, insetM) => {
+    const ca = Math.cos(ang);
+    const sa = Math.sin(ang);
+    let r = 152.0;
+    while (r > 32.0 && evalMooreaPoint(-38.0 + r * ca, r * sa).h <= 0.35) {
+      r -= 2.5;
+    }
+    const pr = Math.max(24.0, r - insetM);
+    const px = -38.0 + pr * ca;
+    const pz = pr * sa;
+    return [px, pz, evalMooreaPoint(px, pz).h];
+  };
 
   // Vaihere's Master Canoe-Wright Shed (Fare Va'a) with Double-Hulled Vaka on Cradles
-  const shedTheta = -0.37;
-  const shedR = 24.5;
-  const sx = shedR * Math.cos(shedTheta);
-  const sz = shedR * Math.sin(shedTheta);
-  const sy = Math.max(0.75, evalMooreaPoint(sx, sz).h);
+  const shedTheta = -0.58;
+  const [sx, sz, rawSy] = sampleMooreaInland(shedTheta, 10.0);
+  const sy = Math.max(0.75, rawSy);
 
   const canoeYard = new THREE.Group();
   canoeYard.position.set(sx, sy, sz);
@@ -546,9 +661,6 @@ function buildMooreaAssembly() {
   );
   const thatchMat = trackMat(
     new THREE.MeshStandardMaterial({ color: 0xc29556, roughness: 0.88 })
-  );
-  const tamanuHullMat = trackMat(
-    new THREE.MeshStandardMaterial({ color: 0x9c5c30, roughness: 0.74 })
   );
 
   // Open-ended high-pitched Fare Va'a canoe house
@@ -571,61 +683,82 @@ function buildMooreaAssembly() {
       canoeYard.add(p);
     }
   }
-  // Twin carved hulls resting on timber cradles inside & protruding from shed
   const carvedHulls = createCarvedHullPairGroup(trackMat);
   carvedHulls.group.position.set(0, 0, 0.8);
   canoeYard.add(carvedHulls.group);
   group.add(canoeYard);
 
-  // Artisan Village Huts & Spire-Foot Marae
+  // Artisan Village Huts flanking 'Opunohu & Cook's Bays (kept clear of POIs/spawn)
   const huts = [
-    [25.5, -0.55, 0.96],
-    [27.2, -0.68, 0.9],
-    [25.2, 0.36, 0.95],
-    [27.0, 0.52, 0.88],
-  ].map(([hr, hang, sc]) => {
-    const hx = hr * Math.cos(hang);
-    const hz = hr * Math.sin(hang);
-    return {
-      x: hx,
-      y: Math.max(0.65, evalMooreaPoint(hx, hz).h),
-      z: hz,
-      rotY: -hang,
-      scale: sc,
-    };
-  });
+    [toCanonXZ(-37.0, 48.0)[0], toCanonXZ(-37.0, 48.0)[1], 0.55, 1.04],
+    [toCanonXZ(-35.5, 56.5)[0], toCanonXZ(-35.5, 56.5)[1], 0.25, 0.96],
+    [toCanonXZ(24.5, 48.0)[0], toCanonXZ(24.5, 48.0)[1], -0.45, 0.98],
+    [toCanonXZ(30.0, 54.0)[0], toCanonXZ(30.0, 54.0)[1], -0.62, 0.9],
+  ].map(([hx, hz, yaw, sc]) => ({
+    x: hx,
+    y: Math.max(0.7, evalMooreaPoint(hx, hz).h),
+    z: hz,
+    rotY: yaw,
+    scale: sc,
+  }));
   addRegionalHuts(group, trackMat, huts, 'society');
 
+  // Spire-Foot Marae overlooking 'Opunohu Valley beside Vaihere's Sanctuary
+  const [maraeX, maraeZ] = toCanonXZ(25.5, 36.5);
   addMaraePlatform(group, trackMat, {
-    x: 8.5,
-    y: Math.max(1.8, evalMooreaPoint(8.5, -8.5).h),
-    z: -8.5,
-    rotY: 0.4,
-    scale: 0.82,
+    x: maraeX,
+    y: Math.max(1.8, evalMooreaPoint(maraeX, maraeZ).h),
+    z: maraeZ,
+    rotY: 0.42,
+    scale: 1.0,
   });
 
+  // Village Timber Lagoon Pier at Vaihere's Canoe-Yard Beach
   addTimberPier(group, trackMat, {
-    x: 28.5 * Math.cos(-0.34),
+    x: toCanonXZ(-13.5, 69.0)[0],
     y: 0.68,
-    z: 28.5 * Math.sin(-0.34),
-    rotY: 0.34,
-    length: 6.4,
+    z: toCanonXZ(-13.5, 69.0)[1],
+    rotY: 0.35,
+    length: 8.5,
+    width: 1.65,
   });
 
   const palmPts = [];
-  for (let i = 0; i < 24; i += 1) {
-    const ang = (i / 24) * Math.PI * 2.0;
-    const pr = Math.abs(ang) < 0.6 ? 27.5 : 35.5;
-    const px = pr * Math.cos(ang);
-    const pz = pr * Math.sin(ang);
-    const py = evalMooreaPoint(px, pz).h;
-    if (py > 0.6 && py < 11.0) {
-      palmPts.push([px, py - 0.15, pz, -ang, 0.95, 0.22]);
+  for (let i = 0; i < 38; i += 1) {
+    const ang = (i / 38) * Math.PI * 2.0 + 0.06;
+    const [px, pz, py] = sampleMooreaInland(ang, 6.5 + (i % 3) * 3.5);
+    if (py > 0.65 && py < 12.0 && mooreaIsClear(px, pz)) {
+      palmPts.push([px, py - 0.15, pz, -ang, 0.95 + (i % 3) * 0.08, 0.22]);
     }
+  }
+  for (const [mox, moz, mang] of mooreaMotuSites) {
+    palmPts.push([mox, 0.88, moz, -mang + 0.3, 0.92, 0.22]);
+    palmPts.push([
+      mox - 2.6 * Math.sin(mang),
+      0.85,
+      moz + 2.6 * Math.cos(mang),
+      -mang - 0.3,
+      0.84,
+      0.24,
+    ]);
   }
   addCoconutGroves(group, trackMat, palmPts);
 
-  return { group, materials, sinkDepthM: 93.0 };
+  const scrubPts = [];
+  for (let i = 0; i < 30; i += 1) {
+    const sang = (i / 30) * Math.PI * 2.0 + 0.14;
+    const [sx2, sz2, sy2] = sampleMooreaInland(sang, 8.5 + (i % 3) * 2.5);
+    if (sy2 > 0.7 && sy2 < 11.0 && mooreaIsClear(sx2, sz2)) {
+      const sc = 0.96 + (i % 3) * 0.22;
+      scrubPts.push([sx2, sy2 - 0.1, sz2, sc * 1.12, sc * 0.6, sc * 1.05, -sang]);
+    }
+  }
+  addCoastalScrub(group, trackMat, scrubPts, {
+    hexA: 0x2c6426,
+    hexB: 0x427c2c,
+  });
+
+  return { group, materials, sinkDepthM: 120.0 };
 }
 
 // ============================================================================
