@@ -19,9 +19,12 @@ import {
 } from '../core/campaignManager.js';
 import { getActiveObjectivesForDisplay } from '../core/objectivesManager.js';
 import {
+  DEFAULT_SAIL_COLOR,
   DepartureWindow,
   Difficulty,
+  SAIL_DYE_PALETTE,
   departureWindowLabel,
+  normalizeSailColorHex,
 } from '../core/gameConstants.js';
 import {
   getAvailableConstellationLessonForIsland,
@@ -463,6 +466,8 @@ export class WalkableIslandUI {
       this._renderObservationCircleBody(bodyEl);
     } else if (poi.kind === 'canoe') {
       this._renderCanoeLandingBody(bodyEl);
+    } else if (poi.kind === 'sail_dye') {
+      this._renderSailDyeBody(bodyEl);
     }
   }
 
@@ -961,6 +966,99 @@ export class WalkableIslandUI {
     bodyEl.querySelector('#btnWalkSetSail').addEventListener('click', () => {
       this.callbacks.onLaunchVoyage?.(activeSong, this.selectedDeparture);
     });
+  }
+
+  // -------------------------------------------------------------------------
+  // POI 5 (Mo'orea Exclusive): Vaihere's Sail-Dyeing Vats
+  // -------------------------------------------------------------------------
+  _renderSailDyeBody(bodyEl) {
+    const gs = this.callbacks.getGameState();
+    const curHex = normalizeSailColorHex(gs.sailColor);
+    const activeSwatch = SAIL_DYE_PALETTE.find(
+      (d) => d.hex.toLowerCase() === curHex
+    );
+
+    bodyEl.innerHTML = `
+      <div class="sail-dye-panel">
+        <p class="walkable-circle-desc">
+          Steep your woven pandanus sails in island clay, turmeric, crushed kura pigment, or blend your own hue. Changes dye every sail aboard your vaka at sea and in port.
+        </p>
+
+        <div class="sail-dye-swatches" id="walkSailDyeSwatches">
+          ${SAIL_DYE_PALETTE.map(
+            (dye) => `
+              <button
+                class="sail-dye-swatch-btn ${dye.hex.toLowerCase() === curHex ? 'selected' : ''}"
+                data-sail-hex="${dye.hex}"
+                type="button"
+              >
+                <span class="sail-dye-dot" style="background:${dye.hex}"></span>
+                <span>${dye.name}</span>
+              </button>
+            `
+          ).join('')}
+        </div>
+
+        <div class="sail-dye-custom-row">
+          <label class="sail-dye-custom-label" for="walkSailColorPicker">
+            <span>Custom Blend:</span>
+            <strong id="walkSailColorName">${activeSwatch ? activeSwatch.name : 'Custom Pigment'}</strong>
+          </label>
+          <div class="sail-dye-custom-controls">
+            <input
+              class="sail-dye-color-input"
+              id="walkSailColorPicker"
+              type="color"
+              value="${curHex}"
+              aria-label="Choose custom sail color"
+            />
+            <button class="secondary-btn small-btn" id="btnWalkResetSailColor" type="button">
+              Natural Pandanus
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const applyColor = (nextHex) => {
+      const safe = normalizeSailColorHex(nextHex);
+      gs.setSailColor(safe);
+      gs.saveToLocalStorage();
+      this.callbacks.onAshoreStateChanged?.();
+
+      const match = SAIL_DYE_PALETTE.find((d) => d.hex.toLowerCase() === safe);
+      const nameEl = bodyEl.querySelector('#walkSailColorName');
+      if (nameEl) {
+        nameEl.textContent = match ? match.name : 'Custom Pigment';
+      }
+      const picker = bodyEl.querySelector('#walkSailColorPicker');
+      if (picker && picker.value.toLowerCase() !== safe) {
+        picker.value = safe;
+      }
+      bodyEl.querySelectorAll('.sail-dye-swatch-btn').forEach((btn) => {
+        btn.classList.toggle(
+          'selected',
+          btn.getAttribute('data-sail-hex')?.toLowerCase() === safe
+        );
+      });
+    };
+
+    bodyEl.querySelectorAll('.sail-dye-swatch-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        applyColor(btn.getAttribute('data-sail-hex'));
+      });
+    });
+
+    const pickerEl = bodyEl.querySelector('#walkSailColorPicker');
+    pickerEl?.addEventListener('input', (e) => {
+      applyColor(e.target.value);
+    });
+
+    bodyEl
+      .querySelector('#btnWalkResetSailColor')
+      ?.addEventListener('click', () => {
+        applyColor(DEFAULT_SAIL_COLOR);
+      });
   }
 
   // -------------------------------------------------------------------------

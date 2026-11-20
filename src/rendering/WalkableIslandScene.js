@@ -11,7 +11,11 @@
  */
 
 import * as THREE from 'three';
-import { Difficulty, wrapDeg180 } from '../core/gameConstants.js';
+import {
+  computeSailVariantColors,
+  Difficulty,
+  wrapDeg180,
+} from '../core/gameConstants.js';
 import { ISLANDS } from '../data/islandsData.js';
 import {
   RAIATEA_WALKABLE_SPEC,
@@ -124,6 +128,7 @@ export class WalkableIslandScene {
     this.npcEntries = [];
     this.obstacles = [];
     this.peakCloudMat = null;
+    this.dyeBannerMat = null;
   }
 
   _bakeHeightGridFromCanonicalAssembly(assemblyGroup) {
@@ -585,6 +590,71 @@ export class WalkableIslandScene {
         this.obstacles.push({ x: poi.x, z: poi.z, r: 1.55 });
       }
 
+      // Carved Sail-Dyeing Vats & drying pandanus sail-cloth banner on Mo'orea
+      if (poi.kind === 'sail_dye') {
+        const vatColors = [0xb83227, 0xd9a441, 0x2ea89c];
+        for (let v = 0; v < vatColors.length; v += 1) {
+          const ang = (v / vatColors.length) * Math.PI * 2.0 + 0.35;
+          const vx = Math.cos(ang) * 1.15;
+          const vz = Math.sin(ang) * 1.15;
+
+          const basin = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.54, 0.44, 0.56, 12),
+            basaltMat
+          );
+          basin.position.set(vx, 0.28, vz);
+          basin.castShadow = true;
+          basin.receiveShadow = true;
+          ringGrp.add(basin);
+
+          const dyePool = new THREE.Mesh(
+            new THREE.CircleGeometry(0.45, 16),
+            new THREE.MeshStandardMaterial({
+              color: vatColors[v],
+              roughness: 0.28,
+              metalness: 0.08,
+            })
+          );
+          dyePool.rotation.x = -Math.PI * 0.5;
+          dyePool.position.set(vx, 0.57, vz);
+          ringGrp.add(dyePool);
+        }
+
+        // Timber drying rack + cloth banner showing current custom sail color
+        for (const px of [-1.25, 1.25]) {
+          const post = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.06, 0.08, 2.35, 7),
+            aitoMat
+          );
+          post.position.set(px, 1.18, -0.55);
+          post.castShadow = true;
+          ringGrp.add(post);
+        }
+        const crossbar = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.055, 0.055, 2.75, 7),
+          aitoMat
+        );
+        crossbar.rotation.z = Math.PI * 0.5;
+        crossbar.position.set(0.0, 2.28, -0.55);
+        crossbar.castShadow = true;
+        ringGrp.add(crossbar);
+
+        this.dyeBannerMat = new THREE.MeshStandardMaterial({
+          color: 0xe6cfa3,
+          roughness: 0.85,
+          side: THREE.DoubleSide,
+        });
+        const banner = new THREE.Mesh(
+          new THREE.PlaneGeometry(2.15, 1.35),
+          this.dyeBannerMat
+        );
+        banner.position.set(0.0, 1.54, -0.55);
+        banner.castShadow = true;
+        ringGrp.add(banner);
+
+        this.obstacles.push({ x: poi.x, z: poi.z, r: 1.65 });
+      }
+
       // Add welcoming 3D Artisan & Elder figures on inhabited islands
       if (islDef?.inhabited && (poi.kind === 'hut' || poi.kind === 'elder')) {
         const isElder = poi.kind === 'elder';
@@ -818,7 +888,16 @@ export class WalkableIslandScene {
         mesh.visible = gameState.assignedCrew.includes(crewId);
       }
       const isSailWorn = gameState.sailCondition < 55.0;
-      this.vakaRenderer.sailMat.color.setHex(isSailWorn ? 0xb59e78 : 0xe6cfa3);
+      const sailColors = computeSailVariantColors(gameState.sailColor);
+      this.vakaRenderer.sailMat.color.setHex(
+        isSailWorn ? sailColors.wornHex : sailColors.normalHex
+      );
+      this.vakaRenderer.sailSeamMat.color.setHex(
+        isSailWorn ? sailColors.seamWornHex : sailColors.seamNormalHex
+      );
+      if (this.dyeBannerMat) {
+        this.dyeBannerMat.color.setHex(sailColors.normalHex);
+      }
       this.vakaRenderer.hullMat.color.setHex(
         gameState.hullCondition < 55.0 ? 0x663d20 : 0x8d532b
       );

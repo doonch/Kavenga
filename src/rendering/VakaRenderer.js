@@ -9,7 +9,7 @@
  */
 
 import * as THREE from 'three';
-import { Difficulty } from '../core/gameConstants.js';
+import { computeSailVariantColors, Difficulty } from '../core/gameConstants.js';
 import { altAzToDirectionVec3 } from '../simulation/celestialSim.js';
 import {
   animatePlayerCharacterRig,
@@ -1155,9 +1155,14 @@ export class VakaRenderer {
         mesh.visible = gameState.assignedCrew.includes(crewId);
       }
 
-      // Visual wear tinting when neglected (<55%)
-      this.sailMat.color.setHex(isSailWorn ? 0xb59e78 : 0xe6cfa3);
-      this.sailSeamMat.color.setHex(isSailWorn ? 0x97805c : 0xc9aa76);
+      // Visual wear tinting when neglected (<55%), preserving custom dyed sail hues
+      const sailColors = computeSailVariantColors(gameState.sailColor);
+      this.sailMat.color.setHex(
+        isSailWorn ? sailColors.wornHex : sailColors.normalHex
+      );
+      this.sailSeamMat.color.setHex(
+        isSailWorn ? sailColors.seamWornHex : sailColors.seamNormalHex
+      );
       this.hullMat.color.setHex(
         gameState.hullCondition < 55.0 ? 0x663d20 : 0x8d532b
       );

@@ -119,3 +119,55 @@ export function degToRad(deg) {
 export function radToDeg(rad) {
   return (rad * 180.0) / Math.PI;
 }
+
+export const DEFAULT_SAIL_COLOR = '#e6cfa3';
+
+export const SAIL_DYE_PALETTE = Object.freeze([
+  Object.freeze({ id: 'pandanus', name: 'Pandanus Cream', hex: '#e6cfa3' }),
+  Object.freeze({ id: 'kura', name: 'Crimson Kura', hex: '#b83227' }),
+  Object.freeze({ id: 'turmeric', name: 'Turmeric Gold', hex: '#d9a441' }),
+  Object.freeze({ id: 'jade', name: 'Lagoon Jade', hex: '#2ea89c' }),
+  Object.freeze({ id: 'indigo', name: 'Ocean Indigo', hex: '#2c5078' }),
+  Object.freeze({ id: 'terracotta', name: 'Clay Terracotta', hex: '#c45d38' }),
+  Object.freeze({ id: 'charcoal', name: 'Basalt Charcoal', hex: '#363d45' }),
+]);
+
+export function normalizeSailColorHex(hex) {
+  if (typeof hex !== 'string') return DEFAULT_SAIL_COLOR;
+  const trimmed = hex.trim().toLowerCase();
+  if (/^#[0-9a-f]{6}$/.test(trimmed)) return trimmed;
+  if (/^[0-9a-f]{6}$/.test(trimmed)) return `#${trimmed}`;
+  return DEFAULT_SAIL_COLOR;
+}
+
+export function computeSailVariantColors(baseHex) {
+  const safeHex = normalizeSailColorHex(baseHex);
+  const normalHex = parseInt(safeHex.slice(1), 16);
+  const r = (normalHex >> 16) & 0xff;
+  const g = (normalHex >> 8) & 0xff;
+  const b = normalHex & 0xff;
+
+  const pack = (rr, gg, bb) =>
+    ((Math.max(0, Math.min(255, Math.round(rr))) & 0xff) << 16) |
+    ((Math.max(0, Math.min(255, Math.round(gg))) & 0xff) << 8) |
+    (Math.max(0, Math.min(255, Math.round(bb))) & 0xff);
+
+  // Salt-and-sun weathered shade when sailCondition < 55%
+  const wr = r * 0.72 + 158 * 0.14;
+  const wg = g * 0.72 + 139 * 0.14;
+  const wb = b * 0.72 + 112 * 0.14;
+  const wornHex = pack(wr, wg, wb);
+
+  // Subtle woven panel seam shade (darkens bright cloths, softly lifts very dark cloths)
+  const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+  const seamNormalHex =
+    luma < 52
+      ? pack(r + 22, g + 20, b + 18)
+      : pack(r * 0.85, g * 0.82, b * 0.76);
+  const seamWornHex =
+    luma < 52
+      ? pack(wr + 16, wg + 15, wb + 14)
+      : pack(wr * 0.85, wg * 0.82, wb * 0.76);
+
+  return { normalHex, wornHex, seamNormalHex, seamWornHex };
+}

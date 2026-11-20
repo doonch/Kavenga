@@ -46,6 +46,7 @@ function makeStandardWalkableSpec({
   elderSubtitle = 'Speak with the local wayfinder elder, trade island gifts, and learn the next chant',
   elderPrompt = 'Speak with Island Elder',
   elderGlyph = '🌺',
+  extraPois = [],
 }) {
   const arrivalFor = (pt, facingYawRad, camYawRad) => {
     const dx = spawn.x - pt.x;
@@ -149,6 +150,12 @@ function makeStandardWalkableSpec({
         markerRadiusM: 4.2,
         arrivalSpot: arrivalFor(elder, -1.82, -1.75),
       }),
+      ...extraPois.map((ep) =>
+        Object.freeze({
+          ...ep,
+          arrivalSpot: ep.arrivalSpot || arrivalFor(ep, -1.0, -1.0),
+        })
+      ),
     ]),
   });
 }
@@ -689,6 +696,23 @@ export const WALKABLE_ISLAND_SPECS = Object.freeze({
     elderLabel: 'Vaihere · Spire Sanctuary',
     elderTitle: "Vaihere's Spire-Foot Sanctuary",
     elderPrompt: 'Speak with Vaihere',
+    extraPois: [
+      Object.freeze({
+        id: 'sail_dye_vats',
+        kind: 'sail_dye',
+        hubTab: 'landing',
+        glyph: '🎨',
+        label: 'Sail-Dyeing Vats',
+        title: "Vaihere's Sail-Dyeing Vats",
+        subtitle:
+          'Steep woven pandanus sails in natural island pigments or blend your own shade',
+        promptHint: 'Dye Canoe Sails',
+        x: 10.0,
+        z: 44.0,
+        triggerRadiusM: 5.8,
+        markerRadiusM: 3.6,
+      }),
+    ],
   }),
 
   maupiti: makeStandardWalkableSpec({

@@ -2,7 +2,11 @@
  * Persistent campaign progression, canoe readiness, cargo slots, crew, and pre-voyage snapshot.
  */
 
-import { Difficulty } from './gameConstants.js';
+import {
+  DEFAULT_SAIL_COLOR,
+  Difficulty,
+  normalizeSailColorHex,
+} from './gameConstants.js';
 import { backfillLegacyObjectives } from './objectivesManager.js';
 
 const STORAGE_KEY = 'kavenga_campaign_save_v1';
@@ -28,6 +32,7 @@ export class GameState {
     this.hullCondition = 75.0;
     this.sailCondition = 75.0;
     this.lashingsCondition = 65.0;
+    this.sailColor = DEFAULT_SAIL_COLOR;
 
     this.loadedRations = 3.0;
     this.cargoItems = [];
@@ -168,6 +173,10 @@ export class GameState {
     return Object.values(this.learnedConstellations).filter(Boolean).length;
   }
 
+  setSailColor(hex) {
+    this.sailColor = normalizeSailColorHex(hex);
+  }
+
   savePreVoyageSnapshot() {
     this._preVoyageSnapshot = this.toJSON();
   }
@@ -196,6 +205,7 @@ export class GameState {
       hullCondition: this.hullCondition,
       sailCondition: this.sailCondition,
       lashingsCondition: this.lashingsCondition,
+      sailColor: this.sailColor,
       loadedRations: this.loadedRations,
       cargoItems: [...this.cargoItems],
       recruitedCrew: [...this.recruitedCrew],
@@ -250,6 +260,7 @@ export class GameState {
     this.hullCondition = data.hullCondition ?? 75.0;
     this.sailCondition = data.sailCondition ?? 75.0;
     this.lashingsCondition = data.lashingsCondition ?? 65.0;
+    this.sailColor = normalizeSailColorHex(data.sailColor);
     this.loadedRations = data.loadedRations ?? 3.0;
     this.cargoItems = [...(data.cargoItems ?? [])];
     this.recruitedCrew = [...(data.recruitedCrew ?? [])];

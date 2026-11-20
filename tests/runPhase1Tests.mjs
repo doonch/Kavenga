@@ -5,9 +5,13 @@
  */
 
 import {
+  DEFAULT_SAIL_COLOR,
   DepartureWindow,
   Difficulty,
+  SAIL_DYE_PALETTE,
   allowsRecallAtSea,
+  computeSailVariantColors,
+  normalizeSailColorHex,
   playsSongAtSea,
   showsActiveStarShimmer,
   showsEasyConstellationCutout,
@@ -204,12 +208,13 @@ for (const wid of Object.keys(ISLANDS)) {
   const expectedScale = expectedWalkableIds.includes(wid)
     ? wSpec?.canonicalScale ?? 1.0
     : 1.55;
+  const expectedPoiCount = wid === 'moorea' ? 5 : 4;
   assert(
     wSpec &&
-      wSpec.pois.length === 4 &&
+      wSpec.pois.length === expectedPoiCount &&
       Number.isFinite(expectedScale) &&
       expectedScale >= 1.0,
-    `Walkable ${wid} defines 4 visual POIs and valid scale`
+    `Walkable ${wid} defines ${expectedPoiCount} visual POIs and valid scale`
   );
   const spawnToCanoeDist = Math.hypot(
     wSpec.initialSpawn.x - wSpec.mooredCanoe.x,
@@ -654,6 +659,39 @@ assert(Number.isFinite(sampleHull.heaveM), 'Hull heaveM is finite');
 logLine('[6/7] Verifying GameState Cargo Slots, Crew Traits & Pre-Voyage Snapshot...');
 const gs = new GameState();
 assert(gs.maxCargoSlots === 4, 'Starts with 4 cargo slots');
+assert(gs.sailColor === DEFAULT_SAIL_COLOR, 'Starts with default Pandanus Cream sail color');
+assert(SAIL_DYE_PALETTE.length >= 5, 'Sail dye palette defines multiple pigment options');
+for (const dye of SAIL_DYE_PALETTE) {
+  auditText(dye.name, `Sail dye ${dye.id}`);
+  assert(
+    normalizeSailColorHex(dye.hex) === dye.hex.toLowerCase(),
+    `Palette dye ${dye.id} has valid normalized hex`
+  );
+}
+assert(
+  normalizeSailColorHex('not-a-color') === DEFAULT_SAIL_COLOR,
+  'Invalid sail color falls back safely to default'
+);
+gs.setSailColor('#2ea89c');
+const roundTripSailGs = new GameState();
+roundTripSailGs.fromJSON(gs.toJSON());
+assert(
+  roundTripSailGs.sailColor === '#2ea89c',
+  'GameState serializes & restores custom sailColor'
+);
+const customSailVars = computeSailVariantColors('#2ea89c');
+assert(
+  customSailVars.normalHex === 0x2ea89c &&
+    customSailVars.wornHex !== customSailVars.normalHex &&
+    customSailVars.seamNormalHex !== customSailVars.normalHex,
+  'computeSailVariantColors derives distinct worn & seam colors'
+);
+assert(
+  WALKABLE_ISLAND_SPECS.moorea.pois.some((p) => p.id === 'sail_dye_vats' && p.kind === 'sail_dye') &&
+    !WALKABLE_ISLAND_SPECS.raiatea.pois.some((p) => p.kind === 'sail_dye') &&
+    !WALKABLE_ISLAND_SPECS.tahaa.pois.some((p) => p.kind === 'sail_dye'),
+  "Sail-Dyeing Vats POI exists exclusively on walkable Mo'orea"
+);
 assert(
   gs.getLearnedConstellationCount() === 0 &&
     !gs.hasLearnedConstellation('the_sea_turtle') &&
