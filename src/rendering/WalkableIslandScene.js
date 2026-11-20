@@ -259,6 +259,11 @@ export class WalkableIslandScene {
     this._clearCurrentIslandContent();
     this.spec = getWalkableIslandSpec(resolvedId) || RAIATEA_WALKABLE_SPEC;
     this.gridHalfSpan = this.spec.gridHalfSpan || 115.0;
+    const desiredGridN = this.spec.gridN || 200;
+    if (desiredGridN !== this.gridN) {
+      this.gridN = desiredGridN;
+      this.heightGrid = new Float32Array((desiredGridN + 1) * (desiredGridN + 1));
+    }
     this.builtIslandId = resolvedId;
 
     const scale = this.spec.canonicalScale ?? 1.55;
@@ -298,33 +303,34 @@ export class WalkableIslandScene {
     const trailSpecs = {
       raiatea: {
         waypoints: [
-          new THREE.Vector3(4.5, 0, 50.5),
-          new THREE.Vector3(14.5, 0, 44.5),
-          new THREE.Vector3(21.0, 0, 32.5),
-          new THREE.Vector3(17.2, 0, 20.5),
-          new THREE.Vector3(10.0, 0, 11.8),
-          new THREE.Vector3(3.4, 0, 5.2),
+          new THREE.Vector3(24.0, 0, 68.0),
+          new THREE.Vector3(34.5, 0, 56.0),
+          new THREE.Vector3(34.0, 0, 40.0),
+          new THREE.Vector3(25.0, 0, 26.5),
+          new THREE.Vector3(14.5, 0, 15.0),
+          new THREE.Vector3(4.2, 0, 5.8),
         ],
-        steps: 34,
+        steps: 44,
         torches: [
-          [5.6, 49.4],
-          [22.2, 32.0],
-          [11.0, 11.2],
+          [25.6, 66.5],
+          [35.6, 40.5],
+          [15.8, 14.5],
         ],
       },
       tahaa: {
         waypoints: [
-          new THREE.Vector3(12.8, 0, 39.2),
-          new THREE.Vector3(17.5, 0, 32.0),
-          new THREE.Vector3(17.0, 0, 22.0),
-          new THREE.Vector3(11.5, 0, 13.5),
-          new THREE.Vector3(3.4, 0, 5.0),
+          new THREE.Vector3(28.0, 0, 50.0),
+          new THREE.Vector3(31.5, 0, 40.0),
+          new THREE.Vector3(26.5, 0, 29.0),
+          new THREE.Vector3(17.5, 0, 19.5),
+          new THREE.Vector3(9.5, 0, 11.2),
+          new THREE.Vector3(4.0, 0, 5.2),
         ],
-        steps: 34,
+        steps: 42,
         torches: [
-          [14.0, 38.2],
-          [18.2, 22.0],
-          [4.8, 6.2],
+          [29.4, 49.0],
+          [27.8, 29.2],
+          [10.8, 11.8],
         ],
       },
       huahine: {

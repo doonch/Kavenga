@@ -1146,8 +1146,9 @@ class KavengaApp {
     if (this.btnShoreWalkToggle) {
       this.btnShoreWalkToggle.classList.toggle('hidden', !walkable);
       this.btnShoreWalkToggle.classList.toggle('active', isWalking);
+      this.btnShoreWalkToggle.removeAttribute('title');
       this.btnShoreWalkToggle.setAttribute(
-        'title',
+        'data-tooltip',
         isWalking
           ? 'Return to 4-Station Shore Stage'
           : 'Walk Shore in 3rd-person (Arrow Keys / WASD)'

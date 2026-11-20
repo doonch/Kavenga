@@ -753,6 +753,152 @@ export function addBarrierReefArc(
 }
 
 /**
+ * Generates an organic non-circular horizontal lagoon water mesh whose outer edge
+ * traces `radiusFn(theta)` in world XZ (`+Y` normal upward).
+ */
+export function createOrganicLagoonGeometry(radiusFn, segs = 96) {
+  const positions = [0, 0, 0];
+  const indices = [];
+
+  for (let i = 0; i <= segs; i += 1) {
+    const theta = (i / segs) * Math.PI * 2.0;
+    const r = radiusFn(theta);
+    positions.push(Math.cos(theta) * r, 0, Math.sin(theta) * r);
+  }
+  for (let i = 1; i <= segs; i += 1) {
+    indices.push(0, i + 1, i);
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/**
+ * Generates an organic non-circular sandy coral motu islet with natural scalloped shores.
+ */
+export function createOrganicMotuGeometry({
+  radiusX = 8.0,
+  radiusZ = 5.5,
+  height = 1.25,
+  seed = 0,
+  segs = 28,
+} = {}) {
+  const geo = new THREE.CylinderGeometry(0.72, 1.0, height, segs, 2);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i += 1) {
+    const vx = pos.getX(i);
+    const vy = pos.getY(i);
+    const vz = pos.getZ(i);
+    const r = Math.hypot(vx, vz);
+    if (r > 1e-4) {
+      const th = Math.atan2(vz, vx);
+      const lobe =
+        1.0 +
+        0.18 * Math.cos(2.0 * th + seed * 1.1) +
+        0.14 * Math.sin(3.0 * th - seed * 0.7) +
+        0.08 * Math.cos(5.0 * th + seed * 1.9);
+      pos.setXYZ(i, vx * radiusX * lobe, vy, vz * radiusZ * lobe);
+    }
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+
+function buildOrganicContourRibbonGeometry({
+  radiusFn,
+  startRad,
+  endRad,
+  halfWidth = 2.6,
+  crestHeight = 0.55,
+  yBase = -0.1,
+  segs = 72,
+  radialOffset = 0.0,
+} = {}) {
+  const positions = [];
+  const indices = [];
+  const span = endRad - startRad;
+
+  for (let i = 0; i <= segs; i += 1) {
+    const t = i / segs;
+    const th = startRad + span * t;
+    // Taper gently into rounded reef heads at pass openings
+    const endTaper = Math.sin(Math.min(1.0, Math.min(t, 1.0 - t) / 0.06) * Math.PI * 0.5);
+    const w = halfWidth * (0.35 + 0.65 * endTaper);
+    const h = crestHeight * (0.25 + 0.75 * endTaper);
+    const rMid = radiusFn(th) + radialOffset + Math.sin(th * 9.0 + i * 0.2) * 0.45;
+    const c = Math.cos(th);
+    const s = Math.sin(th);
+
+    // 4-point convex arch across ribbon width (inner edge -> inner crest -> outer crest -> outer edge)
+    const rIn = rMid - w;
+    const rCIn = rMid - w * 0.35;
+    const rCOut = rMid + w * 0.35;
+    const rOut = rMid + w;
+    positions.push(rIn * c, yBase, rIn * s);
+    positions.push(rCIn * c, yBase + h, rCIn * s);
+    positions.push(rCOut * c, yBase + h, rCOut * s);
+    positions.push(rOut * c, yBase, rOut * s);
+
+    if (i < segs) {
+      const b0 = i * 4;
+      const b1 = (i + 1) * 4;
+      for (let q = 0; q < 3; q += 1) {
+        indices.push(b0 + q, b1 + q, b0 + q + 1);
+        indices.push(b0 + q + 1, b1 + q, b1 + q + 1);
+      }
+    }
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/**
+ * Adds a contoured, non-circular barrier-reef shelf & breaking white surf foam ribbon
+ * following `radiusFn(theta)` across `[startRad, endRad]`.
+ */
+export function addOrganicBarrierReefArc(
+  group,
+  reefMat,
+  foamMat,
+  radiusFn,
+  startRad,
+  endRad,
+  segs = 72,
+  { reefWidth = 5.4, foamWidth = 2.6, foamOffset = 2.0 } = {}
+) {
+  const reefGeo = buildOrganicContourRibbonGeometry({
+    radiusFn,
+    startRad,
+    endRad,
+    halfWidth: reefWidth * 0.5,
+    crestHeight: 0.62,
+    yBase: -0.08,
+    segs,
+    radialOffset: 0.0,
+  });
+  group.add(new THREE.Mesh(reefGeo, reefMat));
+
+  const foamGeo = buildOrganicContourRibbonGeometry({
+    radiusFn,
+    startRad,
+    endRad,
+    halfWidth: foamWidth * 0.5,
+    crestHeight: 0.24,
+    yBase: 0.16,
+    segs,
+    radialOffset: foamOffset,
+  });
+  group.add(new THREE.Mesh(foamGeo, foamMat));
+}
+
+/**
  * Adds Polynesian dwellings in regional architectural styles:
  * - `style: 'society'`: Woven reed walls + honey pandanus roof on low coral/earth plinth
  * - `style: 'marquesan'`: High dry-stone basalt `paepae` terrace + steep high-peaked `fa'e` roof

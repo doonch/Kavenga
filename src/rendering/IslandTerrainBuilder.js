@@ -20,20 +20,28 @@ import { createAct2IslandAssembly } from './IslandAct2Builder.js';
 import { createAct3IslandAssembly } from './IslandAct3Builder.js';
 import { createRapaNuiIslandAssembly } from './IslandRapaNuiBuilder.js';
 import {
+  addBroadleafTrees,
   addCoconutGroves,
   addCoastalScrub,
   addMaraePlatform,
+  addOrganicBarrierReefArc,
+  addOutriggerCanoe,
+  addRegionalHuts,
+  addTimberPier,
   createBeveledStoneSlabGeometry,
   createCarvedUnuStandard,
   createGiantPearlShellGroup,
   createGiantPearlValveGeometry,
   createMaterialTracker,
+  createOrganicLagoonGeometry,
+  createOrganicMotuGeometry,
 } from './IslandSculptToolkit.js';
 import {
   createCarvedStandingStoneGroup,
   createCoralCairnGroup,
   createKukuiTorchGroup,
   createVillageHearthGroup,
+  makeStoneRockGeometry,
 } from './IslandPropsBuilder.js';
 
 function clamp01(v) {
@@ -71,165 +79,244 @@ const COL_RIDGE_FERN = [0.35, 0.47, 0.21];
 const COL_CLIFF_BASALT = [0.29, 0.27, 0.25];
 const COL_PLATEAU_MOSS = [0.27, 0.39, 0.22];
 
+function evalRaiateaReefRadius(theta) {
+  return (
+    114.0 -
+    10.5 * Math.cos(2.0 * theta + 0.25) +
+    6.8 * Math.sin(3.0 * theta + 0.45) +
+    4.0 * Math.cos(5.0 * theta - 1.1) +
+    2.4 * Math.sin(7.0 * theta + 0.8)
+  );
+}
+
 /**
- * Evaluates Ra'iatea height & shoreline profile at world (x, z).
- * Features elongated N-S volcanic massif, flat-topped Mount Temehani plateau,
- * 7 sharp radial ridge spurs, eastern sacred Marae cape, and crescent sand coves.
+ * Evaluates Ra'iatea height & shoreline profile at world (x, z) (2x canonical scale).
+ * Features elongated volcanic massif, flat-topped Mount Temehani Observation plateau,
+ * 7 gentle walkable radial ridge spurs, broad Marae Taputapuatea cape terrace, and crescent coves.
  */
 function evalRaiateaPoint(x, z) {
-  // Slightly elongated island footprint along Z with sacred cape jutting at theta ~ -0.35
+  // 2x elongated, asymmetrically indented island footprint with sacred cape at theta ~ -0.35
   const sx = x * 1.08;
   const sz = z * 0.92;
   const r = Math.hypot(sx, sz);
   const theta = Math.atan2(sz, sx);
 
-  const capeBump = 5.5 * Math.exp(-Math.pow(Math.atan2(Math.sin(theta + 0.35), Math.cos(theta + 0.35)) / 0.38, 2.0));
+  const capeBump =
+    11.2 *
+    Math.exp(
+      -Math.pow(
+        Math.atan2(Math.sin(theta + 0.35), Math.cos(theta + 0.35)) / 0.38,
+        2.0
+      )
+    );
   const coveWave =
-    2.8 * Math.cos(3.0 * theta - 0.6) +
-    2.1 * Math.sin(5.0 * theta + 1.1) +
-    1.1 * Math.cos(8.0 * theta);
-  const coastR = 39.5 + capeBump + coveWave;
+    7.4 * Math.cos(2.0 * theta - 0.85) +
+    5.6 * Math.cos(3.0 * theta - 0.55) +
+    3.6 * Math.sin(5.0 * theta + 1.15) +
+    1.5 * Math.cos(7.0 * theta - 0.4);
+  const rawCoastR = 77.5 + capeBump + coveWave;
+  const coastR =
+    rawCoastR < 67.0
+      ? 67.0 - 4.0 * Math.tanh((67.0 - rawCoastR) / 4.0)
+      : rawCoastR;
 
-  const u = r / coastR; // < 1.0 = land, > 1.0 = lagoon floor
-  if (u >= 1.0) {
-    const lagoonDepth = -3.6 * smoothstep(1.0, 1.38, u);
-    return { h: lagoonDepth, u, ridgeFactor: 0.0, isBeachCove: false, isPlateau: false };
+  const uCoast = r / coastR; // < 1.0 = land, > 1.0 = lagoon floor
+  if (uCoast >= 1.0) {
+    const lagoonDepth = -4.2 * smoothstep(1.0, 1.38, uCoast);
+    return {
+      h: lagoonDepth,
+      u: uCoast,
+      ridgeFactor: 0.0,
+      isBeachCove: false,
+      isPlateau: false,
+    };
   }
 
-  // Coastal apron transitioning into volcanic massif (50% lower for panoramic hilltop observation)
-  const inland = 1.0 - u;
-  const baseDome = 29.0 * Math.pow(smoothstep(0.04, 0.88, inland), 1.32);
+  // Smooth inner massif radius away from cove indentations while reaching 36.0m summit gradually
+  const massifTargetR = lerp(coastR, 82.0, 0.45);
+  const uSmooth = r / lerp(coastR, massifTargetR, smoothstep(1.0, 0.14, uCoast));
+  const inland = clamp01(1.0 - uSmooth);
+  const domeT = clamp01((inland - 0.01) / 0.95);
+  const softCurve = lerp(domeT, smoothstep(0.0, 1.0, domeT), 0.03);
+  const baseDome = 35.8 * softCurve;
 
-  // 7 eroded radial basalt ridges & lush valleys
-  const twistTheta = theta + 0.18 * Math.sin(2.0 * theta) + 0.12 * inland;
+  // 7 broad, gently undulating radial basalt ridges & valleys
+  const twistTheta = theta + 0.12 * Math.sin(2.0 * theta) + 0.06 * inland;
   const ridgeRaw = 0.5 + 0.5 * Math.cos(7.0 * twistTheta - 0.4);
-  const ridgeSharp = Math.pow(ridgeRaw, 1.85);
-  const ridgeEnv = smoothstep(0.08, 0.36, inland) * smoothstep(0.95, 0.52, inland);
-  const ridgeRelief = (ridgeSharp - 0.32) * 9.2 * ridgeEnv;
+  const ridgeSharp = Math.pow(ridgeRaw, 1.25);
+  const ridgeEnv =
+    smoothstep(0.16, 0.48, inland) * smoothstep(0.9, 0.52, inland);
+  const ridgeRelief = (ridgeSharp - 0.3) * 1.6 * ridgeEnv;
 
-  // Secondary peak spur on the aft/south flank
-  const southPeakDist = Math.hypot(sx + 6.0, sz - 12.5);
-  const southSpur = 7.2 * Math.exp(-Math.pow(southPeakDist / 12.0, 2.0));
+  // Secondary gentle hill shoulder on the aft/south flank
+  const southPeakDist = Math.hypot(sx + 14.0, sz - 26.0);
+  const southSpur = 3.2 * Math.exp(-Math.pow(southPeakDist / 34.0, 2.0));
 
   let h = Math.max(0.0, baseDome + ridgeRelief + southSpur);
 
-  // Iconic flat-topped sacred Mount Temehani plateau truncation above ~25m
+  // Iconic flat-topped sacred Mount Temehani plateau above ~35.2m
   let isPlateau = false;
-  if (h > 25.2) {
-    const over = h - 25.2;
-    h = 25.2 + Math.min(2.6, over * 0.24);
-    // Subtle plateau rim lip
-    const centerDist = Math.hypot(sx - 1.5, sz + 2.0);
-    h += 0.7 * Math.exp(-Math.pow((centerDist - 6.8) / 2.4, 2.0));
+  if (h > 35.2) {
+    const over = h - 35.2;
+    h = 35.2 + Math.min(0.9, over * 0.22);
     isPlateau = true;
   }
 
-  // Gentle walkable eastern ridge face (theta ~ -1.05 rad -> world +X/+Z) leading smoothly to hilltop
-  const rampAngDiff = Math.abs(Math.atan2(Math.sin(theta + 1.05), Math.cos(theta + 1.05)));
-  if (rampAngDiff < 0.72 && u < 0.96) {
-    const angMask = smoothstep(0.72, 0.22, rampAngDiff);
-    const rampT = clamp01((inland - 0.02) / 0.84);
-    const rampProfile = lerp(1.0, 26.8, rampT);
-    const rampBlend = angMask * smoothstep(0.96, 0.86, u);
-    h = lerp(h, rampProfile, rampBlend * 0.96);
+  // Gentle walkable eastern ridge approach (theta ~ -1.05 rad -> world +X/+Z trail)
+  const rampAngDiff = Math.abs(
+    Math.atan2(Math.sin(theta + 1.05), Math.cos(theta + 1.05))
+  );
+  if (rampAngDiff < 0.9 && uCoast < 0.98) {
+    const angMask = smoothstep(0.9, 0.22, rampAngDiff);
+    const rampT = clamp01((inland - 0.01) / 0.86);
+    const rampProfile = lerp(0.8, 36.0, rampT);
+    const rampBlend = angMask * smoothstep(0.98, 0.55, uCoast);
+    h = lerp(h, rampProfile, rampBlend * 0.82);
   }
 
-  // Level summit clearing at the top of the hill for the Observation Knoll
+  // Broad level summit clearing at (0, 0) for the Observation Circle (blends gently from 35.2..36.0)
   const summitDist = Math.hypot(sx, sz);
-  if (summitDist < 7.2) {
-    const flatBlend = smoothstep(7.2, 3.6, summitDist);
-    h = lerp(h, 26.8, flatBlend);
+  if (summitDist < 12.0) {
+    const flatBlend = smoothstep(12.0, 6.0, summitDist);
+    h = lerp(h, 36.0, flatBlend);
     isPlateau = true;
   }
 
-  // Flatten sacred Marae Taputapuatea coastal terrace around theta ~ -0.35 near shore
-  const capeAngDiff = Math.abs(Math.atan2(Math.sin(theta + 0.35), Math.cos(theta + 0.35)));
-  if (capeAngDiff < 0.28 && u > 0.72 && u < 0.98) {
-    const terraceBlend = (1.0 - capeAngDiff / 0.28) * smoothstep(0.72, 0.82, u) * smoothstep(0.99, 0.92, u);
-    h = lerp(h, 2.4, terraceBlend * 0.82);
+  // Smooth coastal terrace for Sacred Marae Taputapuatea around theta ~ -0.35, r ~ 59m
+  const capeAngDiff = Math.abs(
+    Math.atan2(Math.sin(theta + 0.35), Math.cos(theta + 0.35))
+  );
+  if (capeAngDiff < 0.45 && uCoast > 0.54 && uCoast < 0.96) {
+    const terraceBlend =
+      smoothstep(0.45, 0.16, capeAngDiff) *
+      smoothstep(0.54, 0.78, uCoast) *
+      smoothstep(0.96, 0.88, uCoast);
+    h = lerp(h, 2.2, terraceBlend * 0.76);
   }
 
-  // Crescent beaches form inside the concave coves (where coveWave < 0.4)
-  const isBeachCove = coveWave < 0.65 && capeAngDiff > 0.24;
-  if (isBeachCove && u > 0.84) {
-    // Gentle sandy beach slope near water
-    const beachT = smoothstep(0.84, 1.0, u);
-    h = lerp(h, 1.6 * (1.0 - beachT), 0.65);
+  // Wide golden crescent beaches around concave coves & primary landing bay
+  const isBeachCove = coveWave < 1.4 && capeAngDiff > 0.22;
+  if (isBeachCove && uCoast > 0.85) {
+    const beachT = smoothstep(0.85, 1.0, uCoast);
+    h = lerp(h, 1.8 * (1.0 - beachT), 0.42);
   }
 
   return {
     h,
-    u,
+    u: uCoast,
     ridgeFactor: ridgeSharp * ridgeEnv,
     isBeachCove,
     isPlateau,
   };
 }
 
+function evalTahaaReefRadius(theta) {
+  return (
+    112.0 +
+    10.5 * Math.cos(2.0 * theta + 1.15) +
+    5.4 * Math.sin(theta - 0.35) +
+    2.4 * Math.cos(5.0 * theta + 0.55) +
+    3.6 * Math.sin(3.0 * theta - 0.8)
+  );
+}
+
 /**
- * Evaluates Taha'a height & shoreline profile at world (x, z).
- * Features clover-leaf coastline with 5 deep calm fjord bays, wide cream-sand beaches,
- * and gentler eroded Mount Ohiri twin-saddle volcanic hills.
+ * Evaluates Taha'a height & shoreline profile at world (x, z) (2x canonical horizontal scale,
+ * preserving full ~23.5m Mount Ohiri hilltop elevation with gentle walkable slopes).
+ * Features asymmetric flower-clover coastline with 5 varied fjord bays, wide cream-sand beaches,
+ * and eroded Mount Ohiri twin-saddle volcanic hills.
  */
 function evalTahaaPoint(x, z) {
   const r = Math.hypot(x, z);
   const theta = Math.atan2(z, x);
 
-  // Signature 5-lobed flower/clover-leaf shoreline with deep indented bays
+  // Signature 5-lobed flower/clover-leaf shoreline broken by 2*theta elongation & off-axis coves
   const bayLobe = Math.cos(5.0 * theta + 0.55);
-  const subHarmonic = 0.35 * Math.sin(3.0 * theta - 0.8) + 0.2 * Math.cos(8.0 * theta);
-  const coastR = 33.5 + 8.2 * bayLobe + 3.2 * subHarmonic;
+  const asymOvoid =
+    7.8 * Math.cos(2.0 * theta + 1.45) + 4.4 * Math.sin(theta - 0.35);
+  const subHarmonic =
+    2.8 * Math.sin(3.0 * theta - 0.8) + 1.1 * Math.cos(8.0 * theta + 0.3);
+  const rawCoastR = 75.0 + 9.2 * bayLobe + asymOvoid + subHarmonic;
+  const coastR =
+    rawCoastR < 60.0
+      ? 60.0 - 4.0 * Math.tanh((60.0 - rawCoastR) / 4.0)
+      : rawCoastR;
 
-  const u = r / coastR;
-  if (u >= 1.0) {
-    const lagoonDepth = -3.0 * smoothstep(1.0, 1.42, u);
-    return { h: lagoonDepth, u, ridgeFactor: 0.0, isBeachCove: true, isPlateau: false };
+  const uCoast = r / coastR;
+  if (uCoast >= 1.0) {
+    const lagoonDepth = -3.8 * smoothstep(1.0, 1.42, uCoast);
+    return {
+      h: lagoonDepth,
+      u: uCoast,
+      ridgeFactor: 0.0,
+      isBeachCove: true,
+      isPlateau: false,
+    };
   }
 
-  const inland = 1.0 - u;
-  // Soft rolling volcanic shield dome (~23.5m summit, gentle walkable slopes)
-  const dome = 22.0 * Math.pow(smoothstep(0.05, 0.92, inland), 1.48);
+  // Blend radial coordinate gently toward a rounded central massif without pinching steep bay walls
+  const massifTargetR = lerp(coastR, 79.0, 0.35);
+  const uSmooth = r / lerp(coastR, massifTargetR, smoothstep(1.0, 0.14, uCoast));
+  const inland = clamp01(1.0 - uSmooth);
+  const domeT = clamp01((inland - 0.01) / 0.95);
+  const dome = 35.0 * domeT;
 
-  // 5 soft rolling peninsula ridges aligned with the 5 coastal lobes
-  const lobeRidge = Math.pow(0.5 + 0.5 * Math.cos(5.0 * theta + 0.55), 1.35);
-  const ridgeEnv = smoothstep(0.06, 0.34, inland) * smoothstep(0.95, 0.45, inland);
-  const ridgeRelief = (lobeRidge - 0.28) * 6.5 * ridgeEnv;
+  // 5 broad rolling peninsula ridges aligned with the 5 coastal lobes
+  const lobeRidge = Math.pow(0.5 + 0.5 * Math.cos(5.0 * theta + 0.55), 1.2);
+  const ridgeEnv =
+    smoothstep(0.2, 0.5, inland) * smoothstep(0.9, 0.52, inland);
+  const ridgeRelief = (lobeRidge - 0.28) * 1.0 * ridgeEnv;
 
-  // Offset twin-hill caldera saddle (Mount Ohiri & Mount Puurauti)
-  const ohiri = 3.2 * Math.exp(-Math.pow(Math.hypot(x - 4.2, z + 3.0) / 9.5, 2.0));
-  const puurauti = 2.6 * Math.exp(-Math.pow(Math.hypot(x + 7.5, z - 5.5) / 8.5, 2.0));
+  // Offset twin-hill caldera shoulder (Mount Ohiri & Mount Puurauti, wide gentle Gaussians)
+  const ohiri =
+    2.4 * Math.exp(-Math.pow(Math.hypot(x - 8.4, z + 6.0) / 30.0, 2.0));
+  const puurauti =
+    1.8 * Math.exp(-Math.pow(Math.hypot(x + 15.0, z - 11.0) / 28.0, 2.0));
 
   let h = Math.max(0.0, dome + ridgeRelief + ohiri + puurauti);
+  if (h > 34.8) {
+    h = 34.8 + Math.min(0.6, (h - 34.8) * 0.22);
+  }
 
-  // Gentle walkable eastern ridge face (theta ~ -0.18 rad -> world +X/+Z) leading smoothly to hilltop
-  const rampAngDiff = Math.abs(Math.atan2(Math.sin(theta + 0.18), Math.cos(theta + 0.18)));
+  // Gentle walkable eastern ridge face (theta ~ -0.18 rad -> world +X/+Z trail) leading smoothly to hilltop
+  const rampAngDiff = Math.abs(
+    Math.atan2(Math.sin(theta + 0.18), Math.cos(theta + 0.18))
+  );
   const angMask =
-    rampAngDiff < 0.95 && u < 0.99 ? smoothstep(0.95, 0.30, rampAngDiff) : 0.0;
+    rampAngDiff < 1.02 && uCoast < 0.99 ? smoothstep(1.02, 0.3, rampAngDiff) : 0.0;
   if (angMask > 0.0) {
     const rampT = clamp01((inland - 0.01) / 0.86);
-    const rampProfile = lerp(0.5, 23.5, rampT);
-    const rampBlend = angMask * smoothstep(0.99, 0.88, u);
-    h = lerp(h, rampProfile, rampBlend * 0.98);
+    const rampProfile = lerp(0.5, 35.2, rampT);
+    const rampBlend = angMask * smoothstep(0.99, 0.65, uCoast);
+    h = lerp(h, rampProfile, rampBlend * 0.85);
   }
 
-  // Level summit clearing at the top of Taha'a for the Observation Knoll
+  // Gentle flat beach landing pocket in the primary sheltered cove near spawn
+  const coveDeltaAng = Math.atan2(
+    Math.sin(theta - 0.305),
+    Math.cos(theta - 0.305)
+  );
+  if (Math.abs(coveDeltaAng) < 0.34 && uCoast > 0.68 && uCoast < 0.995) {
+    const coveBlend =
+      smoothstep(0.34, 0.08, Math.abs(coveDeltaAng)) *
+      smoothstep(0.68, 0.87, uCoast) *
+      smoothstep(0.995, 0.93, uCoast);
+    h = lerp(h, 1.45, coveBlend * 0.78);
+  }
+
+  // Level summit clearing at 35.2m height for the Observation Circle
   const summitDist = Math.hypot(x, z);
-  if (summitDist < 6.8) {
-    const flatBlend = smoothstep(6.8, 3.4, summitDist);
-    h = lerp(h, 23.5, flatBlend);
+  if (summitDist < 11.0) {
+    const flatBlend = smoothstep(11.0, 5.5, summitDist);
+    h = lerp(h, 35.2, flatBlend);
   }
 
-  // Wide, tranquil cream-sand beaches wrapping deep inside all 5 sheltered bays
-  // (Suppressed along the walkable hillside ramp so no cliff step forms at the trailhead)
-  const isBeachCove = bayLobe < 0.38;
-  if (isBeachCove && u > 0.78 && angMask < 0.98) {
-    const beachT = smoothstep(0.78, 1.0, u);
-    h = lerp(h, 1.4 * (1.0 - beachT), 0.72 * (1.0 - angMask));
-  }
+  // Natural cream-sand shoreline coloring flag inside bays (no hard artificial cliff shelf)
+  const isBeachCove = bayLobe < 0.42;
 
   return {
     h,
-    u,
+    u: uCoast,
     ridgeFactor: lobeRidge * ridgeEnv,
     isBeachCove,
     isPlateau: false,
@@ -239,9 +326,12 @@ function evalTahaaPoint(x, z) {
 /**
  * Generates a polar heightfield BufferGeometry with smooth normals and vertex biome colors.
  */
-function createSculptedIslandTerrainGeometry(evalFn, maxRadius = 56.0, beachColor = COL_BEACH_GOLD) {
-  const nRings = 52;
-  const nSegs = 76;
+function createSculptedIslandTerrainGeometry(
+  evalFn,
+  maxRadius = 56.0,
+  beachColor = COL_BEACH_GOLD,
+  { nRings = 52, nSegs = 76 } = {}
+) {
 
   const positions = [];
   const colors = [];
@@ -703,35 +793,53 @@ export function createDetailedIslandAssembly(islandId) {
   surfFoamMat.userData.baseOpacity = 0.72;
 
   if (islandId === 'raiatea') {
-    // 1. Sculpted Ra'iatea Massif (Mount Temehani plateau, 7 basalt ridges, valleys & golden coves)
+    // 1. Sculpted 2x Ra'iatea Massif (Mount Temehani plateau, 7 gentle ridges, valleys & golden coves)
     const terrainGeo = createSculptedIslandTerrainGeometry(
       evalRaiateaPoint,
-      56.0,
-      COL_BEACH_GOLD
+      126.0,
+      COL_BEACH_GOLD,
+      { nRings: 88, nSegs: 120 }
     );
     const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
     terrainMesh.receiveShadow = true;
     group.add(terrainMesh);
 
-    // 2. Translucent Turquoise Fringing Lagoon Ring + Barrier Reef with Sacred Te Ava Mo'a Pass
-    const lagoonDisc = new THREE.Mesh(new THREE.CircleGeometry(55.5, 48), lagoonSurfaceMat);
-    lagoonDisc.rotation.x = -Math.PI / 2;
+    // 2. Translucent Turquoise Fringing Lagoon & Organic Barrier Reef with Sacred Te Ava Mo'a Pass
+    const lagoonDisc = new THREE.Mesh(
+      createOrganicLagoonGeometry(evalRaiateaReefRadius, 108),
+      lagoonSurfaceMat
+    );
     lagoonDisc.position.y = 0.16;
     group.add(lagoonDisc);
 
-    // Leave open pass around theta = -0.35 rad facing Marae Taputapuatea!
-    addBarrierReefArc(group, reefSandMat, surfFoamMat, 55.0, -0.1, Math.PI * 2.0 - 0.62, 36);
+    // Leave open pass around theta = -0.35 rad facing Marae Taputapuatea
+    addOrganicBarrierReefArc(
+      group,
+      reefSandMat,
+      surfFoamMat,
+      evalRaiateaReefRadius,
+      -0.08,
+      Math.PI * 2.0 - 0.62,
+      84
+    );
 
-    // Two sandy reef motu islets flanking the sacred reef pass
-    const motuGeo = new THREE.CylinderGeometry(3.4, 4.8, 1.1, 10);
-    for (const [mx, mz, sx, sz] of [
-      [50.5, -9.5, 1.2, 0.75],
-      [44.5, -29.5, 0.95, 1.15],
+    // Two sculpted organic sandy reef motu islets flanking the sacred reef pass
+    const raiateaMotuPositions = [];
+    for (const [mAng, rx, rz, seed] of [
+      [-0.04, 10.5, 6.8, 1.3],
+      [-0.66, 9.2, 7.6, 4.1],
     ]) {
-      const motu = new THREE.Mesh(motuGeo, reefSandMat);
-      motu.position.set(mx, 0.35, mz);
-      motu.scale.set(sx, 1.0, sz);
+      const mr = evalRaiateaReefRadius(mAng) - 1.8;
+      const mx = mr * Math.cos(mAng);
+      const mz = mr * Math.sin(mAng);
+      const motu = new THREE.Mesh(
+        createOrganicMotuGeometry({ radiusX: rx, radiusZ: rz, height: 1.35, seed }),
+        reefSandMat
+      );
+      motu.position.set(mx, 0.36, mz);
+      motu.rotation.y = -mAng + Math.PI * 0.5;
       group.add(motu);
+      raiateaMotuPositions.push([mx, mz, mAng]);
     }
 
     // 3. Sacred Marae Taputapuatea Stone Courtyard, Stepped Coral Ahu & Thatched Fare Pote'e
@@ -786,8 +894,8 @@ export function createDetailedIslandAssembly(islandId) {
 
     const maraeGroup = new THREE.Group();
     const capeTheta = -0.35;
-    const capeX = 33.5 * Math.cos(capeTheta);
-    const capeZ = 33.5 * Math.sin(capeTheta);
+    const capeX = 59.0 * Math.cos(capeTheta);
+    const capeZ = 59.0 * Math.sin(capeTheta);
     const capeY = evalRaiateaPoint(capeX, capeZ).h;
     maraeGroup.position.set(capeX, capeY, capeZ);
     maraeGroup.rotation.y = -capeTheta;
@@ -937,39 +1045,176 @@ export function createDetailedIslandAssembly(islandId) {
 
     group.add(maraeGroup);
 
-    // 4. Highland Waterfall Cascade below Mount Temehani Plateau
+    // 4. Sculpted Terrain-Hugging Highland Cascade Stream & Plunge Pool below Mount Temehani
     const waterfallMat = trackMat(
       new THREE.MeshBasicMaterial({
-        color: 0xdcf6ff,
+        color: 0xc2f2ff,
         transparent: true,
-        opacity: 0.82,
+        opacity: 0.78,
         side: THREE.DoubleSide,
         depthWrite: false,
       })
     );
-    waterfallMat.userData.baseOpacity = 0.82;
-    const fallRibbon = new THREE.Mesh(new THREE.PlaneGeometry(1.45, 11.5), waterfallMat);
-    fallRibbon.position.set(-11.8, 15.8, -10.5);
-    fallRibbon.rotation.y = -2.35;
-    fallRibbon.rotation.x = -0.44;
-    group.add(fallRibbon);
+    waterfallMat.userData.baseOpacity = 0.78;
+    const foamPoolMat = trackMat(
+      new THREE.MeshBasicMaterial({
+        color: 0xf0fcff,
+        transparent: true,
+        opacity: 0.86,
+        depthWrite: false,
+      })
+    );
+    foamPoolMat.userData.baseOpacity = 0.86;
 
-    // 5. Coastal & Motu Coconut Palm Groves
+    const fallAz = Math.atan2(-22.5, -25.5);
+    const dirX = Math.cos(fallAz);
+    const dirZ = Math.sin(fallAz);
+    const perpX = -dirZ;
+    const perpZ = dirX;
+    const streamSegs = 20;
+    const streamPos = [];
+    const streamIdx = [];
+    for (let s = 0; s <= streamSegs; s += 1) {
+      const t = s / streamSegs;
+      const r = lerp(16.0, 48.0, t);
+      const meander = Math.sin(t * Math.PI * 2.4) * 1.4;
+      const cx = dirX * r + perpX * meander;
+      const cz = dirZ * r + perpZ * meander;
+      const hw = lerp(0.55, 1.45, t) + Math.sin(t * Math.PI * 3.0) * 0.18;
+      const lx = cx - perpX * hw;
+      const lz = cz - perpZ * hw;
+      const rx = cx + perpX * hw;
+      const rz = cz + perpZ * hw;
+      const hc = evalRaiateaPoint(cx, cz).h;
+      const hl = evalRaiateaPoint(lx, lz).h;
+      const hr = evalRaiateaPoint(rx, rz).h;
+      streamPos.push(lx, hl + 0.16, lz);
+      streamPos.push(cx, hc + 0.22, cz);
+      streamPos.push(rx, hr + 0.16, rz);
+      if (s < streamSegs) {
+        const b0 = s * 3;
+        const b1 = (s + 1) * 3;
+        streamIdx.push(b0, b0 + 1, b1, b0 + 1, b1 + 1, b1);
+        streamIdx.push(b0 + 1, b0 + 2, b1 + 1, b0 + 2, b1 + 2, b1 + 1);
+      }
+    }
+    const streamGeo = new THREE.BufferGeometry();
+    streamGeo.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute(streamPos, 3)
+    );
+    streamGeo.setIndex(streamIdx);
+    streamGeo.computeVertexNormals();
+    group.add(new THREE.Mesh(streamGeo, waterfallMat));
+
+    const poolX = dirX * 48.5;
+    const poolZ = dirZ * 48.5;
+    const poolY = evalRaiateaPoint(poolX, poolZ).h + 0.12;
+    const poolRing = new THREE.Mesh(
+      new THREE.CircleGeometry(2.6, 18),
+      foamPoolMat
+    );
+    poolRing.rotation.x = -Math.PI * 0.5;
+    poolRing.position.set(poolX, poolY, poolZ);
+    group.add(poolRing);
+
+    for (let rk = 0; rk < 7; rk += 1) {
+      const a = (rk / 7) * Math.PI * 2.0 + 0.3;
+      const bx = poolX + Math.cos(a) * (2.25 + (rk % 2) * 0.55);
+      const bz = poolZ + Math.sin(a) * (2.25 + (rk % 2) * 0.55);
+      const rock = new THREE.Mesh(
+        makeStoneRockGeometry(0.45 + (rk % 3) * 0.18, rk + 3),
+        basaltStoneMat
+      );
+      rock.position.set(bx, evalRaiateaPoint(bx, bz).h + 0.12, bz);
+      rock.rotation.y = a;
+      group.add(rock);
+    }
+
+    // 5. Exclusion Zones around Walkable Spawn, Summit Observation Circle & Marae/Landing
+    // Convert walkable coordinates to canonical (invert raiatea rotY = -0.44 - PI/2)
+    const rotY = -0.44 - Math.PI * 0.5;
+    const toCanonXZ = (wx, wz) => {
+      const c = Math.cos(-rotY);
+      const s = Math.sin(-rotY);
+      return [wx * c + wz * s, -wx * s + wz * c];
+    };
+    const [spawnCx, spawnCz] = toCanonXZ(-12.5, 73.5);
+    const [landCx, landCz] = toCanonXZ(-18.5, 78.5);
+    const [hutCx, hutCz] = toCanonXZ(-36.0, 66.0);
+    const blockedZones = [
+      { x: 0.0, z: 0.0, r: 12.5 }, // Observation Circle hilltop plateau clear of trees
+      { x: spawnCx, z: spawnCz, r: 9.0 }, // Initial spawn dry beach clearing
+      { x: landCx, z: landCz, r: 7.5 }, // Moored canoe beachhead clearing
+      { x: hutCx, z: hutCz, r: 6.0 }, // Provisioning hut arrival clearing
+      { x: capeX, z: capeZ, r: 12.0 }, // Sacred Marae Taputapuatea plaza
+    ];
+    const isClear = (px, pz) => {
+      for (const bz of blockedZones) {
+        if (Math.hypot(px - bz.x, pz - bz.z) < bz.r) return false;
+      }
+      return true;
+    };
+
+    // Sculpted Boatbuilders' & Village Fare cluster flanking the western bay
+    const villageHuts = [
+      [toCanonXZ(-40.5, 63.0)[0], toCanonXZ(-40.5, 63.0)[1], 1.15, 1.05, true],
+      [toCanonXZ(-45.5, 56.5)[0], toCanonXZ(-45.5, 56.5)[1], 0.85, 0.94, false],
+      [toCanonXZ(-32.5, 54.0)[0], toCanonXZ(-32.5, 54.0)[1], 1.35, 0.92, false],
+    ].map(([hx, hz, yaw, sc, longHouse]) => ({
+      x: hx,
+      y: Math.max(0.75, evalRaiateaPoint(hx, hz).h),
+      z: hz,
+      rotY: yaw,
+      scale: sc,
+      longHouse,
+    }));
+    addRegionalHuts(group, trackMat, villageHuts, 'society');
+
+    // 6. Lush Lowland Broadleaf 'Uru & Valley Trees (filtered cleanly from trails, spawn & summit)
+    const broadleafPts = [];
+    for (let i = 0; i < 14; i += 1) {
+      const ang = (i / 14) * Math.PI * 2.0 + 0.22;
+      const br = 44.0 + (i % 3) * 8.5;
+      const bx = br * Math.cos(ang);
+      const bz = br * Math.sin(ang);
+      const py = evalRaiateaPoint(bx, bz).h;
+      if (py > 2.2 && py < 16.0 && isClear(bx, bz)) {
+        broadleafPts.push([bx, py - 0.15, bz, 0.95 + (i % 3) * 0.16, -ang]);
+      }
+    }
+    addBroadleafTrees(group, trackMat, broadleafPts, {
+      trunkHex: 0x5c3e26,
+      canopyHexA: 0x265c24,
+      canopyHexB: 0x3b762a,
+    });
+
+    // 7. Coastal, Bay & Outer-Motu Coconut Palm Groves (filtered cleanly from spawn & circle)
     const palmSites = [];
-    for (const ang of [0.42, 0.55, 1.55, 1.72, 2.68, 2.84, -1.55, -1.38, -2.45]) {
-      const pr = 34.0;
+    for (let i = 0; i < 24; i += 1) {
+      const ang = (i / 24) * Math.PI * 2.0 + 0.08;
+      const pr = 64.0 + (i % 3) * 4.5;
       const px = pr * Math.cos(ang);
       const pz = pr * Math.sin(ang);
       const py = evalRaiateaPoint(px, pz).h;
-      if (py > 0.6 && py < 9.0) {
-        palmSites.push([px, py - 0.2, pz, -ang, 0.92 + ( palmSites.length % 3 ) * 0.14]);
+      if (py > 0.65 && py < 10.5 && isClear(px, pz)) {
+        palmSites.push([px, py - 0.18, pz, -ang, 0.95 + (i % 3) * 0.12, 0.2]);
       }
     }
-    palmSites.push([50.5, 0.85, -9.5, 0.4, 0.85]);
-    palmSites.push([44.5, 0.85, -29.5, -0.8, 0.82]);
+    for (const [mx, mz, mAng] of raiateaMotuPositions) {
+      palmSites.push([mx, 0.92, mz, -mAng + 0.3, 0.92, 0.22]);
+      palmSites.push([
+        mx - 2.6 * Math.sin(mAng),
+        0.88,
+        mz + 2.6 * Math.cos(mAng),
+        -mAng - 0.35,
+        0.84,
+        0.24,
+      ]);
+    }
     addCoconutGroves(group, trackMat, palmSites);
 
-    return { group, materials, sinkDepthM: 58.0 };
+    return { group, materials, sinkDepthM: 88.0 };
   }
 
   if (islandId === 'manuae') {
@@ -1459,122 +1704,182 @@ export function createDetailedIslandAssembly(islandId) {
   }
 
   // =========================================================================
-  // TAHA'A ("Sheltered Lagoon Isle")
+  // TAHA'A ("Sheltered Lagoon Isle" — 2x canonical scale)
   // =========================================================================
   const terrainGeo = createSculptedIslandTerrainGeometry(
     evalTahaaPoint,
-    54.0,
-    COL_BEACH_CREAM
+    122.0,
+    COL_BEACH_CREAM,
+    { nRings: 88, nSegs: 120 }
   );
   const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
   terrainMesh.receiveShadow = true;
   group.add(terrainMesh);
 
-  // Wide Sheltered Turquoise Lagoon & Outer Ring of Sandy Coral Motu Islets
-  const lagoonDisc = new THREE.Mesh(new THREE.CircleGeometry(54.5, 48), lagoonSurfaceMat);
-  lagoonDisc.rotation.x = -Math.PI / 2;
+  // Wide Sheltered Turquoise Lagoon & Organic Outer Reef with Pearl-Sand Motu Islets
+  const lagoonDisc = new THREE.Mesh(
+    createOrganicLagoonGeometry(evalTahaaReefRadius, 108),
+    lagoonSurfaceMat
+  );
   lagoonDisc.position.y = 0.16;
   group.add(lagoonDisc);
 
-  addBarrierReefArc(group, reefSandMat, surfFoamMat, 53.5, 0.74, Math.PI * 1.45, 26);
-  addBarrierReefArc(group, reefSandMat, surfFoamMat, 53.5, Math.PI * 1.58, Math.PI * 2.08, 12);
+  addOrganicBarrierReefArc(
+    group,
+    reefSandMat,
+    surfFoamMat,
+    evalTahaaReefRadius,
+    0.72,
+    Math.PI * 1.45,
+    60
+  );
+  addOrganicBarrierReefArc(
+    group,
+    reefSandMat,
+    surfFoamMat,
+    evalTahaaReefRadius,
+    Math.PI * 1.58,
+    Math.PI * 2.08,
+    28
+  );
 
-  // 3 low pearl-sand Motu islets with coconut palms along the calm lagoon rim
-  const motuGeo = new THREE.CylinderGeometry(3.8, 5.4, 1.0, 12);
+  // Convert walkable POI / spawn positions into canonical Taha'a coords (rotY = bayTheta - 0.14 - PI/2)
+  const bayTheta = (Math.PI - 0.55) / 5.0;
+  const tahaaRotY = bayTheta - 0.14 - Math.PI * 0.5;
+  const tahaaToCanon = (wx, wz) => {
+    const c = Math.cos(-tahaaRotY);
+    const s = Math.sin(-tahaaRotY);
+    return [wx * c + wz * s, -wx * s + wz * c];
+  };
+  const [tSpawnCx, tSpawnCz] = tahaaToCanon(4.5, 59.5);
+  const [tLandCx, tLandCz] = tahaaToCanon(-2.5, 63.5);
+  const [tHutCx, tHutCz] = tahaaToCanon(-24.0, 48.0);
+  const [tElderCx, tElderCz] = tahaaToCanon(26.5, 52.0);
+  const tahaaBlocked = [
+    { x: 0.0, z: 0.0, r: 12.5 }, // Mount Ohiri summit Observation Circle
+    { x: tSpawnCx, z: tSpawnCz, r: 8.5 }, // Beach spawn clearing
+    { x: tLandCx, z: tLandCz, r: 7.5 }, // Bay jetty & landing clearing
+    { x: tHutCx, z: tHutCz, r: 6.5 }, // Provisioning fare arrival
+    { x: tElderCx, z: tElderCz, r: 6.5 }, // Hina's hillside hearth arrival
+  ];
+  const tahaaIsClear = (px, pz) => {
+    for (const bz of tahaaBlocked) {
+      if (Math.hypot(px - bz.x, pz - bz.z) < bz.r) return false;
+    }
+    return true;
+  };
+
+  // 3 sculpted organic pearl-sand Motu islets with coconut palms hugging the lagoon rim
   const motuDefs = [
-    [47.0, 18.0, 1.35, 0.8],
-    [-42.0, 27.5, 0.9, 1.3],
-    [16.5, -48.5, 1.25, 0.85],
+    [0.76, 10.2, 6.8, 2.4],
+    [2.54, 9.0, 9.6, 5.7],
+    [-1.1, 10.6, 6.5, 8.2],
   ];
   const palmSites = [];
-  for (const [mx, mz, sx, sz] of motuDefs) {
-    const motu = new THREE.Mesh(motuGeo, reefSandMat);
-    motu.position.set(mx, 0.32, mz);
-    motu.scale.set(sx, 1.0, sz);
+  for (const [mAng, rx, rz, seed] of motuDefs) {
+    const mr = evalTahaaReefRadius(mAng) - 2.0;
+    const mx = mr * Math.cos(mAng);
+    const mz = mr * Math.sin(mAng);
+    const motu = new THREE.Mesh(
+      createOrganicMotuGeometry({ radiusX: rx, radiusZ: rz, height: 1.35, seed }),
+      reefSandMat
+    );
+    motu.position.set(mx, 0.35, mz);
+    motu.rotation.y = -mAng + Math.PI * 0.5;
     group.add(motu);
-    palmSites.push([mx, 0.75, mz, mx * 0.1, 0.85]);
-    palmSites.push([mx + 1.4, 0.72, mz - 0.9, -mz * 0.1, 0.75]);
+    palmSites.push([mx, 0.85, mz, -mAng + 0.25, 0.95, 0.22]);
+    palmSites.push([
+      mx - 2.9 * Math.sin(mAng),
+      0.82,
+      mz + 2.9 * Math.cos(mAng),
+      -mAng - 0.3,
+      0.82,
+      0.24,
+    ]);
   }
 
-  // Sheltered Hillside & Bay Village (Thatched Polynesian Fare Huts + Canoe Landing Jetty)
-  const thatchMat = trackMat(
-    new THREE.MeshStandardMaterial({
-      color: 0xc49759,
-      roughness: 0.88,
-      transparent: true,
-      opacity: 1.0,
-    })
+  // Sculpted Society-style Fare Huts overlooking the sheltered village bay (kept clear of spawn)
+  const villageHuts = [
+    [tahaaToCanon(-29.5, 44.5)[0], tahaaToCanon(-29.5, 44.5)[1], -bayTheta + 0.4, 1.08, true],
+    [tahaaToCanon(-32.0, 51.0)[0], tahaaToCanon(-32.0, 51.0)[1], -bayTheta - 0.1, 0.95, false],
+    [tahaaToCanon(-20.5, 40.5)[0], tahaaToCanon(-20.5, 40.5)[1], -bayTheta + 0.25, 0.96, false],
+    [tahaaToCanon(32.0, 51.0)[0], tahaaToCanon(32.0, 51.0)[1], -bayTheta - 0.35, 1.02, false],
+  ].map(([hx, hz, rotY, sc, longHouse]) => ({
+    x: hx,
+    y: Math.max(0.7, evalTahaaPoint(hx, hz).h),
+    z: hz,
+    rotY,
+    scale: sc,
+    longHouse,
+  }));
+  addRegionalHuts(group, trackMat, villageHuts, 'society');
+
+  // Hina's Glowing Hillside Village Hearth beside her sanctuary fare
+  const [hinaHearthX, hinaHearthZ] = tahaaToCanon(29.5, 54.0);
+  const hinaHearth = createVillageHearthGroup(trackMat, { scale: 1.05 });
+  hinaHearth.group.position.set(
+    hinaHearthX,
+    Math.max(0.8, evalTahaaPoint(hinaHearthX, hinaHearthZ).h),
+    hinaHearthZ
   );
-  const wallTimberMat = trackMat(
-    new THREE.MeshStandardMaterial({
-      color: 0x6f4a2b,
-      roughness: 0.85,
-      transparent: true,
-      opacity: 1.0,
-    })
-  );
+  group.add(hinaHearth.group);
 
-  // Place village overlooking the deep calm bay at theta = (Math.PI - 0.55) / 5 ~ +0.518 rad
-  const bayTheta = (Math.PI - 0.55) / 5.0;
-  const hutSpots = [
-    [22.5, bayTheta - 0.06, 1.05],
-    [20.2, bayTheta + 0.08, 0.92],
-    [17.8, bayTheta - 0.02, 0.98],
-    [23.2, bayTheta + 0.19, 0.88],
-  ];
+  // Sculpted Fisher's Timber Lagoon Pier & Moored Outrigger Va'a Canoe
+  const pierR = 54.5;
+  addTimberPier(group, trackMat, {
+    x: pierR * Math.cos(bayTheta + 0.08),
+    y: 0.68,
+    z: pierR * Math.sin(bayTheta + 0.08),
+    rotY: -(bayTheta + 0.08),
+    length: 10.5,
+    width: 1.75,
+  });
+  addOutriggerCanoe(group, trackMat, {
+    x: (pierR + 5.5) * Math.cos(bayTheta + 0.16),
+    y: 0.3,
+    z: (pierR + 5.5) * Math.sin(bayTheta + 0.16),
+    rotY: -(bayTheta + 0.16) + Math.PI * 0.5,
+  });
 
-  const hutBaseGeo = new THREE.BoxGeometry(2.6, 1.5, 3.4);
-  const hutRoofGeo = new THREE.ConeGeometry(2.55, 1.85, 4);
-
-  for (const [hr, hang, hscale] of hutSpots) {
-    const hx = hr * Math.cos(hang);
-    const hz = hr * Math.sin(hang);
-    const hy = evalTahaaPoint(hx, hz).h;
-
-    const fare = new THREE.Group();
-    fare.position.set(hx, hy, hz);
-    fare.rotation.y = -hang + Math.PI * 0.25;
-    fare.scale.setScalar(hscale);
-
-    const walls = new THREE.Mesh(hutBaseGeo, wallTimberMat);
-    walls.position.y = 0.65;
-    fare.add(walls);
-
-    const roof = new THREE.Mesh(hutRoofGeo, thatchMat);
-    roof.position.y = 2.15;
-    roof.rotation.y = Math.PI * 0.25;
-    fare.add(roof);
-
-    group.add(fare);
+  // Broadleaf Vanilla & Breadfruit Grove on Lower Slopes (cleared from spawn & circle)
+  const tahaaTrees = [];
+  for (let i = 0; i < 14; i += 1) {
+    const ang = (i / 14) * Math.PI * 2.0 + 0.18;
+    const br = 38.0 + (i % 3) * 8.0;
+    const bx = br * Math.cos(ang);
+    const bz = br * Math.sin(ang);
+    const by = evalTahaaPoint(bx, bz).h;
+    if (by > 2.2 && by < 16.0 && tahaaIsClear(bx, bz)) {
+      tahaaTrees.push([bx, by - 0.15, bz, 0.92 + (i % 3) * 0.14, -ang]);
+    }
   }
+  addBroadleafTrees(group, trackMat, tahaaTrees, {
+    trunkHex: 0x5c3e26,
+    canopyHexA: 0x265e26,
+    canopyHexB: 0x3b782c,
+  });
 
-  // Small wooden fisher's canoe jetty extending into the calm bay shallows
-  const jetty = new THREE.Group();
-  const jx = 26.2 * Math.cos(bayTheta);
-  const jz = 26.2 * Math.sin(bayTheta);
-  jetty.position.set(jx, 0.65, jz);
-  jetty.rotation.y = -bayTheta;
-  const deckPlank = new THREE.Mesh(new THREE.BoxGeometry(6.8, 0.22, 1.45), wallTimberMat);
-  jetty.add(deckPlank);
-  group.add(jetty);
-
-  // Coastal Coconut Palms ringing Taha'a's 5 bays & headlands
+  // Coastal Coconut Palms ringing Taha'a's 5 bays & headlands (filtered from spawn & trails)
   for (let b = 0; b < 5; b += 1) {
     const lobeAng = (b * Math.PI * 2.0 - 0.55) / 5.0;
     const coveAng = lobeAng + Math.PI / 5.0;
-    for (const ang of [lobeAng - 0.12, coveAng - 0.14, coveAng + 0.14]) {
-      const pr = ang === lobeAng - 0.12 ? 34.5 : 23.5;
+    for (const [ang, pr] of [
+      [lobeAng - 0.12, 68.0],
+      [lobeAng + 0.14, 65.0],
+      [coveAng - 0.16, 48.0],
+      [coveAng + 0.16, 48.0],
+    ]) {
       const px = pr * Math.cos(ang);
       const pz = pr * Math.sin(ang);
       const py = evalTahaaPoint(px, pz).h;
-      if (py > 0.5 && py < 9.5) {
-        palmSites.push([px, py - 0.15, pz, -ang, 0.9]);
+      if (py > 0.6 && py < 10.5 && tahaaIsClear(px, pz)) {
+        palmSites.push([px, py - 0.15, pz, -ang, 0.92 + (palmSites.length % 3) * 0.1, 0.2]);
       }
     }
   }
   addCoconutGroves(group, trackMat, palmSites);
 
-  return { group, materials, sinkDepthM: 45.0 };
+  return { group, materials, sinkDepthM: 84.0 };
 }
 
 /**
@@ -1645,8 +1950,8 @@ export function getIslandApproachOrientationRad(islandId) {
 }
 
 const ISLAND_SHORE_RADIUS_M = Object.freeze({
-  raiatea: 39.8,
-  tahaa: 27.0,
+  raiatea: 80.5,
+  tahaa: 65.5,
   huahine: 35.5,
   manuae: 41.5,
   moorea: 31.5,
