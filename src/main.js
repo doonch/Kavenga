@@ -178,9 +178,6 @@ class KavengaApp {
     this.renderer.domElement.addEventListener('webglcontextrestored', () => {
       this._webglContextLost = false;
     });
-    window.addEventListener('pagehide', () => {
-      this.renderer?.dispose();
-    });
     this.container.appendChild(this.renderer.domElement);
 
     this.scene = new THREE.Scene();
@@ -1230,7 +1227,6 @@ class KavengaApp {
       this.achievementsManager.clearSavedAchievements();
     }
     if (typeof window !== 'undefined') {
-      this.renderer?.dispose();
       window.location.assign(window.location.pathname || './');
     }
   }

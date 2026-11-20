@@ -127,9 +127,6 @@ class KavengaIntroDirector {
     this.renderer.domElement.addEventListener('webglcontextrestored', () => {
       this._webglContextLost = false;
     });
-    window.addEventListener('pagehide', () => {
-      this.renderer?.dispose();
-    });
     this.container.appendChild(this.renderer.domElement);
 
     // Build fully upgraded Tier-3 Vaka Moana state with the Wayfinder (`Difficulty.MEDIUM`)
