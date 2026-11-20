@@ -44,6 +44,12 @@ const TOUR_STEPS = Object.freeze([
     preferSide: 'left',
   },
   {
+    selector: '#btnShoreCanoeModal',
+    title: 'Your Vaka & Routes',
+    body: 'Inspect your canoe, cargo, crew, and set sail from here.',
+    preferSide: 'top',
+  },
+  {
     selector: '#btnShoreWalkToggle',
     title: 'Walk Shore',
     body: 'Explore the island on foot.',

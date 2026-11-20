@@ -1,29 +1,22 @@
 /**
- * Unified 4-Station Shore Diorama UI for Kavenga: Songs of the Star Path.
+ * Unified 3-Station Shore Diorama UI for Kavenga: Songs of the Star Path.
  *
- * Pairs a clean right-docked 4-station shore panel with an unobstructed 3D view of the
+ * Pairs a clean right-docked 3-station shore panel with an unobstructed 3D view of the
  * canonical island & moored voyaging canoe (`ShoreDioramaRenderer`) on the left:
  *   1. `sanctuary` — 🌺 Elder & Marae / Wild Shore (mentor encounter, quest gifts, crew & route chants)
  *   2. `sand`      — 🐚 Sand Diagrams (interactive Stick-in-the-Sand wave, cloud, wake & post lessons)
  *   3. `vigil`     — ✨ Sky Vigil (elder-guided constellation teaching & Star-Stone Night Observatory)
- *   4. `landing`   — 🛶 Set Sail (canoe careening, ration baskets, crew/cargo, tide-light & launch)
  *
  * Strictly zero cardinal directions or degree numbers in all player-facing copy.
  */
 
+import { Difficulty } from '../core/gameConstants.js';
 import {
-  DepartureWindow,
-  Difficulty,
-  departureWindowLabel,
-} from '../core/gameConstants.js';
-import {
-  CARGO_CATALOG,
   CREW_CATALOG,
   POI_LABELS,
   getAvailableRoutesFromCurrentIsland,
   getLearnedSandLessonsList,
   interactWithIslandSanctuary,
-  performBeachCareeningAndRestock,
 } from '../core/campaignManager.js';
 import { getActiveObjectivesForDisplay } from '../core/objectivesManager.js';
 import {
@@ -32,7 +25,6 @@ import {
   getAvailableUnlearnedLessonForIsland,
 } from '../data/constellationLessonsData.js';
 import { ISLANDS, OCEAN_BASINS } from '../data/islandsData.js';
-import { getPlayerCharacterProfile } from '../data/playerCharactersData.js';
 import { SONGS } from '../data/songsData.js';
 import { SandCanvas } from './SandCanvas.js';
 
@@ -44,8 +36,6 @@ export class IslandHubUI {
     this.callbacks = callbacks;
 
     this.activeTab = 'sanctuary';
-    this.selectedSongId = null;
-    this.selectedDeparture = DepartureWindow.DAWN;
     this.selectedLessonId = null;
     this.lastSanctuaryResult = null;
     this._currentIslandSessionId = null;
@@ -54,8 +44,6 @@ export class IslandHubUI {
     this.objectivesCollapsed = false;
     this.orbitCustomized = false;
     this._lightboxMentor = null;
-    this._userPickedRoute = false;
-    this._userPickedDeparture = false;
 
     this._buildDOM();
   }
@@ -122,14 +110,6 @@ export class IslandHubUI {
                 <span class="station-tab-label">Sky Vigil</span>
               </span>
               <span class="station-badge hidden" id="badgeVigil"></span>
-            </button>
-
-            <button class="poi-tab-btn" data-tab="landing" id="tabBtnLanding" role="tab" type="button">
-              <span class="station-tab-main">
-                <span class="station-tab-glyph">🛶</span>
-                <span class="station-tab-label">Set Sail</span>
-              </span>
-              <span class="station-badge hidden" id="badgeLanding"></span>
             </button>
           </nav>
 
@@ -237,43 +217,6 @@ export class IslandHubUI {
                 </div>
               </div>
             </section>
-
-            <!-- STATION 4: READY CANOE & SET SAIL -->
-            <section class="hub-panel hidden" id="panelLanding" role="tabpanel">
-              <div class="hub-card launch-station-card">
-                <div class="launch-card-head">
-                  <h3>Choose Route Chant &amp; Tide-Light</h3>
-                </div>
-                <div class="route-list" id="hubRouteList"></div>
-
-                <div class="departure-picker" id="hubDepartureSection">
-                  <div class="dep-label">
-                    <strong>Departure Tide-Light</strong>
-                    <span id="hubRecWindowHint"></span>
-                  </div>
-                  <div class="dep-buttons" id="hubDepartureBtns">
-                    <button class="dep-btn" data-window="dawn" type="button">Dawn</button>
-                    <button class="dep-btn" data-window="midday" type="button">Midday</button>
-                    <button class="dep-btn" data-window="dusk" type="button">Dusk</button>
-                    <button class="dep-btn" data-window="midnight" type="button">Midnight</button>
-                  </div>
-                </div>
-
-                <div class="song-preview-box" id="hubSongPreview"></div>
-              </div>
-
-              <div class="hub-card readiness-station-card">
-                <div class="cargo-section hidden" id="hubCargoSection">
-                  <strong>Quest Items Aboard</strong>
-                  <div class="cargo-cards-grid" id="hubCargoItems"></div>
-                </div>
-
-                <div class="crew-section">
-                  <strong>Voyaging Crew Aboard</strong>
-                  <div class="crew-cards-grid" id="hubCrewList"></div>
-                </div>
-              </div>
-            </section>
           </main>
 
           <!-- Always-Visible Pinned Critical-Path CTA -->
@@ -282,9 +225,6 @@ export class IslandHubUI {
           </div>
         </aside>
       </div>
-
-      <!-- Floating Card Tooltip (clamped inside .island-hub-shell) -->
-      <div class="hub-card-tooltip hidden" id="hubCardTooltip" role="tooltip"></div>
 
       <!-- Full-Body Character Portrait Lightbox Modal -->
       <div class="modal-backdrop hidden" id="mentorPortraitModal">
@@ -432,65 +372,6 @@ export class IslandHubUI {
         e.currentTarget.blur();
         this._handleCriticalCtaClick();
       });
-
-    // Floating tooltip clamped within .island-hub-shell
-    const handleTipShow = (e) => {
-      const target = e.target?.closest?.('[data-tooltip]');
-      if (!target) return;
-      this._showCardTooltip(target);
-    };
-    const handleTipHide = (e) => {
-      const target = e.target?.closest?.('[data-tooltip]');
-      if (!target) return;
-      if (e.relatedTarget && target.contains(e.relatedTarget)) return;
-      this._hideCardTooltip();
-    };
-    this.rootEl.addEventListener('mouseover', handleTipShow);
-    this.rootEl.addEventListener('mouseout', handleTipHide);
-    this.rootEl.addEventListener('focusin', handleTipShow);
-    this.rootEl.addEventListener('focusout', handleTipHide);
-    this.rootEl
-      .querySelector('.hub-body')
-      ?.addEventListener('scroll', () => this._hideCardTooltip(), {
-        passive: true,
-      });
-  }
-
-  _showCardTooltip(target) {
-    const tipEl = this.rootEl.querySelector('#hubCardTooltip');
-    const shell = this.rootEl.querySelector('.island-hub-shell');
-    const text = target?.getAttribute('data-tooltip');
-    if (!tipEl || !shell || !text) return;
-
-    tipEl.textContent = text;
-    tipEl.classList.remove('hidden');
-
-    const tRect = target.getBoundingClientRect();
-    const sRect = shell.getBoundingClientRect();
-    const tipRect = tipEl.getBoundingClientRect();
-    const pad = 10;
-
-    let left = tRect.left + (tRect.width - tipRect.width) * 0.5;
-    left = Math.max(
-      sRect.left + pad,
-      Math.min(sRect.right - tipRect.width - pad, left)
-    );
-
-    let top = tRect.top - tipRect.height - 8;
-    if (top < sRect.top + pad) {
-      top = tRect.bottom + 8;
-    }
-    top = Math.max(
-      sRect.top + pad,
-      Math.min(sRect.bottom - tipRect.height - pad, top)
-    );
-
-    tipEl.style.left = `${Math.round(left)}px`;
-    tipEl.style.top = `${Math.round(top)}px`;
-  }
-
-  _hideCardTooltip() {
-    this.rootEl.querySelector('#hubCardTooltip')?.classList.add('hidden');
   }
 
   setOrbitCustomized(customized) {
@@ -515,14 +396,6 @@ export class IslandHubUI {
       this.flashClearedObjectives(this.lastSanctuaryResult.clearedObjectives);
     }
     this.callbacks.onSanctuaryInteracted?.(this.lastSanctuaryResult);
-    const routes = getAvailableRoutesFromCurrentIsland(gs);
-    const defaultRoute = this._getDefaultRoute(routes);
-    if (defaultRoute) {
-      this._userPickedRoute = false;
-      this._userPickedDeparture = false;
-      this.selectedSongId = defaultRoute.song.id;
-      this.selectedDeparture = defaultRoute.song.recommendedDeparture;
-    }
   }
 
   flashClearedObjectives(clearedList) {
@@ -600,7 +473,7 @@ export class IslandHubUI {
       } ${swipeIn ? 'swipe-in-top' : ''}`;
       btn.title = item.isHere
         ? 'Jump to Elder & Sanctuary station on this shore'
-        : 'Jump to Set Sail station to plan route';
+        : 'Open Vaka & Star-Path Departure modal';
       btn.innerHTML = `
         <span class="shore-obj-bullet" aria-hidden="true">${item.glyph || '✦'}</span>
         <div class="shore-obj-copy">
@@ -616,7 +489,11 @@ export class IslandHubUI {
         </div>
       `;
       btn.addEventListener('click', () => {
-        this.switchTab(item.isHere ? 'sanctuary' : 'landing');
+        if (item.isHere) {
+          this.switchTab('sanctuary');
+        } else {
+          this.callbacks.onOpenCanoeModal?.();
+        }
       });
       listEl.appendChild(btn);
     }
@@ -650,33 +527,13 @@ export class IslandHubUI {
     if (!cr?.portrait) return;
     const homeIsl = ISLANDS[cr.homeIslandId];
     this._showCharacterLightbox({
-      eyebrow: `Voyaging Companion${homeIsl ? ` · ${homeIsl.name}` : ''}`,
+      eyebrow: homeIsl
+        ? `Voyaging Companion · Recruited on ${homeIsl.name}`
+        : 'Voyaging Companion',
       name: cr.name,
       role: `${cr.role} — ${cr.traitText}`,
       portrait: cr.portrait,
       alt: `${cr.name} (${cr.role}) — full-body portrait in traditional attire`,
-    });
-  }
-
-  openPlayerPortraitModal(difficulty) {
-    const profile = getPlayerCharacterProfile(difficulty);
-    this._showCharacterLightbox({
-      eyebrow: 'Wayfinder at the Helm',
-      name: 'You',
-      role: profile.title,
-      portrait: `./assets/crew/player_${difficulty || 'easy'}.jpg`,
-      alt: profile.title,
-    });
-  }
-
-  openCargoModal(cargoId) {
-    const item = CARGO_CATALOG[cargoId] || { name: cargoId, description: '' };
-    this._showCharacterLightbox({
-      eyebrow: 'Quest Item Aboard',
-      name: item.name,
-      role: item.description,
-      portrait: `./assets/cargo/${cargoId}.jpg`,
-      alt: item.name,
     });
   }
 
@@ -693,33 +550,18 @@ export class IslandHubUI {
     if (this._currentIslandSessionId !== curIslId) {
       this._currentIslandSessionId = curIslId;
       this.lastSanctuaryResult = null;
-      this.selectedSongId = null;
       this.selectedLessonId = null;
-      this._userPickedRoute = false;
-      this._userPickedDeparture = false;
-    }
-
-    // Ensure selectedDeparture matches the default available song if not yet picked
-    const routes = this._getAvailableRoutes();
-    const defaultRoute = this._getDefaultRoute(routes);
-    if (defaultRoute && !this._userPickedRoute) {
-      const changedSong = this.selectedSongId !== defaultRoute.song.id;
-      this.selectedSongId = defaultRoute.song.id;
-      if (changedSong || !this._userPickedDeparture) {
-        this.selectedDeparture = defaultRoute.song.recommendedDeparture;
-      }
     }
 
     this.rootEl.classList.remove('hidden');
     this.closePortraitModal();
 
-    const validTabs = ['sanctuary', 'sand', 'vigil', 'landing'];
+    const validTabs = ['sanctuary', 'sand', 'vigil'];
     const resolvedTab = validTabs.includes(initialTab) ? initialTab : 'sanctuary';
     this.switchTab(resolvedTab);
   }
 
   hide() {
-    this._hideCardTooltip();
     this.shoreSandCanvas.stopAnimation();
     this.closePortraitModal();
     this.callbacks.onStopVoice?.();
@@ -727,8 +569,7 @@ export class IslandHubUI {
   }
 
   switchTab(tabId) {
-    this._hideCardTooltip();
-    const validTabs = ['sanctuary', 'sand', 'vigil', 'landing'];
+    const validTabs = ['sanctuary', 'sand', 'vigil'];
     const nextTab = validTabs.includes(tabId) ? tabId : 'sanctuary';
     if (nextTab !== 'sanctuary') {
       this.callbacks.onStopVoice?.();
@@ -750,9 +591,6 @@ export class IslandHubUI {
     this.rootEl
       .querySelector('#panelVigil')
       .classList.toggle('hidden', nextTab !== 'vigil');
-    this.rootEl
-      .querySelector('#panelLanding')
-      .classList.toggle('hidden', nextTab !== 'landing');
 
     if (nextTab !== 'sand') {
       this.shoreSandCanvas.stopAnimation();
@@ -768,7 +606,7 @@ export class IslandHubUI {
       this._renderSelectedShoreLesson(true);
     }
 
-    this.callbacks.onStationChanged?.(nextTab, this.selectedDeparture);
+    this.callbacks.onStationChanged?.(nextTab);
   }
 
   refresh() {
@@ -811,7 +649,6 @@ export class IslandHubUI {
     this._refreshSanctuaryPanel();
     this._refreshSandLessonsList();
     this._refreshVigilPanel();
-    this._refreshLandingReadinessAndRoutes();
     this._updateStationBadges();
     this._refreshCriticalCta();
   }
@@ -862,35 +699,11 @@ export class IslandHubUI {
       };
     }
 
-    // 3. Prep Canoe (careen hull/sail/lashings & fill ration baskets)
-    const minCond = Math.min(
-      gs.hullCondition,
-      gs.sailCondition,
-      gs.lashingsCondition
-    );
-    const maxRations = Math.max(1, gs.maxCargoSlots - gs.cargoItems.length);
-    const needsCareen = isl.inhabited && minCond < 78.0;
-    if (routes.length > 0 && (needsCareen || gs.loadedRations < maxRations)) {
-      return {
-        kind: 'prep',
-        label: isl.inhabited
-          ? '🛠️ Careen Canoe & Fill Rations'
-          : '🥥 Restock Coconuts & Water',
-        run: () => {
-          performBeachCareeningAndRestock(gs);
-          this.callbacks.onAshoreStateChanged?.();
-          if (this.activeTab !== 'landing') {
-            this.switchTab('landing');
-          } else {
-            this.refresh();
-          }
-        },
-      };
-    }
-
-    // 4. Set Sail for the Newly Discovered / Selected Song
+    // 3. Set Sail for the Newly Discovered / Selected Song
     if (routes.length > 0) {
-      const song = this._getSelectedSongObject();
+      const sel = this.callbacks.getSelectedRouteAndDeparture?.();
+      const song = sel?.song || (this._getDefaultRoute(routes) || routes[0]).song;
+      const departure = sel?.departure || song?.recommendedDeparture;
       const dstName =
         ISLANDS[song?.toIsland]?.name || song?.toIsland || 'Next Island';
       return {
@@ -898,18 +711,18 @@ export class IslandHubUI {
         label: `⛵ Set Sail → ${dstName}`,
         run: () => {
           if (song) {
-            this.callbacks.onLaunchVoyage?.(song, this.selectedDeparture);
+            this.callbacks.onLaunchVoyage?.(song, departure);
           }
         },
       };
     }
 
-    // 5. Post-Finale Fallback (no vigil/prep/route remaining): switch to Canoe Landing
+    // 4. Post-Finale Fallback: open Vaka & Star-Path Departure modal
     return {
-      kind: 'landing',
-      label: '🛶 Go to Canoe Landing & Set Sail →',
+      kind: 'canoe',
+      label: '🛶 Open Vaka & Set Sail →',
       run: () => {
-        this.switchTab('landing');
+        this.callbacks.onOpenCanoeModal?.();
       },
     };
   }
@@ -1003,31 +816,6 @@ export class IslandHubUI {
       this._setBadge(this.rootEl.querySelector('#badgeVigil'), '✓', 'badge-done');
     } else {
       this._setBadge(this.rootEl.querySelector('#badgeVigil'), '', '');
-    }
-
-    // 4. Set Sail badge
-    const routes = this._getAvailableRoutes();
-    const minCond = Math.min(
-      gs.hullCondition,
-      gs.sailCondition,
-      gs.lashingsCondition
-    );
-    const maxRations = Math.max(1, gs.maxCargoSlots - gs.cargoItems.length);
-    const needsCareen = isl.inhabited && minCond < 78.0;
-    if (!routes.length) {
-      this._setBadge(this.rootEl.querySelector('#badgeLanding'), '', '');
-    } else if (needsCareen || gs.loadedRations < maxRations) {
-      this._setBadge(
-        this.rootEl.querySelector('#badgeLanding'),
-        'Prep',
-        'badge-warn'
-      );
-    } else {
-      this._setBadge(
-        this.rootEl.querySelector('#badgeLanding'),
-        'Ready',
-        'badge-ready'
-      );
     }
   }
 
@@ -1326,82 +1114,6 @@ export class IslandHubUI {
         : '<span class="empty-note">Complete your first Guided Sky Vigil ashore to reveal ancestral sky animals at sea.</span>';
   }
 
-  _refreshLandingReadinessAndRoutes() {
-    const gs = this.callbacks.getGameState();
-    if (!gs) return;
-
-    const cargoSection = this.rootEl.querySelector('#hubCargoSection');
-    const cargoContainer = this.rootEl.querySelector('#hubCargoItems');
-    if (gs.cargoItems.length === 0) {
-      cargoSection.classList.add('hidden');
-      cargoContainer.innerHTML = '';
-    } else {
-      cargoSection.classList.remove('hidden');
-      cargoContainer.innerHTML = '';
-      for (const cid of gs.cargoItems) {
-        const item = CARGO_CATALOG[cid] || { name: cid, description: '' };
-        const tip = `${item.name}${item.description ? ` — ${item.description}` : ''}`;
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'cargo-item-card';
-        btn.setAttribute('data-tooltip', tip);
-        btn.setAttribute('aria-label', item.name);
-        btn.innerHTML = `<img class="cargo-item-img" src="./assets/cargo/${cid}.jpg" alt="${item.name}" />`;
-        btn.addEventListener('click', () => {
-          this.openCargoModal(cid);
-        });
-        cargoContainer.appendChild(btn);
-      }
-    }
-
-    const crewContainer = this.rootEl.querySelector('#hubCrewList');
-    crewContainer.innerHTML = '';
-    const playerProfile = getPlayerCharacterProfile(gs.difficulty);
-    const playerPortrait = `./assets/crew/player_${gs.difficulty || 'easy'}.jpg`;
-    const playerCard = document.createElement('button');
-    playerCard.type = 'button';
-    playerCard.className = 'crew-card crew-card-btn';
-    playerCard.setAttribute('data-tooltip', playerProfile.title);
-    playerCard.innerHTML = `
-      <div class="crew-card-art">
-        <img src="${playerPortrait}" alt="${playerProfile.title}" />
-      </div>
-      <div class="crew-card-name">You</div>
-      <div class="crew-card-role">${playerProfile.title}</div>
-    `;
-    playerCard.addEventListener('click', () => {
-      this.openPlayerPortraitModal(gs.difficulty);
-    });
-    crewContainer.appendChild(playerCard);
-
-    for (const crId of gs.assignedCrew) {
-      const cr = CREW_CATALOG[crId];
-      if (!cr) continue;
-      const crewTip = `${cr.name} · ${cr.role} — ${cr.traitText}`;
-      const card = document.createElement('button');
-      card.type = 'button';
-      card.className = 'crew-card crew-card-btn';
-      card.setAttribute('data-tooltip', crewTip);
-      card.innerHTML = `
-        <div class="crew-card-art">
-          ${
-            cr.portrait
-              ? `<img src="${cr.portrait}" alt="${cr.name}" />`
-              : ''
-          }
-        </div>
-        <div class="crew-card-name">${cr.name}</div>
-        <div class="crew-card-role">${cr.role}</div>
-      `;
-      card.addEventListener('click', () => {
-        this.openCrewPortraitModal(crId);
-      });
-      crewContainer.appendChild(card);
-    }
-
-    this._refreshRoutePanel();
-  }
-
   _getAvailableRoutes() {
     const gs = this.callbacks.getGameState();
     return getAvailableRoutesFromCurrentIsland(gs);
@@ -1413,108 +1125,5 @@ export class IslandHubUI {
     return forwardRoutes.length > 0
       ? forwardRoutes[forwardRoutes.length - 1]
       : routes[0];
-  }
-
-  _getSelectedSongObject() {
-    const routes = this._getAvailableRoutes();
-    if (!routes.length) return null;
-    const match = routes.find((r) => r.song.id === this.selectedSongId);
-    if (match) return match.song;
-    return (this._getDefaultRoute(routes) || routes[0]).song;
-  }
-
-  _refreshRoutePanel() {
-    const gs = this.callbacks.getGameState();
-    const routes = this._getAvailableRoutes();
-    const listEl = this.rootEl.querySelector('#hubRouteList');
-    const depSection = this.rootEl.querySelector('#hubDepartureSection');
-    const previewEl = this.rootEl.querySelector('#hubSongPreview');
-
-    if (!routes.length) {
-      listEl.innerHTML = `
-        <div class="empty-route-callout">
-          <p>Speak with this island's wayfinder in the <strong>Elder</strong> station first to learn the next route chant.</p>
-          <button class="secondary-btn small-btn" id="btnJumpToElderForRoute" type="button">
-            🌺 Go to Elder Station →
-          </button>
-        </div>
-      `;
-      listEl
-        .querySelector('#btnJumpToElderForRoute')
-        ?.addEventListener('click', () => this.switchTab('sanctuary'));
-      depSection.classList.add('hidden');
-      previewEl.innerHTML = '';
-      return;
-    }
-
-    depSection.classList.remove('hidden');
-    const defaultRoute = this._getDefaultRoute(routes);
-    if (
-      !this._userPickedRoute ||
-      !this.selectedSongId ||
-      !routes.some((r) => r.song.id === this.selectedSongId)
-    ) {
-      this._userPickedRoute = false;
-      const changedSong = this.selectedSongId !== defaultRoute.song.id;
-      this.selectedSongId = defaultRoute.song.id;
-      if (changedSong || !this._userPickedDeparture) {
-        this.selectedDeparture = defaultRoute.song.recommendedDeparture;
-      }
-    }
-
-    listEl.innerHTML = '';
-    for (const { song, isReturn } of routes) {
-      const dst = ISLANDS[song.toIsland];
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = `route-choice-btn ${song.id === this.selectedSongId ? 'selected' : ''}`;
-      btn.innerHTML = `
-        <div class="route-choice-top">
-          <strong>${isReturn && song.number === 'R' ? song.title : `Song ${song.number}: ${song.title}`}</strong>
-          <span class="route-target-tag">→ ${dst?.name || song.toIsland}</span>
-        </div>
-        <div class="route-choice-meta">
-          Recommended Tide-Light: <strong>${departureWindowLabel(song.recommendedDeparture)}</strong>
-        </div>
-      `;
-      btn.addEventListener('click', () => {
-        this._userPickedRoute = true;
-        this._userPickedDeparture = false;
-        this.selectedSongId = song.id;
-        this.selectedDeparture = song.recommendedDeparture;
-        this._refreshRoutePanel();
-        this._refreshCriticalCta();
-        this.callbacks.onDepartureChanged?.(this.selectedDeparture);
-      });
-      listEl.appendChild(btn);
-    }
-
-    const activeSong = this._getSelectedSongObject();
-    this.rootEl.querySelector('#hubRecWindowHint').textContent = activeSong
-      ? `(Sung for ${departureWindowLabel(activeSong.recommendedDeparture)})`
-      : '';
-
-    this.rootEl.querySelectorAll('.dep-btn').forEach((btn) => {
-      const w = btn.getAttribute('data-window');
-      btn.classList.toggle('selected', w === this.selectedDeparture);
-      btn.classList.toggle(
-        'recommended',
-        activeSong && w === activeSong.recommendedDeparture
-      );
-    });
-
-    if (activeSong) {
-      const v1 = activeSong.verses[0];
-      const warnMismatch =
-        this.selectedDeparture !== activeSong.recommendedDeparture
-          ? `<div class="dep-warning">Note: This chant expects ${departureWindowLabel(activeSong.recommendedDeparture)} skies; launching at ${departureWindowLabel(this.selectedDeparture)} shifts sun and stars out of phase!</div>`
-          : '';
-      previewEl.innerHTML = `
-        <div class="preview-eyebrow">Opening Verse Memorized Ashore</div>
-        <blockquote>"${v1.lyrics}"</blockquote>
-        ${gs.difficulty === Difficulty.EASY ? `<div class="preview-easy-cue">${v1.easyCueText}</div>` : ''}
-        ${warnMismatch}
-      `;
-    }
   }
 }

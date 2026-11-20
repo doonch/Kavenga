@@ -8,14 +8,14 @@
   <link rel="icon" type="image/png" sizes="32x32" href="./assets/icons/favicon-32.png" />
   <link rel="icon" type="image/png" sizes="64x64" href="./assets/icons/favicon-64.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="./assets/icons/apple-touch-icon.png" />
-  <link rel="stylesheet" href="./styles.css?v=20261119ad" />
+  <link rel="stylesheet" href="./styles.css?v=20261120g" />
   <script type="importmap">
     {
       "imports": {
         "three": "./vendor/three.module.min.js",
         "./src/core/gameConstants.js": "./src/core/gameConstants.js?v=20261119ad",
         "./src/core/gameState.js": "./src/core/gameState.js?v=20261119ad",
-        "./src/core/campaignManager.js": "./src/core/campaignManager.js?v=20261119w",
+        "./src/core/campaignManager.js": "./src/core/campaignManager.js?v=20261120a",
         "./src/core/objectivesManager.js": "./src/core/objectivesManager.js?v=20261119w",
         "./src/core/achievementsManager.js": "./src/core/achievementsManager.js?v=20261117s",
         "./src/data/objectivesData.js": "./src/data/objectivesData.js?v=20261119z",
@@ -30,7 +30,7 @@
         "./src/rendering/IslandAct1RemainBuilder.js": "./src/rendering/IslandAct1RemainBuilder.js?v=20261119z",
         "./src/rendering/IslandTerrainBuilder.js": "./src/rendering/IslandTerrainBuilder.js?v=20261119z",
         "./src/rendering/PlayerCharacterBuilder.js": "./src/rendering/PlayerCharacterBuilder.js?v=20261117h",
-        "./src/rendering/ShoreDioramaRenderer.js": "./src/rendering/ShoreDioramaRenderer.js?v=20261118e",
+        "./src/rendering/ShoreDioramaRenderer.js": "./src/rendering/ShoreDioramaRenderer.js?v=20261120f",
         "./src/rendering/SkyDomeRenderer.js": "./src/rendering/SkyDomeRenderer.js?v=20261117g",
         "./src/rendering/VakaRenderer.js": "./src/rendering/VakaRenderer.js?v=20261119ad",
         "./src/rendering/WalkableIslandScene.js": "./src/rendering/WalkableIslandScene.js?v=20261119ah",
@@ -38,9 +38,11 @@
         "./src/audio/BackgroundMusicEngine.js": "./src/audio/BackgroundMusicEngine.js?v=20261119ae",
         "./src/audio/ChantAndDrumEngine.js": "./src/audio/ChantAndDrumEngine.js?v=20261118a",
         "./src/ui/AchievementsUI.js": "./src/ui/AchievementsUI.js?v=20261117l",
-        "./src/ui/CrewSplashUI.js": "./src/ui/CrewSplashUI.js?v=20261118g",
+        "./src/ui/CanoeModalUI.js": "./src/ui/CanoeModalUI.js?v=20261120e",
+        "./src/ui/CrewSplashUI.js": "./src/ui/CrewSplashUI.js?v=20261120h",
         "./src/ui/ElderVigilPromptUI.js": "./src/ui/ElderVigilPromptUI.js?v=20261117g",
-        "./src/ui/IslandHubUI.js": "./src/ui/IslandHubUI.js?v=20261118s",
+        "./src/ui/IslandHubUI.js": "./src/ui/IslandHubUI.js?v=20261120a",
+        "./src/ui/OnboardingTourUI.js": "./src/ui/OnboardingTourUI.js?v=20261120a",
         "./src/ui/SailingHUD.js": "./src/ui/SailingHUD.js?v=20261118c",
         "./src/ui/SkyVigilUI.js": "./src/ui/SkyVigilUI.js?v=20261117r",
         "./src/ui/WalkableIslandUI.js": "./src/ui/WalkableIslandUI.js?v=20261119ad",
@@ -68,7 +70,17 @@
   <!-- Unified 3D Shore Diorama & 4-Station Docked Panel -->
   <div id="island-hub"></div>
 
-  <!-- Bottom-Left Walk / Shore Mode Toggle -->
+  <!-- Bottom-Left Canoe / Set Sail & Walk Mode Buttons -->
+  <button
+    class="island-settings-btn shore-canoe-fab hidden"
+    id="btnShoreCanoeModal"
+    type="button"
+    title="Vaka, Crew, Cargo & Set Sail"
+    aria-label="Vaka and Set Sail"
+  >
+    <img id="shoreCanoeImg" src="./assets/icons/vaka_button_1sail.jpg" alt="" />
+  </button>
+
   <button
     class="island-settings-btn shore-walk-fab hub-walk-opt-btn hidden"
     id="btnShoreWalkToggle"
@@ -76,7 +88,7 @@
     title="Walk Shore in 3rd-person (Arrow Keys / WASD)"
     aria-label="Walk Shore"
   >
-    <span id="shoreWalkGlyph" aria-hidden="true">🚶</span>
+    <img id="shoreWalkImg" src="./assets/icons/walk_button.jpg" alt="" />
   </button>
 
   <!-- Shared Ashore Top-Right Icon Controls (outside Hub & Walk UI) -->
@@ -115,6 +127,9 @@
   <div id="sailing-tour-ui" class="hidden"></div>
   <div id="tahaa-cloud-tour-ui" class="hidden"></div>
 
+  <!-- Dedicated Canoe, Crew, Cargo & Set Sail Modal (Shore Phase) -->
+  <div id="canoe-modal-ui" class="hidden"></div>
+
   <!-- Ashore Settings Modal & Start-Over Confirmation (Island Phase Only) -->
   <div id="island-settings-ui" class="hidden"></div>
 
@@ -127,6 +142,6 @@
   <!-- Global Celebration Banners (Sea & Shore) + Ashore Achievements Gallery Modal -->
   <div id="achievements-ui"></div>
 
-  <script type="module" src="./src/main.js?v=20261119ah"></script>
+  <script type="module" src="./src/main.js?v=20261120f"></script>
 </body>
 </html>

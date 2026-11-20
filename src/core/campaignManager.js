@@ -16,46 +16,55 @@ export const CARGO_CATALOG = Object.freeze({
   kava_bundle: {
     id: 'kava_bundle',
     name: 'Medicinal Kava Bundle',
+    sourceIslandId: 'tahaa',
     description: "Fragrant root bundle wrapped in ti leaves, sought by Elder Ari'i on Huahine.",
   },
   red_kura_feathers: {
     id: 'red_kura_feathers',
     name: 'Ceremonial Red Kura Feathers',
+    sourceIslandId: 'manuae',
     description: "Sacred crimson tropicbird feathers for Marae Taputapuatea on Ra'iatea.",
   },
   pearl_shell_lures: {
     id: 'pearl_shell_lures',
     name: 'Giant Pearl-Shell Lures',
+    sourceIslandId: 'manuae',
     description: "Iridescent lagoon trolling lures prized by Vaihere's canoe-wrights on Mo'orea.",
   },
   polished_basalt_adze: {
     id: 'polished_basalt_adze',
     name: 'Polished Basalt Adze',
+    sourceIslandId: 'moorea',
     description: "Ceremonial black-stone adze lashed in sennit, worthy of First Master Tera'i on Maupiti.",
   },
   bone_harpoon_heads: {
     id: 'bone_harpoon_heads',
     name: 'Carved Bone Harpoon Heads',
+    sourceIslandId: 'ua_pou',
     description: 'Barbed sea-hunter points carved on Ua Pou for the lagoon divers of Rangiroa.',
   },
   pearl_star_discs: {
     id: 'pearl_star_discs',
     name: 'Mother-of-Pearl Star Discs',
+    sourceIslandId: 'rangiroa',
     description: 'Shining shell discs inlaid into ceremonial tiki eyes by the carvers of Hiva Oa.',
   },
   obsidian_adze_blanks: {
     id: 'obsidian_adze_blanks',
     name: 'Volcanic Obsidian Blanks',
+    sourceIslandId: 'hiva_oa',
     description: 'Razor-sharp volcanic glass prized by Master Canoe-Builder Oihanu on Fatu Hiva.',
   },
   miro_drum_wood: {
     id: 'miro_drum_wood',
     name: 'Sacred Miro Drum-Timber',
+    sourceIslandId: 'oahu',
     description: "Resonant heartwood from foggy O'ahu needed by Swell Master Pohaku on Kaua'i.",
   },
   sacred_tridacna_shell: {
     id: 'sacred_tridacna_shell',
     name: 'Sacred Giant Tridacna Shell',
+    sourceIslandId: 'kiritimati',
     description: "Ancient fluted lagoon shell carried from Kiritimati to the Great Ancestral Ahu of Hawai'i.",
   },
 });

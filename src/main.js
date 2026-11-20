@@ -12,7 +12,10 @@ import { ChantAndDrumEngine } from './audio/ChantAndDrumEngine.js';
 import { SpatialSeaAudio } from './audio/SpatialSeaAudio.js';
 import { VoiceOverEngine } from './audio/VoiceOverEngine.js';
 import { AchievementsManager } from './core/achievementsManager.js';
-import { onVoyageLandfall } from './core/campaignManager.js';
+import {
+  onVoyageLandfall,
+  performBeachCareeningAndRestock,
+} from './core/campaignManager.js';
 import {
   DepartureWindow,
   Difficulty,
@@ -57,9 +60,10 @@ import {
   VoyageStatus,
 } from './simulation/oceanSim.js';
 import { AchievementsUI } from './ui/AchievementsUI.js';
+import { CanoeModalUI } from './ui/CanoeModalUI.js?v=20261120e';
 import { CrewSplashUI } from './ui/CrewSplashUI.js';
 import { ElderVigilPromptUI } from './ui/ElderVigilPromptUI.js';
-import { IslandHubUI } from './ui/IslandHubUI.js?v=20261119v';
+import { IslandHubUI } from './ui/IslandHubUI.js?v=20261120a';
 import { IslandSettingsUI } from './ui/IslandSettingsUI.js?v=20261119u';
 import {
   clearOnboardingDone,
@@ -68,7 +72,7 @@ import {
   SAILING_TOUR_STEPS,
   TAHAA_CLOUD_TOUR_STEPS,
   TAHAA_CLOUD_TOUR_STORAGE_KEY,
-} from './ui/OnboardingTourUI.js?v=20261119m';
+} from './ui/OnboardingTourUI.js?v=20261120a';
 import { SailingHUD } from './ui/SailingHUD.js?v=20261119h';
 import { SkyVigilUI } from './ui/SkyVigilUI.js';
 import { WalkableIslandUI } from './ui/WalkableIslandUI.js';
@@ -81,10 +85,13 @@ class KavengaApp {
     this.vigilRootEl = document.getElementById('sky-vigil-ui');
     this.walkableUiRootEl = document.getElementById('walkable-island-ui');
     this.hubRootEl = document.getElementById('island-hub');
+    this.canoeModalRootEl = document.getElementById('canoe-modal-ui');
     this.crewSplashRootEl = document.getElementById('crew-splash-ui');
     this.shoreTopControlsEl = document.getElementById('shore-top-controls');
+    this.btnShoreCanoeModal = document.getElementById('btnShoreCanoeModal');
+    this.shoreCanoeImgEl = document.getElementById('shoreCanoeImg');
     this.btnShoreWalkToggle = document.getElementById('btnShoreWalkToggle');
-    this.shoreWalkGlyphEl = document.getElementById('shoreWalkGlyph');
+    this.shoreWalkImgEl = document.getElementById('shoreWalkImg');
     this.btnShoreToggleSound = document.getElementById('btnShoreToggleSound');
     this.shoreSoundGlyphEl = document.getElementById('shoreSoundGlyph');
     this.btnShoreOpenAchievements = document.getElementById(
@@ -311,16 +318,63 @@ class KavengaApp {
       onChangeDifficulty: (mode) => this.setDifficulty(mode),
       onLaunchVoyage: (song, depWindow) =>
         this.requestLaunchVoyage(song, depWindow),
+      onOpenCanoeModal: () => this.openCanoeModal(),
+      getSelectedRouteAndDeparture: () => ({
+        song: this.canoeModalUI?.getSelectedSongObject() || null,
+        departure: this.canoeModalUI?.selectedDeparture || DepartureWindow.DAWN,
+      }),
       onOpenSkyVigil: (opts) => this.enterSkyVigil(opts),
       onEnterWalkMode: () => this.enterWalkableShoreMode(),
-      onStationChanged: (tabId, depWindow) =>
-        this.shoreDiorama.setStation(tabId, depWindow),
-      onDepartureChanged: (depWindow) =>
-        this.shoreDiorama.setDeparturePreview(depWindow),
+      onStationChanged: (tabId) =>
+        this.shoreDiorama.setStation(
+          tabId,
+          this.canoeModalUI?.selectedDeparture || DepartureWindow.DAWN
+        ),
       onResetOrbit: () => this.shoreDiorama.resetOrbitToStation(),
     });
     this.shoreDiorama.onOrbitStateChange((customized) => {
       this.islandHub.setOrbitCustomized(customized);
+    });
+
+    this.canoeModalUI = new CanoeModalUI(this.canoeModalRootEl, {
+      getGameState: () => this.gameState,
+      getIslandThumbnailUrl: (islandId) =>
+        this.shoreDiorama.renderIslandThumbnailDataUrl(
+          this.renderer,
+          islandId
+        ),
+      onLaunchVoyage: (song, depWindow) =>
+        this.requestLaunchVoyage(song, depWindow),
+      onDepartureChanged: (depWindow) => {
+        if (!this.walkableIslandScene.active) {
+          this.shoreDiorama.setDeparturePreview(depWindow);
+        }
+      },
+      onGoToSanctuary: () => {
+        if (!this.walkableIslandScene.active) {
+          this.islandHub.switchTab('sanctuary');
+        }
+      },
+      onOpen: () => {
+        this.cameraCtrl.keysDown.clear();
+        if (!this.walkableIslandScene.active) {
+          this.shoreDiorama.setStation(
+            'landing',
+            this.canoeModalUI.selectedDeparture
+          );
+        }
+        this._syncShoreTopControls();
+      },
+      onClose: () => {
+        if (this.phase === 'shore' && !this.walkableIslandScene.active) {
+          this.shoreDiorama.setStation(
+            this.islandHub.activeTab,
+            this.canoeModalUI.selectedDeparture
+          );
+          this.islandHub.refresh();
+        }
+        this._syncShoreTopControls();
+      },
     });
 
     this.walkableIslandUI = new WalkableIslandUI(this.walkableUiRootEl, {
@@ -527,6 +581,8 @@ class KavengaApp {
           this.gameState.maxCargoSlots - this.gameState.cargoItems.length
         );
         this.islandHub.refresh();
+        this.canoeModalUI?.refresh();
+        this._syncShoreTopControls();
       }
     }
 
@@ -557,21 +613,28 @@ class KavengaApp {
     }
 
     const validShoreTab =
-      urlTab && ['sanctuary', 'sand', 'vigil', 'landing'].includes(urlTab)
+      urlTab && ['sanctuary', 'sand', 'vigil'].includes(urlTab)
         ? urlTab
         : null;
+    const openCanoeFromUrl = urlTab === 'landing';
 
     if (urlIsland && ISLANDS[urlIsland]) {
       this.gameState.currentIslandId = urlIsland;
       this.gameState.currentBasinId = ISLANDS[urlIsland].basinId;
       this.oceanSim.setShoreIsland(urlIsland);
       this._enterShoreMode({ hubDefaultTab: validShoreTab });
+      if (openCanoeFromUrl) {
+        this.openCanoeModal();
+      }
     } else if (
-      validShoreTab &&
+      (validShoreTab || openCanoeFromUrl) &&
       urlMode !== 'sky_vigil' &&
       params.get('vigil') !== '1'
     ) {
       this._enterShoreMode({ hubDefaultTab: validShoreTab });
+      if (openCanoeFromUrl) {
+        this.openCanoeModal();
+      }
     }
 
     if (
@@ -877,7 +940,7 @@ class KavengaApp {
   _resolveDefaultShoreStation(preferredTab = null) {
     if (
       preferredTab &&
-      ['sanctuary', 'sand', 'vigil', 'landing'].includes(preferredTab)
+      ['sanctuary', 'sand', 'vigil'].includes(preferredTab)
     ) {
       return preferredTab;
     }
@@ -894,7 +957,7 @@ class KavengaApp {
     if (pendingLesson) {
       return 'vigil';
     }
-    return 'landing';
+    return 'sanctuary';
   }
 
   _announceNewObjectives(
@@ -949,8 +1012,8 @@ class KavengaApp {
   /**
    * Transitions into the Unified 3D Shore Diorama Stage across all 17 islands:
    * - Left ~60% viewport: canonical 3D island (`IslandTerrainBuilder`) + moored `VakaRenderer`
-   * - Right docked panel: 4 shore stations (`sanctuary`, `sand`, `vigil`, `landing`)
-   * - Optional secondary `Walk Shore` mode remains accessible on walkable islands via header button.
+   * - Right docked panel: 3 shore stations (`sanctuary`, `sand`, `vigil`) + dedicated Canoe/Set Sail button
+   * - Optional secondary `Walk Shore` mode remains accessible on walkable islands via the floating Walk button.
    */
   _enterShoreMode({
     hubDefaultTab = null,
@@ -960,6 +1023,8 @@ class KavengaApp {
     this.phase = 'shore';
     this.sailingTourUI?.hide();
     this.tahaaCloudTourUI?.hide();
+    this.canoeModalUI?.hide({ silent: true });
+    this.canoeModalUI?.syncIslandSession();
     const newlyActivatedArrival = activateIslandArrivalObjective(
       this.gameState,
       this.gameState.currentIslandId
@@ -991,7 +1056,8 @@ class KavengaApp {
     this.shoreDiorama.enter({
       islandId: this.gameState.currentIslandId,
       stationId: this.islandHub.activeTab,
-      selectedDeparture: this.islandHub.selectedDeparture,
+      selectedDeparture:
+        this.canoeModalUI?.selectedDeparture || DepartureWindow.DAWN,
       transitionFromCam,
     });
     this._syncShoreTopControls();
@@ -1005,6 +1071,14 @@ class KavengaApp {
   }
 
   _bindShoreTopControls() {
+    this.btnShoreCanoeModal?.addEventListener('click', (e) => {
+      e.currentTarget.blur();
+      if (this.canoeModalUI.isOpen()) {
+        this.canoeModalUI.hide();
+      } else {
+        this.openCanoeModal();
+      }
+    });
     this.btnShoreWalkToggle?.addEventListener('click', (e) => {
       e.currentTarget.blur();
       if (this.walkableIslandScene.active) {
@@ -1031,15 +1105,42 @@ class KavengaApp {
     if (!this.shoreTopControlsEl) return;
     if (this.phase !== 'shore') {
       this.shoreTopControlsEl.classList.add('hidden');
+      this.btnShoreCanoeModal?.classList.add('hidden');
       this.btnShoreWalkToggle?.classList.add('hidden');
       return;
     }
     this.shoreTopControlsEl.classList.remove('hidden');
 
+    const hasTwoSails = (this.gameState?.vakaTier || 1) >= 3;
+    const canoeImgSrc = hasTwoSails
+      ? './assets/icons/vaka_button_2sails.jpg?v=20261120b'
+      : './assets/icons/vaka_button_1sail.jpg';
+    if (
+      this.shoreCanoeImgEl &&
+      this.shoreCanoeImgEl.getAttribute('src') !== canoeImgSrc
+    ) {
+      this.shoreCanoeImgEl.setAttribute('src', canoeImgSrc);
+    }
+    const canoeOpen = Boolean(this.canoeModalUI?.isOpen());
+    if (this.btnShoreCanoeModal) {
+      this.btnShoreCanoeModal.classList.remove('hidden');
+      this.btnShoreCanoeModal.classList.toggle('active', canoeOpen);
+      this.btnShoreCanoeModal.setAttribute('aria-pressed', String(canoeOpen));
+    }
+
     const walkable = canWalkIsland(this.gameState.currentIslandId);
     const isWalking = Boolean(this.walkableIslandScene.active);
-    if (this.shoreWalkGlyphEl) {
-      this.shoreWalkGlyphEl.textContent = isWalking ? '🏝️' : '🚶';
+    if (this.shoreWalkImgEl && walkable) {
+      const targetWalkSrc = isWalking
+        ? this.shoreDiorama.renderIslandThumbnailDataUrl(
+            this.renderer,
+            this.gameState.currentIslandId,
+            { square: true }
+          ) || './assets/icons/walk_button.jpg'
+        : './assets/icons/walk_button.jpg';
+      if (this.shoreWalkImgEl.getAttribute('src') !== targetWalkSrc) {
+        this.shoreWalkImgEl.setAttribute('src', targetWalkSrc);
+      }
     }
     if (this.btnShoreWalkToggle) {
       this.btnShoreWalkToggle.classList.toggle('hidden', !walkable);
@@ -1073,8 +1174,19 @@ class KavengaApp {
     }
   }
 
+  openCanoeModal() {
+    if (this.phase !== 'shore') return;
+    this.onboardingTourUI?.hide();
+    this.elderVigilPromptUI.hide();
+    this.islandSettingsUI.hide();
+    this.achievementsUI.hideModal();
+    this.cameraCtrl.keysDown.clear();
+    this.canoeModalUI.show();
+  }
+
   enterWalkableShoreMode({ spawnMode = 'canoe' } = {}) {
     this.onboardingTourUI?.hide();
+    this.canoeModalUI?.hide({ silent: true });
     if (
       this.phase !== 'shore' ||
       !canWalkIsland(this.gameState.currentIslandId)
@@ -1106,16 +1218,21 @@ class KavengaApp {
       const lookAt = pos.clone().addScaledVector(dir, 14.0);
       transitionFromCam = { pos, lookAt };
     }
+    const openCanoeAfter = activePoi?.hubTab === 'landing';
     const preferredTab =
       activePoi?.hubTab &&
-      ['sanctuary', 'sand', 'vigil', 'landing'].includes(activePoi.hubTab)
+      ['sanctuary', 'sand', 'vigil'].includes(activePoi.hubTab)
         ? activePoi.hubTab
         : null;
     this._enterShoreMode({ hubDefaultTab: preferredTab, transitionFromCam });
+    if (openCanoeAfter) {
+      this.openCanoeModal();
+    }
   }
 
   openIslandSettings() {
     if (this.phase !== 'shore') return;
+    this.canoeModalUI?.hide({ silent: true });
     this.elderVigilPromptUI.hide();
     this.achievementsUI.hideModal();
     this.cameraCtrl.keysDown.clear();
@@ -1124,6 +1241,7 @@ class KavengaApp {
 
   openIslandAchievements() {
     if (this.phase !== 'shore') return;
+    this.canoeModalUI?.hide({ silent: true });
     this.elderVigilPromptUI.hide();
     this.islandSettingsUI.hide();
     this.cameraCtrl.keysDown.clear();
@@ -1132,10 +1250,14 @@ class KavengaApp {
 
   _refreshShoreOverlays() {
     if (this.phase !== 'shore') return;
+    this._syncShoreTopControls();
     if (this.walkableIslandScene.active) {
       this.walkableIslandUI.refresh();
     } else {
       this.islandHub.refresh();
+    }
+    if (this.canoeModalUI?.isOpen()) {
+      this.canoeModalUI.refresh();
     }
   }
 
@@ -1219,6 +1341,7 @@ class KavengaApp {
     clearOnboardingDone();
     this.islandSettingsUI.hide();
     this.achievementsUI.hideModal();
+    this.canoeModalUI?.hide({ silent: true });
     this.crewSplashUI.hide();
     this.elderVigilPromptUI.hide();
     this.chantEngine.stop();
@@ -1237,6 +1360,7 @@ class KavengaApp {
     this.sailingTourUI?.hide();
     this.tahaaCloudTourUI?.hide();
     this._enteredVigilFromWalkMode = Boolean(this.walkableIslandScene.active);
+    this.canoeModalUI?.hide({ silent: true });
     this.islandSettingsUI.hide();
     this.achievementsUI.hideModal();
     this.achievementsUI.clearObjectiveBanners();
@@ -1303,6 +1427,9 @@ class KavengaApp {
       } else {
         this.islandHub.refresh();
       }
+      if (this.canoeModalUI?.isOpen()) {
+        this.canoeModalUI.refresh();
+      }
       if (this.islandSettingsUI.isOpen()) {
         this.islandSettingsUI.refresh();
       }
@@ -1315,6 +1442,7 @@ class KavengaApp {
       this.gameState.currentIslandId
     );
     if (pendingLesson) {
+      this.canoeModalUI?.hide({ silent: true });
       this.cameraCtrl.keysDown.clear();
       this.elderVigilPromptUI.show(pendingLesson, song, departureWindow);
       return;
@@ -1327,6 +1455,7 @@ class KavengaApp {
     // Snapshot pre-voyage state so Lost at Sea / Return to Shore restores cleanly with zero loss!
     this.gameState.savePreVoyageSnapshot();
     this._enteredVigilFromWalkMode = false;
+    this.canoeModalUI?.hide({ silent: true });
     this.islandSettingsUI.hide();
     this.achievementsUI.hideModal();
     this.achievementsUI.clearObjectiveBanners();
@@ -1381,7 +1510,8 @@ class KavengaApp {
         this._announcedObjectiveIds.delete(id);
       }
     }
-    this._enterShoreMode({ hubDefaultTab: 'landing' });
+    this._enterShoreMode({ hubDefaultTab: 'sanctuary' });
+    this.openCanoeModal();
   }
 
   completeLandfallTransition() {
@@ -1422,6 +1552,8 @@ class KavengaApp {
         Math.ceil(this.oceanSim.rationsRemaining)
       )
     );
+    // Automatically careen hull/sail/lashings and restock rations on beach landfall
+    performBeachCareeningAndRestock(this.gameState);
     this.gameState.saveToLocalStorage();
 
     this._enterShoreMode();
@@ -1597,11 +1729,13 @@ class KavengaApp {
           camera: this.cameraCtrl.camera,
           keysDown: this.cameraCtrl.keysDown,
           inputBlocked:
+            this.canoeModalUI.isOpen() ||
             this.islandSettingsUI.isOpen() ||
             this.achievementsUI.isOpen() ||
             this.elderVigilPromptUI.isOpen() ||
             this.walkableIslandUI.isBlockingMovement(),
           hideLabels:
+            this.canoeModalUI.isOpen() ||
             this.islandSettingsUI.isOpen() ||
             this.achievementsUI.isOpen() ||
             this.elderVigilPromptUI.isOpen(),

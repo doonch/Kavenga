@@ -81,8 +81,11 @@ export class ShoreDioramaRenderer {
     this.islandMount = new THREE.Group();
     this.root.add(this.islandMount);
 
-    // Cached canonical assemblies keyed by islandId
+    // Cached canonical assemblies & 2D thumbnails keyed by islandId
     this._assemblyCache = {};
+    this._thumbnailCache = {};
+    this._thumbShared = null;
+    this._thumbRigs = {};
     this._activeAssembly = null;
 
     // Signature Stationary Peak Cloud & Coral Atoll Lapa Cloud
@@ -702,5 +705,204 @@ export class ShoreDioramaRenderer {
         0.34
       );
     }
+  }
+
+  _ensureThumbnailRig(square = false) {
+    const mode = square ? 'square' : 'wide';
+    if (this._thumbRigs[mode]) return this._thumbRigs[mode];
+
+    if (!this._thumbShared) {
+      const scene = new THREE.Scene();
+
+      const hemi = new THREE.HemisphereLight(0xfff1d6, 0x164458, 1.4);
+      scene.add(hemi);
+
+      const sun = new THREE.DirectionalLight(0xffe7b8, 1.9);
+      sun.position.set(110, 125, 115);
+      scene.add(sun);
+
+      const fill = new THREE.DirectionalLight(0x6bd6cf, 0.62);
+      fill.position.set(-90, 48, -75);
+      scene.add(fill);
+
+      // Compact turquoise lagoon shelf disc under the island silhouette
+      const waterGroup = new THREE.Group();
+      const outerShelf = new THREE.Mesh(
+        new THREE.CircleGeometry(1.15, 48),
+        new THREE.MeshBasicMaterial({
+          color: 0x0c4356,
+          transparent: true,
+          opacity: 0.78,
+        })
+      );
+      outerShelf.rotation.x = -Math.PI * 0.5;
+      outerShelf.position.y = -0.06;
+      waterGroup.add(outerShelf);
+
+      const innerLagoon = new THREE.Mesh(
+        new THREE.CircleGeometry(0.94, 48),
+        new THREE.MeshBasicMaterial({
+          color: 0x188996,
+          transparent: true,
+          opacity: 0.9,
+        })
+      );
+      innerLagoon.rotation.x = -Math.PI * 0.5;
+      innerLagoon.position.y = 0.02;
+      waterGroup.add(innerLagoon);
+      scene.add(waterGroup);
+
+      const gammaLut = new Uint8ClampedArray(256);
+      for (let i = 0; i < 256; i += 1) {
+        const lin = i / 255;
+        const srgb =
+          lin <= 0.0031308
+            ? 12.92 * lin
+            : 1.055 * Math.pow(lin, 1.0 / 2.4) - 0.055;
+        gammaLut[i] = Math.round(clamp(srgb, 0.0, 1.0) * 255);
+      }
+
+      this._thumbShared = {
+        scene,
+        waterGroup,
+        gammaLut,
+        box: new THREE.Box3(),
+        center: new THREE.Vector3(),
+        size: new THREE.Vector3(),
+        prevClearColor: new THREE.Color(),
+      };
+    }
+
+    const width = square ? 180 : 240;
+    const height = square ? 180 : 160;
+    const camera = new THREE.PerspectiveCamera(34, width / height, 1.0, 1400.0);
+    const rt = new THREE.WebGLRenderTarget(width, height, {
+      type: THREE.UnsignedByteType,
+      depthBuffer: true,
+      stencilBuffer: false,
+    });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+
+    this._thumbRigs[mode] = {
+      ...this._thumbShared,
+      width,
+      height,
+      camera,
+      rt,
+      canvas,
+      ctx,
+      pixelBuf: new Uint8Array(width * height * 4),
+      imgData: ctx ? ctx.createImageData(width, height) : null,
+    };
+    return this._thumbRigs[mode];
+  }
+
+  /**
+   * Renders a small cached 2D snapshot directly from the canonical 3D island assembly.
+   */
+  renderIslandThumbnailDataUrl(renderer, islandId, { square = false } = {}) {
+    if (!islandId || !ISLANDS[islandId]) return null;
+    const cacheKey = square ? `${islandId}:sq` : islandId;
+    if (this._thumbnailCache[cacheKey]) return this._thumbnailCache[cacheKey];
+    if (!renderer || typeof document === 'undefined') return null;
+
+    const asm = this._getOrCreateCanonicalAssembly(islandId);
+    if (!asm?.group) return null;
+
+    const rig = this._ensureThumbnailRig(square);
+    if (!rig.ctx || !rig.imgData) return null;
+
+    const isl = ISLANDS[islandId];
+    const prevParent = asm.group.parent;
+    const prevPos = asm.group.position.clone();
+    const prevScale = asm.group.scale.clone();
+    const prevRotY = asm.group.rotation.y;
+
+    applyDetailedIslandAlpha(asm, 1.0);
+    asm.group.position.set(0, 0, 0);
+    asm.group.scale.setScalar(1.0);
+    asm.group.rotation.y = getIslandApproachOrientationRad(islandId);
+    rig.scene.add(asm.group);
+    asm.group.updateMatrixWorld(true);
+
+    rig.box.setFromObject(asm.group);
+    rig.box.getCenter(rig.center);
+    rig.box.getSize(rig.size);
+
+    const horizR = Math.max(24.0, Math.max(rig.size.x, rig.size.z) * 0.5);
+    const maxY = Math.max(8.0, rig.box.max.y);
+    rig.waterGroup.position.set(rig.center.x, 0.0, rig.center.z);
+    rig.waterGroup.scale.setScalar(horizR * 1.04);
+
+    const isAtoll = isl.archetype === 'coral_atoll';
+    const lookY = isAtoll ? 1.8 : Math.min(28.0, maxY * 0.34);
+    const dir = isAtoll
+      ? new THREE.Vector3(0.38, 0.62, 0.69).normalize()
+      : new THREE.Vector3(0.42, 0.36, 0.83).normalize();
+
+    const halfFovRad = (34.0 * Math.PI) / 360.0;
+    const aspect = rig.width / rig.height;
+    const distH = horizR / (Math.tan(halfFovRad) * aspect);
+    const distV = (maxY * 0.62) / Math.tan(halfFovRad);
+    const dist = Math.max(distH, distV) * 1.15;
+
+    rig.camera.position.set(
+      rig.center.x + dir.x * dist,
+      lookY + dir.y * dist,
+      rig.center.z + dir.z * dist
+    );
+    rig.camera.lookAt(rig.center.x, lookY, rig.center.z);
+
+    const prevTarget = renderer.getRenderTarget();
+    renderer.getClearColor(rig.prevClearColor);
+    const prevClearAlpha = renderer.getClearAlpha();
+
+    try {
+      renderer.setRenderTarget(rig.rt);
+      renderer.setClearColor(0x091523, 1.0);
+      renderer.clear(true, true, true);
+      renderer.render(rig.scene, rig.camera);
+      renderer.readRenderTargetPixels(
+        rig.rt,
+        0,
+        0,
+        rig.width,
+        rig.height,
+        rig.pixelBuf
+      );
+    } finally {
+      renderer.setClearColor(rig.prevClearColor, prevClearAlpha);
+      renderer.setRenderTarget(prevTarget);
+      rig.scene.remove(asm.group);
+      asm.group.position.copy(prevPos);
+      asm.group.scale.copy(prevScale);
+      asm.group.rotation.y = prevRotY;
+      if (prevParent) {
+        prevParent.add(asm.group);
+      }
+    }
+
+    const { width, height, pixelBuf, imgData, gammaLut } = rig;
+    const out = imgData.data;
+    for (let y = 0; y < height; y += 1) {
+      const srcRow = (height - 1 - y) * width * 4;
+      const dstRow = y * width * 4;
+      for (let x = 0; x < width; x += 1) {
+        const s = srcRow + x * 4;
+        const d = dstRow + x * 4;
+        out[d] = gammaLut[pixelBuf[s]];
+        out[d + 1] = gammaLut[pixelBuf[s + 1]];
+        out[d + 2] = gammaLut[pixelBuf[s + 2]];
+        out[d + 3] = 255;
+      }
+    }
+    rig.ctx.putImageData(imgData, 0, 0);
+    const url = rig.canvas.toDataURL('image/png');
+    this._thumbnailCache[cacheKey] = url;
+    return url;
   }
 }

@@ -20,7 +20,11 @@ import {
   showsSongLyrics,
 } from '../src/core/gameConstants.js';
 import { GameState } from '../src/core/gameState.js';
-import { interactWithIslandSanctuary } from '../src/core/campaignManager.js';
+import {
+  CARGO_CATALOG,
+  interactWithIslandSanctuary,
+  performBeachCareeningAndRestock,
+} from '../src/core/campaignManager.js';
 import {
   AchievementsManager,
   formatAchievementDateLabel,
@@ -1087,6 +1091,40 @@ logLine('\n[8/8] Verifying Objectives Lifecycle, Multi-Fish Harvest, 24h Ocean S
       unlockedEvents.length === 12 &&
       formatAchievementDateLabel('2026-11-17T18:30:00.000Z').includes('2026'),
     'Start Over resets active objectives to Raʻiatea while preserving all 12 unlocked achievements and metadata'
+  );
+}
+
+// ── CARGO CATALOG SOURCE ISLANDS & AUTO-CAREENING ON LANDFALL ─────────────────
+const cargoEntries = Object.entries(CARGO_CATALOG);
+assert(cargoEntries.length === 9, 'Expected 9 quest cargo items in CARGO_CATALOG');
+for (const [cargoKey, cargoDef] of cargoEntries) {
+  assert(
+    typeof cargoDef.sourceIslandId === 'string' && Boolean(ISLANDS[cargoDef.sourceIslandId]),
+    `Cargo item ${cargoKey} must declare a valid sourceIslandId (got ${cargoDef.sourceIslandId})`
+  );
+}
+{
+  const landfallCareenGs = new GameState();
+  landfallCareenGs.hullCondition = 42;
+  landfallCareenGs.sailCondition = 55;
+  landfallCareenGs.lashingsCondition = 61;
+  landfallCareenGs.loadedRations = 1;
+  landfallCareenGs.addCargoItem('kava_bundle');
+  performBeachCareeningAndRestock(landfallCareenGs);
+  assert(
+    landfallCareenGs.hullCondition === 88 &&
+      landfallCareenGs.sailCondition === 88 &&
+      landfallCareenGs.lashingsCondition === 88 &&
+      landfallCareenGs.loadedRations === landfallCareenGs.maxCargoSlots - 1,
+    'performBeachCareeningAndRestock restores Act I inhabited hull/sail/lashings to 88% and fills remaining ration slots'
+  );
+  landfallCareenGs.completedQuests.moorea_trade = true;
+  performBeachCareeningAndRestock(landfallCareenGs);
+  assert(
+    landfallCareenGs.hullCondition === 100 &&
+      landfallCareenGs.sailCondition === 100 &&
+      landfallCareenGs.lashingsCondition === 100,
+    'performBeachCareeningAndRestock restores 100% hull/sail/lashings after Moʻorea artisan mastery'
   );
 }
 

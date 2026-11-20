@@ -120,7 +120,7 @@ export class CrewSplashUI {
       imgEl.alt = 'Double-hulled, double-sail Polynesian Vaka Moana';
       this.rootEl.querySelector('#crewSplashTrait').textContent =
         'Oihanu’s builders have stepped a second woven pandanus crab-claw sail and lashed twin deep-sea hulls—expanding your deck to 8 cargo slots and restoring 100% hull, sail, and lashing condition for the mist crossings ahead.';
-      if (btnEl) btnEl.textContent = 'Set Sail on the Vaka Moana';
+      if (btnEl) btnEl.textContent = 'Awesome!';
 
       this.rootEl.classList.remove('hidden');
       this.backdropEl.classList.remove('hidden');
