@@ -20,11 +20,14 @@ import { createAct2IslandAssembly } from './IslandAct2Builder.js';
 import { createAct3IslandAssembly } from './IslandAct3Builder.js';
 import { createRapaNuiIslandAssembly } from './IslandRapaNuiBuilder.js';
 import {
+  addCoconutGroves,
+  addCoastalScrub,
   addMaraePlatform,
   createBeveledStoneSlabGeometry,
   createCarvedUnuStandard,
   createGiantPearlShellGroup,
   createGiantPearlValveGeometry,
+  createMaterialTracker,
 } from './IslandSculptToolkit.js';
 import {
   createCarvedStandingStoneGroup,
@@ -318,34 +321,6 @@ function createSculptedIslandTerrainGeometry(evalFn, maxRadius = 56.0, beachColo
 }
 
 /**
- * Helper to add miniature coastal coconut palms at (x, y, z) onto a parent group.
- */
-function addCoconutPalmCluster(group, trunkMat, frondMat, points) {
-  const trunkGeo = new THREE.CylinderGeometry(0.18, 0.32, 3.6, 6);
-  trunkGeo.translate(0, 1.8, 0);
-  const frondGeo = new THREE.ConeGeometry(1.55, 0.95, 6);
-
-  for (let i = 0; i < points.length; i += 1) {
-    const [px, py, pz, leanAz = 0.0, scale = 1.0] = points[i];
-    const palm = new THREE.Group();
-    palm.position.set(px, py, pz);
-    palm.scale.setScalar(scale);
-    palm.rotation.y = leanAz;
-
-    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-    trunk.rotation.z = 0.16;
-    palm.add(trunk);
-
-    const crown = new THREE.Mesh(frondGeo, frondMat);
-    crown.position.set(-0.28, 3.55, 0);
-    crown.scale.set(1.2, 0.55, 1.2);
-    palm.add(crown);
-
-    group.add(palm);
-  }
-}
-
-/**
  * Helper to create a curved barrier-reef arc (leaving reef passes open).
  */
 function addBarrierReefArc(group, reefMat, foamMat, radius, startRad, endRad, segs = 28) {
@@ -629,74 +604,6 @@ function createSculptedAtollTerrainGeometry(evalFn, maxRadius = 56.0) {
 }
 
 /**
- * Adds multi-frond wind-curved atoll coconut palms with drooping star-tier canopies & coconuts.
- */
-function addAtollCoconutGroves(group, trunkMat, frondMatDark, frondMatSun, nutMat, points) {
-  const lowerSegGeo = new THREE.CylinderGeometry(0.21, 0.33, 2.0, 6);
-  lowerSegGeo.translate(0, 1.0, 0);
-  const upperSegGeo = new THREE.CylinderGeometry(0.14, 0.21, 2.05, 6);
-  upperSegGeo.translate(0, 1.02, 0);
-  const crownLowerGeo = new THREE.ConeGeometry(1.75, 0.82, 7);
-  const crownUpperGeo = new THREE.ConeGeometry(1.38, 0.72, 7);
-  const nutClusterGeo = new THREE.DodecahedronGeometry(0.28, 0);
-
-  for (let i = 0; i < points.length; i += 1) {
-    const [px, py, pz, leanAz = 0.0, scale = 1.0, leanAmt = 0.22] = points[i];
-    const palm = new THREE.Group();
-    palm.position.set(px, py, pz);
-    palm.scale.setScalar(scale);
-    palm.rotation.y = leanAz;
-
-    const lowerTrunk = new THREE.Mesh(lowerSegGeo, trunkMat);
-    lowerTrunk.rotation.z = leanAmt * 0.65;
-    palm.add(lowerTrunk);
-
-    const upperPivot = new THREE.Group();
-    upperPivot.position.set(-Math.sin(leanAmt * 0.65) * 1.95, Math.cos(leanAmt * 0.65) * 1.95, 0);
-    upperPivot.rotation.z = leanAmt * 1.15;
-    const upperTrunk = new THREE.Mesh(upperSegGeo, trunkMat);
-    upperPivot.add(upperTrunk);
-
-    const crownHub = new THREE.Group();
-    crownHub.position.set(0, 2.02, 0);
-    crownHub.rotation.z = -leanAmt * 0.85;
-
-    const nuts = new THREE.Mesh(nutClusterGeo, nutMat);
-    nuts.position.y = -0.12;
-    crownHub.add(nuts);
-
-    const cLow = new THREE.Mesh(crownLowerGeo, i % 2 === 0 ? frondMatDark : frondMatSun);
-    cLow.scale.set(1.25, 0.48, 1.25);
-    crownHub.add(cLow);
-
-    const cHigh = new THREE.Mesh(crownUpperGeo, i % 2 === 0 ? frondMatSun : frondMatDark);
-    cHigh.position.y = 0.28;
-    cHigh.rotation.y = 0.45;
-    cHigh.scale.set(1.15, 0.52, 1.15);
-    crownHub.add(cHigh);
-
-    upperPivot.add(crownHub);
-    palm.add(upperPivot);
-    group.add(palm);
-  }
-}
-
-/**
- * Adds low littoral naupaka, mikimiki & pandanus scrub thickets along coral motu ridges.
- */
-function addCoastalScrubCluster(group, scrubMatA, scrubMatB, points) {
-  const bushGeo = new THREE.DodecahedronGeometry(1.05, 1);
-  for (let i = 0; i < points.length; i += 1) {
-    const [bx, by, bz, sx = 1.2, sy = 0.65, sz = 1.1, rotY = 0.0] = points[i];
-    const bush = new THREE.Mesh(bushGeo, i % 2 === 0 ? scrubMatA : scrubMatB);
-    bush.position.set(bx, by + sy * 0.42, bz);
-    bush.scale.set(sx, sy, sz);
-    bush.rotation.y = rotY;
-    group.add(bush);
-  }
-}
-
-/**
  * Builds a traditional single-outrigger Polynesian lagoon canoe (va'a) at (x, y, z).
  */
 function addLagoonOutriggerCanoe(group, hullMat, trimMat, x, y, z, yawRad = 0.0, scale = 1.0) {
@@ -754,11 +661,7 @@ export function createDetailedIslandAssembly(islandId) {
   }
 
   const group = new THREE.Group();
-  const materials = [];
-  const trackMat = (m) => {
-    materials.push(m);
-    return m;
-  };
+  const { materials, trackMat } = createMaterialTracker();
 
   const terrainMat = trackMat(
     new THREE.MeshStandardMaterial({
@@ -798,24 +701,6 @@ export function createDetailedIslandAssembly(islandId) {
     })
   );
   surfFoamMat.userData.baseOpacity = 0.72;
-
-  const trunkMat = trackMat(
-    new THREE.MeshStandardMaterial({
-      color: 0x765334,
-      roughness: 0.85,
-      transparent: true,
-      opacity: 1.0,
-    })
-  );
-
-  const palmFrondMat = trackMat(
-    new THREE.MeshStandardMaterial({
-      color: 0x3b7a2e,
-      roughness: 0.78,
-      transparent: true,
-      opacity: 1.0,
-    })
-  );
 
   if (islandId === 'raiatea') {
     // 1. Sculpted Ra'iatea Massif (Mount Temehani plateau, 7 basalt ridges, valleys & golden coves)
@@ -1082,7 +967,7 @@ export function createDetailedIslandAssembly(islandId) {
     }
     palmSites.push([50.5, 0.85, -9.5, 0.4, 0.85]);
     palmSites.push([44.5, 0.85, -29.5, -0.8, 0.82]);
-    addCoconutPalmCluster(group, trunkMat, palmFrondMat, palmSites);
+    addCoconutGroves(group, trackMat, palmSites);
 
     return { group, materials, sinkDepthM: 58.0 };
   }
@@ -1202,38 +1087,6 @@ export function createDetailedIslandAssembly(islandId) {
     );
     hearthEmberMat.userData.baseOpacity = 0.92;
 
-    const palmSunMat = trackMat(
-      new THREE.MeshStandardMaterial({
-        color: 0x4e8f34,
-        roughness: 0.76,
-        transparent: true,
-        opacity: 1.0,
-      })
-    );
-    const coconutMat = trackMat(
-      new THREE.MeshStandardMaterial({
-        color: 0x6d5828,
-        roughness: 0.8,
-        transparent: true,
-        opacity: 1.0,
-      })
-    );
-    const scrubMatA = trackMat(
-      new THREE.MeshStandardMaterial({
-        color: 0x2f6827,
-        roughness: 0.86,
-        transparent: true,
-        opacity: 1.0,
-      })
-    );
-    const scrubMatB = trackMat(
-      new THREE.MeshStandardMaterial({
-        color: 0x447c2e,
-        roughness: 0.84,
-        transparent: true,
-        opacity: 1.0,
-      })
-    );
     const canoeHullMat = trackMat(
       new THREE.MeshStandardMaterial({
         color: 0x8b522c,
@@ -1569,14 +1422,7 @@ export function createDetailedIslandAssembly(islandId) {
         ]);
       }
     }
-    addAtollCoconutGroves(
-      group,
-      trunkMat,
-      palmFrondMat,
-      palmSunMat,
-      coconutMat,
-      palmSites
-    );
+    addCoconutGroves(group, trackMat, palmSites);
 
     // Littoral scrub mounds framing the outer windward coral ridges and motu tips
     const scrubAngles = [
@@ -1604,7 +1450,10 @@ export function createDetailedIslandAssembly(islandId) {
         ]);
       }
     }
-    addCoastalScrubCluster(group, scrubMatA, scrubMatB, scrubSites);
+    addCoastalScrub(group, trackMat, scrubSites, {
+      hexA: 0x2f6827,
+      hexB: 0x447c2e,
+    });
 
     return { group, materials, sinkDepthM: 12.5 };
   }
@@ -1723,7 +1572,7 @@ export function createDetailedIslandAssembly(islandId) {
       }
     }
   }
-  addCoconutPalmCluster(group, trunkMat, palmFrondMat, palmSites);
+  addCoconutGroves(group, trackMat, palmSites);
 
   return { group, materials, sinkDepthM: 45.0 };
 }

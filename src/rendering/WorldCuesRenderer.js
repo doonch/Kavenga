@@ -21,6 +21,7 @@ import {
   sampleCloudLocalRayOpticalDepth,
   updateCloudMaterialUniforms,
 } from './CloudSculptBuilder.js';
+import { createSculptedPalmFrondGeometry } from './IslandSculptToolkit.js';
 import {
   applyDetailedIslandAlpha,
   createDetailedIslandAssembly,
@@ -1684,10 +1685,21 @@ export class WorldCuesRenderer {
       opacity: 1.0,
       depthWrite: false,
     });
+    const frondGeo = createSculptedPalmFrondGeometry({
+      length: 2.35,
+      maxWidth: 0.72,
+      archHeight: 0.1,
+      tipDroop: 0.06,
+      lengthSegs: 13,
+    });
+    // Align centered along local XY so existing `rotation.x = -PI/2` & `rotation.z` drift logic stays exact
+    frondGeo.translate(0, 0, -1.175);
+    frondGeo.rotateX(Math.PI * 0.5);
+
     this.fronds = [];
     for (let i = 0; i < 12; i += 1) {
       const mat = baseFrondMat.clone();
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 2.2), mat);
+      const mesh = new THREE.Mesh(frondGeo, mat);
       mesh.rotation.x = -Math.PI / 2;
       this.frondGroup.add(mesh);
       this.fronds.push({

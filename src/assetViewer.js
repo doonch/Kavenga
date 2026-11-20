@@ -21,6 +21,9 @@ import {
 } from './rendering/CloudSculptBuilder.js';
 import { createRapaNuiMoaiShowcaseAssembly } from './rendering/IslandRapaNuiBuilder.js';
 import {
+  addBroadleafTrees,
+  addCoastalScrub,
+  addCoconutGroves,
   addMaraePlatform,
   addRegionalHuts,
   createGiantPearlShellGroup,
@@ -382,6 +385,38 @@ function buildAssetCatalog() {
       tag: 'Sacred Marae',
       kind: 'prop',
       propId: 'marae_platforms',
+    },
+
+    // 6. Island Flora & Vegetation
+    {
+      id: 'prop_coconut_grove',
+      category: 'Island Flora & Vegetation',
+      name: 'Polynesian Coconut Palms (Niu)',
+      subtitle:
+        'Ringed wind-leaning curved trunks, ovoid coconut drupe clusters & 12 individual arching serrated pinnate fronds in sunlit/shaded whorls',
+      tag: 'Palms',
+      kind: 'prop',
+      propId: 'coconut_grove',
+    },
+    {
+      id: 'prop_broadleaf_forest',
+      category: 'Island Flora & Vegetation',
+      name: "Breadfruit ('Uru), Miro & Crimson 'Ohi'a Lehua Trees",
+      subtitle:
+        "Flared root-buttressed forked trunks with organic multi-lobe canopy foliage and crimson 'ohi'a lehua blossom tufts",
+      tag: 'Canopy',
+      kind: 'prop',
+      propId: 'broadleaf_forest',
+    },
+    {
+      id: 'prop_coastal_scrub_pandanus',
+      category: 'Island Flora & Vegetation',
+      name: 'Coastal Pandanus (Hala) & Naupaka Scrub',
+      subtitle:
+        'Prop-rooted pandanus sword-leaf rosettes beside wind-sheared multi-lobe coastal naupaka & mikimiki thickets',
+      tag: 'Littoral',
+      kind: 'prop',
+      propId: 'coastal_scrub_pandanus',
     },
   ];
 
@@ -1386,8 +1421,11 @@ class AssetDebugViewer {
           item.propId === 'fish_weir' ||
           item.propId === 'regional_fares'
         ? 9.0
-        : item.propId === 'carved_hulls' || item.propId === 'sail_dye_and_loom'
-        ? 5.2
+        : item.propId === 'carved_hulls' ||
+          item.propId === 'sail_dye_and_loom' ||
+          item.propId === 'coconut_grove' ||
+          item.propId === 'broadleaf_forest'
+        ? 5.6
         : 4.0;
     const pad = new THREE.Mesh(
       new THREE.CylinderGeometry(plinthRadius, plinthRadius + 0.35, 0.16, 40),
@@ -1532,6 +1570,53 @@ class AssetDebugViewer {
         withOracleTower: true,
         withBraziers: true,
       });
+    } else if (item.propId === 'coconut_grove') {
+      addCoconutGroves(group, trackMat, [
+        [-2.0, 0, 0.8, 0.25, 1.15, 0.22],
+        [0.4, 0, -1.2, -0.45, 0.95, 0.28],
+        [2.2, 0, 1.0, -1.1, 1.05, 0.16],
+      ]);
+    } else if (item.propId === 'broadleaf_forest') {
+      // Flowering crimson 'ohi'a lehua (left), emerald 'uru breadfruit (center), warm olive miro (right)
+      addBroadleafTrees(
+        group,
+        trackMat,
+        [[-2.5, 0, 0.3, 1.02, 0.4]],
+        {
+          trunkHex: 0x4b3324,
+          canopyHexA: 0x264e24,
+          canopyHexB: 0x38662a,
+          blossomHex: 0xd92626,
+        }
+      );
+      addBroadleafTrees(
+        group,
+        trackMat,
+        [[0.4, 0, -0.8, 1.12, -0.6]],
+        {
+          trunkHex: 0x5c3e26,
+          canopyHexA: 0x265e24,
+          canopyHexB: 0x3b782b,
+        }
+      );
+      addBroadleafTrees(
+        group,
+        trackMat,
+        [[2.7, 0, 0.7, 0.96, 1.1]],
+        {
+          trunkHex: 0x583a22,
+          canopyHexA: 0x4c6122,
+          canopyHexB: 0x5f782b,
+        }
+      );
+    } else if (item.propId === 'coastal_scrub_pandanus') {
+      addCoastalScrub(group, trackMat, [
+        [-1.6, 0, 0.3, 1.45, 1.0, 1.35, 0.2],
+        [0.1, 0, -0.9, 1.35, 0.72, 1.2, 0.9],
+        [1.7, 0, 0.5, 1.25, 0.65, 1.15, -0.5],
+        [-0.3, 0, 1.2, 1.3, 0.9, 1.2, 1.8],
+        [1.4, 0, -1.3, 1.15, 0.6, 1.05, -1.2],
+      ]);
     }
 
     this.stageGroup.add(group);

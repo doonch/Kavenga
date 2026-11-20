@@ -147,7 +147,187 @@ export function buildPolarTerrainGeometry({
 }
 
 /**
- * Adds multi-tier wind-leaning coconut palms (segmented curved trunk, coconuts, 2-tier star canopy).
+ * Helper to append an indexed BufferGeometry (position + normal) into raw position/index arrays
+ * so multi-frond crowns and branched trees render cleanly with minimal draw calls.
+ */
+function appendGeometryToArrays(srcGeo, matrix, outPositions, outIndices) {
+  const nonIndexed = srcGeo.index ? srcGeo.toNonIndexed() : srcGeo;
+  const pos = nonIndexed.attributes.position;
+  const v = new THREE.Vector3();
+  const baseVert = outPositions.length / 3;
+  for (let i = 0; i < pos.count; i += 1) {
+    v.set(pos.getX(i), pos.getY(i), pos.getZ(i));
+    if (matrix) v.applyMatrix4(matrix);
+    outPositions.push(v.x, v.y, v.z);
+  }
+  for (let i = 0; i < pos.count; i += 3) {
+    outIndices.push(baseVert + i, baseVert + i + 1, baseVert + i + 2);
+  }
+  if (nonIndexed !== srcGeo) nonIndexed.dispose();
+}
+
+function finalizeMergedTriangleGeometry(positions, indices) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/**
+ * Lofts a graceful arched, V-troughed, serrated pinnate Polynesian coconut palm frond.
+ * Root petiole sits at (0, 0, 0) and arches forward along +Z with gentle droop toward the tip.
+ */
+export function createSculptedPalmFrondGeometry({
+  length = 2.05,
+  maxWidth = 0.56,
+  archHeight = 0.34,
+  tipDroop = 0.58,
+  lengthSegs = 13,
+} = {}) {
+  const positions = [];
+  const indices = [];
+
+  for (let i = 0; i <= lengthSegs; i += 1) {
+    const t = i / lengthSegs;
+    const z = t * length;
+    // Graceful upward arch near petiole then parabolic outward droop
+    const ySpine =
+      Math.sin(t * Math.PI * 0.72) * archHeight - t * t * tipDroop;
+
+    // Blade width envelope + crisp serrated pinnate leaflet notches
+    const env =
+      t < 0.08
+        ? lerp(0.06, 0.25, t / 0.08)
+        : Math.sin(Math.pow(t, 0.72) * Math.PI * 0.96);
+    const leafletNotch = i === 0 || i === lengthSegs ? 1.0 : i % 2 === 1 ? 1.0 : 0.44;
+    const halfW = Math.max(0.015, maxWidth * 0.5 * env * leafletNotch);
+    const edgeDrop = halfW * 0.32 + t * 0.04;
+
+    // 3 vertices per cross-section row: left serrated tip, central rachis ridge, right serrated tip
+    positions.push(-halfW, ySpine - edgeDrop, z);
+    positions.push(0.0, ySpine + 0.032 * (1.0 - t * 0.6), z);
+    positions.push(halfW, ySpine - edgeDrop, z);
+  }
+
+  for (let i = 0; i < lengthSegs; i += 1) {
+    const r0 = i * 3;
+    const r1 = (i + 1) * 3;
+    // Left leaflet web (L0, C0, L1, C1)
+    indices.push(r0 + 0, r0 + 1, r1 + 0);
+    indices.push(r0 + 1, r1 + 1, r1 + 0);
+    // Right leaflet web (C0, R0, C1, R1)
+    indices.push(r0 + 1, r0 + 2, r1 + 1);
+    indices.push(r0 + 2, r1 + 2, r1 + 1);
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+function createRingedCurvedPalmTrunkGeometry({
+  height = 3.95,
+  baseR = 0.29,
+  topR = 0.115,
+  curveX = -0.58,
+  rings = 14,
+  radialSegs = 7,
+} = {}) {
+  const positions = [];
+  const indices = [];
+  const rowVerts = radialSegs + 1;
+
+  for (let r = 0; r <= rings; r += 1) {
+    const t = r / rings;
+    const y = t * height;
+    const leanX = Math.pow(t, 1.38) * curveX;
+    // Flared root collar at ground + characteristic coconut bark growth rings
+    const rootFlare = r <= 2 ? (1.0 - r / 2) * 0.1 : 0.0;
+    const barkRing = (r % 2 === 1 && r > 1 && r < rings - 1) ? 0.016 : -0.008;
+    const radius = Math.max(0.08, lerp(baseR, topR, Math.pow(t, 0.85)) + rootFlare + barkRing);
+
+    for (let s = 0; s <= radialSegs; s += 1) {
+      const ang = (s / radialSegs) * Math.PI * 2.0;
+      const vx = leanX + Math.cos(ang) * radius;
+      const vz = Math.sin(ang) * radius;
+      positions.push(vx, y, vz);
+    }
+  }
+
+  for (let r = 0; r < rings; r += 1) {
+    for (let s = 0; s < radialSegs; s += 1) {
+      const a = r * rowVerts + s;
+      const b = a + rowVerts;
+      const c = a + 1;
+      const d = b + 1;
+      indices.push(a, c, b);
+      indices.push(c, d, b);
+    }
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+function createPalmCrownWhorlGeometry({
+  count = 7,
+  frondLen = 2.05,
+  maxWidth = 0.56,
+  pitchBase = 0.18,
+  tipDroop = 0.62,
+  yawOffset = 0.0,
+  withSpearShoot = false,
+} = {}) {
+  const frond = createSculptedPalmFrondGeometry({
+    length: frondLen,
+    maxWidth,
+    archHeight: 0.34,
+    tipDroop,
+    lengthSegs: 12,
+  });
+  const positions = [];
+  const indices = [];
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const e = new THREE.Euler();
+  const s = new THREE.Vector3(1, 1, 1);
+  const p = new THREE.Vector3();
+
+  for (let i = 0; i < count; i += 1) {
+    const yaw = yawOffset + (i / count) * Math.PI * 2.0 + ((i % 2) - 0.5) * 0.12;
+    const pitch = pitchBase + ((i * 7) % 3 - 1) * 0.08;
+    const roll = ((i % 2 === 0 ? 1 : -1) * 0.08);
+    e.set(pitch, yaw, roll, 'YXZ');
+    q.setFromEuler(e);
+    p.set(Math.sin(yaw) * 0.06, 0.0, Math.cos(yaw) * 0.06);
+    m.compose(p, q, s);
+    appendGeometryToArrays(frond, m, positions, indices);
+  }
+
+  if (withSpearShoot) {
+    const spear = new THREE.ConeGeometry(0.065, 1.05, 5);
+    spear.translate(0, 0.52, 0);
+    e.set(0.08, 0.0, -0.06, 'YXZ');
+    q.setFromEuler(e);
+    p.set(0, 0.06, 0);
+    m.compose(p, q, s);
+    appendGeometryToArrays(spear, m, positions, indices);
+    spear.dispose();
+  }
+
+  frond.dispose();
+  return finalizeMergedTriangleGeometry(positions, indices);
+}
+
+/**
+ * Adds wind-leaning Polynesian coconut palms with ringed curved trunks, clustered coconuts,
+ * and 12 individual arching serrated pinnate fronds in two sunlit/shaded whorls.
  * Each entry in `points`: `[x, y, z, leanAzRad, scale = 1.0, leanAmt = 0.2]`.
  */
 export function addCoconutGroves(
@@ -166,22 +346,68 @@ export function addCoconutGroves(
     new THREE.MeshStandardMaterial({ color: trunkHex, roughness: 0.86 })
   );
   const frondDarkMat = trackMat(
-    new THREE.MeshStandardMaterial({ color: frondDarkHex, roughness: 0.78 })
+    new THREE.MeshStandardMaterial({
+      color: frondDarkHex,
+      roughness: 0.76,
+      side: THREE.DoubleSide,
+    })
   );
   const frondSunMat = trackMat(
-    new THREE.MeshStandardMaterial({ color: frondSunHex, roughness: 0.76 })
+    new THREE.MeshStandardMaterial({
+      color: frondSunHex,
+      roughness: 0.74,
+      side: THREE.DoubleSide,
+    })
   );
   const nutMat = trackMat(
     new THREE.MeshStandardMaterial({ color: nutHex, roughness: 0.8 })
   );
 
-  const lowerSegGeo = new THREE.CylinderGeometry(0.2, 0.32, 1.95, 6);
-  lowerSegGeo.translate(0, 0.975, 0);
-  const upperSegGeo = new THREE.CylinderGeometry(0.13, 0.2, 2.0, 6);
-  upperSegGeo.translate(0, 1.0, 0);
-  const crownLowGeo = new THREE.ConeGeometry(1.72, 0.82, 7);
-  const crownHighGeo = new THREE.ConeGeometry(1.35, 0.7, 7);
-  const nutGeo = new THREE.DodecahedronGeometry(0.26, 0);
+  const trunkGeo = createRingedCurvedPalmTrunkGeometry({
+    height: 3.95,
+    baseR: 0.29,
+    topR: 0.115,
+    curveX: -0.58,
+  });
+
+  // Clustered ovoid coconut drupes tucked cleanly under the crown petioles
+  const nutPositions = [];
+  const nutIndices = [];
+  const nutSingle = new THREE.SphereGeometry(0.13, 7, 6);
+  const nutM = new THREE.Matrix4();
+  const nutQ = new THREE.Quaternion();
+  const nutE = new THREE.Euler();
+  const nutS = new THREE.Vector3(0.95, 1.25, 0.95);
+  const nutP = new THREE.Vector3();
+  for (let n = 0; n < 4; n += 1) {
+    const a = (n / 4) * Math.PI * 2.0 + 0.3;
+    nutE.set(0.25, a, 0.2, 'YXZ');
+    nutQ.setFromEuler(nutE);
+    nutP.set(Math.cos(a) * 0.14, -0.14 - (n % 2) * 0.04, Math.sin(a) * 0.14);
+    nutM.compose(nutP, nutQ, nutS);
+    appendGeometryToArrays(nutSingle, nutM, nutPositions, nutIndices);
+  }
+  nutSingle.dispose();
+  const nutClusterGeo = finalizeMergedTriangleGeometry(nutPositions, nutIndices);
+
+  const lowerWhorlGeo = createPalmCrownWhorlGeometry({
+    count: 7,
+    frondLen: 2.15,
+    maxWidth: 0.62,
+    pitchBase: 0.12,
+    tipDroop: 0.74,
+    yawOffset: 0.0,
+    withSpearShoot: false,
+  });
+  const upperWhorlGeo = createPalmCrownWhorlGeometry({
+    count: 5,
+    frondLen: 1.72,
+    maxWidth: 0.5,
+    pitchBase: -0.34,
+    tipDroop: 0.44,
+    yawOffset: 0.44,
+    withSpearShoot: true,
+  });
 
   for (let i = 0; i < points.length; i += 1) {
     const [px, py, pz, leanAz = 0.0, scale = 1.0, leanAmt = 0.2] = points[i];
@@ -190,51 +416,84 @@ export function addCoconutGroves(
     palm.scale.setScalar(scale);
     palm.rotation.y = leanAz;
 
-    const lower = new THREE.Mesh(lowerSegGeo, trunkMat);
-    lower.rotation.z = leanAmt * 0.65;
-    palm.add(lower);
-
-    const upperPivot = new THREE.Group();
-    upperPivot.position.set(
-      -Math.sin(leanAmt * 0.65) * 1.9,
-      Math.cos(leanAmt * 0.65) * 1.9,
-      0
-    );
-    upperPivot.rotation.z = leanAmt * 1.15;
-    upperPivot.add(new THREE.Mesh(upperSegGeo, trunkMat));
+    // Subtle per-tree tilt variation while keeping base rooted smoothly
+    const extraLean = clamp((leanAmt - 0.2) * 0.45, -0.14, 0.18);
+    const bodyGrp = new THREE.Group();
+    bodyGrp.rotation.z = extraLean;
+    bodyGrp.add(new THREE.Mesh(trunkGeo, trunkMat));
 
     const crownHub = new THREE.Group();
-    crownHub.position.set(0, 1.98, 0);
-    crownHub.rotation.z = -leanAmt * 0.85;
+    crownHub.position.set(-0.58, 3.92, 0.0);
+    crownHub.rotation.z = -extraLean * 0.65;
+    crownHub.rotation.y = (i * 1.17) % (Math.PI * 2.0);
 
-    const nuts = new THREE.Mesh(nutGeo, nutMat);
-    nuts.position.y = -0.1;
-    crownHub.add(nuts);
+    crownHub.add(new THREE.Mesh(nutClusterGeo, nutMat));
+    crownHub.add(new THREE.Mesh(lowerWhorlGeo, frondDarkMat));
+    crownHub.add(new THREE.Mesh(upperWhorlGeo, frondSunMat));
 
-    const cLow = new THREE.Mesh(
-      crownLowGeo,
-      i % 2 === 0 ? frondDarkMat : frondSunMat
-    );
-    cLow.scale.set(1.24, 0.48, 1.24);
-    crownHub.add(cLow);
-
-    const cHigh = new THREE.Mesh(
-      crownHighGeo,
-      i % 2 === 0 ? frondSunMat : frondDarkMat
-    );
-    cHigh.position.y = 0.28;
-    cHigh.rotation.y = 0.45;
-    cHigh.scale.set(1.14, 0.52, 1.14);
-    crownHub.add(cHigh);
-
-    upperPivot.add(crownHub);
-    palm.add(upperPivot);
+    bodyGrp.add(crownHub);
+    palm.add(bodyGrp);
     group.add(palm);
   }
 }
 
+function createOrganicFoliageGeo(radius = 1.0, seed = 0) {
+  const geo = new THREE.IcosahedronGeometry(radius, 1);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i += 1) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    const disp =
+      0.86 +
+      0.24 *
+        Math.sin(x * 3.7 + seed * 1.3 + z * 2.5) *
+        Math.cos(y * 3.2 - seed * 0.8);
+    pos.setXYZ(i, x * disp, y * disp * 0.72, z * disp);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+
+function createForkedBroadleafTrunkGeometry() {
+  const positions = [];
+  const indices = [];
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const e = new THREE.Euler();
+  const p = new THREE.Vector3();
+  const s = new THREE.Vector3(1, 1, 1);
+
+  // Flared root-buttressed main trunk
+  const mainStem = new THREE.CylinderGeometry(0.24, 0.42, 2.05, 7);
+  mainStem.translate(0, 1.02, 0);
+  m.identity();
+  appendGeometryToArrays(mainStem, m, positions, indices);
+  mainStem.dispose();
+
+  // Three diverging gnarly canopy limbs
+  const limb = new THREE.CylinderGeometry(0.08, 0.17, 1.45, 6);
+  limb.translate(0, 0.72, 0);
+  for (const [yaw, tilt, scLen] of [
+    [0.2, 0.62, 1.0],
+    [2.3, 0.56, 0.92],
+    [4.4, 0.66, 0.88],
+  ]) {
+    e.set(tilt, yaw, 0, 'YXZ');
+    q.setFromEuler(e);
+    p.set(0, 1.82, 0);
+    s.set(1, scLen, 1);
+    m.compose(p, q, s);
+    appendGeometryToArrays(limb, m, positions, indices);
+  }
+  limb.dispose();
+
+  return finalizeMergedTriangleGeometry(positions, indices);
+}
+
 /**
- * Adds spreading broadleaf Polynesian trees (breadfruit 'uru, banyan aoa, miro/koa timber, or crimson 'ohi'a lehua).
+ * Adds spreading broadleaf Polynesian trees (breadfruit 'uru, banyan aoa, miro/koa timber, or crimson 'ohi'a lehua)
+ * with flared forked trunks, multi-lobe sculpted canopy clusters, and tufted blossom clusters.
  * Each entry in `points`: `[x, y, z, scale = 1.0, rotY = 0.0]`.
  */
 export function addBroadleafTrees(
@@ -264,10 +523,33 @@ export function addBroadleafTrees(
       )
     : null;
 
-  const trunkGeo = new THREE.CylinderGeometry(0.22, 0.38, 2.2, 6);
-  trunkGeo.translate(0, 1.1, 0);
-  const lobeGeo = new THREE.DodecahedronGeometry(1.45, 1);
-  const bloomGeo = blossomHex ? new THREE.DodecahedronGeometry(0.48, 0) : null;
+  const trunkGeo = createForkedBroadleafTrunkGeometry();
+  const mainCrownGeo = createOrganicFoliageGeo(1.42, 3);
+  const subCrownGeo = createOrganicFoliageGeo(1.02, 7);
+
+  let blossomGeo = null;
+  if (blossomHex) {
+    const bPos = [];
+    const bIdx = [];
+    const puff = createOrganicFoliageGeo(0.28, 11);
+    const bm = new THREE.Matrix4();
+    const bq = new THREE.Quaternion();
+    const bs = new THREE.Vector3(1.15, 0.75, 1.15);
+    const bp = new THREE.Vector3();
+    for (const [bx, by, bz] of [
+      [-0.55, 3.25, 0.45],
+      [0.68, 3.05, 0.2],
+      [0.12, 3.48, -0.45],
+      [-0.25, 2.95, -0.62],
+      [0.42, 3.32, 0.65],
+    ]) {
+      bp.set(bx, by, bz);
+      bm.compose(bp, bq, bs);
+      appendGeometryToArrays(puff, bm, bPos, bIdx);
+    }
+    puff.dispose();
+    blossomGeo = finalizeMergedTriangleGeometry(bPos, bIdx);
+  }
 
   for (let i = 0; i < points.length; i += 1) {
     const [tx, ty, tz, scale = 1.0, rotY = 0.0] = points[i];
@@ -278,29 +560,78 @@ export function addBroadleafTrees(
 
     tree.add(new THREE.Mesh(trunkGeo, trunkMat));
 
-    const mainCrown = new THREE.Mesh(lobeGeo, i % 2 === 0 ? canMatA : canMatB);
-    mainCrown.position.set(0.0, 2.55, 0.0);
-    mainCrown.scale.set(1.25, 0.78, 1.18);
-    tree.add(mainCrown);
+    const crownA = new THREE.Mesh(mainCrownGeo, i % 2 === 0 ? canMatA : canMatB);
+    crownA.position.set(0.0, 2.78, 0.0);
+    crownA.scale.set(1.22, 0.92, 1.16);
+    tree.add(crownA);
 
-    const sideCrown = new THREE.Mesh(lobeGeo, i % 2 === 0 ? canMatB : canMatA);
-    sideCrown.position.set(0.75, 2.2, 0.35);
-    sideCrown.scale.set(0.85, 0.62, 0.85);
-    tree.add(sideCrown);
+    for (const [cx, cy, cz, cs] of [
+      [0.86, 2.52, 0.34, 0.94],
+      [-0.78, 2.48, 0.42, 0.88],
+      [-0.18, 2.56, -0.82, 0.92],
+    ]) {
+      const lobe = new THREE.Mesh(
+        subCrownGeo,
+        i % 2 === 0 ? canMatB : canMatA
+      );
+      lobe.position.set(cx, cy, cz);
+      lobe.scale.setScalar(cs);
+      lobe.rotation.y = cx + cz;
+      tree.add(lobe);
+    }
 
-    if (blossomMat && bloomGeo && i % 2 === 0) {
-      const bloom = new THREE.Mesh(bloomGeo, blossomMat);
-      bloom.position.set(-0.35, 3.25, 0.25);
-       bloom.scale.set(1.3, 0.55, 1.2);
-      tree.add(bloom);
+    if (blossomMat && blossomGeo && i % 2 === 0) {
+      tree.add(new THREE.Mesh(blossomGeo, blossomMat));
     }
 
     group.add(tree);
   }
 }
 
+function createPandanusRosetteGeometry() {
+  const positions = [];
+  const indices = [];
+
+  // Spiraling sword-shaped pandanus blade strip
+  const blade = new THREE.PlaneGeometry(0.18, 1.05, 1, 4);
+  blade.translate(0, 0.52, 0);
+  const bPos = blade.attributes.position;
+  for (let i = 0; i < bPos.count; i += 1) {
+    const x = bPos.getX(i);
+    const y = bPos.getY(i);
+    const t = y / 1.05;
+    // Taper to pointed sword tip and arch gracefully outward
+    const taper = Math.max(0.08, 1.0 - Math.pow(t, 1.6));
+    const archZ = t * t * 0.34;
+    bPos.setXYZ(i, x * taper, y * 0.94, archZ);
+  }
+
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const e = new THREE.Euler();
+  const p = new THREE.Vector3();
+  const s = new THREE.Vector3(1, 1, 1);
+
+  for (let tier = 0; tier < 2; tier += 1) {
+    const blades = tier === 0 ? 7 : 5;
+    const tilt = tier === 0 ? 0.82 : 0.42;
+    const sc = tier === 0 ? 1.0 : 0.78;
+    for (let b = 0; b < blades; b += 1) {
+      const yaw = (b / blades) * Math.PI * 2.0 + tier * 0.45;
+      e.set(tilt, yaw, 0, 'YXZ');
+      q.setFromEuler(e);
+      p.set(0, 0.24 + tier * 0.12, 0);
+      s.set(sc, sc, sc);
+      m.compose(p, q, s);
+      appendGeometryToArrays(blade, m, positions, indices);
+    }
+  }
+  blade.dispose();
+  return finalizeMergedTriangleGeometry(positions, indices);
+}
+
 /**
- * Adds low coastal scrub & pandanus/naupaka/ren thickets.
+ * Adds multi-lobe wind-sheared coastal naupaka/mikimiki cushions and stilt-rooted pandanus rosettes.
  * Each entry in `points`: `[x, y, z, sx = 1.25, sy = 0.65, sz = 1.15, rotY = 0.0]`.
  */
 export function addCoastalScrub(
@@ -311,20 +642,83 @@ export function addCoastalScrub(
 ) {
   if (!points.length) return;
   const matA = trackMat(
-    new THREE.MeshStandardMaterial({ color: hexA, roughness: 0.86 })
+    new THREE.MeshStandardMaterial({
+      color: hexA,
+      roughness: 0.86,
+      side: THREE.DoubleSide,
+    })
   );
   const matB = trackMat(
-    new THREE.MeshStandardMaterial({ color: hexB, roughness: 0.84 })
+    new THREE.MeshStandardMaterial({
+      color: hexB,
+      roughness: 0.82,
+      side: THREE.DoubleSide,
+    })
   );
-  const bushGeo = new THREE.DodecahedronGeometry(1.0, 1);
+  const stiltMat = trackMat(
+    new THREE.MeshStandardMaterial({ color: 0x6b5236, roughness: 0.9 })
+  );
+
+  // Compound 3-lobe sculpted coastal bush geometry
+  const bushPos = [];
+  const bushIdx = [];
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const e = new THREE.Euler();
+  const p = new THREE.Vector3();
+  const s = new THREE.Vector3();
+  const lobe = createOrganicFoliageGeo(0.75, 5);
+  for (const [lx, ly, lz, lsc] of [
+    [0.0, 0.46, 0.0, 1.05],
+    [0.54, 0.34, 0.22, 0.72],
+    [-0.48, 0.36, -0.25, 0.76],
+  ]) {
+    e.set(0, lx * 2.0, 0, 'YXZ');
+    q.setFromEuler(e);
+    p.set(lx, ly, lz);
+    s.setScalar(lsc);
+    m.compose(p, q, s);
+    appendGeometryToArrays(lobe, m, bushPos, bushIdx);
+  }
+  lobe.dispose();
+  const bushClusterGeo = finalizeMergedTriangleGeometry(bushPos, bushIdx);
+
+  // Pandanus prop roots + sword-leaf rosette crown
+  const rootPos = [];
+  const rootIdx = [];
+  const propRoot = new THREE.CylinderGeometry(0.032, 0.048, 0.62, 5);
+  propRoot.translate(0, 0.31, 0);
+  for (let r = 0; r < 5; r += 1) {
+    const a = (r / 5) * Math.PI * 2.0;
+    e.set(0.55, a, 0, 'YXZ');
+    q.setFromEuler(e);
+    p.set(Math.sin(a) * -0.24, 0.0, Math.cos(a) * -0.24);
+    s.set(1, 1, 1);
+    m.compose(p, q, s);
+    appendGeometryToArrays(propRoot, m, rootPos, rootIdx);
+  }
+  propRoot.dispose();
+  const pandanusRootsGeo = finalizeMergedTriangleGeometry(rootPos, rootIdx);
+  const pandanusCrownGeo = createPandanusRosetteGeometry();
 
   for (let i = 0; i < points.length; i += 1) {
     const [bx, by, bz, sx = 1.25, sy = 0.65, sz = 1.15, rotY = 0.0] = points[i];
-    const bush = new THREE.Mesh(bushGeo, i % 2 === 0 ? matA : matB);
-    bush.position.set(bx, by + sy * 0.4, bz);
-    bush.scale.set(sx, sy, sz);
-    bush.rotation.y = rotY;
-    group.add(bush);
+    if (i % 3 === 0) {
+      const pandanus = new THREE.Group();
+      pandanus.position.set(bx, by, bz);
+      const pSc = clamp((sx + sy) * 0.52, 0.68, 1.35);
+      pandanus.scale.setScalar(pSc);
+      pandanus.rotation.y = rotY;
+      pandanus.add(new THREE.Mesh(pandanusRootsGeo, stiltMat));
+      pandanus.add(new THREE.Mesh(pandanusCrownGeo, i % 2 === 0 ? matA : matB));
+      group.add(pandanus);
+    } else {
+      const bush = new THREE.Mesh(bushClusterGeo, i % 2 === 0 ? matA : matB);
+      bush.position.set(bx, by, bz);
+      bush.scale.set(sx, sy, sz);
+      bush.rotation.y = rotY;
+      group.add(bush);
+    }
   }
 }
 
