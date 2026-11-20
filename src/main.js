@@ -166,7 +166,7 @@ class KavengaApp {
       this._showWebGLErrorBanner();
       return;
     }
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -195,7 +195,8 @@ class KavengaApp {
     this.walkableIslandScene = new WalkableIslandScene(
       this.scene,
       this.vakaRenderer,
-      this.skyLabelsEl
+      this.skyLabelsEl,
+      this.worldCues
     );
 
     // Seed peaceful coastal preview state behind Island Hub at the current island's latitude
@@ -1459,7 +1460,7 @@ class KavengaApp {
 
   _createWebGLRenderer() {
     const attempts = [
-      { antialias: true, powerPreference: 'high-performance' },
+      { antialias: true, powerPreference: 'default' },
       { antialias: false, powerPreference: 'default' },
     ];
     for (const opts of attempts) {
@@ -1620,7 +1621,9 @@ class KavengaApp {
       );
       this.oceanRenderer.update(dtSec, this._elapsedAppSec, this.oceanSim, true);
 
-      this.renderer.render(this.scene, this.cameraCtrl.camera);
+      if (!this._webglContextLost) {
+        this.renderer.render(this.scene, this.cameraCtrl.camera);
+      }
       window.requestAnimationFrame(this._animate);
       return;
     }
@@ -1645,7 +1648,9 @@ class KavengaApp {
       );
       this.oceanRenderer.update(dtSec, this._elapsedAppSec, this.oceanSim, true);
 
-      this.renderer.render(this.scene, this.cameraCtrl.camera);
+      if (!this._webglContextLost) {
+        this.renderer.render(this.scene, this.cameraCtrl.camera);
+      }
       window.requestAnimationFrame(this._animate);
       return;
     }
@@ -1677,7 +1682,9 @@ class KavengaApp {
         this.skyVigilUI.getStarRingOverrides()
       );
 
-      this.renderer.render(this.scene, this.cameraCtrl.camera);
+      if (!this._webglContextLost) {
+        this.renderer.render(this.scene, this.cameraCtrl.camera);
+      }
       window.requestAnimationFrame(this._animate);
       return;
     }

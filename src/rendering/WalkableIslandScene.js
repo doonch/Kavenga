@@ -46,10 +46,11 @@ function smoothstep(e0, e1, x) {
 }
 
 export class WalkableIslandScene {
-  constructor(scene, vakaRenderer, labelLayerEl) {
+  constructor(scene, vakaRenderer, labelLayerEl, worldCues = null) {
     this.scene = scene;
     this.vakaRenderer = vakaRenderer;
     this.labelLayerEl = labelLayerEl;
+    this.worldCues = worldCues;
     this.spec = RAIATEA_WALKABLE_SPEC;
 
     this.root = new THREE.Group();
@@ -100,6 +101,16 @@ export class WalkableIslandScene {
     for (let i = this.root.children.length - 1; i >= 0; i -= 1) {
       const child = this.root.children[i];
       if (child !== this.playerGroup) {
+        child.traverse?.((obj) => {
+          if (!child.userData?.sharedGeometries && obj.geometry) {
+            obj.geometry.dispose?.();
+          }
+          if (Array.isArray(obj.material)) {
+            for (const m of obj.material) m?.dispose?.();
+          } else if (obj.material) {
+            obj.material.dispose?.();
+          }
+        });
         this.root.remove(child);
       }
     }
@@ -483,6 +494,7 @@ export class WalkableIslandScene {
       });
 
       this.root.add(tGrp);
+      this.obstacles.push({ x, z, r: 0.45 });
     };
 
     this._buildSummitStonePath(
@@ -599,6 +611,7 @@ export class WalkableIslandScene {
           npcRig.root.add(staff);
         }
         this.root.add(npcRig.root);
+        this.obstacles.push({ x: standX, z: standZ, r: 0.85 });
         this.npcEntries.push({
           rig: npcRig,
           watchX: standX,
@@ -612,40 +625,25 @@ export class WalkableIslandScene {
       this.poiVisuals[poi.id] = { group: ringGrp, ringMat: outerMat, baseY: py };
     }
 
-    // 3 Graceful White Terns wheeling above the shore & cove
-    const ternMat = new THREE.MeshBasicMaterial({
-      color: 0xf9fcff,
-      side: THREE.DoubleSide,
-    });
-    for (let i = 0; i < 3; i += 1) {
-      const bird = new THREE.Group();
-      const body = new THREE.Mesh(
-        new THREE.ConeGeometry(0.11, 0.55, 6),
-        ternMat
-      );
-      body.rotation.x = -Math.PI * 0.5;
-      bird.add(body);
-
-      const wingGeo = new THREE.PlaneGeometry(0.75, 0.22);
-      wingGeo.translate(0.375, 0, 0);
-      const rWing = new THREE.Mesh(wingGeo, ternMat);
-      rWing.rotation.x = -Math.PI * 0.5;
-      const lWing = new THREE.Mesh(wingGeo.clone().scale(-1, 1, 1), ternMat);
-      lWing.rotation.x = -Math.PI * 0.5;
-      bird.add(rWing, lWing);
-
-      this.root.add(bird);
-      this.lagoonTerns.push({
-        group: bird,
-        rWing,
-        lWing,
-        cx: -4.0 + i * 14.0,
-        cz: this.spec.mooredCanoe.z - 4.0 - i * 5.0,
-        radius: 14.0 + i * 4.5,
-        altY: 14.5 + i * 2.4,
-        speed: 0.34 + i * 0.05,
-        phase: i * 2.1,
-      });
+    // 3 Graceful Sculpted Seabirds wheeling above the shore & cove
+    if (this.worldCues) {
+      for (let i = 0; i < 3; i += 1) {
+        const species = i === 1 ? 'brown_booby' : 'white_tern';
+        const entry = this.worldCues.createSeabird(species, { opaque: true });
+        entry.root.userData.sharedGeometries = true;
+        entry.root.scale.setScalar(1.25);
+        this.root.add(entry.root);
+        this.lagoonTerns.push({
+          entry,
+          group: entry.root,
+          cx: -4.0 + i * 14.0,
+          cz: this.spec.mooredCanoe.z - 4.0 - i * 5.0,
+          radius: 14.0 + i * 4.5,
+          altY: 14.5 + i * 2.4,
+          speed: 0.34 + i * 0.05,
+          phase: i * 2.1,
+        });
+      }
     }
   }
 
@@ -1079,16 +1077,16 @@ export class WalkableIslandScene {
 
     for (let i = 0; i < this.lagoonTerns.length; i += 1) {
       const tb = this.lagoonTerns[i];
+      if (tb.entry && this.worldCues) {
+        this.worldCues.animateSeabird(tb.entry, elapsedSec, tb.phase, 1.0);
+      }
       const ang = elapsedSec * tb.speed + tb.phase;
       tb.group.position.set(
         tb.cx + Math.cos(ang) * tb.radius,
-        tb.altY + Math.sin(ang * 2.0) * 0.65,
+        tb.altY + Math.sin(ang * 2.0) * 0.65 + (tb.entry?.bobY ?? 0.0),
         tb.cz + Math.sin(ang) * tb.radius
       );
       tb.group.rotation.y = Math.atan2(Math.sin(ang), -Math.cos(ang));
-      const flap = Math.sin(elapsedSec * 7.2 + tb.phase) * 0.42;
-      tb.rWing.rotation.y = flap;
-      tb.lWing.rotation.y = -flap;
     }
 
     if (this.peakCloudMat && oceanSim?.sunState) {
