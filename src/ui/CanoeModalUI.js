@@ -12,18 +12,18 @@
  * Strictly zero cardinal directions or degree numbers in all player-facing copy.
  */
 
+import { DepartureWindow } from '../core/gameConstants.js';
+import { getAvailableRoutesFromCurrentIsland } from '../core/campaignManager.js';
 import {
-  DepartureWindow,
-  Difficulty,
-  departureWindowLabel,
-} from '../core/gameConstants.js';
-import {
-  CARGO_CATALOG,
-  CREW_CATALOG,
-  getAvailableRoutesFromCurrentIsland,
-} from '../core/campaignManager.js';
-import { ISLANDS } from '../data/islandsData.js';
-import { getPlayerCharacterProfile } from '../data/playerCharactersData.js';
+  buildVoyageConfirmModalHtml,
+  createClampedTooltipController,
+  getCargoLightboxData,
+  getCrewLightboxData,
+  getPlayerLightboxData,
+  populateVoyageConfirmModal,
+  renderCrewAndCargoRows,
+  renderDestinationIslandCards,
+} from './canoePanelWidgets.js';
 
 export class CanoeModalUI {
   constructor(rootEl, callbacks) {
@@ -75,34 +75,18 @@ export class CanoeModalUI {
         <div class="hub-card-tooltip hidden" id="canoeCardTooltip" role="tooltip"></div>
 
         <!-- Secondary Destination Voyage Modal (Song + Departure + Cancel / Sail to X) -->
-        <div class="modal-backdrop settings-confirm-backdrop hidden" id="canoeVoyageConfirmModal">
-          <div class="dialog-card canoe-confirm-card" role="dialog" aria-modal="true" aria-labelledby="canoeConfirmTitle">
-            <div class="island-settings-header canoe-modal-header">
-              <div>
-                <div class="sanctuary-eyebrow" id="canoeConfirmEyebrow"></div>
-                <h3 id="canoeConfirmTitle"></h3>
-              </div>
-              <button class="walkable-close-btn" id="btnCloseVoyageConfirmX" type="button" title="Close (Esc)">✕</button>
-            </div>
-            <div class="song-preview-box canoe-confirm-song-box" id="canoeConfirmSongPreview"></div>
-            <div class="departure-picker canoe-confirm-departure" id="canoeConfirmDepartureSection">
-              <div class="dep-label">
-                <strong>Departure Tide-Light</strong>
-                <span id="canoeConfirmRecWindowHint"></span>
-              </div>
-              <div class="dep-buttons" id="canoeConfirmDepartureBtns">
-                <button class="dep-btn" data-window="dawn" type="button">Dawn</button>
-                <button class="dep-btn" data-window="midday" type="button">Midday</button>
-                <button class="dep-btn" data-window="dusk" type="button">Dusk</button>
-                <button class="dep-btn" data-window="midnight" type="button">Midnight</button>
-              </div>
-            </div>
-            <div class="canoe-confirm-actions">
-              <button class="secondary-btn" id="btnCancelVoyageModal" type="button">Cancel</button>
-              <button class="primary-btn canoe-confirm-sail-btn" id="btnConfirmSailTo" type="button">Sail</button>
-            </div>
-          </div>
-        </div>
+        ${buildVoyageConfirmModalHtml({
+          modalId: 'canoeVoyageConfirmModal',
+          eyebrowId: 'canoeConfirmEyebrow',
+          titleId: 'canoeConfirmTitle',
+          closeBtnId: 'btnCloseVoyageConfirmX',
+          songPreviewId: 'canoeConfirmSongPreview',
+          departureSectionId: 'canoeConfirmDepartureSection',
+          recHintId: 'canoeConfirmRecWindowHint',
+          depBtnsId: 'canoeConfirmDepartureBtns',
+          cancelBtnId: 'btnCancelVoyageModal',
+          sailBtnId: 'btnConfirmSailTo',
+        })}
 
         <!-- Full-View Item / Crew Lightbox -->
         <div class="modal-backdrop settings-confirm-backdrop hidden" id="canoeLightboxModal">
@@ -176,26 +160,14 @@ export class CanoeModalUI {
       });
 
     // Clamped floating tooltips inside .canoe-modal-card
-    const showTip = (e) => {
-      const target = e.target?.closest?.('[data-tooltip]');
-      if (!target) return;
-      this._showCardTooltip(target);
-    };
-    const hideTip = (e) => {
-      const target = e.target?.closest?.('[data-tooltip]');
-      if (!target) return;
-      if (e.relatedTarget && target.contains(e.relatedTarget)) return;
-      this._hideCardTooltip();
-    };
-    this.rootEl.addEventListener('mouseover', showTip);
-    this.rootEl.addEventListener('mouseout', hideTip);
-    this.rootEl.addEventListener('focusin', showTip);
-    this.rootEl.addEventListener('focusout', hideTip);
-    this.rootEl
-      .querySelector('#canoeModalBody')
-      ?.addEventListener('scroll', () => this._hideCardTooltip(), {
-        passive: true,
-      });
+    this._cardTooltip = createClampedTooltipController({
+      tipEl: this.rootEl.querySelector('#canoeCardTooltip'),
+      getBoundsEl: () => this.rootEl.querySelector('#canoeModalCard'),
+    });
+    this._cardTooltip.bindContainer(
+      this.rootEl,
+      this.rootEl.querySelector('#canoeModalBody')
+    );
 
     if (typeof window !== 'undefined') {
       window.addEventListener(
@@ -218,92 +190,31 @@ export class CanoeModalUI {
     }
   }
 
-  _showCardTooltip(target) {
-    const tipEl = this.rootEl.querySelector('#canoeCardTooltip');
-    const card = this.rootEl.querySelector('#canoeModalCard');
-    const text = target?.getAttribute('data-tooltip');
-    if (!tipEl || !card || !text) return;
-
-    tipEl.textContent = text;
-    tipEl.classList.remove('hidden');
-
-    const tRect = target.getBoundingClientRect();
-    const cRect = card.getBoundingClientRect();
-    const tipRect = tipEl.getBoundingClientRect();
-    const pad = 10;
-
-    let left = tRect.left + (tRect.width - tipRect.width) * 0.5;
-    left = Math.max(
-      cRect.left + pad,
-      Math.min(cRect.right - tipRect.width - pad, left)
-    );
-
-    let top = tRect.top - tipRect.height - 8;
-    if (top < cRect.top + pad) {
-      top = tRect.bottom + 8;
-    }
-    top = Math.max(
-      cRect.top + pad,
-      Math.min(cRect.bottom - tipRect.height - pad, top)
-    );
-
-    tipEl.style.left = `${Math.round(left)}px`;
-    tipEl.style.top = `${Math.round(top)}px`;
-  }
-
   _hideCardTooltip() {
-    this.rootEl.querySelector('#canoeCardTooltip')?.classList.add('hidden');
+    this._cardTooltip?.hide();
   }
 
-  _showLightbox({ eyebrow, name, role, portrait, alt }) {
-    if (!portrait) return;
-    this.rootEl.querySelector('#canoeLightboxEyebrow').textContent = eyebrow;
-    this.rootEl.querySelector('#canoeLightboxName').textContent = name;
-    this.rootEl.querySelector('#canoeLightboxRole').textContent = role;
+  _showLightbox(info) {
+    if (!info?.src) return;
+    this.rootEl.querySelector('#canoeLightboxEyebrow').textContent = info.eyebrow;
+    this.rootEl.querySelector('#canoeLightboxName').textContent = info.name;
+    this.rootEl.querySelector('#canoeLightboxRole').textContent = info.role;
     const imgEl = this.rootEl.querySelector('#canoeLightboxImg');
-    imgEl.src = portrait;
-    imgEl.alt = alt || name;
+    imgEl.src = info.src;
+    imgEl.alt = info.alt || info.name;
     this.rootEl.querySelector('#canoeLightboxModal').classList.remove('hidden');
   }
 
   openCargoModal(cargoId) {
-    const item = CARGO_CATALOG[cargoId] || { name: cargoId, description: '' };
-    const srcIsl = item.sourceIslandId ? ISLANDS[item.sourceIslandId] : null;
-    this._showLightbox({
-      eyebrow: srcIsl
-        ? `Quest Item Aboard · Found on ${srcIsl.name}`
-        : 'Quest Item Aboard',
-      name: item.name,
-      role: item.description,
-      portrait: `./assets/cargo/${cargoId}.jpg`,
-      alt: item.name,
-    });
+    this._showLightbox(getCargoLightboxData(cargoId));
   }
 
   openCrewPortraitModal(crewId) {
-    const cr = CREW_CATALOG[crewId];
-    if (!cr?.portrait) return;
-    const homeIsl = ISLANDS[cr.homeIslandId];
-    this._showLightbox({
-      eyebrow: homeIsl
-        ? `Voyaging Companion · Recruited on ${homeIsl.name}`
-        : 'Voyaging Companion',
-      name: cr.name,
-      role: `${cr.role} — ${cr.traitText}`,
-      portrait: cr.portrait,
-      alt: `${cr.name} (${cr.role})`,
-    });
+    this._showLightbox(getCrewLightboxData(crewId));
   }
 
   openPlayerPortraitModal(difficulty) {
-    const profile = getPlayerCharacterProfile(difficulty);
-    this._showLightbox({
-      eyebrow: 'Wayfinder at the Helm',
-      name: 'You',
-      role: profile.title,
-      portrait: `./assets/crew/player_${difficulty || 'easy'}.jpg`,
-      alt: profile.title,
-    });
+    this._showLightbox(getPlayerLightboxData(difficulty));
   }
 
   closeLightbox() {
@@ -414,69 +325,45 @@ export class CanoeModalUI {
     const routes = this._getAvailableRoutes();
     const listEl = this.rootEl.querySelector('#canoeRouteList');
 
-    if (!routes.length) {
-      listEl.innerHTML = `
+    if (routes.length > 0) {
+      const defaultRoute = this._getDefaultRoute(routes);
+      if (
+        !this._userPickedRoute ||
+        !this.selectedSongId ||
+        !routes.some((r) => r.song.id === this.selectedSongId)
+      ) {
+        this._userPickedRoute = false;
+        const changedSong = this.selectedSongId !== defaultRoute.song.id;
+        this.selectedSongId = defaultRoute.song.id;
+        if (changedSong || !this._userPickedDeparture) {
+          this.selectedDeparture = defaultRoute.song.recommendedDeparture;
+        }
+      }
+    }
+
+    renderDestinationIslandCards({
+      containerEl: listEl,
+      routes,
+      gs,
+      getIslandThumbnailUrl: this.callbacks.getIslandThumbnailUrl,
+      emptyHtml: `
         <div class="empty-route-callout">
           <p>Speak with this island's wayfinder in the <strong>Elder</strong> station first to learn the next route chant.</p>
           <button class="secondary-btn small-btn" id="btnCanoeJumpToElder" type="button">
             🌺 Go to Elder Station →
           </button>
         </div>
-      `;
-      listEl
-        .querySelector('#btnCanoeJumpToElder')
-        ?.addEventListener('click', () => {
-          this.hide();
-          this.callbacks.onGoToSanctuary?.();
-        });
-      return;
-    }
-
-    const defaultRoute = this._getDefaultRoute(routes);
-    if (
-      !this._userPickedRoute ||
-      !this.selectedSongId ||
-      !routes.some((r) => r.song.id === this.selectedSongId)
-    ) {
-      this._userPickedRoute = false;
-      const changedSong = this.selectedSongId !== defaultRoute.song.id;
-      this.selectedSongId = defaultRoute.song.id;
-      if (changedSong || !this._userPickedDeparture) {
-        this.selectedDeparture = defaultRoute.song.recommendedDeparture;
-      }
-    }
-
-    listEl.innerHTML = '';
-    for (const { song } of routes) {
-      const dstId = song.toIsland;
-      const dst = ISLANDS[dstId];
-      const dstName = dst?.name || dstId;
-      const isDiscovered = Boolean(gs.discoveredIslands?.[dstId]);
-      const thumbUrl = isDiscovered
-        ? this.callbacks.getIslandThumbnailUrl?.(dstId)
-        : null;
-
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = `canoe-island-card ${isDiscovered ? 'discovered' : 'undiscovered'}`;
-      btn.setAttribute('aria-label', dstName);
-
-      const artHtml = isDiscovered
-        ? thumbUrl
-          ? `<img class="canoe-island-thumb" src="${thumbUrl}" alt="${dstName}" />`
-          : `<span class="canoe-island-card-mystery" aria-hidden="true">🏝️</span>`
-        : `<span class="canoe-island-card-mystery" aria-hidden="true">?</span>`;
-
-      btn.innerHTML = `
-        <div class="canoe-island-card-art">${artHtml}</div>
-        <div class="canoe-island-card-name">${dstName}</div>
-      `;
-      btn.addEventListener('click', () => {
+      `,
+      emptyActionSelector: '#btnCanoeJumpToElder',
+      onEmptyAction: () => {
+        this.hide();
+        this.callbacks.onGoToSanctuary?.();
+      },
+      onSelectRoute: (song) => {
         this._openVoyageConfirmModal(song);
         this.callbacks.onDepartureChanged?.(this.selectedDeparture);
-      });
-      listEl.appendChild(btn);
-    }
+      },
+    });
   }
 
   _refreshVoyageConfirmModal() {
@@ -484,131 +371,28 @@ export class CanoeModalUI {
     const routes = this._getAvailableRoutes();
     const matched = routes.find((r) => r.song.id === this.selectedSongId);
     const activeRoute = matched || this._getDefaultRoute(routes);
-    if (!gs || !activeRoute?.song) return;
-
-    const { song, isReturn } = activeRoute;
-    const dst = ISLANDS[song.toIsland];
-    const dstName = dst?.name || song.toIsland;
-
-    const eyebrowEl = this.rootEl.querySelector('#canoeConfirmEyebrow');
-    const titleEl = this.rootEl.querySelector('#canoeConfirmTitle');
-    const recHintEl = this.rootEl.querySelector('#canoeConfirmRecWindowHint');
-    const previewEl = this.rootEl.querySelector('#canoeConfirmSongPreview');
-    const sailBtnEl = this.rootEl.querySelector('#btnConfirmSailTo');
-
-    if (eyebrowEl) {
-      eyebrowEl.textContent =
-        isReturn && song.number === 'R'
-          ? `Return Chant · ${song.title}`
-          : `Song ${song.number} · ${song.title}`;
-    }
-    if (titleEl) {
-      titleEl.textContent = `Voyage to ${dstName}`;
-    }
-    if (recHintEl) {
-      recHintEl.textContent = `(Sung for ${departureWindowLabel(song.recommendedDeparture)})`;
-    }
-
-    this.rootEl
-      .querySelectorAll('#canoeConfirmDepartureBtns .dep-btn')
-      .forEach((btn) => {
-        const w = btn.getAttribute('data-window');
-        btn.classList.toggle('selected', w === this.selectedDeparture);
-        btn.classList.toggle(
-          'recommended',
-          w === song.recommendedDeparture
-        );
-      });
-
-    if (previewEl) {
-      const v1 = song.verses[0];
-      const warnMismatch =
-        this.selectedDeparture !== song.recommendedDeparture
-          ? `<div class="dep-warning">Note: This chant expects ${departureWindowLabel(song.recommendedDeparture)} skies; launching at ${departureWindowLabel(this.selectedDeparture)} shifts sun and stars out of phase!</div>`
-          : '';
-      previewEl.innerHTML = `
-        <div class="preview-eyebrow">Opening Verse Memorized Ashore</div>
-        <blockquote>"${v1.lyrics}"</blockquote>
-        ${gs.difficulty === Difficulty.EASY ? `<div class="preview-easy-cue">${v1.easyCueText}</div>` : ''}
-        ${warnMismatch}
-      `;
-    }
-    if (sailBtnEl) {
-      sailBtnEl.textContent = `⛵ Sail to ${dstName}`;
-    }
+    populateVoyageConfirmModal({
+      eyebrowEl: this.rootEl.querySelector('#canoeConfirmEyebrow'),
+      titleEl: this.rootEl.querySelector('#canoeConfirmTitle'),
+      recHintEl: this.rootEl.querySelector('#canoeConfirmRecWindowHint'),
+      depBtnsContainerEl: this.rootEl.querySelector('#canoeConfirmDepartureBtns'),
+      previewEl: this.rootEl.querySelector('#canoeConfirmSongPreview'),
+      sailBtnEl: this.rootEl.querySelector('#btnConfirmSailTo'),
+      gs,
+      activeRoute,
+      selectedDeparture: this.selectedDeparture,
+    });
   }
 
   _refreshCanoeCards() {
-    const gs = this.callbacks.getGameState();
-    if (!gs) return;
-
-    // Voyaging Crew Cards
-    const crewContainer = this.rootEl.querySelector('#canoeCrewList');
-    crewContainer.innerHTML = '';
-    const playerProfile = getPlayerCharacterProfile(gs.difficulty);
-    const playerPortrait = `./assets/crew/player_${gs.difficulty || 'easy'}.jpg`;
-    const playerCard = document.createElement('button');
-    playerCard.type = 'button';
-    playerCard.className = 'crew-card crew-card-btn';
-    playerCard.setAttribute('data-tooltip', playerProfile.title);
-    playerCard.innerHTML = `
-      <div class="crew-card-art">
-        <img src="${playerPortrait}" alt="${playerProfile.title}" />
-      </div>
-      <div class="crew-card-name">You</div>
-      <div class="crew-card-role">${playerProfile.title}</div>
-    `;
-    playerCard.addEventListener('click', () => {
-      this.openPlayerPortraitModal(gs.difficulty);
+    renderCrewAndCargoRows({
+      crewContainerEl: this.rootEl.querySelector('#canoeCrewList'),
+      cargoSectionEl: this.rootEl.querySelector('#canoeCargoSection'),
+      cargoContainerEl: this.rootEl.querySelector('#canoeCargoItems'),
+      gs: this.callbacks.getGameState(),
+      onPlayerClick: (diff) => this.openPlayerPortraitModal(diff),
+      onCrewClick: (crId) => this.openCrewPortraitModal(crId),
+      onCargoClick: (cid) => this.openCargoModal(cid),
     });
-    crewContainer.appendChild(playerCard);
-
-    for (const crId of gs.assignedCrew) {
-      const cr = CREW_CATALOG[crId];
-      if (!cr) continue;
-      const homeIsl = ISLANDS[cr.homeIslandId];
-      const crewTip = `${cr.name} · ${cr.role}${homeIsl ? ` (${homeIsl.name})` : ''} — ${cr.traitText}`;
-      const card = document.createElement('button');
-      card.type = 'button';
-      card.className = 'crew-card crew-card-btn';
-      card.setAttribute('data-tooltip', crewTip);
-      card.innerHTML = `
-        <div class="crew-card-art">
-          ${cr.portrait ? `<img src="${cr.portrait}" alt="${cr.name}" />` : ''}
-        </div>
-        <div class="crew-card-name">${cr.name}</div>
-        <div class="crew-card-role">${cr.role}</div>
-      `;
-      card.addEventListener('click', () => {
-        this.openCrewPortraitModal(crId);
-      });
-      crewContainer.appendChild(card);
-    }
-
-    // Quest Item Cards (side-by-side in matching visual tile style)
-    const cargoSection = this.rootEl.querySelector('#canoeCargoSection');
-    const cargoContainer = this.rootEl.querySelector('#canoeCargoItems');
-    if (gs.cargoItems.length === 0) {
-      cargoSection.classList.add('hidden');
-      cargoContainer.innerHTML = '';
-    } else {
-      cargoSection.classList.remove('hidden');
-      cargoContainer.innerHTML = '';
-      for (const cid of gs.cargoItems) {
-        const item = CARGO_CATALOG[cid] || { name: cid, description: '' };
-        const srcIsl = item.sourceIslandId ? ISLANDS[item.sourceIslandId] : null;
-        const tip = `${item.name}${srcIsl ? ` (${srcIsl.name})` : ''}${item.description ? ` — ${item.description}` : ''}`;
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'cargo-item-card';
-        btn.setAttribute('data-tooltip', tip);
-        btn.setAttribute('aria-label', item.name);
-        btn.innerHTML = `<img class="cargo-item-img" src="./assets/cargo/${cid}.jpg" alt="${item.name}" />`;
-        btn.addEventListener('click', () => {
-          this.openCargoModal(cid);
-        });
-        cargoContainer.appendChild(btn);
-      }
-    }
   }
 }

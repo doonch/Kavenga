@@ -2595,6 +2595,19 @@ body {
   gap: 6px;
 }
 
+.walkable-poi-popup.canoe-poi-active {
+  max-height: min(74vh, 620px);
+}
+
+.walkable-poi-popup.canoe-poi-active .canoe-island-cards-row {
+  max-width: none;
+}
+
+.walkable-canoe-modal-body {
+  gap: 10px;
+  padding-right: 0;
+}
+
 .walkable-canoe-summary {
   display: flex;
   flex-wrap: wrap;

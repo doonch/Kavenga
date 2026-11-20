@@ -21,9 +21,7 @@ import { getActiveObjectivesForDisplay } from '../core/objectivesManager.js';
 import {
   DEFAULT_SAIL_COLOR,
   DepartureWindow,
-  Difficulty,
   SAIL_DYE_PALETTE,
-  departureWindowLabel,
   normalizeSailColorHex,
 } from '../core/gameConstants.js';
 import {
@@ -35,6 +33,16 @@ import { getPlayerCharacterProfile } from '../data/playerCharactersData.js';
 import { SONGS } from '../data/songsData.js';
 import { getWalkableIslandSpec } from '../data/walkableIslandsData.js';
 import { SandCanvas } from './SandCanvas.js';
+import {
+  buildVoyageConfirmModalHtml,
+  createClampedTooltipController,
+  getCargoLightboxData,
+  getCrewLightboxData,
+  getPlayerLightboxData,
+  populateVoyageConfirmModal,
+  renderCrewAndCargoRows,
+  renderDestinationIslandCards,
+} from './canoePanelWidgets.js';
 
 export class WalkableIslandUI {
   constructor(rootEl, callbacks) {
@@ -46,6 +54,7 @@ export class WalkableIslandUI {
     this.craftsmanDrawerOpen = false;
     this.sandModalOpen = false;
     this.portraitModalOpen = false;
+    this.voyageConfirmOpen = false;
     this.selectedLessonId = null;
     this.selectedSongId = null;
     this.selectedDeparture = DepartureWindow.DAWN;
@@ -114,6 +123,23 @@ export class WalkableIslandUI {
           <div class="walkable-poi-body" id="walkPoiBody"></div>
         </section>
 
+        <!-- Clamped Floating Tooltip for Vaka Crew & Quest Item Cards -->
+        <div class="hub-card-tooltip hidden" id="walkCardTooltip" role="tooltip"></div>
+
+        <!-- Secondary Destination Voyage Modal (opened when picking an island card at the moored vaka) -->
+        ${buildVoyageConfirmModalHtml({
+          modalId: 'walkVoyageConfirmModal',
+          eyebrowId: 'walkConfirmEyebrow',
+          titleId: 'walkConfirmTitle',
+          closeBtnId: 'btnCloseWalkVoyageConfirmX',
+          songPreviewId: 'walkConfirmSongPreview',
+          departureSectionId: 'walkConfirmDepartureSection',
+          recHintId: 'walkConfirmRecWindowHint',
+          depBtnsId: 'walkConfirmDepartureBtns',
+          cancelBtnId: 'btnCancelWalkVoyageModal',
+          sailBtnId: 'btnConfirmWalkSailTo',
+        })}
+
         <!-- Toast feedback banner -->
         <div class="hud-toast" id="walkShoreToast"></div>
 
@@ -141,19 +167,19 @@ export class WalkableIslandUI {
           </div>
         </div>
 
-        <!-- Full-Body Character Portrait Lightbox -->
+        <!-- Full-View Character & Quest Item Lightbox -->
         <div class="modal-backdrop hidden" id="walkPortraitModal">
-          <div class="portrait-lightbox-card">
-            <div class="portrait-lightbox-header">
+          <div class="mentor-lightbox-card">
+            <div class="mentor-lightbox-header">
               <div>
-                <div class="recall-eyebrow" id="walkPortraitEyebrow">Wayfinder Encounter</div>
+                <div class="sanctuary-eyebrow" id="walkPortraitEyebrow">Wayfinder Encounter</div>
                 <h3 id="walkPortraitName"></h3>
-                <p class="portrait-lightbox-role" id="walkPortraitRole"></p>
+                <p class="mentor-lightbox-role" id="walkPortraitRole"></p>
               </div>
-              <button class="secondary-btn" id="btnCloseWalkPortrait" type="button">Close</button>
+              <button class="secondary-btn small-btn" id="btnCloseWalkPortrait" type="button">Close</button>
             </div>
-            <div class="portrait-lightbox-stage">
-              <img id="walkPortraitImg" alt="" />
+            <div class="mentor-lightbox-stage">
+              <img class="mentor-lightbox-img" id="walkPortraitImg" alt="" />
             </div>
           </div>
         </div>
@@ -225,6 +251,47 @@ export class WalkableIslandUI {
         if (e.target.id === 'walkPortraitModal') this.closePortraitModal();
       });
 
+    this._cardTooltip = createClampedTooltipController({
+      tipEl: this.rootEl.querySelector('#walkCardTooltip'),
+      getBoundsEl: () => this.rootEl.querySelector('#walkPoiPopup'),
+    });
+    this._cardTooltip.bindContainer(
+      this.rootEl.querySelector('#walkPoiPopup'),
+      this.rootEl.querySelector('#walkPoiBody')
+    );
+
+    const confirmBackdrop = this.rootEl.querySelector('#walkVoyageConfirmModal');
+    this.rootEl
+      .querySelector('#btnCloseWalkVoyageConfirmX')
+      ?.addEventListener('click', () => this.closeVoyageConfirmModal());
+    this.rootEl
+      .querySelector('#btnCancelWalkVoyageModal')
+      ?.addEventListener('click', () => this.closeVoyageConfirmModal());
+    confirmBackdrop?.addEventListener('click', (e) => {
+      if (e.target === confirmBackdrop) this.closeVoyageConfirmModal();
+    });
+
+    this.rootEl
+      .querySelectorAll('#walkConfirmDepartureBtns .dep-btn')
+      .forEach((btn) => {
+        btn.addEventListener('click', () => {
+          this.selectedDeparture = btn.getAttribute('data-window');
+          this._refreshWalkVoyageConfirmModal();
+        });
+      });
+
+    this.rootEl
+      .querySelector('#btnConfirmWalkSailTo')
+      ?.addEventListener('click', () => {
+        const gs = this.callbacks.getGameState();
+        const routes = gs ? getAvailableRoutesFromCurrentIsland(gs) : [];
+        const match = routes.find((r) => r.song.id === this.selectedSongId);
+        const song = match?.song || routes[0]?.song;
+        if (!song) return;
+        this.closeVoyageConfirmModal();
+        this.callbacks.onLaunchVoyage?.(song, this.selectedDeparture);
+      });
+
     window.addEventListener('keydown', (e) => {
       if (this.rootEl.classList.contains('hidden')) return;
       if (e.code === 'Escape') {
@@ -232,6 +299,8 @@ export class WalkableIslandUI {
           this.closeSandModal();
         } else if (this.portraitModalOpen) {
           this.closePortraitModal();
+        } else if (this.voyageConfirmOpen) {
+          this.closeVoyageConfirmModal();
         } else if (this.currentPoi && !this.minimizedPoiId) {
           this.minimizedPoiId = this.currentPoi.id;
           this._syncPopupVisibility();
@@ -247,8 +316,10 @@ export class WalkableIslandUI {
     this.hutFeedbackText = '';
     this.craftsmanDrawerOpen = false;
     this.minimizedPoiId = null;
+    this._cardTooltip?.hide();
     this.closeSandModal();
     this.closePortraitModal();
+    this.closeVoyageConfirmModal();
     this.rootEl.classList.remove('hidden');
     this.refresh();
   }
@@ -257,13 +328,15 @@ export class WalkableIslandUI {
     this.sandCanvas.stopAnimation();
     this.sandModalOpen = false;
     this.portraitModalOpen = false;
+    this.closeVoyageConfirmModal();
+    this._cardTooltip?.hide();
     this.currentPoi = null;
     this.callbacks.onStopVoice?.();
     this.rootEl.classList.add('hidden');
   }
 
   isBlockingMovement() {
-    return this.sandModalOpen || this.portraitModalOpen;
+    return this.sandModalOpen || this.portraitModalOpen || this.voyageConfirmOpen;
   }
 
   showToast(message) {
@@ -283,6 +356,8 @@ export class WalkableIslandUI {
    */
   setSuspendedForHub(suspended) {
     if (suspended) {
+      this._cardTooltip?.hide();
+      this.closeVoyageConfirmModal();
       this.closeSandModal();
       this.closePortraitModal();
       this.rootEl.classList.add('hidden');
@@ -317,6 +392,10 @@ export class WalkableIslandUI {
     if (nextId !== this.minimizedPoiId) {
       this.minimizedPoiId = null;
     }
+    this._cardTooltip?.hide();
+    if (this.currentPoi?.kind !== 'canoe') {
+      this.closeVoyageConfirmModal();
+    }
     this.craftsmanDrawerOpen = false;
     this.hutFeedbackText = '';
     this._renderCurrentPoiPopup();
@@ -327,12 +406,14 @@ export class WalkableIslandUI {
     const popupEl = this.rootEl.querySelector('#walkPoiPopup');
     const reopenEl = this.rootEl.querySelector('#btnReopenPoi');
     if (!this.currentPoi) {
+      this._cardTooltip?.hide();
       popupEl.classList.add('hidden');
       reopenEl.classList.add('hidden');
       return;
     }
 
     if (this.minimizedPoiId === this.currentPoi.id) {
+      this._cardTooltip?.hide();
       popupEl.classList.add('hidden');
       reopenEl.classList.remove('hidden');
       reopenEl.textContent = `${this.currentPoi.glyph} ${this.currentPoi.promptHint}`;
@@ -450,6 +531,10 @@ export class WalkableIslandUI {
   _renderCurrentPoiPopup() {
     const poi = this.currentPoi;
     if (!poi) return;
+
+    const popupEl = this.rootEl.querySelector('#walkPoiPopup');
+    popupEl?.classList.toggle('canoe-poi-active', poi.kind === 'canoe');
+    this._cardTooltip?.hide();
 
     this.rootEl.querySelector('#walkPoiGlyph').textContent = poi.glyph;
     this.rootEl.querySelector('#walkPoiTitle').textContent = poi.title;
@@ -861,7 +946,7 @@ export class WalkableIslandUI {
   }
 
   // -------------------------------------------------------------------------
-  // POI 4: Moored Voyaging Canoe (Route Chant, Tide-Light & Set Sail)
+  // POI 4: Moored Voyaging Canoe (Destination Cards, Crew & Storage Rows)
   // -------------------------------------------------------------------------
   _renderCanoeLandingBody(bodyEl) {
     const gs = this.callbacks.getGameState();
@@ -870,31 +955,16 @@ export class WalkableIslandUI {
     const elderPoi = walkSpec?.pois.find((p) => p.kind === 'elder');
     const routes = getAvailableRoutesFromCurrentIsland(gs);
 
-    if (!routes.length) {
-      bodyEl.innerHTML = `
-        <div class="empty-note">
-          Walk over to ${elderPoi?.title || isl.mentorName || 'the island sanctuary'} to learn your next star-path chant before launching.
-        </div>
-      `;
-      return;
-    }
-
     if (
-      !this.selectedSongId ||
-      !routes.some((r) => r.song.id === this.selectedSongId)
+      routes.length > 0 &&
+      (!this.selectedSongId || !routes.some((r) => r.song.id === this.selectedSongId))
     ) {
-      this.selectedSongId = routes[0].song.id;
-      this.selectedDeparture = routes[0].song.recommendedDeparture;
+      const forwardRoutes = routes.filter((r) => !r.isReturn);
+      const defaultRoute =
+        forwardRoutes.length > 0 ? forwardRoutes[forwardRoutes.length - 1] : routes[0];
+      this.selectedSongId = defaultRoute.song.id;
+      this.selectedDeparture = defaultRoute.song.recommendedDeparture;
     }
-
-    const activeRoute =
-      routes.find((r) => r.song.id === this.selectedSongId) || routes[0];
-    const activeSong = activeRoute.song;
-    const v1 = activeSong.verses[0];
-    const warnMismatch =
-      this.selectedDeparture !== activeSong.recommendedDeparture
-        ? `<div class="dep-warning">Note: This chant expects ${departureWindowLabel(activeSong.recommendedDeparture)} skies; launching at ${departureWindowLabel(this.selectedDeparture)} shifts sun and stars out of phase!</div>`
-        : '';
 
     bodyEl.innerHTML = `
       <div class="walkable-canoe-summary">
@@ -905,67 +975,89 @@ export class WalkableIslandUI {
         <span>Sail: <strong>${this._describeCondition(gs.sailCondition)}</strong></span>
       </div>
 
-      <div class="walkable-route-choices" id="walkRouteList"></div>
+      <div class="canoe-modal-body walkable-canoe-modal-body">
+        <section class="canoe-modal-section canoe-routes-section">
+          <div class="canoe-section-head">
+            <h4>Where to?</h4>
+          </div>
+          <div class="canoe-island-cards-row" id="walkRouteList"></div>
+        </section>
 
-      <div class="walkable-dep-row">
-        <span class="walkable-dep-label">
-          Tide-Light: <em>(Recommended: ${departureWindowLabel(activeSong.recommendedDeparture)})</em>
-        </span>
-        <div class="departure-grid walkable-dep-grid" id="walkDepGrid">
-          <button class="dep-btn" data-window="dawn" type="button">🌅 Dawn</button>
-          <button class="dep-btn" data-window="midday" type="button">☀️ Midday</button>
-          <button class="dep-btn" data-window="dusk" type="button">🌇 Dusk</button>
-          <button class="dep-btn" data-window="midnight" type="button">🌌 Midnight</button>
-        </div>
-      </div>
-
-      <div class="song-preview-box walkable-verse-preview">
-        <div class="preview-eyebrow">Opening Verse Memorized Ashore</div>
-        <blockquote>"${v1.lyrics}"</blockquote>
-        ${gs.difficulty === Difficulty.EASY ? `<div class="preview-easy-cue">${v1.easyCueText}</div>` : ''}
-        ${warnMismatch}
-      </div>
-
-      <div class="walkable-action-row">
-        <button class="primary-btn launch-btn" id="btnWalkSetSail" type="button">
-          ⛵ Set Sail on the Star Path → ${ISLANDS[activeSong.toIsland]?.name || activeSong.toIsland}
-        </button>
+        <section class="canoe-modal-section canoe-roster-cargo-row" id="walkRosterCargoRow">
+          <div class="canoe-roster-col">
+            <strong class="canoe-section-title">Crew</strong>
+            <div class="crew-cards-grid" id="walkCanoeCrewList"></div>
+          </div>
+          <div class="canoe-cargo-col hidden" id="walkCanoeCargoSection">
+            <strong class="canoe-section-title">Storage</strong>
+            <div class="cargo-cards-grid" id="walkCanoeCargoItems"></div>
+          </div>
+        </section>
       </div>
     `;
 
-    const routeListEl = bodyEl.querySelector('#walkRouteList');
-    for (const { song, isReturn } of routes) {
-      const dst = ISLANDS[song.toIsland];
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = `route-choice-btn ${song.id === this.selectedSongId ? 'selected' : ''}`;
-      btn.innerHTML = `
-        <div class="route-choice-top">
-          <strong>${isReturn && song.number === 'R' ? song.title : `Song ${song.number}: ${song.title}`}</strong>
-          <span class="route-target-tag">→ ${dst?.name || song.toIsland}</span>
+    renderDestinationIslandCards({
+      containerEl: bodyEl.querySelector('#walkRouteList'),
+      routes,
+      gs,
+      getIslandThumbnailUrl: this.callbacks.getIslandThumbnailUrl,
+      emptyHtml: `
+        <div class="empty-route-callout">
+          <p>Walk over to <strong>${elderPoi?.title || isl.mentorName || 'the island sanctuary'}</strong> first to learn your next star-path chant before launching.</p>
         </div>
-      `;
-      btn.addEventListener('click', () => {
-        this.selectedSongId = song.id;
-        this.selectedDeparture = song.recommendedDeparture;
-        this._renderCurrentPoiPopup();
-      });
-      routeListEl.appendChild(btn);
-    }
-
-    bodyEl.querySelectorAll('.dep-btn').forEach((btn) => {
-      const w = btn.getAttribute('data-window');
-      btn.classList.toggle('selected', w === this.selectedDeparture);
-      btn.classList.toggle('recommended', w === activeSong.recommendedDeparture);
-      btn.addEventListener('click', () => {
-        this.selectedDeparture = w;
-        this._renderCurrentPoiPopup();
-      });
+      `,
+      onSelectRoute: (song) => this._openWalkVoyageConfirmModal(song),
     });
 
-    bodyEl.querySelector('#btnWalkSetSail').addEventListener('click', () => {
-      this.callbacks.onLaunchVoyage?.(activeSong, this.selectedDeparture);
+    renderCrewAndCargoRows({
+      crewContainerEl: bodyEl.querySelector('#walkCanoeCrewList'),
+      cargoSectionEl: bodyEl.querySelector('#walkCanoeCargoSection'),
+      cargoContainerEl: bodyEl.querySelector('#walkCanoeCargoItems'),
+      gs,
+      onPlayerClick: (diff) => this.openPortraitModal(getPlayerLightboxData(diff)),
+      onCrewClick: (crId) => {
+        const info = getCrewLightboxData(crId);
+        if (info) this.openPortraitModal(info);
+      },
+      onCargoClick: (cid) => this.openPortraitModal(getCargoLightboxData(cid)),
     });
+  }
+
+  _openWalkVoyageConfirmModal(song) {
+    if (!song) return;
+    this._cardTooltip?.hide();
+    this.selectedSongId = song.id;
+    this.selectedDeparture = song.recommendedDeparture;
+    this.voyageConfirmOpen = true;
+    this._refreshWalkVoyageConfirmModal();
+    this.rootEl
+      .querySelector('#walkVoyageConfirmModal')
+      ?.classList.remove('hidden');
+  }
+
+  _refreshWalkVoyageConfirmModal() {
+    const gs = this.callbacks.getGameState();
+    const routes = gs ? getAvailableRoutesFromCurrentIsland(gs) : [];
+    const match = routes.find((r) => r.song.id === this.selectedSongId);
+    const activeRoute = match || routes[0];
+    populateVoyageConfirmModal({
+      eyebrowEl: this.rootEl.querySelector('#walkConfirmEyebrow'),
+      titleEl: this.rootEl.querySelector('#walkConfirmTitle'),
+      recHintEl: this.rootEl.querySelector('#walkConfirmRecWindowHint'),
+      depBtnsContainerEl: this.rootEl.querySelector('#walkConfirmDepartureBtns'),
+      previewEl: this.rootEl.querySelector('#walkConfirmSongPreview'),
+      sailBtnEl: this.rootEl.querySelector('#btnConfirmWalkSailTo'),
+      gs,
+      activeRoute,
+      selectedDeparture: this.selectedDeparture,
+    });
+  }
+
+  closeVoyageConfirmModal() {
+    this.voyageConfirmOpen = false;
+    this.rootEl
+      .querySelector('#walkVoyageConfirmModal')
+      ?.classList.add('hidden');
   }
 
   // -------------------------------------------------------------------------

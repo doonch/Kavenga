@@ -60,7 +60,7 @@ import {
   VoyageStatus,
 } from './simulation/oceanSim.js';
 import { AchievementsUI } from './ui/AchievementsUI.js';
-import { CanoeModalUI } from './ui/CanoeModalUI.js?v=20261120q';
+import { CanoeModalUI } from './ui/CanoeModalUI.js';
 import { CrewSplashUI } from './ui/CrewSplashUI.js';
 import { ElderVigilPromptUI } from './ui/ElderVigilPromptUI.js';
 import { IslandHubUI } from './ui/IslandHubUI.js?v=20261120q';
@@ -380,6 +380,11 @@ class KavengaApp {
 
     this.walkableIslandUI = new WalkableIslandUI(this.walkableUiRootEl, {
       getGameState: () => this.gameState,
+      getIslandThumbnailUrl: (islandId) =>
+        this.shoreDiorama.renderIslandThumbnailDataUrl(
+          this.renderer,
+          islandId
+        ),
       getAchievementsSummary: () => this.achievementsManager.getSummary(),
       getIsSoundMuted: () => this.chantEngine.muted,
       isObjectivePending: (id) => this._pendingObjectiveIds.has(id),
