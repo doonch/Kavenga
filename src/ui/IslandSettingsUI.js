@@ -24,6 +24,33 @@ export function formatShortSettingsSummary(difficulty, isMuted) {
   return `${shortDiff[difficulty] || 'Wayfinder'} · ${soundGlyph}`;
 }
 
+const DIFFICULTY_META = Object.freeze({
+  [Difficulty.EASY]: {
+    short: 'Easy',
+    persona: 'Apprentice',
+    portrait: './assets/crew/player_easy.jpg',
+    summary: 'Chant audio, verse lyrics, cue hints & active star shimmer.',
+  },
+  [Difficulty.MEDIUM]: {
+    short: 'Medium',
+    persona: 'Wayfinder',
+    portrait: './assets/crew/player_medium.jpg',
+    summary: 'Chant audio, poetic verse lyrics & constellation sky.',
+  },
+  [Difficulty.HARD]: {
+    short: 'Hard',
+    persona: 'Navigator',
+    portrait: './assets/crew/player_hard.jpg',
+    summary: 'Chant audio & constellation sky — zero on-screen text.',
+  },
+  [Difficulty.MASTER_NAVIGATOR]: {
+    short: 'Master',
+    persona: 'Elder Master',
+    portrait: './assets/crew/player_master_navigator.jpg',
+    summary: 'Pure sea silence, raw starfield & no Recall at sea.',
+  },
+});
+
 export class IslandSettingsUI {
   constructor(rootEl, callbacks) {
     this.rootEl = rootEl;
@@ -35,78 +62,49 @@ export class IslandSettingsUI {
   }
 
   _buildDOM() {
+    const diffCardsHtml = Object.entries(DIFFICULTY_META)
+      .map(
+        ([key, meta]) => `
+        <button class="settings-diff-card" data-difficulty="${key}" type="button">
+          <div class="settings-diff-art">
+            <img src="${meta.portrait}" alt="${meta.persona}" />
+          </div>
+          <strong>${meta.short}</strong>
+          <span>${meta.persona}</span>
+        </button>`
+      )
+      .join('');
+
     this.rootEl.innerHTML = `
       <div class="modal-backdrop island-settings-backdrop" id="islandSettingsBackdrop">
         <div class="dialog-card island-settings-card" role="dialog" aria-modal="true" aria-labelledby="islandSettingsTitle">
           <div class="island-settings-header">
-            <div>
-              <div class="recall-eyebrow">Ashore Preferences</div>
-              <h3 id="islandSettingsTitle">⚙ Settings</h3>
-            </div>
+            <h3 id="islandSettingsTitle">⚙ Settings</h3>
             <button class="walkable-close-btn" id="btnCloseIslandSettings" type="button" title="Close Settings (Esc)">✕</button>
           </div>
 
-          <!-- 1. Background Music On / Off -->
+          <!-- 1. Compact Audio Toggles -->
           <div class="settings-section">
-            <div class="settings-section-label">Background Music</div>
+            <div class="settings-section-label">Audio</div>
             <div class="settings-sound-toggle">
-              <button class="settings-sound-btn" id="btnSettingsMusicOn" type="button">
-                🎵 Music On
-              </button>
-              <button class="settings-sound-btn" id="btnSettingsMusicOff" type="button">
-                🔇 Music Off
-              </button>
+              <button class="settings-sound-btn" id="btnSettingsMusicToggle" type="button"></button>
+              <button class="settings-sound-btn" id="btnSettingsVoiceToggle" type="button"></button>
             </div>
           </div>
 
-          <!-- 2. Speech On / Off -->
+          <!-- 2. Difficulty: Compact Portrait Cards + Active Summary -->
           <div class="settings-section">
-            <div class="settings-section-label">Speech</div>
-            <div class="settings-sound-toggle">
-              <button class="settings-sound-btn" id="btnSettingsVoiceOn" type="button">
-                🗣️ Speech On
-              </button>
-              <button class="settings-sound-btn" id="btnSettingsVoiceOff" type="button">
-                🔇 Speech Off
-              </button>
+            <div class="settings-section-label">Difficulty &amp; Wayfinder</div>
+            <div class="settings-diff-grid" id="settingsDifficultyGrid">
+              ${diffCardsHtml}
             </div>
+            <div class="settings-diff-summary" id="settingsDifficultyDesc"></div>
           </div>
 
-          <!-- 3. Difficulty: The Four Defined Levels -->
-          <div class="settings-section">
-            <div class="settings-section-label">Difficulty &amp; Wayfinder Persona</div>
-            <div class="mode-selector-grid" id="settingsDifficultyGrid">
-              <button class="mode-option-btn" data-difficulty="easy" type="button">
-                <strong>Easy · Apprentice (12–14 yrs)</strong>
-                <span>Youth apprentice in pandanus pareu · Chant audio, verse lyrics, cue hints &amp; active star shimmer</span>
-              </button>
-              <button class="mode-option-btn" data-difficulty="medium" type="button">
-                <strong>Medium · Wayfinder (18–20 yrs)</strong>
-                <span>Young wayfinder with frigatebird plume · Chant audio, poetic verse lyrics &amp; constellation sky</span>
-              </button>
-              <button class="mode-option-btn" data-difficulty="hard" type="button">
-                <strong>Hard · Navigator (30 yrs)</strong>
-                <span>Seasoned navigator in kura circlet · Chant audio &amp; constellation sky — zero on-screen text</span>
-              </button>
-              <button class="mode-option-btn" data-difficulty="master_navigator" type="button">
-                <strong>Master Navigator (50 yrs, Gray Beard)</strong>
-                <span>Elder master in kahu tapa cloak · Pure sea silence, raw starfield &amp; no Recall at sea</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- 2. Start Over (gated by confirmation popup) -->
-          <div class="settings-section settings-reset-row">
-            <div class="settings-reset-copy">
-              <strong>Start Over</strong>
-              <span>Erase saved campaign progress and begin anew on Ra'iatea.</span>
-            </div>
+          <div class="dialog-actions settings-footer-actions settings-footer-split">
             <button class="danger-outline-btn" id="btnSettingsStartOver" type="button">
               ↺ Start Over...
             </button>
-          </div>
-
-          <div class="dialog-actions settings-footer-actions">
             <button class="primary-btn" id="btnDoneIslandSettings" type="button">Done</button>
           </div>
         </div>
@@ -150,35 +148,21 @@ export class IslandSettingsUI {
       }
     });
 
-    // 1. Background Music handlers
+    // 1. Compact Audio toggle handlers
     this.rootEl
-      .querySelector('#btnSettingsMusicOn')
+      .querySelector('#btnSettingsMusicToggle')
       ?.addEventListener('click', (e) => {
         e.currentTarget.blur();
-        this.callbacks.onSetMusicEnabled?.(true);
+        const cur = this.callbacks.getIsMusicEnabled?.() ?? true;
+        this.callbacks.onSetMusicEnabled?.(!cur);
         this.refresh();
       });
     this.rootEl
-      .querySelector('#btnSettingsMusicOff')
+      .querySelector('#btnSettingsVoiceToggle')
       ?.addEventListener('click', (e) => {
         e.currentTarget.blur();
-        this.callbacks.onSetMusicEnabled?.(false);
-        this.refresh();
-      });
-
-    // 2. Speech handlers
-    this.rootEl
-      .querySelector('#btnSettingsVoiceOn')
-      ?.addEventListener('click', (e) => {
-        e.currentTarget.blur();
-        this.callbacks.onSetVoiceEnabled?.(true);
-        this.refresh();
-      });
-    this.rootEl
-      .querySelector('#btnSettingsVoiceOff')
-      ?.addEventListener('click', (e) => {
-        e.currentTarget.blur();
-        this.callbacks.onSetVoiceEnabled?.(false);
+        const cur = this.callbacks.getIsVoiceEnabled?.() ?? true;
+        this.callbacks.onSetVoiceEnabled?.(!cur);
         this.refresh();
       });
 
@@ -269,28 +253,20 @@ export class IslandSettingsUI {
     const gs = this.callbacks.getGameState?.();
     const diff = gs?.difficulty || Difficulty.EASY;
     const musicEnabled = this.callbacks.getIsMusicEnabled?.() ?? true;
-
-    const musicOnBtn = this.rootEl.querySelector('#btnSettingsMusicOn');
-    const musicOffBtn = this.rootEl.querySelector('#btnSettingsMusicOff');
-    if (musicOnBtn) {
-      musicOnBtn.classList.toggle('active', musicEnabled);
-      musicOnBtn.setAttribute('aria-pressed', String(musicEnabled));
-    }
-    if (musicOffBtn) {
-      musicOffBtn.classList.toggle('active', !musicEnabled);
-      musicOffBtn.setAttribute('aria-pressed', String(!musicEnabled));
-    }
-
     const voiceEnabled = this.callbacks.getIsVoiceEnabled?.() ?? true;
-    const voiceOnBtn = this.rootEl.querySelector('#btnSettingsVoiceOn');
-    const voiceOffBtn = this.rootEl.querySelector('#btnSettingsVoiceOff');
-    if (voiceOnBtn) {
-      voiceOnBtn.classList.toggle('active', voiceEnabled);
-      voiceOnBtn.setAttribute('aria-pressed', String(voiceEnabled));
+
+    const musicBtn = this.rootEl.querySelector('#btnSettingsMusicToggle');
+    if (musicBtn) {
+      musicBtn.textContent = musicEnabled ? '🎵 Music: On' : '🔇 Music: Off';
+      musicBtn.classList.toggle('active', musicEnabled);
+      musicBtn.setAttribute('aria-pressed', String(musicEnabled));
     }
-    if (voiceOffBtn) {
-      voiceOffBtn.classList.toggle('active', !voiceEnabled);
-      voiceOffBtn.setAttribute('aria-pressed', String(!voiceEnabled));
+
+    const voiceBtn = this.rootEl.querySelector('#btnSettingsVoiceToggle');
+    if (voiceBtn) {
+      voiceBtn.textContent = voiceEnabled ? '🗣️ Speech: On' : '🔇 Speech: Off';
+      voiceBtn.classList.toggle('active', voiceEnabled);
+      voiceBtn.setAttribute('aria-pressed', String(voiceEnabled));
     }
 
     this.rootEl.querySelectorAll('[data-difficulty]').forEach((btn) => {
@@ -299,5 +275,11 @@ export class IslandSettingsUI {
         btn.getAttribute('data-difficulty') === diff
       );
     });
+
+    const descEl = this.rootEl.querySelector('#settingsDifficultyDesc');
+    if (descEl) {
+      descEl.textContent =
+        DIFFICULTY_META[diff]?.summary || DIFFICULTY_META[Difficulty.EASY].summary;
+    }
   }
 }
