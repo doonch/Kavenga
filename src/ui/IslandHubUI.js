@@ -658,6 +658,28 @@ export class IslandHubUI {
     });
   }
 
+  openPlayerPortraitModal(difficulty) {
+    const profile = getPlayerCharacterProfile(difficulty);
+    this._showCharacterLightbox({
+      eyebrow: 'Wayfinder at the Helm',
+      name: 'You',
+      role: profile.title,
+      portrait: `./assets/crew/player_${difficulty || 'easy'}.jpg`,
+      alt: profile.title,
+    });
+  }
+
+  openCargoModal(cargoId) {
+    const item = CARGO_CATALOG[cargoId] || { name: cargoId, description: '' };
+    this._showCharacterLightbox({
+      eyebrow: 'Quest Item Aboard',
+      name: item.name,
+      role: item.description,
+      portrait: `./assets/cargo/${cargoId}.jpg`,
+      alt: item.name,
+    });
+  }
+
   closePortraitModal() {
     this._lightboxMentor = null;
     this.rootEl.querySelector('#mentorPortraitModal')?.classList.add('hidden');
@@ -1315,26 +1337,30 @@ export class IslandHubUI {
       cargoContainer.innerHTML = '';
     } else {
       cargoSection.classList.remove('hidden');
-      cargoContainer.innerHTML = gs.cargoItems
-        .map((cid) => {
-          const item = CARGO_CATALOG[cid] || { name: cid, description: '' };
-          const tip = `${item.name}${item.description ? ` — ${item.description}` : ''}`;
-          return `
-            <div class="cargo-item-card" tabindex="0" data-tooltip="${tip}" aria-label="${item.name}">
-              <img class="cargo-item-img" src="./assets/cargo/${cid}.jpg" alt="${item.name}" />
-            </div>
-          `;
-        })
-        .join('');
+      cargoContainer.innerHTML = '';
+      for (const cid of gs.cargoItems) {
+        const item = CARGO_CATALOG[cid] || { name: cid, description: '' };
+        const tip = `${item.name}${item.description ? ` — ${item.description}` : ''}`;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'cargo-item-card';
+        btn.setAttribute('data-tooltip', tip);
+        btn.setAttribute('aria-label', item.name);
+        btn.innerHTML = `<img class="cargo-item-img" src="./assets/cargo/${cid}.jpg" alt="${item.name}" />`;
+        btn.addEventListener('click', () => {
+          this.openCargoModal(cid);
+        });
+        cargoContainer.appendChild(btn);
+      }
     }
 
     const crewContainer = this.rootEl.querySelector('#hubCrewList');
     crewContainer.innerHTML = '';
     const playerProfile = getPlayerCharacterProfile(gs.difficulty);
     const playerPortrait = `./assets/crew/player_${gs.difficulty || 'easy'}.jpg`;
-    const playerCard = document.createElement('div');
-    playerCard.className = 'crew-card';
-    playerCard.tabIndex = 0;
+    const playerCard = document.createElement('button');
+    playerCard.type = 'button';
+    playerCard.className = 'crew-card crew-card-btn';
     playerCard.setAttribute('data-tooltip', playerProfile.title);
     playerCard.innerHTML = `
       <div class="crew-card-art">
@@ -1343,6 +1369,9 @@ export class IslandHubUI {
       <div class="crew-card-name">You</div>
       <div class="crew-card-role">${playerProfile.title}</div>
     `;
+    playerCard.addEventListener('click', () => {
+      this.openPlayerPortraitModal(gs.difficulty);
+    });
     crewContainer.appendChild(playerCard);
 
     for (const crId of gs.assignedCrew) {
