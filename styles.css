@@ -2951,12 +2951,18 @@ body {
 
 /* Dedicated Canoe / Set Sail Modal */
 .canoe-modal-card {
-  width: min(860px, 94vw);
+  width: fit-content;
+  min-width: 300px;
+  max-width: 94vw;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
   gap: 14px;
   overflow: hidden;
+}
+
+.canoe-modal-header {
+  gap: 18px;
 }
 
 .canoe-modal-body {
@@ -2989,19 +2995,20 @@ body {
 .canoe-island-cards-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
+  max-width: 432px;
   align-items: stretch;
 }
 
 .canoe-island-card {
   appearance: none;
-  flex: 0 1 129px;
-  min-width: 104px;
+  flex: 0 0 102px;
+  width: 102px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 6px;
-  padding: 6px;
+  gap: 5px;
+  padding: 5px;
   border-radius: 10px;
   background: rgba(9, 21, 35, 0.78);
   border: 1px solid rgba(232, 198, 142, 0.24);
@@ -3040,7 +3047,7 @@ body {
 }
 
 .canoe-island-card-mystery {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 800;
   color: rgba(244, 211, 140, 0.72);
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
@@ -3048,7 +3055,7 @@ body {
 }
 
 .canoe-island-card-name {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
   color: var(--ink-bright);
   letter-spacing: 0.01em;
@@ -3082,10 +3089,10 @@ body {
 }
 
 .canoe-roster-cargo-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 16px;
-  align-items: start;
+  align-items: flex-start;
 }
 
 .canoe-roster-col,
@@ -3095,18 +3102,28 @@ body {
   gap: 8px;
 }
 
+.canoe-roster-col .crew-cards-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.canoe-roster-col .crew-card {
+  flex: 0 0 102px;
+  width: 102px;
+}
+
 .canoe-cargo-col .cargo-cards-grid {
-  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .canoe-cargo-col .cargo-item-card {
-  padding: 8px;
-}
-
-@media (max-width: 760px) {
-  .canoe-roster-cargo-row {
-    grid-template-columns: 1fr;
-  }
+  flex: 0 0 76px;
+  width: 76px;
+  height: 76px;
+  padding: 6px;
 }
 
 .settings-footer-actions {
