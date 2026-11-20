@@ -487,10 +487,10 @@ export class ShoreDioramaRenderer {
     const terrainMesh = this._findTerrainMesh(asmGroup);
     // 4 Red Kura birds standing along Manuae's central Rookery Sandbar & inner beaches (scale = 1.0)
     const perchCoords = [
-      [5.4, -5.2, 0.5],
-      [6.4, -5.8, 1.8],
-      [7.4, -6.3, -1.1],
-      [-16.8, 28.2, 2.3],
+      [10.8, -10.4, 0.5],
+      [12.8, -11.6, 1.8],
+      [14.8, -12.6, -1.1],
+      [-34.0, 77.0, 2.3],
     ];
     for (let i = 0; i < perchCoords.length; i += 1) {
       const [px, pz, yaw] = perchCoords[i];

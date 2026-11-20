@@ -666,7 +666,7 @@ export class WalkableIslandScene {
     const birdScale = isManuaeKura ? 1.45 : 1.25;
     this.birdPerchSpots = this._findPerchSpots(
       isManuaeKura ? 14 : 6,
-      isManuaeKura ? { minZ: -24.0, maxZ: 74.0, minX: -52.0, maxX: 52.0 } : null
+      isManuaeKura ? { minZ: -64.0, maxZ: 92.0, minX: -86.0, maxX: 86.0 } : null
     );
     if (this.worldCues) {
       for (let i = 0; i < birdCount; i += 1) {
@@ -683,13 +683,13 @@ export class WalkableIslandScene {
         const slot = i % 3;
         const band = Math.floor(i / 3);
         const cx = isManuaeKura
-          ? -10.0 + slot * 15.0 + (band - 1) * 4.0
+          ? -18.0 + slot * 24.0 + (band - 1) * 6.0
           : -4.0 + i * 14.0;
         const cz = isManuaeKura
-          ? this.spec.mooredCanoe.z - 8.0 - band * 24.0 - slot * 3.0
+          ? this.spec.mooredCanoe.z - 14.0 - band * 32.0 - slot * 5.0
           : this.spec.mooredCanoe.z - 4.0 - i * 5.0;
         const radius = isManuaeKura
-          ? 11.0 + slot * 4.0 + band * 2.0
+          ? 16.0 + slot * 5.0 + band * 3.0
           : 14.0 + i * 4.5;
         const altY = isManuaeKura ? 4.6 + (i % 4) * 1.35 : 14.5 + i * 2.4;
         const speed = isManuaeKura ? 0.32 + (i % 5) * 0.045 : 0.34 + i * 0.05;

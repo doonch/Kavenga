@@ -1213,7 +1213,14 @@ export function addMaraePlatform(
   marae.rotation.y = rotY;
   marae.scale.setScalar(scale);
 
-  // 1. Two-tier stepped stone Paepae footing + dressed inner paving bed
+  // 1. Deep grounded foundation skirt + two-tier stepped stone Paepae footing + dressed paving bed
+  const foundationSkirt = new THREE.Mesh(
+    createBeveledStoneSlabGeometry(7.7, 1.8, 10.2, 0.24),
+    courtMat
+  );
+  foundationSkirt.position.y = -0.82;
+  marae.add(foundationSkirt);
+
   const lowerFooting = new THREE.Mesh(
     createBeveledStoneSlabGeometry(7.5, 0.38, 10.0, 0.22),
     courtMat

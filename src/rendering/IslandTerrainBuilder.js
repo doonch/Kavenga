@@ -442,16 +442,62 @@ function motuArcMask(theta, center, halfSpan, feather = 0.085) {
 }
 
 const MANUAE_KARENA_HEADS = [
-  [9.5, 4.5, 3.8],
-  [-13.2, 6.8, 4.2],
-  [5.2, -14.2, 3.6],
-  [15.4, -7.2, 3.4],
-  [-2.2, 14.2, 3.9],
-  [-14.8, -10.6, 3.5],
+  [18.5, 9.0, 7.2],
+  [-25.5, 13.5, 8.0],
+  [10.5, -27.5, 6.8],
+  [29.5, -14.0, 6.5],
+  [-4.5, 27.5, 7.5],
+  [-28.5, -20.5, 6.8],
 ];
 
+function evalManuaeGeometryProfile(theta) {
+  // Warped crescent-kidney coral atoll ring with asymmetric inner & outer shorelines
+  const macroLobe =
+    9.0 * Math.cos(2.0 * theta - 0.55) + 5.6 * Math.sin(3.0 * theta + 0.85);
+  const spineWarp =
+    3.4 * Math.cos(4.0 * theta + 0.4) + 1.8 * Math.sin(5.0 * theta - 1.1);
+  const ringR = 76.5 + macroLobe + spineWarp;
+
+  const m1 = motuArcMask(theta, -1.24, 0.94, 0.1); // Main broad village crescent motu
+  const m2 = motuArcMask(theta, -2.68, 0.36, 0.08); // Far rookery motu
+  const m3 = motuArcMask(theta, 2.64, 0.38, 0.08); // Leeward coconut motu
+  const m4 = motuArcMask(theta, 1.54, 0.46, 0.085); // Pandanus motu
+  const m5 = motuArcMask(theta, 0.58, 0.34, 0.08); // Port pass-shoulder motu
+  const motuMask = clamp01(m1 + m2 + m3 + m4 + m5);
+
+  const circleSpit = 7.5 * motuArcMask(theta, -0.83, 0.2, 0.1);
+  const innerW =
+    lerp(9.6, 16.0, m1) * (0.86 + 0.14 * Math.sin(7.0 * theta - 0.4)) +
+    circleSpit;
+  const outerW =
+    lerp(9.4, 12.6, m1) * (0.88 + 0.12 * Math.cos(6.0 * theta + 0.3));
+  const innerToeR = ringR - innerW;
+  const outerToeR = ringR + outerW;
+  const reefEdgeR =
+    outerToeR +
+    8.5 +
+    1.8 * Math.sin(5.0 * theta + 0.4) +
+    1.1 * Math.cos(7.0 * theta - 0.8);
+
+  return {
+    ringR,
+    m1,
+    motuMask,
+    innerW,
+    outerW,
+    innerToeR,
+    outerToeR,
+    reefEdgeR,
+  };
+}
+
+const MANUAE_MARAE_THETA = -0.4;
+const MANUAE_MARAE_R = evalManuaeGeometryProfile(MANUAE_MARAE_THETA).innerToeR + 12.5;
+const MANUAE_MARAE_X = MANUAE_MARAE_R * Math.cos(MANUAE_MARAE_THETA);
+const MANUAE_MARAE_Z = MANUAE_MARAE_R * Math.sin(MANUAE_MARAE_THETA);
+
 /**
- * Evaluates Manuae Coral Atoll topography & lagoon bathymetry at local (x, z):
+ * Evaluates Manuae Coral Atoll topography & lagoon bathymetry at local (x, z) (2x canonical scale):
  * - 5 segmented sandy coral motu islets separated by shallow turquoise hoa channels
  * - Deep navigable Te Ava reef pass at theta = 0 leading into the central lagoon
  * - Multi-depth jade-turquoise lagoon with 6 karena coral patch reefs & central rookery sandbar
@@ -461,27 +507,18 @@ function evalManuaePoint(x, z) {
   const r = Math.hypot(x, z);
   const theta = Math.atan2(z, x);
 
-  // Slightly oval organic reef-ring spine
-  const ringR =
-    37.6 + 2.0 * Math.cos(2.0 * theta + 0.5) + 1.2 * Math.sin(3.0 * theta - 0.7);
+  const {
+    ringR,
+    m1,
+    motuMask,
+    innerW,
+    outerW,
+    innerToeR,
+    outerToeR,
+    reefEdgeR,
+  } = evalManuaeGeometryProfile(theta);
 
-  // 5 distinct motu arcs around the coral ring (leaving hoa channels & Te Ava pass at theta = 0)
-  const m1 = motuArcMask(theta, -1.24, 0.96, 0.09); // Main broad village crescent motu
-  const m2 = motuArcMask(theta, -2.68, 0.36, 0.075); // Far rookery motu
-  const m3 = motuArcMask(theta, 2.64, 0.38, 0.075); // Leeward coconut motu
-  const m4 = motuArcMask(theta, 1.54, 0.46, 0.08); // Pandanus motu
-  const m5 = motuArcMask(theta, 0.58, 0.32, 0.075); // Port pass-shoulder motu
-  const motuMask = clamp01(m1 + m2 + m3 + m4 + m5);
-
-  const passChannel = motuArcMask(theta, 0.0, 0.17, 0.07);
-
-  const innerW =
-    lerp(4.3, 7.8, m1) * (0.88 + 0.12 * Math.sin(7.0 * theta - 0.4));
-  const outerW =
-    lerp(4.3, 5.7, m1) * (0.9 + 0.1 * Math.cos(6.0 * theta + 0.3));
-  const innerToeR = ringR - innerW;
-  const outerToeR = ringR + outerW;
-  const reefEdgeR = outerToeR + 4.3 + 0.85 * Math.sin(5.0 * theta);
+  const passChannel = motuArcMask(theta, 0.0, 0.17, 0.075);
 
   // 1. Central Lagoon Basin (kept gently above 0.14m so global opaque ocean doesn't swallow lagoon colors,
   //    except inside the deep sapphire Te Ava pass inlet)
@@ -489,11 +526,11 @@ function evalManuaePoint(x, z) {
     const lu = clamp01(r / Math.max(1.0, innerToeR));
     let h = lerp(0.15, 0.23, smoothstep(0.58, 1.0, lu));
 
-    // Curved bleached-white inner rookery sandbank spit
-    const rx = (x + 5.8) * 0.78 + (z + 6.4) * 0.62;
-    const rz = -(x + 5.8) * 0.62 + (z + 6.4) * 0.78;
+    // Curved bleached-white inner rookery sandbank spit (2x scale centered around (-11.6, -12.8))
+    const rx = (x + 11.6) * 0.78 + (z + 12.8) * 0.62;
+    const rz = -(x + 11.6) * 0.62 + (z + 12.8) * 0.78;
     const sandbarDist = Math.hypot(rx * 0.62, rz * 1.38);
-    const sandbarLift = 0.78 * Math.exp(-Math.pow(sandbarDist / 4.2, 2.0));
+    const sandbarLift = 0.84 * Math.exp(-Math.pow(sandbarDist / 8.5, 2.0));
     h += sandbarLift;
 
     // 6 submerged-looking karena coral patch-reef mounds
@@ -506,9 +543,9 @@ function evalManuaePoint(x, z) {
     }
     h += 0.14 * coralPatch;
 
-    // Deep sapphire navigable Te Ava pass inlet tongue shoaling into central lagoon
-    const passInlet = passChannel * smoothstep(18.5, 29.5, r);
-    h = lerp(h, -2.35, passInlet);
+    // Deep sapphire navigable Te Ava pass inlet tongue shoaling into central lagoon (~65m +Z shore)
+    const passInlet = passChannel * smoothstep(64.0, 84.0, r);
+    h = lerp(h, -2.4, passInlet);
 
     return {
       h,
@@ -522,9 +559,9 @@ function evalManuaePoint(x, z) {
 
   // 2. Coral Ring: Motu Islets, Shallow Hoa Channels, and Outer Papa Reef Shelf
   if (r <= reefEdgeR) {
-    const rimBump = 0.15 * Math.exp(-Math.pow((r - (reefEdgeR - 1.3)) / 1.35, 2.0));
+    const rimBump = 0.18 * Math.exp(-Math.pow((r - (reefEdgeR - 2.6)) / 2.4, 2.0));
     const reefFlatH =
-      0.21 + 0.03 * Math.sin(r * 0.8 + theta * 9.0) + rimBump;
+      0.21 + 0.03 * Math.sin(r * 0.45 + theta * 9.0) + rimBump;
 
     let motuH = 0.0;
     let villageClearing = 0.0;
@@ -535,38 +572,56 @@ function evalManuaePoint(x, z) {
       let tIn = 1.0;
       if (r <= ringR) {
         tIn = clamp01((r - innerToeR) / Math.max(0.5, innerW));
-        profile = Math.pow(smoothstep(0.0, 1.0, tIn), 1.32);
-        isInnerBeach = tIn < 0.44;
+        profile = smoothstep(0.0, 1.0, tIn);
+        isInnerBeach = tIn < 0.46;
       } else {
         const tOut = clamp01(1.0 - (r - ringR) / Math.max(0.5, outerW));
-        profile = Math.pow(smoothstep(0.0, 1.0, tOut), 0.76);
+        profile = Math.pow(smoothstep(0.0, 1.0, tOut), 0.9);
       }
 
       const peakH =
-        lerp(3.35, 4.35, m1) +
-        0.32 * Math.sin(9.0 * theta) +
-        0.2 * Math.cos(15.0 * theta);
+        lerp(3.6, 4.75, m1) +
+        0.28 * Math.sin(9.0 * theta) +
+        0.18 * Math.cos(15.0 * theta);
       motuH = peakH * profile * motuMask;
 
-      // Swept level coral-sand village clearing along inner shore of Motu 1
-      const vilArc = motuArcMask(theta, -0.96, 0.56, 0.1);
-      const vilBand = smoothstep(0.22, 0.42, tIn) * smoothstep(0.95, 0.72, tIn);
+      // Swept level coral-sand village clearing along inner shore of Motu 1 (around theta ~ -1.35)
+      const vilArc = motuArcMask(theta, -1.35, 0.38, 0.12);
+      const vilBand = smoothstep(0.18, 0.4, tIn) * smoothstep(0.95, 0.68, tIn);
       villageClearing = vilArc * vilBand * m1;
       if (villageClearing > 0.01) {
-        motuH = lerp(motuH, 1.62, villageClearing * 0.82);
+        motuH = lerp(motuH, 1.65, villageClearing * 0.84);
+      }
+
+      // Level inner coral-sand spit plateau around Navigator's Sand Ring (32.4, -35.4)
+      const circDist = Math.hypot(x - 32.4, z + 35.4);
+      if (circDist < 10.5) {
+        motuH = lerp(motuH, 1.15, smoothstep(10.5, 5.8, circDist));
+      }
+
+      // Gentle coral-sand beach clearing around initial spawn (77.5, 34.5) on Motu 5
+      const spDist = Math.hypot(x - 77.5, z - 34.5);
+      if (spDist < 8.5) {
+        motuH = lerp(motuH, 1.25, smoothstep(8.5, 3.5, spDist) * 0.78);
+      }
+
+      // Level swept coral terrace beneath Pass-Point Marae courtyard
+      const maraeDist = Math.hypot(x - MANUAE_MARAE_X, z - MANUAE_MARAE_Z);
+      if (maraeDist < 9.5) {
+        motuH = lerp(motuH, 2.05, smoothstep(9.5, 5.2, maraeDist));
       }
     }
 
     let h = Math.max(reefFlatH, motuH);
     // Carve navigable Te Ava reef pass cleanly down to deep sapphire ocean water
-    h = lerp(h, -2.45, passChannel);
+    h = lerp(h, -2.5, passChannel);
 
     let zone = 'papa_reef';
     if (passChannel > 0.4) {
       zone = 'deep_sea';
     } else if (motuH > reefFlatH + 0.04) {
       zone = isInnerBeach ? 'inner_beach' : 'motu';
-    } else if (r < outerToeR - 0.6 && motuMask < 0.25) {
+    } else if (r < outerToeR - 1.2 && motuMask < 0.25) {
       zone = 'hoa_channel';
     }
 
@@ -581,9 +636,9 @@ function evalManuaePoint(x, z) {
   }
 
   // 3. Steep Outer Fore-Reef Ocean Drop-Off
-  const dropT = smoothstep(reefEdgeR, 55.8, r);
-  const startH = lerp(0.28, -2.45, passChannel);
-  const h = lerp(startH, -4.1, dropT);
+  const dropT = smoothstep(reefEdgeR, reefEdgeR + 13.0, r);
+  const startH = lerp(0.28, -2.5, passChannel);
+  const h = lerp(startH, -4.4, dropT);
   return {
     h,
     zone: h < 0.05 ? 'deep_sea' : 'papa_reef',
@@ -597,9 +652,12 @@ function evalManuaePoint(x, z) {
 /**
  * Generates a high-resolution polar atoll BufferGeometry with coral/lagoon/motu vertex biomes.
  */
-function createSculptedAtollTerrainGeometry(evalFn, maxRadius = 56.0) {
-  const nRings = 64;
-  const nSegs = 108;
+function createSculptedAtollTerrainGeometry(
+  evalFn,
+  maxRadius = 118.0,
+  nRings = 92,
+  nSegs = 136
+) {
 
   const colDeepSea = [0.05, 0.27, 0.44];
   const colLagoonDeep = [0.08, 0.57, 0.66];
@@ -1218,13 +1276,18 @@ export function createDetailedIslandAssembly(islandId) {
   }
 
   if (islandId === 'manuae') {
-    // 1. Sculpted Coral Atoll Ring, Segmented Motu Necklace, Hoa Channels & Central Lagoon Floor
-    const atollGeo = createSculptedAtollTerrainGeometry(evalManuaePoint, 56.0);
+    // 1. Sculpted 2x Coral Atoll Ring, Segmented Motu Necklace, Hoa Channels & Central Lagoon Floor
+    const atollGeo = createSculptedAtollTerrainGeometry(
+      evalManuaePoint,
+      122.0,
+      92,
+      136
+    );
     const atollMesh = new THREE.Mesh(atollGeo, terrainMat);
     atollMesh.receiveShadow = true;
     group.add(atollMesh);
 
-    // 2. Translucent Jade-Turquoise Inner Lagoon Surface Shimmer (sandbar & beaches rise cleanly above it)
+    // 2. Translucent Jade-Turquoise Organic Inner Lagoon Shimmer (follows inner motu beaches cleanly)
     const atollLagoonMat = trackMat(
       new THREE.MeshBasicMaterial({
         color: 0x2ae3cc,
@@ -1234,36 +1297,56 @@ export function createDetailedIslandAssembly(islandId) {
       })
     );
     atollLagoonMat.userData.baseOpacity = 0.34;
+    const evalManuaeInnerLagoonR = (th) =>
+      evalManuaeGeometryProfile(th).innerToeR + 2.0;
     const innerLagoonDisc = new THREE.Mesh(
-      new THREE.CircleGeometry(29.8, 56),
+      createOrganicLagoonGeometry(evalManuaeInnerLagoonR, 108),
       atollLagoonMat
     );
-    innerLagoonDisc.rotation.x = -Math.PI * 0.5;
     innerLagoonDisc.position.y = 0.265;
     group.add(innerLagoonDisc);
 
-    // 3. Outer Breaking Surf Rim with Open Navigable Te Ava Reef Pass around theta = 0
-    addBarrierReefArc(
+    // 3. Organic Outer Breaking Surf Rim with Open Navigable Te Ava Reef Pass around theta = 0
+    const evalManuaeOuterReefR = (th) =>
+      evalManuaeGeometryProfile(th).reefEdgeR - 2.2;
+    addOrganicBarrierReefArc(
       group,
       reefSandMat,
       surfFoamMat,
-      48.6,
-      0.25,
-      Math.PI * 2.0 - 0.25,
-      48
+      evalManuaeOuterReefR,
+      0.24,
+      Math.PI * 2.0 - 0.24,
+      96
     );
 
     // Hooked pass-shoulder surf foam ribbons flanking the Te Ava entrance jaws
-    const jawFoamGeo = new THREE.BoxGeometry(5.6, 0.12, 1.35);
+    const jawFoamGeo = new THREE.BoxGeometry(10.5, 0.12, 2.1);
     for (const [ang, tilt] of [
-      [-0.23, 0.42],
-      [0.23, -0.42],
+      [-0.22, 0.42],
+      [0.22, -0.42],
     ]) {
+      const jr = evalManuaeOuterReefR(ang) - 4.5;
       const jf = new THREE.Mesh(jawFoamGeo, surfFoamMat);
-      jf.position.set(44.5 * Math.cos(ang), 0.29, 44.5 * Math.sin(ang));
+      jf.position.set(jr * Math.cos(ang), 0.29, jr * Math.sin(ang));
       jf.rotation.y = -ang + tilt;
       group.add(jf);
     }
+
+    // Walkable POI / spawn exclusion zones in canonical coords (rotY = -PI/2 -> cx = wz, cz = -wx)
+    const manuaeBlocked = [
+      { x: 77.5, z: 34.5, r: 11.2 }, // Initial spawn beach clearing on Motu 5 (leaves palm crowns >= 6.5m away)
+      { x: 69.5, z: 44.5, r: 7.5 }, // Quiet Coral Lagoon Landing clearing
+      { x: 8.0, z: 65.5, r: 6.8 }, // Motu Palm Shelter clearing on Motu 4
+      { x: 52.5, z: -31.5, r: 7.8 }, // Wild Seabird Rookery & Pearl Shallows clearing
+      { x: 32.4, z: -35.4, r: 12.5 }, // Navigator's Sand Ring Observation Circle
+      { x: MANUAE_MARAE_X, z: MANUAE_MARAE_Z, r: 6.5 }, // Pass-Point Marae stone courtyard
+    ];
+    const manuaeIsClear = (px, pz, pad = 0.0) => {
+      for (const bz of manuaeBlocked) {
+        if (Math.hypot(px - bz.x, pz - bz.z) < bz.r + pad) return false;
+      }
+      return true;
+    };
 
     // 4. Shared Atoll Architectural, Coral-Stone & Foliage Materials
     const thatchGoldMat = trackMat(
@@ -1342,10 +1425,8 @@ export function createDetailedIslandAssembly(islandId) {
     );
 
     // 5. Twin Stacked White-Coral Pass Marker Cairns (Ti'ahu Ava) on Both Pass Shoulders
-    for (const [cTheta, cRad] of [
-      [-0.29, 39.2],
-      [0.28, 39.0],
-    ]) {
+    for (const cTheta of [-0.27, 0.25]) {
+      const cRad = evalManuaeGeometryProfile(cTheta).ringR - 3.5;
       const cx = cRad * Math.cos(cTheta);
       const cz = cRad * Math.sin(cTheta);
       const cy = Math.max(0.32, evalManuaePoint(cx, cz).h);
@@ -1357,8 +1438,8 @@ export function createDetailedIslandAssembly(islandId) {
 
     // 6. Polynesian Atoll Lagoon Village on Motu 1 (Facing the Calm Central Lagoon & Pass)
     // 6a. Grand Communal Fare Pote'e (Oval-ended pandanus meeting house on raised coral curb)
-    const poteeTheta = -0.92;
-    const poteeR = 34.4;
+    const poteeTheta = -1.35;
+    const poteeR = evalManuaeGeometryProfile(poteeTheta).innerToeR + 9.0;
     const poteeX = poteeR * Math.cos(poteeTheta);
     const poteeZ = poteeR * Math.sin(poteeTheta);
     const poteeY = evalManuaePoint(poteeX, poteeZ).h;
@@ -1368,10 +1449,10 @@ export function createDetailedIslandAssembly(islandId) {
     potee.rotation.y = -poteeTheta;
 
     const coralPlinth = new THREE.Mesh(
-      new THREE.BoxGeometry(4.3, 0.44, 7.6),
+      new THREE.BoxGeometry(4.4, 1.35, 7.7),
       coralStoneMat
     );
-    coralPlinth.position.y = 0.2;
+    coralPlinth.position.y = -0.25;
     potee.add(coralPlinth);
 
     const postGeo = new THREE.CylinderGeometry(0.11, 0.13, 1.55, 6);
@@ -1402,19 +1483,21 @@ export function createDetailedIslandAssembly(islandId) {
 
     // 6b. 5 Woven-Thatch Village Dwellings & Pearl-Diver Sheds along the Coral-Sand Clearing
     const fareDefs = [
-      [33.4, -0.5, 0.96, 0.08, true],
-      [35.2, -0.68, 1.04, -0.06, false],
-      [33.6, -1.16, 1.0, 0.05, true],
-      [35.6, -1.33, 0.92, -0.1, false],
-      [34.2, -1.52, 0.88, 0.12, true],
+      [-1.16, 7.5, 0.96, 0.08, true],
+      [-1.24, 10.0, 1.04, -0.06, false],
+      [-1.44, 8.0, 1.0, 0.05, true],
+      [-1.53, 10.5, 0.92, -0.1, false],
+      [-1.62, 8.2, 0.88, 0.12, true],
     ];
-    const farePlinthGeo = new THREE.BoxGeometry(2.85, 0.28, 3.65);
+    const farePlinthGeo = new THREE.BoxGeometry(2.9, 1.1, 3.7);
     const fareWallGeo = new THREE.BoxGeometry(2.45, 1.38, 3.25);
     const fareRoofGeo = new THREE.ConeGeometry(2.48, 1.78, 4);
 
-    for (const [fr, fang, fscale, yawJitter, warmRoof] of fareDefs) {
+    for (const [fang, innerOff, fscale, yawJitter, warmRoof] of fareDefs) {
+      const fr = evalManuaeGeometryProfile(fang).innerToeR + innerOff;
       const fx = fr * Math.cos(fang);
       const fz = fr * Math.sin(fang);
+      if (!manuaeIsClear(fx, fz)) continue;
       const fy = evalManuaePoint(fx, fz).h;
 
       const fare = new THREE.Group();
@@ -1423,7 +1506,7 @@ export function createDetailedIslandAssembly(islandId) {
       fare.scale.setScalar(fscale);
 
       const plinth = new THREE.Mesh(farePlinthGeo, weatheredCoralMat);
-      plinth.position.y = 0.12;
+      plinth.position.y = -0.28;
       fare.add(plinth);
 
       const walls = new THREE.Mesh(fareWallGeo, wovenReedMat);
@@ -1436,15 +1519,15 @@ export function createDetailedIslandAssembly(islandId) {
       );
       roof.position.y = 2.38;
       roof.rotation.y = Math.PI * 0.25;
-       roof.scale.set(1.0, 1.0, 1.24);
+      roof.scale.set(1.0, 1.0, 1.24);
       fare.add(roof);
 
       group.add(fare);
     }
 
     // 6c. Timber Lagoon Pier on Pilings Extending into the Turquoise Shallows
-    const pierTheta = -0.78;
-    const pierCenterR = 26.8;
+    const pierTheta = -1.28;
+    const pierCenterR = evalManuaeGeometryProfile(pierTheta).innerToeR - 3.2;
     const pier = new THREE.Group();
     pier.position.set(
       pierCenterR * Math.cos(pierTheta),
@@ -1454,14 +1537,14 @@ export function createDetailedIslandAssembly(islandId) {
     pier.rotation.y = -pierTheta;
 
     const pierDeck = new THREE.Mesh(
-      new THREE.BoxGeometry(8.8, 0.2, 1.58),
+      new THREE.BoxGeometry(10.5, 0.22, 1.75),
       aitoTimberMat
     );
     pier.add(pierDeck);
 
-    const pilingGeo = new THREE.CylinderGeometry(0.1, 0.12, 1.1, 6);
-    for (const lx of [-3.8, -1.9, 0.0, 1.9, 3.8]) {
-      for (const lz of [-0.62, 0.62]) {
+    const pilingGeo = new THREE.CylinderGeometry(0.11, 0.13, 1.15, 6);
+    for (const lx of [-4.4, -2.2, 0.0, 2.2, 4.4]) {
+      for (const lz of [-0.68, 0.68]) {
         const pile = new THREE.Mesh(pilingGeo, aitoTimberMat);
         pile.position.set(lx, -0.45, lz);
         pier.add(pile);
@@ -1470,18 +1553,19 @@ export function createDetailedIslandAssembly(islandId) {
     group.add(pier);
 
     // 6d. Two Traditional Lagoon Outrigger Canoes (Va'a): One Moored at Pier, One Beached
+    const moorR = evalManuaeGeometryProfile(pierTheta + 0.08).innerToeR - 7.5;
     addLagoonOutriggerCanoe(
       group,
       canoeHullMat,
       aitoTimberMat,
-      24.4 * Math.cos(pierTheta + 0.07),
+      moorR * Math.cos(pierTheta + 0.08),
       0.32,
-      24.4 * Math.sin(pierTheta + 0.07),
+      moorR * Math.sin(pierTheta + 0.08),
       -pierTheta + Math.PI * 0.5,
       1.0
     );
-    const beachCanoeTheta = -1.05;
-    const beachCanoeR = 30.8;
+    const beachCanoeTheta = -1.42;
+    const beachCanoeR = evalManuaeGeometryProfile(beachCanoeTheta).innerToeR + 2.8;
     const bcx = beachCanoeR * Math.cos(beachCanoeTheta);
     const bcz = beachCanoeR * Math.sin(beachCanoeTheta);
     addLagoonOutriggerCanoe(
@@ -1496,17 +1580,13 @@ export function createDetailedIslandAssembly(islandId) {
     );
 
     // 6e. Pass-Point Coral-Slab Marae (Sculpted Stepped White-Coral Ahu & Upright Orthostats)
-    const maraeTheta = -0.37;
-    const maraeR = 36.2;
-    const mx = maraeR * Math.cos(maraeTheta);
-    const mz = maraeR * Math.sin(maraeTheta);
-    const my = evalManuaePoint(mx, mz).h;
+    const my = evalManuaePoint(MANUAE_MARAE_X, MANUAE_MARAE_Z).h;
     addMaraePlatform(group, trackMat, {
-      x: mx,
+      x: MANUAE_MARAE_X,
       y: my,
-      z: mz,
-      rotY: -maraeTheta,
-      scale: 0.64,
+      z: MANUAE_MARAE_Z,
+      rotY: -MANUAE_MARAE_THETA,
+      scale: 0.78,
       courtHex: 0xbab09c,
       ahuHex: 0xe6decb,
     });
@@ -1523,10 +1603,11 @@ export function createDetailedIslandAssembly(islandId) {
     );
 
     // 6f. Pearl-Shell Drying Racks & Glowing Coral-Ring Village Hearth (Ahi)
-    for (const rTheta of [-0.61, -0.85]) {
-      const rr = 31.8;
+    for (const rTheta of [-1.2, -1.5]) {
+      const rr = evalManuaeGeometryProfile(rTheta).innerToeR + 4.8;
       const rx = rr * Math.cos(rTheta);
       const rz = rr * Math.sin(rTheta);
+      if (!manuaeIsClear(rx, rz)) continue;
       const ry = evalManuaePoint(rx, rz).h;
       const rack = new THREE.Group();
       rack.position.set(rx, ry, rz);
@@ -1563,24 +1644,31 @@ export function createDetailedIslandAssembly(islandId) {
     }
 
     // 6g. Sculpted Giant Pearl Shells resting across Manuae's Pearl Shallows & Coral Lagoon Cove
-    const giantShellSpots = [
+    const giantShellSpecs = [
       // Wild Seabird Rookery & Pearl Shallows (Motu 1 inner lagoon beach)
-      { r: 29.8, theta: -0.52, mode: 'open_pearl', pearlType: 'cream', scale: 0.88, openAngle: 0.82, rotY: 2.35 },
-      { r: 28.4, theta: -0.58, mode: 'open_pearl', pearlType: 'black', scale: 0.72, openAngle: 0.72, rotY: 2.85 },
-      { r: 30.6, theta: -0.46, mode: 'single_valve', scale: 0.68, rotY: 1.92 },
-      { r: 27.6, theta: -0.66, mode: 'open', scale: 0.76, openAngle: 0.64, rotY: 2.55 },
-      { r: 31.2, theta: -0.74, mode: 'open_pearl', pearlType: 'gold', scale: 0.64, openAngle: 0.78, rotY: 2.15 },
-      // Shallow lagoon coral sandbar near Navigator's Ring
-      { r: 22.8, theta: -0.38, mode: 'open_pearl', pearlType: 'black', scale: 0.84, openAngle: 0.85, rotY: 1.65 },
-      { r: 21.4, theta: -0.44, mode: 'single_valve', scale: 0.62, rotY: 0.95 },
+      { innerOff: 2.8, theta: -0.46, mode: 'open_pearl', pearlType: 'cream', scale: 0.92, openAngle: 0.82, rotY: 2.35 },
+      { innerOff: 0.6, theta: -0.51, mode: 'open_pearl', pearlType: 'black', scale: 0.78, openAngle: 0.72, rotY: 2.85 },
+      { innerOff: 4.0, theta: -0.41, mode: 'single_valve', scale: 0.72, rotY: 1.92 },
+      { innerOff: -0.4, theta: -0.61, mode: 'open', scale: 0.8, openAngle: 0.64, rotY: 2.55 },
+      { innerOff: 3.4, theta: -0.66, mode: 'open_pearl', pearlType: 'gold', scale: 0.68, openAngle: 0.78, rotY: 2.15 },
       // Motu 5 Calm Lagoon Cove & Motu Palm Shelter flats
-      { r: 30.8, theta: 0.38, mode: 'open_pearl', pearlType: 'cream', scale: 0.82, openAngle: 0.8, rotY: -2.1 },
-      { r: 29.5, theta: 0.48, mode: 'open', scale: 0.7, openAngle: 0.68, rotY: -2.55 },
-      { r: 31.6, theta: 0.62, mode: 'open_pearl', pearlType: 'black', scale: 0.74, openAngle: 0.76, rotY: -1.75 },
+      { innerOff: 2.2, theta: 0.65, mode: 'open_pearl', pearlType: 'cream', scale: 0.85, openAngle: 0.8, rotY: -2.1 },
+      { innerOff: 0.2, theta: 0.7, mode: 'open', scale: 0.72, openAngle: 0.68, rotY: -2.55 },
+      { innerOff: 2.5, theta: 0.76, mode: 'open_pearl', pearlType: 'black', scale: 0.76, openAngle: 0.76, rotY: -1.75 },
     ];
+    const giantShellSpots = giantShellSpecs.map((sp) => ({
+      ...sp,
+      r: evalManuaeGeometryProfile(sp.theta).innerToeR + sp.innerOff,
+    }));
+    // 2 shells resting directly on the central bleached-white lagoon Rookery Sandbar
+    giantShellSpots.push(
+      { r: 16.8, theta: -2.28, mode: 'open_pearl', pearlType: 'black', scale: 0.88, openAngle: 0.85, rotY: 1.65 },
+      { r: 14.5, theta: -2.42, mode: 'single_valve', scale: 0.68, rotY: 0.95 }
+    );
     for (const sp of giantShellSpots) {
       const sx = sp.r * Math.cos(sp.theta);
       const sz = sp.r * Math.sin(sp.theta);
+      if (!manuaeIsClear(sx, sz, 1.5)) continue;
       const sy = Math.max(-0.14, evalManuaePoint(sx, sz).h);
       const gs = createGiantPearlShellGroup(trackMat, {
         mode: sp.mode,
@@ -1595,8 +1683,8 @@ export function createDetailedIslandAssembly(islandId) {
       group.add(gs.group);
     }
 
-    const hearthTheta = -0.99;
-    const hearthR = 32.2;
+    const hearthTheta = -1.32;
+    const hearthR = evalManuaeGeometryProfile(hearthTheta).innerToeR + 6.5;
     const hrx = hearthR * Math.cos(hearthTheta);
     const hrz = hearthR * Math.sin(hearthTheta);
     const hry = evalManuaePoint(hrx, hrz).h;
@@ -1608,53 +1696,55 @@ export function createDetailedIslandAssembly(islandId) {
     const palmSites = [];
     const scrubSites = [];
 
-    const motuSampleRings = [
-      // Motu 1 (Main Village Crescent: behind huts, flanking village, and pass shoulder)
-      [-0.32, 37.8, 1.05, 0.28],
-      [-0.43, 38.4, 1.12, 0.22],
-      [-0.56, 37.9, 1.08, 0.18],
-      [-0.64, 39.2, 0.96, 0.2],
-      [-0.76, 38.2, 1.15, 0.17],
-      [-0.88, 38.8, 1.1, 0.22],
-      [-1.02, 38.4, 1.14, 0.19],
-      [-1.12, 31.6, 0.94, 0.32],
-      [-1.24, 38.0, 1.08, 0.21],
-      [-1.38, 37.6, 1.12, 0.24],
-      [-1.46, 32.2, 0.92, 0.3],
-      [-1.62, 37.2, 1.06, 0.22],
-      [-1.76, 35.8, 1.0, 0.26],
-      [-1.9, 36.8, 1.04, 0.2],
-      [-2.04, 36.2, 0.95, 0.25],
+    const motuSampleAngles = [
+      // Motu 1 (Main Village Crescent)
+      [-0.32, 0.2, 1.05, 0.28],
+      [-0.43, 1.0, 1.12, 0.22],
+      [-0.56, 0.2, 1.08, 0.18],
+      [-0.64, 1.8, 0.96, 0.2],
+      [-0.76, 0.4, 1.15, 0.17],
+      [-0.88, 1.4, 1.1, 0.22],
+      [-1.02, 0.6, 1.14, 0.19],
+      [-1.12, -4.5, 0.94, 0.32],
+      [-1.24, 1.6, 1.08, 0.21],
+      [-1.38, 1.2, 1.12, 0.24],
+      [-1.46, -4.0, 0.92, 0.3],
+      [-1.62, 0.8, 1.06, 0.22],
+      [-1.76, -1.0, 1.0, 0.26],
+      [-1.9, 0.6, 1.04, 0.2],
+      [-2.04, 0.0, 0.95, 0.25],
       // Motu 2 (Far Rookery Islet)
-      [-2.44, 36.8, 0.96, 0.24],
-      [-2.58, 37.6, 1.06, 0.2],
-      [-2.72, 36.4, 1.02, 0.26],
-      [-2.88, 37.2, 0.92, 0.22],
+      [-2.44, 0.2, 0.96, 0.24],
+      [-2.58, 1.2, 1.06, 0.2],
+      [-2.72, -0.4, 1.02, 0.26],
+      [-2.88, 0.8, 0.92, 0.22],
       // Motu 3 (Leeward Coconut Islet)
-      [2.38, 36.8, 0.98, 0.24],
-      [2.54, 37.8, 1.1, 0.2],
-      [2.68, 36.5, 1.04, 0.27],
-      [2.84, 37.5, 0.94, 0.22],
-      [2.94, 36.8, 0.88, 0.25],
+      [2.38, 0.2, 0.98, 0.24],
+      [2.54, 1.4, 1.1, 0.2],
+      [2.68, -0.3, 1.04, 0.27],
+      [2.84, 1.0, 0.94, 0.22],
+      [2.94, 0.2, 0.88, 0.25],
       // Motu 4 (Pandanus Islet)
-      [1.18, 37.8, 0.96, 0.25],
-      [1.34, 38.8, 1.08, 0.2],
-      [1.48, 37.4, 1.12, 0.26],
-      [1.64, 38.6, 1.02, 0.21],
-      [1.78, 37.6, 0.98, 0.24],
-      [1.9, 38.2, 0.9, 0.22],
+      [1.18, 0.4, 0.96, 0.25],
+      [1.34, 1.6, 1.08, 0.2],
+      [1.48, -0.2, 1.12, 0.26],
+      [1.64, 1.2, 1.02, 0.21],
+      [1.78, 0.2, 0.98, 0.24],
+      [1.9, 0.8, 0.9, 0.22],
       // Motu 5 (Port Pass-Shoulder Islet)
-      [0.34, 38.6, 1.04, 0.3],
-      [0.46, 39.4, 1.12, 0.22],
-      [0.58, 38.2, 1.06, 0.26],
-      [0.72, 39.0, 0.98, 0.2],
-      [0.82, 38.4, 0.9, 0.24],
+      [0.34, 0.8, 1.04, 0.3],
+      [0.46, 2.0, 1.12, 0.22],
+      [0.58, 0.6, 1.06, 0.26],
+      [0.72, 1.6, 0.98, 0.2],
+      [0.82, 0.4, 0.9, 0.24],
     ];
 
-    for (let i = 0; i < motuSampleRings.length; i += 1) {
-      const [ang, rad, sc, lean] = motuSampleRings[i];
+    for (let i = 0; i < motuSampleAngles.length; i += 1) {
+      const [ang, rOff, sc, lean] = motuSampleAngles[i];
+      const rad = evalManuaeGeometryProfile(ang).ringR + rOff;
       const px = rad * Math.cos(ang);
       const pz = rad * Math.sin(ang);
+      if (!manuaeIsClear(px, pz)) continue;
       const py = evalManuaePoint(px, pz).h;
       if (py > 0.75) {
         palmSites.push([
@@ -1679,9 +1769,10 @@ export function createDetailedIslandAssembly(islandId) {
     ];
     for (let i = 0; i < scrubAngles.length; i += 1) {
       const sang = scrubAngles[i];
-      const srad = 39.2 + ((i % 3) - 1) * 1.35;
+      const srad = evalManuaeGeometryProfile(sang).ringR + 2.4 + ((i % 3) - 1) * 1.8;
       const sx = srad * Math.cos(sang);
       const sz = srad * Math.sin(sang);
+      if (!manuaeIsClear(sx, sz)) continue;
       const sy = evalManuaePoint(sx, sz).h;
       if (sy > 1.05) {
         scrubSites.push([
@@ -1700,7 +1791,7 @@ export function createDetailedIslandAssembly(islandId) {
       hexB: 0x447c2e,
     });
 
-    return { group, materials, sinkDepthM: 12.5 };
+    return { group, materials, sinkDepthM: 24.0 };
   }
 
   // =========================================================================
@@ -1953,7 +2044,7 @@ const ISLAND_SHORE_RADIUS_M = Object.freeze({
   raiatea: 80.5,
   tahaa: 65.5,
   huahine: 63.5,
-  manuae: 41.5,
+  manuae: 65.5,
   moorea: 31.5,
   maupiti: 39.5,
   nuku_hiva: 28.5,
