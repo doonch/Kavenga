@@ -187,12 +187,13 @@ function evalTahaaPoint(x, z) {
 
   // Gentle walkable eastern ridge face (theta ~ -0.18 rad -> world +X/+Z) leading smoothly to hilltop
   const rampAngDiff = Math.abs(Math.atan2(Math.sin(theta + 0.18), Math.cos(theta + 0.18)));
-  if (rampAngDiff < 0.82 && u < 0.98) {
-    const angMask = smoothstep(0.82, 0.25, rampAngDiff);
-    const rampT = clamp01((inland - 0.02) / 0.80);
-    const rampProfile = lerp(0.8, 23.5, rampT);
-    const rampBlend = angMask * smoothstep(0.98, 0.88, u);
-    h = lerp(h, rampProfile, rampBlend * 0.96);
+  const angMask =
+    rampAngDiff < 0.95 && u < 0.99 ? smoothstep(0.95, 0.30, rampAngDiff) : 0.0;
+  if (angMask > 0.0) {
+    const rampT = clamp01((inland - 0.01) / 0.86);
+    const rampProfile = lerp(0.5, 23.5, rampT);
+    const rampBlend = angMask * smoothstep(0.99, 0.88, u);
+    h = lerp(h, rampProfile, rampBlend * 0.98);
   }
 
   // Level summit clearing at the top of Taha'a for the Observation Knoll
@@ -203,10 +204,11 @@ function evalTahaaPoint(x, z) {
   }
 
   // Wide, tranquil cream-sand beaches wrapping deep inside all 5 sheltered bays
+  // (Suppressed along the walkable hillside ramp so no cliff step forms at the trailhead)
   const isBeachCove = bayLobe < 0.38;
-  if (isBeachCove && u > 0.78) {
+  if (isBeachCove && u > 0.78 && angMask < 0.98) {
     const beachT = smoothstep(0.78, 1.0, u);
-    h = lerp(h, 1.4 * (1.0 - beachT), 0.72);
+    h = lerp(h, 1.4 * (1.0 - beachT), 0.72 * (1.0 - angMask));
   }
 
   return {

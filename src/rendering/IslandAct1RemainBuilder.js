@@ -61,7 +61,7 @@ function evalHuahinePoint(x, z) {
     return { h, straitMask: 0.0, ridge: 0.0, inLagoon: false };
   }
 
-  const nuiPeak = 47.5 * gaussian2D(x, z, -1.5, -14.2, 15.2, 12.0, 0.18);
+  const nuiPeak = 26.5 * gaussian2D(x, z, -1.5, -14.2, 20.5, 16.5, 0.18);
   const itiPeak = 37.5 * gaussian2D(x, z, 2.2, 15.0, 13.8, 11.2, -0.22);
   const radialRibs =
     (0.5 + 0.5 * Math.cos(6.0 * theta + 0.5)) *
@@ -73,6 +73,23 @@ function evalHuahinePoint(x, z) {
   const landH = coastalApron + nuiPeak + itiPeak + radialRibs;
 
   let h = lerp(landH, 0.19, straitMask);
+
+  // Gentle walkable southern/front hillside ramp on Huahine Nui leading to the summit knoll
+  const nuiLatDist = Math.abs(z + 14.2);
+  if (x > -2.5 && x < 32.5 && nuiLatDist < 12.5 && straitMask < 0.25) {
+    const latMask = smoothstep(12.5, 4.5, nuiLatDist);
+    const rampT = clamp01((31.0 - x) / 32.5);
+    const rampProfile = lerp(2.2, 27.0, rampT);
+    const rampBlend = latMask * smoothstep(32.5, 27.5, x) * (1.0 - straitMask);
+    h = lerp(h, rampProfile, rampBlend * 0.94);
+  }
+
+  // Level summit clearing atop Huahine Nui for the Observation Knoll
+  const nuiSummitDist = Math.hypot(x + 1.5, z + 14.2);
+  if (nuiSummitDist < 5.0) {
+    h = lerp(h, 27.0, smoothstep(5.0, 2.6, nuiSummitDist));
+  }
+
   h = lerp(h, -2.3, passMask);
 
   return {

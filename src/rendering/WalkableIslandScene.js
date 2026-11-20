@@ -296,11 +296,26 @@ export class WalkableIslandScene {
           new THREE.Vector3(11.5, 0, 13.5),
           new THREE.Vector3(3.4, 0, 5.0),
         ],
-        steps: 28,
+        steps: 34,
         torches: [
           [14.0, 38.2],
           [18.2, 22.0],
           [4.8, 6.2],
+        ],
+      },
+      huahine: {
+        waypoints: [
+          new THREE.Vector3(24.5, 0, 42.5),
+          new THREE.Vector3(23.5, 0, 31.0),
+          new THREE.Vector3(22.8, 0, 19.0),
+          new THREE.Vector3(22.2, 0, 7.5),
+          new THREE.Vector3(22.0, 0, 1.0),
+        ],
+        steps: 34,
+        torches: [
+          [25.6, 41.5],
+          [24.2, 20.0],
+          [23.2, 2.2],
         ],
       },
       hawaii: {
