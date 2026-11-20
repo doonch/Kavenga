@@ -3481,6 +3481,20 @@ body {
   pointer-events: auto;
 }
 
+.onboarding-tour-layer.onboarding-interactive {
+  pointer-events: none;
+}
+
+.onboarding-tour-layer.onboarding-no-backdrop .onboarding-spotlight {
+  box-shadow:
+    0 0 0 2px #f4d35e,
+    0 0 24px rgba(244, 211, 94, 0.55);
+}
+
+.onboarding-tour-layer.onboarding-no-backdrop .onboarding-spotlight.no-target {
+  box-shadow: none;
+}
+
 .onboarding-spotlight {
   position: fixed;
   z-index: 641;
@@ -3589,6 +3603,19 @@ body {
   outline: 2px solid #f4d35e !important;
   outline-offset: 3px;
   box-shadow: 0 0 0 4px rgba(244, 211, 94, 0.24), 0 0 18px rgba(244, 211, 94, 0.35) !important;
+}
+
+.onboarding-highlight-pulse {
+  animation: onboardingSteerPulse 1.15s ease-in-out infinite;
+}
+
+@keyframes onboardingSteerPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 4px rgba(244, 211, 94, 0.32), 0 0 18px rgba(244, 211, 94, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgba(244, 211, 94, 0.55), 0 0 28px rgba(244, 211, 94, 0.85);
+  }
 }
 
 .lost-map-wrap {

@@ -10,12 +10,14 @@
 
 export const ONBOARDING_STORAGE_KEY = 'kavenga_onboarding_done_v1';
 export const SAILING_ONBOARDING_STORAGE_KEY = 'kavenga_sailing_onboarding_done_v1';
+export const TAHAA_CLOUD_TOUR_STORAGE_KEY = 'kavenga_tahaa_cloud_tour_done_v1';
 
 export function clearOnboardingDone() {
   try {
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem(ONBOARDING_STORAGE_KEY);
       localStorage.removeItem(SAILING_ONBOARDING_STORAGE_KEY);
+      localStorage.removeItem(TAHAA_CLOUD_TOUR_STORAGE_KEY);
     }
   } catch {
     // Ignore storage errors in restricted contexts
@@ -63,34 +65,29 @@ export const SAILING_TOUR_STEPS = Object.freeze([
     preferSide: 'center',
   },
   {
-    selector: '#hudChantBanner',
-    title: 'Route Chant',
-    body: "Follow your navigator's chant and cues here as each leg of the voyage unfolds.",
-    preferSide: 'bottom',
-  },
-  {
     selector: '.hud-trim-bar',
     title: 'Steering the Vaka',
-    body: 'Use A / D, Arrow keys, or these buttons to turn the steering sweep and lock your course.',
+    body: "These buttons turn your canoe - but right now you're in the right direction. Keep an eye out for a large, motionless cloud!",
     preferSide: 'top',
   },
+]);
+
+export const TAHAA_CLOUD_TOUR_STEPS = Object.freeze([
   {
-    selector: '#btnCameraView',
-    title: 'Views & Gaze',
-    body: 'Toggle Canoe / Deck View (V), drag to look around, or press X (astern) and Z (mast-top).',
+    selector: null,
+    title: "Taha'a's Peak Cloud",
+    body: 'See this large, motionless cloud? There must be an island there!',
     preferSide: 'bottom',
+    noBackdrop: true,
   },
   {
-    selector: '#btnFastForward',
-    title: 'Fast Wind',
-    body: 'Press F or click Fast Wind to speed up sailing once your course is set.',
-    preferSide: 'bottom',
-  },
-  {
-    selector: '#btnRecall',
-    title: 'Sand Recall',
-    body: 'Press R or click Recall anytime to review the shore sand lesson.',
-    preferSide: 'bottom',
+    selector: '#btnTrimPort',
+    title: 'Steer Toward the Cloud',
+    body: 'Hold the highlighted steering button until your canoe faces the motionless cloud.',
+    preferSide: 'top',
+    interactive: true,
+    noBackdrop: true,
+    hideNext: true,
   },
 ]);
 
@@ -112,6 +109,7 @@ export class OnboardingTourUI {
     this.open = false;
     this.stepIndex = 0;
     this._highlightedEl = null;
+    this._dynamicSelector = null;
 
     this._buildDOM();
   }
@@ -200,9 +198,21 @@ export class OnboardingTourUI {
     }
   }
 
+  isInteractiveStep() {
+    return Boolean(this.open && this.steps[this.stepIndex]?.interactive);
+  }
+
+  setDynamicTarget(selector) {
+    if (!this.open) return;
+    if (this._dynamicSelector === selector) return;
+    this._dynamicSelector = selector;
+    this._applyHighlightAndPosition();
+  }
+
   startIfFirstTime() {
     if (this.hasCompleted()) return false;
     this.stepIndex = 0;
+    this._dynamicSelector = null;
     this.open = true;
     this.rootEl.classList.remove('hidden');
     this._renderStep();
@@ -216,7 +226,9 @@ export class OnboardingTourUI {
 
   hide() {
     this.open = false;
-    this._syncHubVisibility();
+    this._dynamicSelector = null;
+    const layer = this.rootEl.querySelector('#onboardingTourLayer');
+    layer?.classList.remove('onboarding-interactive', 'onboarding-no-backdrop');
     this._syncHubVisibility();
     this._clearHighlight();
     this.rootEl.classList.add('hidden');
@@ -232,9 +244,37 @@ export class OnboardingTourUI {
 
   _clearHighlight() {
     if (this._highlightedEl) {
-      this._highlightedEl.classList.remove('onboarding-highlight');
+      this._highlightedEl.classList.remove(
+        'onboarding-highlight',
+        'onboarding-highlight-pulse'
+      );
       this._highlightedEl = null;
     }
+  }
+
+  _getActiveSelector() {
+    const step = this.steps[this.stepIndex];
+    if (!step) return null;
+    if (step.interactive && this._dynamicSelector) {
+      return this._dynamicSelector;
+    }
+    return step.selector;
+  }
+
+  _applyHighlightAndPosition() {
+    const step = this.steps[this.stepIndex];
+    if (!step) return;
+    this._clearHighlight();
+    const selector = this._getActiveSelector();
+    const target = selector ? document.querySelector(selector) : null;
+    if (target) {
+      target.classList.add('onboarding-highlight');
+      if (step.interactive) {
+        target.classList.add('onboarding-highlight-pulse');
+      }
+      this._highlightedEl = target;
+    }
+    this._positionCard();
   }
 
   _renderStep() {
@@ -244,12 +284,17 @@ export class OnboardingTourUI {
       return;
     }
 
+    const layer = this.rootEl.querySelector('#onboardingTourLayer');
+    layer?.classList.toggle('onboarding-interactive', Boolean(step.interactive));
+    layer?.classList.toggle('onboarding-no-backdrop', Boolean(step.noBackdrop));
+
     this.rootEl.querySelector('#onboardingTitle').textContent = step.title;
     this.rootEl.querySelector('#onboardingBody').textContent = step.body;
 
     const backBtn = this.rootEl.querySelector('#btnOnboardingBack');
     const nextBtn = this.rootEl.querySelector('#btnOnboardingNext');
     backBtn.classList.toggle('hidden', this.stepIndex === 0);
+    nextBtn.classList.toggle('hidden', Boolean(step.hideNext));
     nextBtn.textContent =
       this.stepIndex + 1 >= this.steps.length ? 'Got It' : 'Next';
 
@@ -262,14 +307,7 @@ export class OnboardingTourUI {
     }
 
     this._syncHubVisibility();
-    this._clearHighlight();
-    const target = step.selector ? document.querySelector(step.selector) : null;
-    if (target) {
-      target.classList.add('onboarding-highlight');
-      this._highlightedEl = target;
-    }
-
-    this._positionCard();
+    this._applyHighlightAndPosition();
     if (typeof requestAnimationFrame === 'function') {
       requestAnimationFrame(() => {
         if (this.open) this._positionCard();
@@ -283,7 +321,8 @@ export class OnboardingTourUI {
     const step = this.steps[this.stepIndex];
     if (!card || !step) return;
 
-    const target = step.selector ? document.querySelector(step.selector) : null;
+    const selector = this._getActiveSelector();
+    const target = selector ? document.querySelector(selector) : null;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const margin = 14;

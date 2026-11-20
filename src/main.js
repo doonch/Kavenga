@@ -66,6 +66,8 @@ import {
   OnboardingTourUI,
   SAILING_ONBOARDING_STORAGE_KEY,
   SAILING_TOUR_STEPS,
+  TAHAA_CLOUD_TOUR_STEPS,
+  TAHAA_CLOUD_TOUR_STORAGE_KEY,
 } from './ui/OnboardingTourUI.js';
 import { SailingHUD } from './ui/SailingHUD.js?v=20261119h';
 import { SkyVigilUI } from './ui/SkyVigilUI.js';
@@ -92,6 +94,7 @@ class KavengaApp {
     this.settingsRootEl = document.getElementById('island-settings-ui');
     this.onboardingRootEl = document.getElementById('onboarding-tour-ui');
     this.sailingTourRootEl = document.getElementById('sailing-tour-ui');
+    this.tahaaCloudTourRootEl = document.getElementById('tahaa-cloud-tour-ui');
     this.elderPromptRootEl = document.getElementById('elder-vigil-prompt-ui');
     this.achievementsRootEl = document.getElementById('achievements-ui');
 
@@ -117,7 +120,8 @@ class KavengaApp {
     this.achievementsManager = new AchievementsManager();
     this.oceanSim = new OceanSim();
     this.phase = 'shore';
-    this.sailingTourUI?.hide(); // 'shore' | 'sailing' | 'sky_vigil'
+    this.sailingTourUI?.hide();
+    this.tahaaCloudTourUI?.hide(); // 'shore' | 'sailing' | 'sky_vigil'
     this._enteredVigilFromWalkMode = false;
 
     // ~2.15s 3D Landfall Arrival Cinematic state (canoe glides to island edge; camera pulls back & up)
@@ -250,6 +254,13 @@ class KavengaApp {
       ariaLabel: 'Sailing Interface Tour',
       hideHubOnStepZero: false,
     });
+    this.tahaaCloudTourUI = new OnboardingTourUI(this.tahaaCloudTourRootEl, {
+      steps: TAHAA_CLOUD_TOUR_STEPS,
+      storageKey: TAHAA_CLOUD_TOUR_STORAGE_KEY,
+      ariaLabel: "Taha'a Cloud Tour",
+      hideHubOnStepZero: false,
+    });
+    this._tahaaCloudStep2Elapsed = 0;
 
     this.islandSettingsUI = new IslandSettingsUI(this.settingsRootEl, {
       getGameState: () => this.gameState,
@@ -949,6 +960,7 @@ class KavengaApp {
   } = {}) {
     this.phase = 'shore';
     this.sailingTourUI?.hide();
+    this.tahaaCloudTourUI?.hide();
     const newlyActivatedArrival = activateIslandArrivalObjective(
       this.gameState,
       this.gameState.currentIslandId
@@ -1204,6 +1216,7 @@ class KavengaApp {
   resetCampaignAndReload({ deleteAchievements = false } = {}) {
     this.onboardingTourUI?.hide();
     this.sailingTourUI?.hide();
+    this.tahaaCloudTourUI?.hide();
     clearOnboardingDone();
     this.islandSettingsUI.hide();
     this.achievementsUI.hideModal();
@@ -1224,6 +1237,7 @@ class KavengaApp {
   enterSkyVigil(opts = {}) {
     this.onboardingTourUI?.hide();
     this.sailingTourUI?.hide();
+    this.tahaaCloudTourUI?.hide();
     this._enteredVigilFromWalkMode = Boolean(this.walkableIslandScene.active);
     this.islandSettingsUI.hide();
     this.achievementsUI.hideModal();
@@ -1453,6 +1467,72 @@ class KavengaApp {
     this.cameraCtrl.resize(w, h);
   }
 
+  _updateTahaaCloudTour(dtSec) {
+    if (!this.tahaaCloudTourUI) return;
+    const canRun =
+      this.phase === 'sailing' &&
+      this.oceanSim.status === VoyageStatus.SAILING &&
+      !this.launchAnim.active &&
+      !this.landfallAnim.active &&
+      !this.sailingHud.pauseOpen &&
+      !this.sailingTourUI?.open;
+
+    if (!canRun) {
+      if (this.tahaaCloudTourUI.open) {
+        this.tahaaCloudTourUI.hide();
+      }
+      this._tahaaCloudStep2Elapsed = 0;
+      return;
+    }
+
+    const tahaaSlot = this.worldCues.islandSlots.find(
+      (s) => s.islandId === 'tahaa'
+    );
+
+    if (
+      !this.tahaaCloudTourUI.open &&
+      !this.tahaaCloudTourUI.hasCompleted() &&
+      this.oceanSim.song?.toIsland === 'tahaa' &&
+      tahaaSlot &&
+      tahaaSlot.peakAlpha >= 0.25
+    ) {
+      this._tahaaCloudStep2Elapsed = 0;
+      this.tahaaCloudTourUI.startIfFirstTime();
+    }
+
+    if (!this.tahaaCloudTourUI.open) {
+      this._tahaaCloudStep2Elapsed = 0;
+      return;
+    }
+
+    if (!this.tahaaCloudTourUI.isInteractiveStep()) {
+      this._tahaaCloudStep2Elapsed = 0;
+      return;
+    }
+
+    this._tahaaCloudStep2Elapsed += dtSec;
+
+    let targetBearingDeg = tahaaSlot?.lastBearingDeg;
+    if (!Number.isFinite(targetBearingDeg)) {
+      const tahaaPos = ISLANDS.tahaa?.simPos;
+      if (tahaaPos && this.oceanSim.pos) {
+        const dx = tahaaPos.x - this.oceanSim.pos.x;
+        const dy = tahaaPos.y - this.oceanSim.pos.y;
+        targetBearingDeg = posMod((Math.atan2(dx, dy) * 180.0) / Math.PI, 360.0);
+      }
+    }
+
+    if (!Number.isFinite(targetBearingDeg)) return;
+
+    const delta = wrapDeg180(targetBearingDeg - this.oceanSim.headingDeg);
+    const steerSelector = delta < 0 ? '#btnTrimPort' : '#btnTrimStarboard';
+    this.tahaaCloudTourUI.setDynamicTarget(steerSelector);
+
+    if (Math.abs(delta) <= 6.0 && this._tahaaCloudStep2Elapsed >= 0.9) {
+      this.tahaaCloudTourUI.finish();
+    }
+  }
+
   _animate(nowMs) {
     const dtSec = Math.min(0.1, Math.max(0.001, (nowMs - this._lastFrameMs) / 1000.0));
     this._lastFrameMs = nowMs;
@@ -1463,6 +1543,7 @@ class KavengaApp {
       this.oceanSim.status === VoyageStatus.SAILING &&
       !this.sailingHud.pauseOpen &&
       !this.sailingTourUI?.open &&
+      !(this.tahaaCloudTourUI?.open && !this.tahaaCloudTourUI.isInteractiveStep()) &&
       !this.launchAnim.active;
 
     if (this.phase === 'shore' && this.walkableIslandScene.active) {
@@ -1749,6 +1830,7 @@ class KavengaApp {
       this.landfallAnim.active ? this.landfallAnim : null,
       this.launchAnim.active ? this.launchAnim : null
     );
+    this._updateTahaaCloudTour(dtSec);
     this.skyDome.update(
       dtSec,
       this._elapsedAppSec,
