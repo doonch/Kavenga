@@ -325,9 +325,9 @@ for (const [wid, wSpec] of Object.entries(WALKABLE_ISLAND_SPECS)) {
 }
 
 assert(
-  OBJECTIVES_ORDER.length === 25 &&
+  OBJECTIVES_ORDER.length === 26 &&
     Object.keys(ISLAND_ARRIVAL_OBJECTIVE_MAP).length === 16,
-  'Expected 25 Campaign Objectives (16 island arrival + 9 item-retrieval/consecration quests)'
+  'Expected 26 Campaign Objectives (16 island arrival + 10 quest/sailing objectives)'
 );
 for (const [oid, obj] of Object.entries(OBJECTIVES)) {
   auditText(obj.title, `Objective ${oid}.title`);

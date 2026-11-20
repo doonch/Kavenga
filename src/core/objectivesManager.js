@@ -58,6 +58,9 @@ export function activateIslandArrivalObjective(gameState, islandId) {
   if (!gameState || !islandId) return [];
   ensureMaps(gameState);
   const activated = [];
+  if (islandId === 'tahaa') {
+    tryClear(gameState, 'sail_to_tahaa', null, false);
+  }
   const arrivalObjId = ISLAND_ARRIVAL_OBJECTIVE_MAP[islandId];
   if (arrivalObjId) {
     tryActivate(gameState, arrivalObjId, activated);
@@ -92,10 +95,15 @@ export function recordSanctuaryObjectiveProgress(
   if (islandId === 'raiatea') {
     if (q.raiatea_consecration) {
       tryClear(gameState, 'quest_kura_feathers_raiatea', cleared, false);
+      tryClear(gameState, 'sail_to_tahaa', cleared, false);
     } else {
+      if (!q.tahaa_visit && !gameState.discoveredIslands?.tahaa) {
+        tryActivate(gameState, 'sail_to_tahaa', activated);
+      }
       tryActivate(gameState, 'quest_kura_feathers_raiatea', activated);
     }
   } else if (islandId === 'tahaa') {
+    tryClear(gameState, 'sail_to_tahaa', cleared, false);
     if (q.tahaa_visit && !q.huahine_trade) {
       tryActivate(gameState, 'quest_kava_to_huahine', activated);
     }

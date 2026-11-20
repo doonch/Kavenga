@@ -160,11 +160,12 @@ class KavengaApp {
       sternBearingDeg: 180.0,
     };
 
-    // 2. Three.js Renderer & Scene
-    this.renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      powerPreference: 'high-performance',
-    });
+    // 2. Three.js Renderer & Scene (with lightweight fallback + recovery notice if browser blocks WebGL)
+    this.renderer = this._createWebGLRenderer();
+    if (!this.renderer) {
+      this._showWebGLErrorBanner();
+      return;
+    }
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = true;
@@ -1458,6 +1459,41 @@ class KavengaApp {
     } catch {
       // Ignore URL construction errors in non-standard environments
     }
+  }
+
+  _createWebGLRenderer() {
+    const attempts = [
+      { antialias: true, powerPreference: 'high-performance' },
+      { antialias: false, powerPreference: 'default' },
+    ];
+    for (const opts of attempts) {
+      try {
+        return new THREE.WebGLRenderer(opts);
+      } catch (err) {
+        console.warn('[Kavenga] WebGLRenderer init attempt failed:', opts, err);
+      }
+    }
+    return null;
+  }
+
+  _showWebGLErrorBanner() {
+    if (!this.container) return;
+    this.container.innerHTML = `
+      <div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#07131f;color:#f4efe6;padding:24px;z-index:999;font-family:system-ui,-apple-system,sans-serif;">
+        <div style="max-width:440px;background:rgba(11,23,34,0.96);border:1.5px solid rgba(244,211,94,0.6);border-radius:14px;padding:22px 24px;box-shadow:0 12px 32px rgba(0,0,0,0.6);">
+          <h3 style="margin:0 0 8px;color:#f4d35e;font-size:19px;">WebGL Context Unavailable</h3>
+          <p style="margin:0 0 14px;font-size:14px;line-height:1.45;color:#d6e4f0;">
+            Your browser temporarily blocked creating a 3D WebGL context (often after a previous GPU context loss or too many open 3D tabs).
+          </p>
+          <p style="margin:0 0 16px;font-size:13px;line-height:1.4;color:#9fb4c8;">
+            Try closing other tabs or restarting the browser, then click Retry.
+          </p>
+          <button type="button" onclick="window.location.reload()" style="background:#f4d35e;color:#0b1722;border:none;border-radius:8px;padding:9px 18px;font-weight:700;cursor:pointer;">
+            Retry
+          </button>
+        </div>
+      </div>
+    `;
   }
 
   _onResize() {

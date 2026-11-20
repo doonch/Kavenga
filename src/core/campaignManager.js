@@ -307,7 +307,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       title: 'Elder Metua at Marae Taputapuatea',
       speech:
         "Welcome to sacred Taputapuatea, young wayfinder. Sail first at Dawn toward Taha'a's motionless peak cloud (Song 1). Return here with Ceremonial Red Kura Feathers and a restored canoe to earn the outer chant to Maupiti.",
-      rewardsList: ['Active Goal: Sail Song 1 to Tahaʻa at Dawn.'],
+      rewardsList: [],
     };
   }
 

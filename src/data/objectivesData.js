@@ -79,6 +79,16 @@ export const OBJECTIVES = Object.freeze({
   // =========================================================================
   // ACT I — ITEM-RETRIEVAL & CONSECRATION QUESTS
   // =========================================================================
+  sail_to_tahaa: Object.freeze({
+    id: 'sail_to_tahaa',
+    kind: 'quest',
+    act: 1,
+    islandId: 'tahaa',
+    glyph: '⛵',
+    title: "Sail Song 1 to Taha'a at Dawn",
+    detail: "Set sail from Ra'iatea at Dawn toward Taha'a's motionless peak cloud.",
+  }),
+
   quest_kura_feathers_raiatea: Object.freeze({
     id: 'quest_kura_feathers_raiatea',
     kind: 'quest',
