@@ -594,12 +594,12 @@ function createPandanusRosetteGeometry() {
 
   // Spiraling sword-shaped pandanus blade strip
   const blade = new THREE.PlaneGeometry(0.18, 1.05, 1, 4);
-  blade.translate(0, 0.52, 0);
+  blade.translate(0, 0.525, 0);
   const bPos = blade.attributes.position;
   for (let i = 0; i < bPos.count; i += 1) {
     const x = bPos.getX(i);
     const y = bPos.getY(i);
-    const t = y / 1.05;
+    const t = clamp(y / 1.05, 0.0, 1.0);
     // Taper to pointed sword tip and arch gracefully outward
     const taper = Math.max(0.08, 1.0 - Math.pow(t, 1.6));
     const archZ = t * t * 0.34;

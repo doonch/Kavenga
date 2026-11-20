@@ -15,6 +15,7 @@ import {
   addCoconutGroves,
   addCoastalScrub,
   addMaraePlatform,
+  addOrganicBarrierReefArc,
   addOutriggerCanoe,
   addRegionalHuts,
   addStarStoneCircle,
@@ -23,6 +24,8 @@ import {
   buildPolarTerrainGeometry,
   clamp01,
   createMaterialTracker,
+  createOrganicLagoonGeometry,
+  createOrganicMotuGeometry,
   gaussian2D,
   lerp,
   mixRgb,
@@ -37,70 +40,111 @@ import {
 // ============================================================================
 // 1. HUAHINE — Twin Islands Split by Turquoise Maroe Strait + Stone Fish Traps
 // ============================================================================
+function evalHuahineCoastR(theta) {
+  const bayThetaDiff = Math.atan2(Math.sin(theta), Math.cos(theta));
+  const bayCarve = 22.5 * Math.exp(-Math.pow(bayThetaDiff / 0.56, 2.0));
+  return (
+    108.0 -
+    22.0 * Math.cos(2.0 * theta) -
+    bayCarve +
+    3.6 * Math.sin(3.0 * theta + 0.55) +
+    2.2 * Math.cos(4.0 * theta + 0.35) +
+    1.2 * Math.sin(5.0 * theta - 0.9)
+  );
+}
+
+function evalHuahineReefRadius(theta) {
+  const ax = 104.0;
+  const bz = 148.0;
+  const baseEllip =
+    (ax * bz) / Math.hypot(bz * Math.cos(theta), ax * Math.sin(theta));
+  return (
+    baseEllip +
+    6.8 * Math.cos(2.0 * theta - 0.55) +
+    5.2 * Math.sin(3.0 * theta + 0.7) +
+    3.6 * Math.cos(5.0 * theta - 1.0)
+  );
+}
+
+function evalHuahineStraitCenterZ(x) {
+  return 4.2 * Math.sin(x * 0.045 + 0.3) - 1.2;
+}
+
+function smoothMin(a, b, k) {
+  const hMix = clamp01(0.5 + 0.5 * ((b - a) / k));
+  return lerp(b, a, hMix) - k * hMix * (1.0 - hMix);
+}
+
 function evalHuahinePoint(x, z) {
   const r = Math.hypot(x, z);
   const theta = Math.atan2(z, x);
 
-  const coastR =
-    37.0 +
-    3.4 * Math.cos(2.0 * theta - 1.57) +
-    2.2 * Math.cos(4.0 * theta + 0.4) +
-    1.4 * Math.sin(6.0 * theta);
+  const coastR = evalHuahineCoastR(theta);
 
   // Winding Maroe Strait cutting cleanly between Huahine Nui (z < 0) & Huahine Iti (z > 0)
-  const straitCenterZ = 1.6 * Math.sin(x * 0.085) - 0.5;
+  const straitCenterZ = evalHuahineStraitCenterZ(x);
+  const straitHalfW = 3.5 + 0.8 * Math.cos(x * 0.06);
   const straitDist = Math.abs(z - straitCenterZ);
-  const straitMask = 1.0 - smoothstep(2.4, 5.8, straitDist);
+  const straitMask = 1.0 - smoothstep(straitHalfW, straitHalfW + 8.0, straitDist);
 
-  const passMask = arcMask(theta, 0.0, 0.16, 0.07) * smoothstep(22.0, 34.0, r);
+  const passMask =
+    arcMask(theta, 0.0, 0.22, 0.09) * smoothstep(61.5, 78.0, r);
 
   if (r > coastR) {
-    const outerReefR = 49.5 + 1.0 * Math.sin(4.0 * theta);
+    const outerReefR = evalHuahineReefRadius(theta);
     if (r <= outerReefR) {
-      const lagoonFloor = lerp(0.18, 0.24, smoothstep(coastR, outerReefR, r));
-      const h = lerp(lagoonFloor, -2.4, passMask);
-      return { h, straitMask: 0.0, ridge: 0.0, inLagoon: h > 0.05 };
+      const uBay = smoothstep(coastR, outerReefR, r);
+      const lagoonFloor = lerp(-0.1, 0.14, uBay);
+      const h = lerp(lagoonFloor, -2.8, passMask);
+      return { h, straitMask: 0.0, ridge: 0.0, inLagoon: h > 0.04 };
     }
-    const drop = smoothstep(outerReefR, 55.6, r);
-    const h = lerp(lerp(0.25, -2.4, passMask), -4.0, drop);
+    const drop = smoothstep(outerReefR, outerReefR + 12.0, r);
+    const h = lerp(lerp(0.18, -2.8, passMask), -4.5, drop);
     return { h, straitMask: 0.0, ridge: 0.0, inLagoon: false };
   }
 
-  const nuiPeak = 26.5 * gaussian2D(x, z, -1.5, -14.2, 20.5, 16.5, 0.18);
-  const itiPeak = 37.5 * gaussian2D(x, z, 2.2, 15.0, 13.8, 11.2, -0.22);
-  const radialRibs =
-    (0.5 + 0.5 * Math.cos(6.0 * theta + 0.5)) *
-    6.5 *
-    smoothstep(36.0, 20.0, r) *
-    (1.0 - straitMask);
+  // World-metric Lipschitz slopes via smoothMin of summit cone, strait ramp, and coast ramp:
+  // Every component keeps slope <= 0.86 so zero cliff walls form along bays or Maroe Strait.
+  const isNui = z < straitCenterZ;
+  const maxSummit = isNui ? 44.0 : 37.8;
+  const peakCone = isNui
+    ? Math.min(44.0, 48.0 - 0.62 * Math.hypot((x + 2.0) * 0.98, (z + 64.0) * 0.94))
+    : Math.min(37.8, 41.0 - 0.6 * Math.hypot((x - 4.0) * 0.98, (z - 62.0) * 0.94));
 
-  const coastalApron = 3.2 * smoothstep(coastR, coastR - 5.5, r);
-  const landH = coastalApron + nuiPeak + itiPeak + radialRibs;
+  const dStrait = Math.max(0.0, straitDist - straitHalfW);
+  const straitRamp = 0.16 + 0.785 * dStrait;
+  const coastRamp = 0.16 + 0.73 * Math.max(0.0, coastR - r);
 
-  let h = lerp(landH, 0.19, straitMask);
+  const boundedHill = smoothMin(
+    smoothMin(peakCone, straitRamp, 1.8),
+    coastRamp,
+    1.8
+  );
 
-  // Gentle walkable southern/front hillside ramp on Huahine Nui leading to the summit knoll
-  const nuiLatDist = Math.abs(z + 14.2);
-  if (x > -2.5 && x < 32.5 && nuiLatDist < 12.5 && straitMask < 0.25) {
-    const latMask = smoothstep(12.5, 4.5, nuiLatDist);
-    const rampT = clamp01((31.0 - x) / 32.5);
-    const rampProfile = lerp(2.2, 27.0, rampT);
-    const rampBlend = latMask * smoothstep(32.5, 27.5, x) * (1.0 - straitMask);
-    h = lerp(h, rampProfile, rampBlend * 0.94);
+  const ribEnv = smoothstep(6.0, 18.0, boundedHill) * smoothstep(38.0, 22.0, boundedHill);
+  const radialRibs = (0.5 + 0.5 * Math.cos(6.0 * theta + 0.5)) * 0.4 * ribEnv;
+
+  let h = clamp01((boundedHill + radialRibs) / maxSummit) * maxSummit;
+  h = Math.max(0.16, h);
+
+  // Gentle sandy village clearing around spawn/landing on Huahine Iti front cove
+  const spawnDist = Math.hypot(x - 64.0, z - 15.5);
+  if (spawnDist < 12.5) {
+    h = lerp(h, 1.35, smoothstep(12.5, 4.5, spawnDist) * 0.82);
   }
 
-  // Level summit clearing atop Huahine Nui for the Observation Knoll
-  const nuiSummitDist = Math.hypot(x + 1.5, z + 14.2);
-  if (nuiSummitDist < 5.0) {
-    h = lerp(h, 27.0, smoothstep(5.0, 2.6, nuiSummitDist));
+  // Fine level trim across Observation Knoll plateau (-2.0, -64.0)
+  const nuiSummitDist = Math.hypot(x + 2.0, z + 64.0);
+  if (nuiSummitDist < 7.5) {
+    h = lerp(h, 44.0, smoothstep(7.5, 5.2, nuiSummitDist));
   }
 
-  h = lerp(h, -2.3, passMask);
+  h = lerp(h, -2.5, passMask);
 
   return {
     h,
     straitMask,
-    ridge: clamp01(radialRibs / 6.5),
+    ridge: clamp01(radialRibs / 0.9),
     inLagoon: straitMask > 0.68 && h < 0.35,
   };
 }
@@ -120,14 +164,14 @@ function buildHuahineAssembly() {
 
   const terrainGeo = buildPolarTerrainGeometry({
     evalPoint: evalHuahinePoint,
-    maxRadius: 56.0,
-    nRings: 62,
-    nSegs: 96,
+    maxRadius: 158.0,
+    nRings: 92,
+    nSegs: 124,
     colorFn: (s, slope) => {
-      if (s.h < 0.06) {
-        return mixRgb(colLagoon, colDeepSea, clamp01(-s.h / 2.4));
+      if (s.h < 0.04) {
+        return mixRgb(colLagoon, colDeepSea, clamp01(-s.h / 2.8));
       }
-      if (s.inLagoon || s.h < 0.28) {
+      if (s.inLagoon || s.h < 0.26) {
         return s.straitMask > 0.4 ? colStraitJade : colLagoon;
       }
       if (s.h < 2.2 && slope < 0.75) {
@@ -136,10 +180,10 @@ function buildHuahineAssembly() {
       let rgb = mixRgb(
         colBreadfruit,
         colHighJungle,
-        smoothstep(4.0, 38.0, s.h)
+        smoothstep(5.0, 42.0, s.h)
       );
       rgb = mixRgb(rgb, colSunFern, s.ridge * 0.65);
-      rgb = mixRgb(rgb, colBasalt, smoothstep(1.05, 1.9, slope) * 0.75);
+      rgb = mixRgb(rgb, colBasalt, smoothstep(0.88, 1.55, slope) * 0.7);
       return rgb;
     },
   });
@@ -155,12 +199,15 @@ function buildHuahineAssembly() {
   terrainMesh.receiveShadow = true;
   group.add(terrainMesh);
 
+  // Translucent Organic Turquoise Lagoon & Contoured Barrier Reef with Te Ava Pass
   const lagoonMat = trackMat(
     new THREE.MeshBasicMaterial({ color: 0x26dbc5, depthWrite: false }),
-    0.42
+    0.44
   );
-  const lagoonDisc = new THREE.Mesh(new THREE.CircleGeometry(48.8, 52), lagoonMat);
-  lagoonDisc.rotation.x = -Math.PI * 0.5;
+  const lagoonDisc = new THREE.Mesh(
+    createOrganicLagoonGeometry(evalHuahineReefRadius, 108),
+    lagoonMat
+  );
   lagoonDisc.position.y = 0.255;
   group.add(lagoonDisc);
 
@@ -171,102 +218,132 @@ function buildHuahineAssembly() {
     new THREE.MeshBasicMaterial({ color: 0xf2fbff, depthWrite: false }),
     0.72
   );
-  addBarrierReefArc(group, reefMat, foamMat, 49.0, 0.26, Math.PI * 2.0 - 0.26, 40);
+  addOrganicBarrierReefArc(
+    group,
+    reefMat,
+    foamMat,
+    evalHuahineReefRadius,
+    0.26,
+    Math.PI * 2.0 - 0.26,
+    84
+  );
+
+  // Sculpted organic coral-sand motu islets flanking the reef rim
+  const huahineMotuSites = [];
+  for (const [mAng, rx, rz, seed] of [
+    [0.34, 9.6, 6.4, 2.1],
+    [-0.36, 9.0, 6.8, 5.4],
+    [2.68, 10.2, 6.2, 7.9],
+  ]) {
+    const mr = evalHuahineReefRadius(mAng) - 2.2;
+    const mx = mr * Math.cos(mAng);
+    const mz = mr * Math.sin(mAng);
+    const motu = new THREE.Mesh(
+      createOrganicMotuGeometry({ radiusX: rx, radiusZ: rz, height: 1.35, seed }),
+      reefMat
+    );
+    motu.position.set(mx, 0.34, mz);
+    motu.rotation.y = -mAng + Math.PI * 0.5;
+    group.add(motu);
+    huahineMotuSites.push([mx, mz, mAng]);
+  }
+
+  // Exclusion zones in canonical coordinates (approach rotY = -PI/2 -> cx = wz, cz = -wx)
+  const blockedZones = [
+    { x: -2.0, z: -64.0, r: 12.5 }, // Observation Knoll summit clearing
+    { x: 64.0, z: 15.5, r: 9.0 }, // Initial spawn beach clearing
+    { x: 58.0, z: 29.0, r: 7.5 }, // Maroe Bay Landing clearing
+    { x: 48.0, z: 36.5, r: 6.5 }, // Twin-Bay Sail Loft arrival clearing
+    { x: 50.0, z: -30.0, r: 7.5 }, // Elder Ari'i & Marae plaza clearing
+  ];
+  const isClear = (px, pz) => {
+    for (const bz of blockedZones) {
+      if (Math.hypot(px - bz.x, pz - bz.z) < bz.r) return false;
+    }
+    return true;
+  };
 
   // Ancient Maeva V-Shaped Basalt Stone Fish Traps (Pa I'a) in the Turquoise Channel
-  const basaltWeirMat = trackMat(
-    new THREE.MeshStandardMaterial({ color: 0x2f2d2b, roughness: 0.94 })
-  );
-  for (const [wx, wz, rot] of [
-    [29.5, -1.8, 0.15],
-    [25.0, 2.1, -0.2],
+  for (const [wx, wzOff, rot] of [
+    [42.0, -2.4, 0.14],
+    [28.0, 2.6, -0.22],
   ]) {
     const weir = createBasaltFishWeirGroup(trackMat);
-    weir.group.position.set(wx, 0.32, wz);
+    weir.group.position.set(wx, 0.32, evalHuahineStraitCenterZ(wx) + wzOff);
     weir.group.rotation.y = rot;
     group.add(weir.group);
   }
 
   // Ari'i's Twin-Bay Sail-Weaving Village & Stretched Golden Pandanus Sail Frames
   const hutSpots = [
-    [27.5, -0.38, 1.05, true],
-    [25.5, -0.54, 0.95, false],
-    [28.2, -0.66, 0.9, false],
-    [26.5, 0.42, 0.96, false],
-    [28.5, 0.56, 0.88, false],
-  ].map(([hr, hang, sc, longHouse]) => {
-    const hx = hr * Math.cos(hang);
-    const hz = hr * Math.sin(hang);
-    return {
-      x: hx,
-      y: Math.max(0.6, evalHuahinePoint(hx, hz).h),
-      z: hz,
-      rotY: -hang + Math.PI * 0.25,
-      scale: sc,
-      longHouse,
-    };
-  });
+    [42.5, 42.5, 1.06, true],
+    [52.5, 34.5, 0.96, false],
+    [41.0, 31.0, 0.92, false],
+    [44.5, -21.5, 0.98, false],
+    [54.5, -23.5, 0.9, false],
+  ].map(([hx, hz, sc, longHouse]) => ({
+    x: hx,
+    y: Math.max(0.65, evalHuahinePoint(hx, hz).h),
+    z: hz,
+    rotY: -Math.atan2(hz, hx) + Math.PI * 0.25,
+    scale: sc,
+    longHouse,
+  }));
   addRegionalHuts(group, trackMat, hutSpots, 'society');
 
-  for (const [sr, sang] of [
-    [29.8, -0.32],
-    [30.2, -0.46],
+  for (const [sx, sz] of [
+    [52.0, 30.5],
+    [53.0, 26.5],
   ]) {
-    const sx = sr * Math.cos(sang);
-    const sz = sr * Math.sin(sang);
     const sy = Math.max(0.55, evalHuahinePoint(sx, sz).h);
     const frame = createPandanusSailFrameGroup(trackMat, {
       sailColorHex: 0xe8cb88,
-      width: 2.6,
-      height: 1.7,
+      width: 2.7,
+      height: 1.75,
       arched: true,
     });
     frame.group.position.set(sx, sy, sz);
-    frame.group.rotation.y = -sang;
+    frame.group.rotation.y = -Math.atan2(sz, sx);
     group.add(frame.group);
   }
 
-  const mx = 28.5 * Math.cos(-0.82);
-  const mz = 28.5 * Math.sin(-0.82);
+  // Sacred Maeva / Taputapuatea stone marae terrace on Huahine Nui overlooking Maroe Bay
+  const mx = 46.0;
+  const mz = -34.0;
   addMaraePlatform(group, trackMat, {
     x: mx,
-    y: Math.max(0.8, evalHuahinePoint(mx, mz).h),
+    y: Math.max(0.85, evalHuahinePoint(mx, mz).h),
     z: mz,
-    rotY: 0.82,
-    scale: 0.78,
+    rotY: 0.72,
+    scale: 1.0,
   });
 
+  // Village Timber Lagoon Pier & Moored Outrigger Canoe beside Maroe Bay Landing
   addTimberPier(group, trackMat, {
-    x: 32.5 * Math.cos(-0.26),
+    x: 59.0,
     y: 0.68,
-    z: 32.5 * Math.sin(-0.26),
-    rotY: 0.26,
-    length: 6.8,
+    z: 29.0,
+    rotY: -Math.atan2(29.0, 59.0),
+    length: 8.5,
+    width: 1.65,
   });
 
   addOutriggerCanoe(group, trackMat, {
-    x: 33.8 * Math.cos(-0.19),
+    x: 67.0,
     y: 0.32,
-    z: 33.8 * Math.sin(-0.19),
-    rotY: 0.19 + Math.PI * 0.5,
+    z: 26.5,
+    rotY: -0.38 + Math.PI * 0.5,
   });
 
   const breadfruitPts = [];
-  for (const [br, bang] of [
-    [22.0, -0.45],
-    [20.5, -0.75],
-    [23.0, -1.15],
-    [21.5, 0.52],
-    [23.5, 0.88],
-    [20.0, 1.35],
-    [22.5, 2.45],
-    [21.0, -2.35],
-  ]) {
+  for (let i = 0; i < 20; i += 1) {
+    const bang = (i / 20) * Math.PI * 2.0 + 0.17;
+    const br = 44.0 + (i % 4) * 5.0;
     const bx = br * Math.cos(bang);
-    const bz = br * Math.sin(bang);
-    const by = evalHuahinePoint(bx, bz).h;
-    if (by > 1.8 && by < 16.0) {
-      breadfruitPts.push([bx, by - 0.2, bz, 0.95, bang]);
+    const bz = br * Math.sin(bang) / 0.78;
+    const sample = evalHuahinePoint(bx, bz);
+    if (sample.h > 1.8 && sample.h < 18.0 && sample.straitMask < 0.25 && isClear(bx, bz)) {
+      breadfruitPts.push([bx, sample.h - 0.2, bz, 0.96 + (i % 3) * 0.08, bang]);
     }
   }
   addBroadleafTrees(group, trackMat, breadfruitPts, {
@@ -275,20 +352,48 @@ function buildHuahineAssembly() {
   });
 
   const palmPts = [];
-  for (let i = 0; i < 24; i += 1) {
-    const ang = (i / 24) * Math.PI * 2.0 + 0.11;
+  for (let i = 0; i < 36; i += 1) {
+    const ang = (i / 36) * Math.PI * 2.0 + 0.09;
     if (Math.abs(Math.sin(ang)) < 0.14 && Math.cos(ang) > 0) continue;
-    const pr = 31.2 + (i % 3) * 1.4;
+    const pr = 60.0 + (i % 4) * 4.0;
     const px = pr * Math.cos(ang);
-    const pz = pr * Math.sin(ang);
-    const py = evalHuahinePoint(px, pz).h;
-    if (py > 0.55 && py < 9.5) {
-      palmPts.push([px, py - 0.15, pz, -ang, 0.92 + (i % 3) * 0.08, 0.22]);
+    const pz = (pr * Math.sin(ang)) / 0.76;
+    const sample = evalHuahinePoint(px, pz);
+    if (sample.h > 0.65 && sample.h < 11.0 && sample.straitMask < 0.3 && isClear(px, pz)) {
+      palmPts.push([px, sample.h - 0.16, pz, -ang, 0.94 + (i % 3) * 0.1, 0.22]);
     }
+  }
+  for (const [mox, moz, mang] of huahineMotuSites) {
+    palmPts.push([mox, 0.88, moz, -mang + 0.3, 0.92, 0.22]);
+    palmPts.push([
+      mox - 2.6 * Math.sin(mang),
+      0.85,
+      moz + 2.6 * Math.cos(mang),
+      -mang - 0.3,
+      0.84,
+      0.24,
+    ]);
   }
   addCoconutGroves(group, trackMat, palmPts);
 
-  return { group, materials, sinkDepthM: 54.0 };
+  const scrubPts = [];
+  for (let i = 0; i < 32; i += 1) {
+    const sang = (i / 32) * Math.PI * 2.0 + 0.24;
+    const sr = 58.0 + (i % 3) * 4.5;
+    const sx = sr * Math.cos(sang);
+    const sz = (sr * Math.sin(sang)) / 0.78;
+    const sample = evalHuahinePoint(sx, sz);
+    if (sample.h > 0.7 && sample.h < 10.5 && isClear(sx, sz)) {
+      const sc = 0.98 + (i % 3) * 0.24;
+      scrubPts.push([sx, sample.h - 0.08, sz, sc * 1.15, sc * 0.62, sc * 1.08, -sang]);
+    }
+  }
+  addCoastalScrub(group, trackMat, scrubPts, {
+    hexA: 0x2f6827,
+    hexB: 0x457d30,
+  });
+
+  return { group, materials, sinkDepthM: 86.0 };
 }
 
 // ============================================================================

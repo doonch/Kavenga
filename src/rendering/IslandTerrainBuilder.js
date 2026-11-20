@@ -1952,7 +1952,7 @@ export function getIslandApproachOrientationRad(islandId) {
 const ISLAND_SHORE_RADIUS_M = Object.freeze({
   raiatea: 80.5,
   tahaa: 65.5,
-  huahine: 35.5,
+  huahine: 63.5,
   manuae: 41.5,
   moorea: 31.5,
   maupiti: 39.5,

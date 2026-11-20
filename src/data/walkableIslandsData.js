@@ -26,6 +26,9 @@ export function canWalkIsland(islandId) {
 
 function makeStandardWalkableSpec({
   islandId,
+  canonicalScale,
+  gridHalfSpan,
+  gridN,
   solarHourBase = 9.25,
   canoe,
   spawn,
@@ -63,6 +66,9 @@ function makeStandardWalkableSpec({
 
   return Object.freeze({
     islandId,
+    ...(canonicalScale !== undefined ? { canonicalScale } : {}),
+    ...(gridHalfSpan !== undefined ? { gridHalfSpan } : {}),
+    ...(gridN !== undefined ? { gridN } : {}),
     walkSpeedMps: 6.8,
     sprintSpeedMps: 9.4,
     solarHourBase,
@@ -638,14 +644,17 @@ export const WALKABLE_ISLAND_SPECS = Object.freeze({
   // =========================================================================
   huahine: makeStandardWalkableSpec({
     islandId: 'huahine',
+    canonicalScale: 1.0,
+    gridHalfSpan: 178.0,
+    gridN: 240,
     solarHourBase: 16.4,
-    canoe: { x: -14.9, z: 58.0 },
-    spawn: { x: -8.5, z: 52.5 },
-    landing: { x: -13.5, z: 48.5 },
-    hut: { x: -27.0, z: 39.0 },
-    circle: { x: 22.0, z: -2.3 },
+    canoe: { x: -12.5, z: 71.5 },
+    spawn: { x: -15.5, z: 64.0 },
+    landing: { x: -29.0, z: 58.0 },
+    hut: { x: -36.5, z: 48.0 },
+    circle: { x: 64.0, z: -2.0 },
     circleLabel: 'Observation Knoll',
-    elder: { x: 27.0, z: 45.0 },
+    elder: { x: 30.0, z: 50.0 },
     landingLabel: 'Maroe Bay Landing',
     hutLabel: 'Twin-Bay Sail Loft',
     hutTitle: "Ari'i's Twin-Bay Sail & Ration Loft",
