@@ -125,6 +125,7 @@ export class WalkableIslandScene {
     this.poiBadgeEls = {};
     this.torchFlames = [];
     this.lagoonTerns = [];
+    this.birdPerchSpots = [];
     this.npcEntries = [];
     this.obstacles = [];
     this.peakCloudMat = null;
@@ -695,7 +696,8 @@ export class WalkableIslandScene {
       this.poiVisuals[poi.id] = { group: ringGrp, ringMat: outerMat, baseY: py };
     }
 
-    // 3 Graceful Sculpted Seabirds wheeling above the shore & cove
+    // 3 Graceful Sculpted Seabirds wheeling above the shore & cove (with land/stand/takeoff lifecycle)
+    this.birdPerchSpots = this._findPerchSpots();
     if (this.worldCues) {
       for (let i = 0; i < 3; i += 1) {
         const species = i === 1 ? 'brown_booby' : 'white_tern';
@@ -706,13 +708,319 @@ export class WalkableIslandScene {
         this.lagoonTerns.push({
           entry,
           group: entry.root,
+          scale: 1.25,
           cx: -4.0 + i * 14.0,
           cz: this.spec.mooredCanoe.z - 4.0 - i * 5.0,
           radius: 14.0 + i * 4.5,
           altY: 14.5 + i * 2.4,
           speed: 0.34 + i * 0.05,
           phase: i * 2.1,
+          orbitAngle: i * 2.1,
+          state: 'flying',
+          stateTimer: 3.5 + i * 4.5,
+          stateProgress: 0.0,
+          stateDur: 1.0,
+          perchSpot: null,
         });
+      }
+    }
+  }
+
+  _findPerchSpots() {
+    const spots = [];
+    const pois = this.spec?.pois || [];
+    const mc = this.spec?.mooredCanoe;
+    const minSpacingSq = 36.0; // >= 6m between perch spots
+
+    const tryCollect = (minH, maxH, maxSlope) => {
+      for (let z = 12.0; z <= 74.0; z += 4.0) {
+        for (let x = -44.0; x <= 44.0; x += 4.0) {
+          const h = this.getGroundHeight(x, z);
+          if (h < minH || h > maxH) continue;
+
+          const hx = Math.abs(this.getGroundHeight(x + 0.75, z) - this.getGroundHeight(x - 0.75, z)) / 1.5;
+          const hz = Math.abs(this.getGroundHeight(x, z + 0.75) - this.getGroundHeight(x, z - 0.75)) / 1.5;
+          if (Math.max(hx, hz) > maxSlope) continue;
+
+          if (mc && Math.hypot(x - mc.x, z - mc.z) < 6.0) continue;
+
+          let blocked = false;
+          for (const poi of pois) {
+            if (Math.hypot(x - poi.x, z - poi.z) < 4.5) {
+              blocked = true;
+              break;
+            }
+          }
+          if (blocked) continue;
+
+          for (const ob of this.obstacles) {
+            if (Math.hypot(x - ob.x, z - ob.z) < Math.max(3.0, ob.r + 1.8)) {
+              blocked = true;
+              break;
+            }
+          }
+          if (blocked) continue;
+
+          for (const s of spots) {
+            const dx = x - s.x;
+            const dz = z - s.z;
+            if (dx * dx + dz * dz < minSpacingSq) {
+              blocked = true;
+              break;
+            }
+          }
+          if (blocked) continue;
+
+          spots.push({ x, y: h, z, occupiedBy: null });
+          if (spots.length >= 6) return;
+        }
+      }
+    };
+
+    tryCollect(0.35, 6.5, 0.34);
+    if (spots.length < 3) {
+      tryCollect(0.25, 14.0, 0.5);
+    }
+    return spots;
+  }
+
+  _updateLagoonBirds(dt, elapsedSec) {
+    if (!this.lagoonTerns.length || !this.worldCues) return;
+
+    const lerpNum = (a, b, t) => a + (b - a) * t;
+    const smoothstep = (e0, e1, v) => {
+      const t = Math.max(0.0, Math.min(1.0, (v - e0) / (e1 - e0)));
+      return t * t * (3.0 - 2.0 * t);
+    };
+    const lerpAngle = (a, b, t) => {
+      const diff = Math.atan2(Math.sin(b - a), Math.cos(b - a));
+      return a + diff * t;
+    };
+
+    for (let i = 0; i < this.lagoonTerns.length; i += 1) {
+      const tb = this.lagoonTerns[i];
+      const entry = tb.entry;
+      const scale = tb.scale || 1.25;
+      const standOffsetY = (entry?.standFootHeight ?? 0.13) * scale;
+
+      const evalOrbit = (ang) => {
+        const ox = tb.cx + Math.cos(ang) * tb.radius;
+        const oy = tb.altY + Math.sin(ang * 2.0) * 0.65;
+        const oz = tb.cz + Math.sin(ang) * tb.radius;
+        const oyaw = Math.atan2(Math.sin(ang), -Math.cos(ang));
+        return { ox, oy, oz, oyaw };
+      };
+
+      if (tb.state === 'flying') {
+        tb.orbitAngle += tb.speed * dt;
+        const { ox, oy, oz, oyaw } = evalOrbit(tb.orbitAngle);
+        this.worldCues.animateSeabird(entry, elapsedSec, tb.phase, 1.0, null);
+        tb.group.position.set(ox, oy + (entry?.bobY ?? 0.0), oz);
+        tb.group.rotation.set(0.0, oyaw, 0.14);
+
+        tb.stateTimer -= dt;
+        if (tb.stateTimer <= 0.0 && this.birdPerchSpots.length > 0) {
+          const candidates = this.birdPerchSpots.filter(
+            (s) =>
+              !s.occupiedBy &&
+              Math.hypot(s.x - this.playerPos.x, s.z - this.playerPos.z) > 6.0
+          );
+          if (candidates.length > 0) {
+            const spot = candidates[(i + Math.floor(elapsedSec)) % candidates.length];
+            spot.occupiedBy = tb;
+            tb.perchSpot = spot;
+            const fX = -Math.sin(oyaw);
+            const fZ = -Math.cos(oyaw);
+            const targetY = spot.y + standOffsetY;
+            tb.startPos = { x: ox, y: oy, z: oz };
+            tb.descendCtrl = {
+              x: ox + fX * 8.5,
+              y: lerpNum(oy, targetY, 0.28),
+              z: oz + fZ * 8.5,
+            };
+            tb.startYaw = oyaw;
+            tb.landYaw = Math.atan2(-(spot.x - tb.descendCtrl.x), -(spot.z - tb.descendCtrl.z));
+            tb.state = 'descending';
+            tb.stateProgress = 0.0;
+            tb.stateDur = 3.0;
+          } else {
+            tb.stateTimer = 2.5;
+          }
+        }
+      } else if (tb.state === 'descending') {
+        tb.stateProgress += dt / tb.stateDur;
+        const u = Math.min(1.0, tb.stateProgress);
+        const omt = 1.0 - u;
+        const spot = tb.perchSpot;
+        const targetY = spot.y + standOffsetY;
+        const p0 = tb.startPos;
+        const p1 = tb.descendCtrl;
+
+        const px = omt * omt * p0.x + 2.0 * omt * u * p1.x + u * u * spot.x;
+        const py = omt * omt * p0.y + 2.0 * omt * u * p1.y + u * u * targetY;
+        const pz = omt * omt * p0.z + 2.0 * omt * u * p1.z + u * u * spot.z;
+
+        const vx = 2.0 * omt * (p1.x - p0.x) + 2.0 * u * (spot.x - p1.x);
+        const vz = 2.0 * omt * (p1.z - p0.z) + 2.0 * u * (spot.z - p1.z);
+        const yaw =
+          Math.hypot(vx, vz) > 1e-4 ? Math.atan2(-vx, -vz) : tb.landYaw;
+        tb.landYaw = yaw;
+
+        const legExtend = smoothstep(0.45, 0.92, u);
+        const standBlend = smoothstep(0.75, 1.0, u);
+        const foldBlend = smoothstep(0.84, 1.0, u);
+        const flarePitch = Math.sin(u * Math.PI) * 0.32;
+        const flapFade = 1.0 - foldBlend;
+
+        this.worldCues.animateSeabird(entry, elapsedSec, tb.phase, 1.0, {
+          standBlend,
+          legExtend,
+          foldBlend,
+          spreadBlend: 0.0,
+          flapSpeed: lerpNum(1.0, 1.38, smoothstep(0.4, 0.85, u)),
+          flapAmp: lerpNum(0.85, 1.18, smoothstep(0.4, 0.85, u)) * flapFade,
+          pitchRad: flarePitch * (1.0 - standBlend),
+          lookYawRad: 0.0,
+        });
+
+        tb.group.position.set(px, py + (entry?.bobY ?? 0.0), pz);
+        tb.group.rotation.set(0.0, yaw, 0.14 * (1.0 - smoothstep(0.0, 0.6, u)));
+
+        if (u >= 1.0) {
+          tb.state = 'standing';
+          tb.stateTimer = 5.5 + (i % 3) * 1.4;
+          tb.currentYaw = yaw;
+        }
+      } else if (tb.state === 'standing') {
+        const spot = tb.perchSpot;
+        const idleLook =
+          Math.sin(elapsedSec * 1.45 + tb.phase) * 0.28 +
+          Math.sin(elapsedSec * 0.55 + i) * 0.22;
+
+        this.worldCues.animateSeabird(entry, elapsedSec, tb.phase, 1.0, {
+          standBlend: 1.0,
+          legExtend: 1.0,
+          foldBlend: 1.0,
+          spreadBlend: 0.0,
+          flapSpeed: 1.0,
+          flapAmp: 0.0,
+          pitchRad: 0.0,
+          lookYawRad: idleLook,
+        });
+
+        tb.group.position.set(
+          spot.x,
+          spot.y + standOffsetY + (entry?.bobY ?? 0.0),
+          spot.z
+        );
+        tb.group.rotation.set(0.0, tb.currentYaw, 0.0);
+
+        const distToPlayer = Math.hypot(
+          this.playerPos.x - spot.x,
+          this.playerPos.z - spot.z
+        );
+        tb.stateTimer -= dt;
+        if (distToPlayer < 4.5 || tb.stateTimer <= 0.0) {
+          if (distToPlayer < 6.0) {
+            tb.takeoffYaw = Math.atan2(
+              -(spot.x - this.playerPos.x),
+              -(spot.z - this.playerPos.z)
+            );
+          } else {
+            tb.takeoffYaw = tb.currentYaw;
+          }
+          tb.state = 'spreading';
+          tb.stateProgress = 0.0;
+          tb.stateDur = 0.72;
+        }
+      } else if (tb.state === 'spreading') {
+        const spot = tb.perchSpot;
+        tb.stateProgress += dt / tb.stateDur;
+        const u = Math.min(1.0, tb.stateProgress);
+        const spreadBlend = smoothstep(0.05, 0.9, u);
+        const foldBlend = 1.0 - smoothstep(0.0, 0.75, u);
+        const crouchOffset = -Math.sin(u * Math.PI) * 0.025;
+        const yaw = lerpAngle(tb.currentYaw, tb.takeoffYaw, smoothstep(0.0, 0.8, u));
+
+        this.worldCues.animateSeabird(entry, elapsedSec, tb.phase, 1.0, {
+          standBlend: 1.0 - u * 0.45,
+          legExtend: 1.0,
+          foldBlend,
+          spreadBlend,
+          flapSpeed: 1.2,
+          flapAmp: 0.0,
+          pitchRad: 0.0,
+          lookYawRad: 0.0,
+        });
+
+        tb.group.position.set(spot.x, spot.y + standOffsetY + crouchOffset, spot.z);
+        tb.group.rotation.set(0.0, yaw, 0.0);
+
+        if (u >= 1.0) {
+          spot.occupiedBy = null;
+          const fX = -Math.sin(yaw);
+          const fZ = -Math.cos(yaw);
+          const startY = spot.y + standOffsetY;
+          const climbDur = 2.6;
+          // Choose an orbit re-entry angle roughly ahead of the bird's takeoff direction
+          const aheadX = spot.x + fX * 18.0;
+          const aheadZ = spot.z + fZ * 18.0;
+          tb.orbitAngle =
+            Math.atan2(aheadZ - tb.cz, aheadX - tb.cx) - tb.speed * climbDur * 0.35;
+          tb.startPos = { x: spot.x, y: startY, z: spot.z };
+          tb.climbCtrl = {
+            x: spot.x + fX * 13.0,
+            y: startY + 6.5,
+            z: spot.z + fZ * 13.0,
+          };
+          tb.startYaw = yaw;
+          tb.state = 'taking_off';
+          tb.stateProgress = 0.0;
+          tb.stateDur = climbDur;
+        }
+      } else if (tb.state === 'taking_off') {
+        tb.orbitAngle += tb.speed * dt;
+        tb.stateProgress += dt / tb.stateDur;
+        const u = Math.min(1.0, tb.stateProgress);
+        const omt = 1.0 - u;
+        const { ox, oy, oz } = evalOrbit(tb.orbitAngle);
+        const p0 = tb.startPos;
+        const p1 = tb.climbCtrl;
+
+        const hopLift = Math.sin(Math.min(1.0, u * 3.0) * Math.PI) * 0.35;
+        const px = omt * omt * p0.x + 2.0 * omt * u * p1.x + u * u * ox;
+        const py = omt * omt * p0.y + 2.0 * omt * u * p1.y + u * u * oy + hopLift;
+        const pz = omt * omt * p0.z + 2.0 * omt * u * p1.z + u * u * oz;
+
+        const vx = 2.0 * omt * (p1.x - p0.x) + 2.0 * u * (ox - p1.x);
+        const vz = 2.0 * omt * (p1.z - p0.z) + 2.0 * u * (oz - p1.z);
+        const yaw =
+          Math.hypot(vx, vz) > 1e-4 ? Math.atan2(-vx, -vz) : tb.startYaw;
+
+        const spreadBlend = 1.0 - smoothstep(0.0, 0.25, u);
+        const legExtend = 1.0 - smoothstep(0.12, 0.55, u);
+        const standBlend = 1.0 - smoothstep(0.0, 0.3, u);
+        const climbPitch = 0.24 * Math.sin(u * Math.PI);
+
+        this.worldCues.animateSeabird(entry, elapsedSec, tb.phase, 1.0, {
+          standBlend,
+          legExtend,
+          foldBlend: 0.0,
+          spreadBlend,
+          flapSpeed: lerpNum(1.45, 1.0, u),
+          flapAmp: lerpNum(1.25, 1.0, u) * (1.0 - spreadBlend * 0.65),
+          pitchRad: climbPitch,
+          lookYawRad: 0.0,
+        });
+
+        tb.group.position.set(px, py + (entry?.bobY ?? 0.0), pz);
+        tb.group.rotation.set(0.0, yaw, 0.14 * smoothstep(0.45, 1.0, u));
+
+        if (u >= 1.0) {
+          tb.perchSpot = null;
+          tb.state = 'flying';
+          tb.stateTimer = 10.5 + (i % 3) * 3.5;
+        }
       }
     }
   }
@@ -1154,19 +1462,7 @@ export class WalkableIslandScene {
       tf.mesh.position.y = tf.baseY + (flicker - 1.0) * 0.05;
     }
 
-    for (let i = 0; i < this.lagoonTerns.length; i += 1) {
-      const tb = this.lagoonTerns[i];
-      if (tb.entry && this.worldCues) {
-        this.worldCues.animateSeabird(tb.entry, elapsedSec, tb.phase, 1.0);
-      }
-      const ang = elapsedSec * tb.speed + tb.phase;
-      tb.group.position.set(
-        tb.cx + Math.cos(ang) * tb.radius,
-        tb.altY + Math.sin(ang * 2.0) * 0.65 + (tb.entry?.bobY ?? 0.0),
-        tb.cz + Math.sin(ang) * tb.radius
-      );
-      tb.group.rotation.y = Math.atan2(Math.sin(ang), -Math.cos(ang));
-    }
+    this._updateLagoonBirds(dt, elapsedSec);
 
     if (this.peakCloudMat && oceanSim?.sunState) {
       updateCloudMaterialUniforms(this.peakCloudMat, {

@@ -29,6 +29,14 @@ import {
   hasDetailedIslandModel,
 } from './IslandTerrainBuilder.js';
 
+function clamp01(v) {
+  return Math.max(0.0, Math.min(1.0, v));
+}
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
 function smoothstep(edge0, edge1, x) {
   if (Math.abs(edge1 - edge0) < 1e-6) {
     return x >= edge1 ? 1.0 : 0.0;
@@ -723,9 +731,27 @@ export class WorldCuesRenderer {
       return sGeo;
     };
 
-    const makeUniformColorFoot = (len, r, g, b) => {
-      const fGeo = new THREE.ConeGeometry(0.014, len, 5);
-      fGeo.rotateX(Math.PI * 0.5);
+    const makeUniformColorShaft = (topR, botR, len, r, g, b, rotX = 0, rotY = 0, ty = 0, tz = 0) => {
+      const fGeo = new THREE.CylinderGeometry(topR, botR, len, 5);
+      if (rotX) fGeo.rotateX(rotX);
+      if (rotY) fGeo.rotateY(rotY);
+      if (ty || tz) fGeo.translate(0, ty, tz);
+      const count = fGeo.attributes.position.count;
+      const cols = new Float32Array(count * 3);
+      for (let i = 0; i < count; i += 1) {
+        cols[i * 3] = r;
+        cols[i * 3 + 1] = g;
+        cols[i * 3 + 2] = b;
+      }
+      fGeo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+      return fGeo;
+    };
+
+    const makeWebbedFootGeo = (len, r, g, b) => {
+      const fGeo = new THREE.ConeGeometry(0.022, len, 3);
+      fGeo.scale(1.25, 1.0, 0.28);
+      fGeo.rotateX(-Math.PI * 0.5);
+      fGeo.translate(0, -0.002, -len * 0.42);
       const count = fGeo.attributes.position.count;
       const cols = new Float32Array(count * 3);
       for (let i = 0; i < count; i += 1) {
@@ -752,13 +778,15 @@ export class WorldCuesRenderer {
           ternWingColor
         ),
         eyeGeo: makeUniformColorSphere(0.0105, 0.04, 0.05, 0.07),
-        footGeo: makeUniformColorFoot(0.065, 0.24, 0.3, 0.42),
+        legGeo: makeUniformColorShaft(0.0068, 0.0052, 0.095, 0.24, 0.3, 0.42, 0, 0, -0.0475, 0),
+        footGeo: makeWebbedFootGeo(0.052, 0.24, 0.3, 0.42),
+        legLen: 0.095,
         shoulderX: 0.048,
         shoulderY: 0.022,
         shoulderZ: -0.008,
         wristX: 0.35,
         eyePos: { x: 0.035, y: 0.041, z: -0.222 },
-        footPos: { x: 0.022, y: -0.032, z: 0.225 },
+        footPos: { x: 0.024, y: -0.026, z: 0.025 },
       },
       brown_booby: {
         bodyGeo: this._createBirdBodyGeometry('brown_booby'),
@@ -775,13 +803,15 @@ export class WorldCuesRenderer {
         ),
         irisGeo: makeUniformColorSphere(0.011, 0.86, 0.82, 0.44),
         eyeGeo: makeUniformColorSphere(0.0072, 0.04, 0.05, 0.07),
-        footGeo: makeUniformColorFoot(0.085, 0.84, 0.74, 0.34),
+        legGeo: makeUniformColorShaft(0.009, 0.007, 0.125, 0.84, 0.74, 0.34, 0, 0, -0.0625, 0),
+        footGeo: makeWebbedFootGeo(0.074, 0.84, 0.74, 0.34),
+        legLen: 0.125,
         shoulderX: 0.056,
         shoulderY: 0.026,
         shoulderZ: -0.015,
         wristX: 0.44,
         eyePos: { x: 0.035, y: 0.024, z: -0.358 },
-        footPos: { x: 0.026, y: -0.036, z: 0.31 },
+        footPos: { x: 0.032, y: -0.03, z: 0.03 },
       },
     };
   }
@@ -808,17 +838,21 @@ export class WorldCuesRenderer {
     });
 
     const root = new THREE.Group();
+    const bodyPivot = new THREE.Group();
+    root.add(bodyPivot);
+
     const body = new THREE.Mesh(spec.bodyGeo, mat);
     const tail = new THREE.Mesh(spec.tailGeo, mat);
-    root.add(body, tail);
+    bodyPivot.add(body, tail);
 
-    // Eyes & tucked webbed feet
+    const legPivots = [];
+    // Eyes & articulated legs + webbed feet
     for (const side of [-1, 1]) {
       if (spec.irisGeo) {
         const iris = new THREE.Mesh(spec.irisGeo, mat);
         iris.position.set(side * spec.eyePos.x, spec.eyePos.y, spec.eyePos.z);
         iris.scale.set(0.55, 1.0, 1.0);
-        root.add(iris);
+        bodyPivot.add(iris);
       }
       const eye = new THREE.Mesh(spec.eyeGeo, mat);
       eye.position.set(
@@ -827,11 +861,17 @@ export class WorldCuesRenderer {
         spec.eyePos.z
       );
       eye.scale.set(0.6, 1.0, 1.0);
-      root.add(eye);
+      bodyPivot.add(eye);
 
-      const foot = new THREE.Mesh(spec.footGeo, mat);
-      foot.position.set(side * spec.footPos.x, spec.footPos.y, spec.footPos.z);
-      root.add(foot);
+      const legPivot = new THREE.Group();
+      legPivot.position.set(side * spec.footPos.x, spec.footPos.y, spec.footPos.z);
+      legPivot.rotation.x = -1.42; // Tucked neatly under tail during flight
+      const legMesh = new THREE.Mesh(spec.legGeo, mat);
+      const footMesh = new THREE.Mesh(spec.footGeo, mat);
+      footMesh.position.set(0, -spec.legLen, 0);
+      legPivot.add(legMesh, footMesh);
+      root.add(legPivot);
+      legPivots.push(legPivot);
     }
 
     // Two-joint articulated right (+X) & left (-X) wings
@@ -853,16 +893,20 @@ export class WorldCuesRenderer {
     leftOuterWing.add(new THREE.Mesh(spec.outerLeftGeo, mat));
     leftInnerWing.add(leftOuterWing);
 
-    root.add(rightInnerWing, leftInnerWing);
+    bodyPivot.add(rightInnerWing, leftInnerWing);
 
     const entry = {
       root,
+      bodyPivot,
       species: key,
       mat,
+      leftLegPivot: legPivots[0],
+      rightLegPivot: legPivots[1],
       leftInnerWing,
       leftOuterWing,
       rightInnerWing,
       rightOuterWing,
+      standFootHeight: Math.abs(spec.footPos.y) + spec.legLen + 0.008,
       bobY: 0.0,
     };
     root.userData.seabird = entry;
@@ -870,38 +914,92 @@ export class WorldCuesRenderer {
   }
 
   /**
-   * Animates species-distinct 2-joint wingbeats:
-   * - White Tern: buoyant, airy elastic stroke with graceful gull/tern carpal wrist arch
-   * - Brown Booby: brisker, stiffer pelagic commuting stroke with shallower crossbow dihedral
+   * Animates species-distinct 2-joint wingbeats, plus optional landing/standing/wing-spread poses.
    */
-  animateSeabird(entry, elapsedSec, phaseOffset = 0.0, speedScale = 1.0) {
+  animateSeabird(entry, elapsedSec, phaseOffset = 0.0, speedScale = 1.0, poseOpts = null) {
     if (!entry) return;
-    if (entry.species === 'brown_booby') {
-      const theta = elapsedSec * 9.0 * speedScale + phaseOffset;
+    const isBooby = entry.species === 'brown_booby';
+    const flapSpeed = poseOpts?.flapSpeed ?? 1.0;
+    const flapAmp = poseOpts?.flapAmp ?? 1.0;
+
+    let innerFly;
+    let outerFly;
+    let bobFly;
+    if (isBooby) {
+      const theta = elapsedSec * 9.0 * speedScale * flapSpeed + phaseOffset;
       const sinT = Math.sin(theta);
       const cosT = Math.cos(theta);
       const wave = sinT + 0.16 * Math.sin(2.0 * theta);
-      const innerAngle = wave * 0.36 + 0.04;
-      const wristFold = -0.2 * Math.max(0.0, wave) - 0.14 * cosT - 0.04;
-
-      entry.rightInnerWing.rotation.z = innerAngle;
-      entry.leftInnerWing.rotation.z = -innerAngle;
-      entry.rightOuterWing.rotation.z = wristFold;
-      entry.leftOuterWing.rotation.z = -wristFold;
-      entry.bobY = -wave * 0.022;
+      innerFly = (wave * 0.36 + 0.04) * flapAmp;
+      outerFly = (-0.2 * Math.max(0.0, wave) - 0.14 * cosT - 0.04) * flapAmp;
+      bobFly = -wave * 0.022 * flapAmp;
     } else {
-      const theta = elapsedSec * 7.6 * speedScale + phaseOffset;
+      const theta = elapsedSec * 7.6 * speedScale * flapSpeed + phaseOffset;
       const sinT = Math.sin(theta);
       const cosT = Math.cos(theta);
-      const innerAngle = sinT * 0.48 + 0.09;
-      const wristFold = -0.34 * Math.max(0.0, sinT) - 0.24 * cosT - 0.07;
-
-      entry.rightInnerWing.rotation.z = innerAngle;
-      entry.leftInnerWing.rotation.z = -innerAngle;
-      entry.rightOuterWing.rotation.z = wristFold;
-      entry.leftOuterWing.rotation.z = -wristFold;
-      entry.bobY = -sinT * 0.034;
+      innerFly = (sinT * 0.48 + 0.09) * flapAmp;
+      outerFly = (-0.34 * Math.max(0.0, sinT) - 0.24 * cosT - 0.07) * flapAmp;
+      bobFly = -sinT * 0.034 * flapAmp;
     }
+
+    if (!poseOpts) {
+      entry.rightInnerWing.rotation.set(0.0, 0.0, innerFly);
+      entry.leftInnerWing.rotation.set(0.0, 0.0, -innerFly);
+      entry.rightOuterWing.rotation.set(0.0, 0.0, outerFly);
+      entry.leftOuterWing.rotation.set(0.0, 0.0, -outerFly);
+      entry.rightOuterWing.scale.x = 1.0;
+      entry.leftOuterWing.scale.x = 1.0;
+      if (entry.bodyPivot) entry.bodyPivot.rotation.set(0.0, 0.0, 0.0);
+      if (entry.leftLegPivot) entry.leftLegPivot.rotation.x = -1.42;
+      if (entry.rightLegPivot) entry.rightLegPivot.rotation.x = -1.42;
+      entry.bobY = bobFly;
+      return;
+    }
+
+    const fold = clamp01(poseOpts.foldBlend ?? 0.0);
+    const spread = clamp01(poseOpts.spreadBlend ?? 0.0);
+    const legExtend = clamp01(poseOpts.legExtend ?? 0.0);
+    const standBlend = clamp01(poseOpts.standBlend ?? 0.0);
+    const pitchRad = poseOpts.pitchRad ?? 0.0;
+    const lookYawRad = poseOpts.lookYawRad ?? 0.0;
+
+    // 1. Blend flapping wing pose toward folded standing pose
+    let innerX = lerp(0.0, 0.14, fold);
+    let innerY = lerp(0.0, -1.26, fold);
+    let innerZ = lerp(innerFly, -0.26, fold);
+
+    let outerY = lerp(0.0, -0.24, fold);
+    let outerZ = lerp(outerFly, -0.14, fold);
+    let outerScaleX = lerp(1.0, 0.58, fold);
+
+    // 2. Blend in wide poised wing-spread just before jumping into flight
+    if (spread > 0.001) {
+      innerX = lerp(innerX, -0.1, spread);
+      innerY = lerp(innerY, 0.0, spread);
+      innerZ = lerp(innerZ, 0.36, spread);
+      outerY = lerp(outerY, 0.0, spread);
+      outerZ = lerp(outerZ, -0.18, spread);
+      outerScaleX = lerp(outerScaleX, 1.0, spread);
+    }
+
+    entry.rightInnerWing.rotation.set(innerX, innerY, innerZ);
+    entry.leftInnerWing.rotation.set(innerX, -innerY, -innerZ);
+    entry.rightOuterWing.rotation.set(0.0, outerY, outerZ);
+    entry.leftOuterWing.rotation.set(0.0, -outerY, -outerZ);
+    entry.rightOuterWing.scale.x = outerScaleX;
+    entry.leftOuterWing.scale.x = outerScaleX;
+
+    if (entry.bodyPivot) {
+      const chestUp = standBlend * 0.36;
+      const crouchPitch = spread * -0.14;
+      entry.bodyPivot.rotation.set(pitchRad + chestUp + crouchPitch, lookYawRad, 0.0);
+    }
+
+    const legX = lerp(-1.42, 0.0, legExtend);
+    if (entry.leftLegPivot) entry.leftLegPivot.rotation.x = legX;
+    if (entry.rightLegPivot) entry.rightLegPivot.rotation.x = legX;
+
+    entry.bobY = bobFly * (1.0 - fold) + standBlend * Math.sin(elapsedSec * 2.1 + phaseOffset) * 0.004;
   }
 
   _buildHomingBirdFlocks() {

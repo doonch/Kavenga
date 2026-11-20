@@ -875,12 +875,104 @@ class AssetDebugViewer {
     entry.root.position.set(0, 0.52, 0);
     this.stageGroup.add(entry.root);
 
-    const applyFlap = (elapsed) => {
-      this.worldCues.animateSeabird(entry, elapsed, 0.0, this.animCtrl.speed);
-      entry.root.position.y = 0.52 + entry.bobY;
+    // Subtle coral-sand pedestal disc at y = 0 so landing touchdown is visually grounded
+    const pad = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.42, 0.48, 0.03, 28),
+      new THREE.MeshStandardMaterial({
+        color: 0xdccaa2,
+        roughness: 0.9,
+      })
+    );
+    pad.position.set(0, -0.015, 0);
+    pad.receiveShadow = true;
+    this.stageGroup.add(pad);
+
+    const smoothstep = (e0, e1, v) => {
+      const t = Math.max(0.0, Math.min(1.0, (v - e0) / (e1 - e0)));
+      return t * t * (3.0 - 2.0 * t);
     };
-    applyFlap(this.animElapsedSec);
-    this.activeTickFn = (_dt, elapsed) => applyFlap(elapsed);
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const flyY = 0.52;
+    const standY = entry.standFootHeight || 0.135;
+    const cycleDur = 10.5;
+
+    const applyCycle = (elapsed) => {
+      const spd = this.animCtrl.speed || 1.0;
+      const t = (elapsed * spd) % cycleDur;
+
+      let y = flyY;
+      let poseOpts = null;
+
+      if (t < 3.2) {
+        // 1. Cruising Flight
+        poseOpts = null;
+      } else if (t < 4.8) {
+        // 2. Descending Flare -> Touchdown & Fold
+        const u = (t - 3.2) / 1.6;
+        const vertT = 1.0 - Math.pow(1.0 - u, 2.0);
+        y = lerp(flyY, standY, vertT);
+        const foldBlend = smoothstep(0.75, 1.0, u);
+        poseOpts = {
+          standBlend: smoothstep(0.65, 1.0, u),
+          legExtend: smoothstep(0.25, 0.82, u),
+          foldBlend,
+          spreadBlend: 0.0,
+          flapSpeed: lerp(1.0, 1.38, smoothstep(0.2, 0.78, u)),
+          flapAmp: lerp(0.9, 1.15, smoothstep(0.2, 0.78, u)) * (1.0 - foldBlend),
+          pitchRad: Math.sin(u * Math.PI) * 0.32 * (1.0 - foldBlend),
+          lookYawRad: 0.0,
+        };
+      } else if (t < 7.6) {
+        // 3. Standing Folded Pose + Alert Look
+        const u = (t - 4.8) / 2.8;
+        y = standY;
+        poseOpts = {
+          standBlend: 1.0,
+          legExtend: 1.0,
+          foldBlend: 1.0,
+          spreadBlend: 0.0,
+          flapSpeed: 1.0,
+          flapAmp: 0.0,
+          pitchRad: 0.0,
+          lookYawRad: Math.sin(u * Math.PI * 2.0) * 0.34,
+        };
+      } else if (t < 8.4) {
+        // 4. Spread Wings Wide for Takeoff
+        const u = (t - 7.6) / 0.8;
+        y = standY - Math.sin(u * Math.PI) * 0.018;
+        poseOpts = {
+          standBlend: 1.0 - u * 0.45,
+          legExtend: 1.0,
+          foldBlend: 1.0 - smoothstep(0.0, 0.75, u),
+          spreadBlend: smoothstep(0.05, 0.9, u),
+          flapSpeed: 1.2,
+          flapAmp: 0.0,
+          pitchRad: 0.0,
+          lookYawRad: 0.0,
+        };
+      } else {
+        // 5. Climb Out & Tuck Legs Back Into Flight
+        const u = (t - 8.4) / 2.1;
+        const spreadBlend = 1.0 - smoothstep(0.0, 0.28, u);
+        y = lerp(standY, flyY, Math.pow(u, 1.2)) + Math.sin(Math.min(1.0, u * 2.5) * Math.PI) * 0.06;
+        poseOpts = {
+          standBlend: 1.0 - smoothstep(0.0, 0.32, u),
+          legExtend: 1.0 - smoothstep(0.15, 0.62, u),
+          foldBlend: 0.0,
+          spreadBlend,
+          flapSpeed: lerp(1.42, 1.0, u),
+          flapAmp: lerp(1.22, 1.0, u) * (1.0 - spreadBlend * 0.65),
+          pitchRad: 0.22 * Math.sin(u * Math.PI),
+          lookYawRad: 0.0,
+        };
+      }
+
+      this.worldCues.animateSeabird(entry, elapsed, 0.0, spd, poseOpts);
+      entry.root.position.y = y + entry.bobY;
+    };
+
+    applyCycle(this.animElapsedSec);
+    this.activeTickFn = (_dt, elapsed) => applyCycle(elapsed);
   }
 
   _mountBirdFlockAsset() {
