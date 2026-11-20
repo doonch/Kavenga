@@ -24,6 +24,7 @@ export const BASE_MUSIC_TRACKS = Object.freeze([
  */
 export const ISLAND_MUSIC_TRACKS = Object.freeze({
   maupiti: 'kaukauwa_ni_koro',
+  kiritimati: 'o_le_moana',
   hawaii: 'hawaii',
 });
 
