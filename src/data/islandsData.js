@@ -136,7 +136,7 @@ export const ISLANDS = Object.freeze({
     hasPeakCloud: false,
     hasLapaGlow: true,
     hasSteepCliffs: false,
-    birdSpecies: 'white_tern',
+    birdSpecies: 'red_kura',
     mentorName: '',
     mentorRole: '',
     mentorPortrait: '',

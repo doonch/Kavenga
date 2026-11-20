@@ -696,19 +696,26 @@ export class WalkableIslandScene {
       this.poiVisuals[poi.id] = { group: ringGrp, ringMat: outerMat, baseY: py };
     }
 
-    // 3 Graceful Sculpted Seabirds wheeling above the shore & cove (with land/stand/takeoff lifecycle)
+    // 3 Graceful Sculpted Birds wheeling above the shore & cove (with land/stand/takeoff lifecycle)
+    // On Manuae exclusively, spawn the island's sacred red Kura birds!
     this.birdPerchSpots = this._findPerchSpots();
+    const isManuaeKura = islDef?.birdSpecies === 'red_kura';
+    const birdScale = isManuaeKura ? 1.38 : 1.25;
     if (this.worldCues) {
       for (let i = 0; i < 3; i += 1) {
-        const species = i === 1 ? 'brown_booby' : 'white_tern';
+        const species = isManuaeKura
+          ? 'red_kura'
+          : i === 1
+            ? 'brown_booby'
+            : 'white_tern';
         const entry = this.worldCues.createSeabird(species, { opaque: true });
         entry.root.userData.sharedGeometries = true;
-        entry.root.scale.setScalar(1.25);
+        entry.root.scale.setScalar(birdScale);
         this.root.add(entry.root);
         this.lagoonTerns.push({
           entry,
           group: entry.root,
-          scale: 1.25,
+          scale: birdScale,
           cx: -4.0 + i * 14.0,
           cz: this.spec.mooredCanoe.z - 4.0 - i * 5.0,
           radius: 14.0 + i * 4.5,
@@ -877,8 +884,8 @@ export class WalkableIslandScene {
           legExtend,
           foldBlend,
           spreadBlend: 0.0,
-          flapSpeed: lerpNum(1.0, 1.38, smoothstep(0.4, 0.85, u)),
-          flapAmp: lerpNum(0.85, 1.18, smoothstep(0.4, 0.85, u)) * flapFade,
+          flapSpeed: lerpNum(1.0, 1.12, smoothstep(0.4, 0.85, u)),
+          flapAmp: lerpNum(0.85, 1.08, smoothstep(0.4, 0.85, u)) * flapFade,
           pitchRad: flarePitch * (1.0 - standBlend),
           lookYawRad: 0.0,
         });
@@ -1007,8 +1014,8 @@ export class WalkableIslandScene {
           legExtend,
           foldBlend: 0.0,
           spreadBlend,
-          flapSpeed: lerpNum(1.45, 1.0, u),
-          flapAmp: lerpNum(1.25, 1.0, u) * (1.0 - spreadBlend * 0.65),
+          flapSpeed: lerpNum(1.16, 1.0, u),
+          flapAmp: lerpNum(1.12, 1.0, u) * (1.0 - spreadBlend * 0.65),
           pitchRad: climbPitch,
           lookYawRad: 0.0,
         });

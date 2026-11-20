@@ -424,6 +424,7 @@ export class WorldCuesRenderer {
    */
   _createBirdBodyGeometry(species) {
     const isBooby = species === 'brown_booby';
+    const isKura = species === 'red_kura';
     const uSteps = 36;
     const rSteps = 22;
     const positions = [];
@@ -438,6 +439,45 @@ export class WorldCuesRenderer {
     };
 
     const evalStation = (u) => {
+      if (isKura) {
+        // RED KURA (Vini kuhlii / Sacred Crimson Lorikeet): compact hooked coral beak, rounded crown,
+        // full plump crimson breast, tapered scarlet-ruby torso & vent
+        const z = -0.315 + 0.61 * u;
+        let halfH;
+        let halfW;
+        let centerY;
+        if (u <= 0.145) {
+          const t = u / 0.145;
+          const hookDip = (1.0 - t) * (1.0 - t);
+          halfH = 0.002 + 0.021 * Math.pow(t, 0.72);
+          halfW = 0.002 + 0.017 * Math.pow(t, 0.8);
+          centerY = 0.038 - 0.017 * hookDip + 0.004 * t;
+        } else if (u <= 0.34) {
+          const t = (u - 0.145) / 0.195;
+          const crown = Math.sin(t * Math.PI);
+          halfH = 0.023 + 0.032 * Math.pow(crown, 0.54) + 0.022 * t;
+          halfW = 0.019 + 0.03 * Math.pow(crown, 0.56) + 0.023 * t;
+          centerY = 0.042 + 0.011 * crown - 0.014 * t;
+        } else if (u <= 0.46) {
+          const t = (u - 0.34) / 0.12;
+          halfH = 0.045 + 0.023 * t;
+          halfW = 0.042 + 0.022 * t;
+          centerY = 0.028 - 0.02 * t;
+        } else if (u <= 0.83) {
+          const t = (u - 0.46) / 0.37;
+          const arch = Math.sin(t * Math.PI);
+          halfH = 0.068 + 0.014 * arch - 0.036 * t * t;
+          halfW = 0.064 + 0.012 * arch - 0.032 * t * t;
+          centerY = 0.008 - 0.008 * Math.sin(t * Math.PI * 0.85) + 0.006 * t;
+        } else {
+          const t = (u - 0.83) / 0.17;
+          halfH = 0.032 * (1.0 - 0.5 * t);
+          halfW = 0.032 * (1.0 - 0.38 * t);
+          centerY = 0.014 + 0.002 * t;
+        }
+        return { z, halfH, halfW, centerY };
+      }
+
       if (!isBooby) {
         // WHITE TERN (Manu-o-Ku / Gygis alba): delicate dove-like head, slender needle bill, short neck, buoyant breast
         const z = -0.365 + 0.65 * u;
@@ -512,6 +552,51 @@ export class WorldCuesRenderer {
     };
 
     const evalBodyColor = (u, ny, nx, z) => {
+      if (isKura) {
+        // Red Kura: hooked coral-amber beak, scarlet face & breast, jewel-cobalt nape streak,
+        // ruby-crimson back & deep mulberry-plum lower vent
+        if (u <= 0.148) {
+          const bt = Math.max(0.0, Math.min(1.0, u / 0.148));
+          const tipDark = bt < 0.25 ? 0.55 + 1.8 * bt : 1.0;
+          return [
+            0.94 * tipDark,
+            (0.46 + 0.12 * bt) * tipDark,
+            (0.12 + 0.08 * bt) * tipDark,
+          ];
+        }
+        // Dark eye-ring contour
+        const dzEye = (z - -0.195) / 0.02;
+        const dyEye = (ny - 0.24) / 0.34;
+        if (Math.abs(nx) > 0.65 && dzEye * dzEye + dyEye * dyEye < 1.0) {
+          return [0.22, 0.05, 0.06];
+        }
+        // Royal cobalt nape accent along dorsal neck (u ~ 0.30..0.44, ny > 0.35)
+        const napeMask =
+          smoothstep(0.28, 0.35, u) *
+          smoothstep(0.47, 0.39, u) *
+          smoothstep(0.28, 0.62, ny);
+        // Deep violet-plum under-vent highlight (u ~ 0.72..0.95, ny < -0.22)
+        const ventMask =
+          smoothstep(0.7, 0.84, u) * smoothstep(-0.18, -0.58, ny);
+
+        // Rich scarlet breast/throat shading up into deep ruby mantle on back
+        const dorsalDark = 0.5 + 0.5 * ny;
+        let rCol = lerp(0.95, 0.72, dorsalDark);
+        let gCol = lerp(0.18, 0.075, dorsalDark);
+        let bCol = lerp(0.14, 0.085, dorsalDark);
+
+        // Apply sapphire-cobalt nape crest & plum vent accents
+        rCol = rCol * (1.0 - napeMask) + 0.14 * napeMask;
+        gCol = gCol * (1.0 - napeMask) + 0.26 * napeMask;
+        bCol = bCol * (1.0 - napeMask) + 0.68 * napeMask;
+
+        rCol = rCol * (1.0 - ventMask) + 0.36 * ventMask;
+        gCol = gCol * (1.0 - ventMask) + 0.08 * ventMask;
+        bCol = bCol * (1.0 - ventMask) + 0.34 * ventMask;
+
+        return [rCol, gCol, bCol];
+      }
+
       if (!isBooby) {
         // White Tern: black-tipped royal-cobalt-blue bill + luminous snow-white plumage + dark eye-ring halo
         if (u <= 0.172) {
@@ -598,10 +683,14 @@ export class WorldCuesRenderer {
     // Closed manifold beak tip (-Z) & rump tip (+Z)
     const frontTip = isBooby
       ? pushVC(0.0, 0.013, -0.572, 0.92, 0.83, 0.46)
-      : pushVC(0.0, 0.03, -0.372, 0.05, 0.06, 0.1);
+      : isKura
+        ? pushVC(0.0, 0.021, -0.322, 0.52, 0.25, 0.08)
+        : pushVC(0.0, 0.03, -0.372, 0.05, 0.06, 0.1);
     const backTip = isBooby
       ? pushVC(0.0, 0.012, 0.402, 0.25, 0.16, 0.1)
-      : pushVC(0.0, 0.013, 0.292, 0.95, 0.97, 0.99);
+      : isKura
+        ? pushVC(0.0, 0.016, 0.302, 0.78, 0.12, 0.11)
+        : pushVC(0.0, 0.013, 0.292, 0.95, 0.97, 0.99);
 
     const last = rings.length - 1;
     for (let j = 0; j < rSteps; j += 1) {
@@ -718,6 +807,64 @@ export class WorldCuesRenderer {
       ({ isUpper }) => (isUpper ? [0.22, 0.14, 0.09] : [0.26, 0.17, 0.11])
     );
 
+    // -----------------------------------------------------------------------
+    // 3. RED KURA BIRD (Vini kuhlii / Manu Kura) Geometries: rounded crimson wings & fan tail
+    // -----------------------------------------------------------------------
+    const kuraWingColor = ({ isUpper, spanFrac, chordFrac }) => {
+      // Vibrant scarlet-crimson coverts, warm vermilion-gold secondary flash, dark burgundy flight tips
+      const tipDark = smoothstep(0.58, 1.0, spanFrac);
+      const secGold =
+        smoothstep(0.15, 0.34, spanFrac) *
+        smoothstep(0.62, 0.42, spanFrac) *
+        smoothstep(0.42, 0.72, chordFrac);
+      if (isUpper) {
+        let rCol = lerp(0.86, 0.24, tipDark);
+        let gCol = lerp(0.11, 0.05, tipDark);
+        let bCol = lerp(0.1, 0.07, tipDark);
+        rCol = lerp(rCol, 0.96, secGold * 0.72);
+        gCol = lerp(gCol, 0.36, secGold * 0.72);
+        bCol = lerp(bCol, 0.14, secGold * 0.72);
+        return [rCol, gCol, bCol];
+      }
+      // Underwing: luminous flame-scarlet coverts shading to dark claret primary tips
+      return [
+        lerp(0.95, 0.32, tipDark),
+        lerp(0.22, 0.07, tipDark),
+        lerp(0.14, 0.08, tipDark),
+      ];
+    };
+
+    const kuraInnerRightSt = [
+      { x: 0.0, zLead: -0.095, zTrail: 0.145, yBase: 0.0, camber: 0.017, thick: 0.016, spanFrac: 0.0 },
+      { x: 0.11, zLead: -0.108, zTrail: 0.132, yBase: 0.008, camber: 0.016, thick: 0.013, spanFrac: 0.15 },
+      { x: 0.22, zLead: -0.122, zTrail: 0.112, yBase: 0.013, camber: 0.014, thick: 0.01, spanFrac: 0.3 },
+      { x: 0.33, zLead: -0.128, zTrail: 0.092, yBase: 0.014, camber: 0.012, thick: 0.008, spanFrac: 0.44 },
+    ];
+    const kuraOuterRightSt = [
+      { x: 0.0, zLead: -0.128, zTrail: 0.092, yBase: 0.014, camber: 0.012, thick: 0.008, spanFrac: 0.44 },
+      { x: 0.14, zLead: -0.102, zTrail: 0.102, yBase: 0.01, camber: 0.01, thick: 0.006, spanFrac: 0.64 },
+      { x: 0.27, zLead: -0.048, zTrail: 0.116, yBase: 0.005, camber: 0.007, thick: 0.0042, spanFrac: 0.82 },
+      { x: 0.36, zLead: 0.012, zTrail: 0.128, yBase: 0.002, camber: 0.004, thick: 0.0024, spanFrac: 0.94 },
+      { x: 0.41, zLead: 0.068, zTrail: 0.122, yBase: 0.0, camber: 0.002, thick: 0.0012, spanFrac: 1.0 },
+    ];
+
+    // Graduated crimson & vermilion fan tail (z = +0.24 to +0.49)
+    const kuraTailGeo = this._createSheetFoilGeometry(
+      [
+        { x: -0.098, zLead: 0.28, zTrail: 0.415, yBase: 0.012, camber: 0.003, thick: 0.0018, spanFrac: 1.0 },
+        { x: -0.056, zLead: 0.255, zTrail: 0.465, yBase: 0.014, camber: 0.004, thick: 0.0028, spanFrac: 0.58 },
+        { x: 0.0, zLead: 0.24, zTrail: 0.495, yBase: 0.015, camber: 0.005, thick: 0.0036, spanFrac: 0.0 },
+        { x: 0.056, zLead: 0.255, zTrail: 0.465, yBase: 0.014, camber: 0.004, thick: 0.0028, spanFrac: 0.58 },
+        { x: 0.098, zLead: 0.28, zTrail: 0.415, yBase: 0.012, camber: 0.003, thick: 0.0018, spanFrac: 1.0 },
+      ],
+      ({ isUpper, chordFrac }) => {
+        const tipWarm = smoothstep(0.62, 1.0, chordFrac);
+        return isUpper
+          ? [lerp(0.84, 0.96, tipWarm), lerp(0.11, 0.34, tipWarm), lerp(0.1, 0.14, tipWarm)]
+          : [lerp(0.92, 0.98, tipWarm), lerp(0.2, 0.42, tipWarm), lerp(0.13, 0.16, tipWarm)];
+      }
+    );
+
     const makeUniformColorSphere = (radius, r, g, b) => {
       const sGeo = new THREE.SphereGeometry(radius, 8, 8);
       const count = sGeo.attributes.position.count;
@@ -813,26 +960,57 @@ export class WorldCuesRenderer {
         eyePos: { x: 0.035, y: 0.024, z: -0.358 },
         footPos: { x: 0.032, y: -0.03, z: 0.03 },
       },
+      red_kura: {
+        bodyGeo: this._createBirdBodyGeometry('red_kura'),
+        tailGeo: kuraTailGeo,
+        innerRightGeo: this._createSheetFoilGeometry(kuraInnerRightSt, kuraWingColor),
+        innerLeftGeo: this._createSheetFoilGeometry(
+          mirrorWingStations(kuraInnerRightSt),
+          kuraWingColor
+        ),
+        outerRightGeo: this._createSheetFoilGeometry(kuraOuterRightSt, kuraWingColor),
+        outerLeftGeo: this._createSheetFoilGeometry(
+          mirrorWingStations(kuraOuterRightSt),
+          kuraWingColor
+        ),
+        irisGeo: makeUniformColorSphere(0.0102, 0.96, 0.74, 0.2),
+        eyeGeo: makeUniformColorSphere(0.0068, 0.04, 0.04, 0.06),
+        legGeo: makeUniformColorShaft(0.0068, 0.0052, 0.092, 0.92, 0.44, 0.16, 0, 0, -0.046, 0),
+        footGeo: makeWebbedFootGeo(0.044, 0.92, 0.44, 0.16),
+        legLen: 0.092,
+        shoulderX: 0.052,
+        shoulderY: 0.022,
+        shoulderZ: -0.01,
+        wristX: 0.33,
+        eyePos: { x: 0.04, y: 0.042, z: -0.195 },
+        footPos: { x: 0.024, y: -0.026, z: 0.02 },
+      },
     };
   }
 
   /**
-   * Instantiates an articulated, vertex-colored 3D White Tern ('white_tern') or
-   * Brown Booby ('brown_booby') with 2-joint wings (shoulder + carpal wrist),
-   * species-accurate bill, eyes, tucked webbed feet, and tail.
+   * Instantiates an articulated, vertex-colored 3D White Tern ('white_tern'),
+   * Brown Booby ('brown_booby'), or Red Kura Bird ('red_kura') with 2-joint wings,
+   * species-accurate bill, eyes, articulated legs/feet, and tail.
    */
   createSeabird(species = 'white_tern', { opaque = false } = {}) {
     this._ensureSeabirdAssets();
-    const key = species === 'brown_booby' ? 'brown_booby' : 'white_tern';
+    const key =
+      species === 'brown_booby'
+        ? 'brown_booby'
+        : species === 'red_kura'
+          ? 'red_kura'
+          : 'white_tern';
     const spec = this._seabirdGeos[key];
     const isBooby = key === 'brown_booby';
+    const isKura = key === 'red_kura';
 
     const mat = new THREE.MeshStandardMaterial({
       vertexColors: true,
-      roughness: isBooby ? 0.62 : 0.52,
+      roughness: isBooby ? 0.62 : isKura ? 0.48 : 0.52,
       metalness: 0.04,
-      emissive: isBooby ? 0x3b281a : 0xdce6f2,
-      emissiveIntensity: isBooby ? 0.16 : 0.22,
+      emissive: isBooby ? 0x3b281a : isKura ? 0x6b1412 : 0xdce6f2,
+      emissiveIntensity: isBooby ? 0.16 : isKura ? 0.24 : 0.22,
       transparent: !opaque,
       opacity: 1.0,
     });
@@ -919,22 +1097,41 @@ export class WorldCuesRenderer {
   animateSeabird(entry, elapsedSec, phaseOffset = 0.0, speedScale = 1.0, poseOpts = null) {
     if (!entry) return;
     const isBooby = entry.species === 'brown_booby';
+    const isKura = entry.species === 'red_kura';
+    const baseFreq = isBooby ? 8.2 : isKura ? 8.8 : 7.2;
     const flapSpeed = poseOpts?.flapSpeed ?? 1.0;
     const flapAmp = poseOpts?.flapAmp ?? 1.0;
+
+    let theta;
+    if (entry._lastAnimSec !== undefined && elapsedSec >= entry._lastAnimSec) {
+      const dtAnim = Math.min(0.1, elapsedSec - entry._lastAnimSec);
+      entry._wingPhase =
+        (entry._wingPhase ?? elapsedSec * baseFreq * speedScale + phaseOffset) +
+        dtAnim * baseFreq * speedScale * flapSpeed;
+      theta = entry._wingPhase;
+    } else {
+      entry._wingPhase = elapsedSec * baseFreq * speedScale + phaseOffset;
+      theta = entry._wingPhase;
+    }
+    entry._lastAnimSec = elapsedSec;
 
     let innerFly;
     let outerFly;
     let bobFly;
     if (isBooby) {
-      const theta = elapsedSec * 9.0 * speedScale * flapSpeed + phaseOffset;
       const sinT = Math.sin(theta);
       const cosT = Math.cos(theta);
       const wave = sinT + 0.16 * Math.sin(2.0 * theta);
       innerFly = (wave * 0.36 + 0.04) * flapAmp;
       outerFly = (-0.2 * Math.max(0.0, wave) - 0.14 * cosT - 0.04) * flapAmp;
       bobFly = -wave * 0.022 * flapAmp;
+    } else if (isKura) {
+      const sinT = Math.sin(theta);
+      const cosT = Math.cos(theta);
+      innerFly = (sinT * 0.44 + 0.08) * flapAmp;
+      outerFly = (-0.28 * Math.max(0.0, sinT) - 0.2 * cosT - 0.06) * flapAmp;
+      bobFly = -sinT * 0.028 * flapAmp;
     } else {
-      const theta = elapsedSec * 7.6 * speedScale * flapSpeed + phaseOffset;
       const sinT = Math.sin(theta);
       const cosT = Math.cos(theta);
       innerFly = (sinT * 0.48 + 0.09) * flapAmp;
@@ -1004,8 +1201,9 @@ export class WorldCuesRenderer {
 
   _buildHomingBirdFlocks() {
     // 8 homing seabird slots flying in purposeful straight rays along nearest Ring 1+ island bearing,
-    // each carrying distinct sculpted White Tern and Brown Booby assemblies.
+    // carrying sculpted White Tern, Brown Booby, and Manuae-exclusive Red Kura assemblies.
     this.homingBirds = [];
+    this._activeBirdSpecies = 'white_tern';
     this.birdFlockGroup = new THREE.Group();
     this.group.add(this.birdFlockGroup);
 
@@ -1013,15 +1211,18 @@ export class WorldCuesRenderer {
       const bird = new THREE.Group();
       const ternEntry = this.createSeabird('white_tern', { opaque: false });
       const boobyEntry = this.createSeabird('brown_booby', { opaque: false });
+      const kuraEntry = this.createSeabird('red_kura', { opaque: false });
       boobyEntry.root.visible = false;
+      kuraEntry.root.visible = false;
 
-      bird.add(ternEntry.root, boobyEntry.root);
+      bird.add(ternEntry.root, boobyEntry.root, kuraEntry.root);
       this.birdFlockGroup.add(bird);
 
       this.homingBirds.push({
         bird,
         ternEntry,
         boobyEntry,
+        kuraEntry,
         leftWing: ternEntry.leftInnerWing,
         rightWing: ternEntry.rightInnerWing,
         mat: ternEntry.mat,
@@ -1958,9 +2159,13 @@ export class WorldCuesRenderer {
           ? posMod(nearestRing1.bearingDeg + 180.0, 360.0)
           : nearestRing1.bearingDeg;
 
-      this._activeBirdIsBooby =
-        nearestRing1.island.birdSpecies === 'brown_booby' ||
-        nearestRing1.island.birdSpecies === 'booby';
+      this._activeBirdSpecies =
+        nearestRing1.island.birdSpecies === 'red_kura'
+          ? 'red_kura'
+          : nearestRing1.island.birdSpecies === 'brown_booby' ||
+              nearestRing1.island.birdSpecies === 'booby'
+            ? 'brown_booby'
+            : 'white_tern';
     }
 
     this.birdFlockAlpha = easeToward(
@@ -1979,10 +2184,15 @@ export class WorldCuesRenderer {
       const fSideZ = fDirX;
 
       for (const b of this.homingBirds) {
-        const activeEntry = this._activeBirdIsBooby ? b.boobyEntry : b.ternEntry;
-        const inactiveEntry = this._activeBirdIsBooby ? b.ternEntry : b.boobyEntry;
-        inactiveEntry.root.visible = false;
-        activeEntry.root.visible = true;
+        const activeEntry =
+          this._activeBirdSpecies === 'red_kura'
+            ? b.kuraEntry
+            : this._activeBirdSpecies === 'brown_booby'
+              ? b.boobyEntry
+              : b.ternEntry;
+        b.ternEntry.root.visible = activeEntry === b.ternEntry;
+        b.boobyEntry.root.visible = activeEntry === b.boobyEntry;
+        b.kuraEntry.root.visible = activeEntry === b.kuraEntry;
 
         this.animateSeabird(activeEntry, elapsedSec, b.phase, 1.0);
 

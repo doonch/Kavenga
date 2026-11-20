@@ -1367,7 +1367,7 @@ class KnownOceanMapApp {
       cueBadges.push('<span class="cue-badge">Pierces Sea Mist</span>');
     }
     cueBadges.push(
-      `<span class="cue-badge">${isl.birdSpecies === 'brown_booby' ? 'Brown Boobies' : 'White Terns'}</span>`
+      `<span class="cue-badge">${isl.birdSpecies === 'red_kura' ? 'Red Kura Birds' : isl.birdSpecies === 'brown_booby' ? 'Brown Boobies' : 'White Terns'}</span>`
     );
 
     const mentorLine = isl.inhabited && isl.mentorName

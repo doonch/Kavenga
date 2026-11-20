@@ -177,6 +177,15 @@ function buildAssetCatalog() {
       species: 'brown_booby',
     },
     {
+      id: 'bird_red_kura',
+      category: 'Seabirds (Flapping)',
+      name: 'Red Kura Bird — Manu Kura (Manuae)',
+      subtitle: 'Sacred crimson-scarlet Manuae lorikeet with coral hooked beak, cobalt nape & full landing/takeoff cycle',
+      tag: 'Kura',
+      kind: 'bird_single',
+      species: 'red_kura',
+    },
+    {
       id: 'bird_homing_flock',
       category: 'Seabirds (Flapping)',
       name: 'Homing Flock (8 Seabirds Flapping)',
@@ -870,7 +879,11 @@ class AssetDebugViewer {
 
   _mountSingleBirdAsset(item) {
     const species =
-      item.species === 'brown_booby' ? 'brown_booby' : 'white_tern';
+      item.species === 'brown_booby'
+        ? 'brown_booby'
+        : item.species === 'red_kura'
+          ? 'red_kura'
+          : 'white_tern';
     const entry = this.worldCues.createSeabird(species, { opaque: true });
     entry.root.position.set(0, 0.52, 0);
     this.stageGroup.add(entry.root);
@@ -917,8 +930,8 @@ class AssetDebugViewer {
           legExtend: smoothstep(0.25, 0.82, u),
           foldBlend,
           spreadBlend: 0.0,
-          flapSpeed: lerp(1.0, 1.38, smoothstep(0.2, 0.78, u)),
-          flapAmp: lerp(0.9, 1.15, smoothstep(0.2, 0.78, u)) * (1.0 - foldBlend),
+          flapSpeed: lerp(1.0, 1.12, smoothstep(0.2, 0.78, u)),
+          flapAmp: lerp(0.9, 1.08, smoothstep(0.2, 0.78, u)) * (1.0 - foldBlend),
           pitchRad: Math.sin(u * Math.PI) * 0.32 * (1.0 - foldBlend),
           lookYawRad: 0.0,
         };
@@ -960,8 +973,8 @@ class AssetDebugViewer {
           legExtend: 1.0 - smoothstep(0.15, 0.62, u),
           foldBlend: 0.0,
           spreadBlend,
-          flapSpeed: lerp(1.42, 1.0, u),
-          flapAmp: lerp(1.22, 1.0, u) * (1.0 - spreadBlend * 0.65),
+          flapSpeed: lerp(1.16, 1.0, u),
+          flapAmp: lerp(1.12, 1.0, u) * (1.0 - spreadBlend * 0.65),
           pitchRad: 0.22 * Math.sin(u * Math.PI),
           lookYawRad: 0.0,
         };

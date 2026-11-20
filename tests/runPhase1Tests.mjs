@@ -1128,4 +1128,13 @@ for (const [cargoKey, cargoDef] of cargoEntries) {
   );
 }
 
+// ── RED KURA BIRD EXCLUSIVITY ON MANUAE ───────────────────────────────────────
+{
+  const kuraIslands = Object.values(ISLANDS).filter((i) => i.birdSpecies === 'red_kura');
+  assert(
+    kuraIslands.length === 1 && kuraIslands[0].id === 'manuae',
+    `Red Kura birds must belong exclusively to Manuae (got ${kuraIslands.map((i) => i.id).join(', ')})`
+  );
+}
+
 logLine(`\nALL PHASE 1 TESTS PASSED! (${passedCount} assertions verified)`);
