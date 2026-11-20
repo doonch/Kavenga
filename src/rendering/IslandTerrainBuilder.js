@@ -958,12 +958,21 @@ export function createDetailedIslandAssembly(islandId) {
     maraeGroup.position.set(capeX, capeY, capeZ);
     maraeGroup.rotation.y = -capeTheta;
 
-    // Two-tier beveled stone courtyard terrace (paepae) with fitted perimeter curb blocks
+    // Grounded skirt + two-tier beveled stone courtyard terrace (paepae) with fitted curb blocks
+    const footingSkirt = new THREE.Mesh(
+      createBeveledStoneSlabGeometry(8.7, 1.8, 11.4, 0.24),
+      basaltStoneMat
+    );
+    footingSkirt.position.y = -0.9;
+    footingSkirt.userData.walkableSurface = true;
+    maraeGroup.add(footingSkirt);
+
     const footingSlab = new THREE.Mesh(
       createBeveledStoneSlabGeometry(8.5, 0.36, 11.2, 0.22),
       basaltStoneMat
     );
     footingSlab.position.y = -0.02;
+    footingSlab.userData.walkableSurface = true;
     maraeGroup.add(footingSlab);
 
     const pavement = new THREE.Mesh(
@@ -971,6 +980,7 @@ export function createDetailedIslandAssembly(islandId) {
       basaltStoneMat
     );
     pavement.position.y = 0.26;
+    pavement.userData.walkableSurface = true;
     maraeGroup.add(pavement);
 
     const curbGeo = createBeveledStoneSlabGeometry(0.44, 0.26, 1.08, 0.06);
@@ -1001,6 +1011,7 @@ export function createDetailedIslandAssembly(islandId) {
       coralSlabMat
     );
     ahuTier1.position.set(1.9, 0.62, 0.0);
+    ahuTier1.userData.walkableSurface = true;
     maraeGroup.add(ahuTier1);
 
     const ahuTier2 = new THREE.Mesh(
@@ -1008,6 +1019,7 @@ export function createDetailedIslandAssembly(islandId) {
       coralSlabMat
     );
     ahuTier2.position.set(2.12, 1.0, 0.0);
+    ahuTier2.userData.walkableSurface = true;
     maraeGroup.add(ahuTier2);
 
     const ahuTier3 = new THREE.Mesh(
@@ -1015,6 +1027,7 @@ export function createDetailedIslandAssembly(islandId) {
       coralSlabMat
     );
     ahuTier3.position.set(2.24, 1.32, 0.0);
+    ahuTier3.userData.walkableSurface = true;
     maraeGroup.add(ahuTier3);
 
     for (let cap = -2; cap <= 2; cap += 1) {
@@ -1023,6 +1036,7 @@ export function createDetailedIslandAssembly(islandId) {
         cap % 2 === 0 ? coralSlabMat : basaltStoneMat
       );
       capSlab.position.set(2.24, 1.52, cap * 1.02);
+      capSlab.userData.walkableSurface = true;
       maraeGroup.add(capSlab);
     }
 
@@ -1074,6 +1088,7 @@ export function createDetailedIslandAssembly(islandId) {
       coralSlabMat
     );
     farePlinth.position.y = 0.08;
+    farePlinth.userData.walkableSurface = true;
     fareGroup.add(farePlinth);
 
     const postGeo = new THREE.CylinderGeometry(0.09, 0.11, 1.45, 6);

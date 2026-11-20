@@ -1019,7 +1019,9 @@ export function addTimberPier(
   pier.position.set(x, y, z);
   pier.rotation.y = rotY;
 
-  pier.add(new THREE.Mesh(new THREE.BoxGeometry(length, 0.2, width), mat));
+  const pierDeck = new THREE.Mesh(new THREE.BoxGeometry(length, 0.2, width), mat);
+  pierDeck.userData.walkableSurface = true;
+  pier.add(pierDeck);
 
   const pileGeo = new THREE.CylinderGeometry(0.1, 0.12, 1.15, 6);
   const nPairs = Math.max(3, Math.round(length / 2.0));
@@ -1219,6 +1221,7 @@ export function addMaraePlatform(
     courtMat
   );
   foundationSkirt.position.y = -0.82;
+  foundationSkirt.userData.walkableSurface = true;
   marae.add(foundationSkirt);
 
   const lowerFooting = new THREE.Mesh(
@@ -1226,6 +1229,7 @@ export function addMaraePlatform(
     courtMat
   );
   lowerFooting.position.y = 0.08;
+  lowerFooting.userData.walkableSurface = true;
   marae.add(lowerFooting);
 
   const mainCourt = new THREE.Mesh(
@@ -1233,6 +1237,7 @@ export function addMaraePlatform(
     courtMat
   );
   mainCourt.position.y = 0.38;
+  mainCourt.userData.walkableSurface = true;
   marae.add(mainCourt);
 
   // Warm recessed central courtyard stone/gravel mosaic floor
@@ -1241,6 +1246,7 @@ export function addMaraePlatform(
     pavingMat
   );
   innerPaving.position.set(-0.25, 0.56, 0.0);
+  innerPaving.userData.walkableSurface = true;
   marae.add(innerPaving);
 
   // 2. Fitted perimeter curb stones around north/south/east edges & flanking west entry
@@ -1271,10 +1277,11 @@ export function addMaraePlatform(
   // Front ceremonial threshold stepping stones on the entrance side (-X)
   for (let st = 0; st < 2; st += 1) {
     const stepSlab = new THREE.Mesh(
-      createBeveledStoneSlabGeometry(0.95, 0.16, 2.05 - st * 0.25, 0.08),
+      createBeveledStoneSlabGeometry(1.3, 0.2, 2.35 - st * 0.25, 0.08),
       ahuMat
     );
-    stepSlab.position.set(-3.85 - st * 0.72, 0.34 - st * 0.16, 0.0);
+    stepSlab.position.set(-3.95 - st * 0.85, 0.34 - st * 0.16, 0.0);
+    stepSlab.userData.walkableSurface = true;
     marae.add(stepSlab);
   }
 
@@ -1284,6 +1291,7 @@ export function addMaraePlatform(
     midStoneMat
   );
   ahuTier1.position.set(2.0, 0.82, 0.0);
+  ahuTier1.userData.walkableSurface = true;
   marae.add(ahuTier1);
 
   const ahuTier2 = new THREE.Mesh(
@@ -1291,6 +1299,7 @@ export function addMaraePlatform(
     ahuMat
   );
   ahuTier2.position.set(2.08, 1.38, 0.0);
+  ahuTier2.userData.walkableSurface = true;
   marae.add(ahuTier2);
 
   const ahuTier3 = new THREE.Mesh(
@@ -1298,6 +1307,7 @@ export function addMaraePlatform(
     ahuMat
   );
   ahuTier3.position.set(2.14, 1.88, 0.0);
+  ahuTier3.userData.walkableSurface = true;
   marae.add(ahuTier3);
 
   // Individual fitted dressed coping slabs crowning the Ahu ridge
@@ -1308,6 +1318,7 @@ export function addMaraePlatform(
     );
     capStone.position.set(2.14, 2.16, c * 0.86);
     capStone.rotation.y = ((c % 3) - 1) * 0.025;
+    capStone.userData.walkableSurface = true;
     marae.add(capStone);
   }
 

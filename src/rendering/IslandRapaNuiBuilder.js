@@ -906,6 +906,7 @@ function addAhuWithMoaiRow(
   centralPedestal.position.y = (platformHeight - skirtDepth) * 0.5 - 0.15;
   centralPedestal.castShadow = true;
   centralPedestal.receiveShadow = true;
+  centralPedestal.userData.walkableSurface = true;
   ahuGroup.add(centralPedestal);
 
   // Upper dressed basalt cornice band
@@ -914,6 +915,7 @@ function addAhuWithMoaiRow(
     mats.ahuDressedSlabMat
   );
   cornice.position.y = platformHeight - 0.15;
+  cornice.userData.walkableSurface = true;
   ahuGroup.add(cornice);
 
   // Lateral stone wings (pakia) flanking the central pedestal
@@ -925,6 +927,7 @@ function addAhuWithMoaiRow(
       mats.ahuBasaltMat
     );
     wingMesh.position.set(0.0, (platformHeight * 0.62 - skirtDepth) * 0.5 - 0.15, -0.08);
+    wingMesh.userData.walkableSurface = true;
     ahuGroup.add(wingMesh);
   }
 
@@ -936,6 +939,7 @@ function addAhuWithMoaiRow(
     );
     apron.position.set(0.0, -0.18, platformDepth * 0.98);
     apron.receiveShadow = true;
+    apron.userData.walkableSurface = true;
     ahuGroup.add(apron);
   }
 

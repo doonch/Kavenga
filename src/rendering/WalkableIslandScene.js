@@ -150,15 +150,17 @@ export class WalkableIslandScene {
     this.heightGrid.fill(-4.0);
     assemblyGroup.updateMatrixWorld(true);
 
-    // Find the primary vertex-colored terrain mesh in the canonical island assembly
+    // Find the primary vertex-colored terrain mesh plus any tagged walkable platform slabs
+    // (marae/heiau courtyards, ahu terraces, timber piers)
     let terrainMesh = null;
     let maxVerts = 0;
+    const walkableSurfaces = [];
     assemblyGroup.traverse((obj) => {
-      if (
-        obj.isMesh &&
-        obj.geometry?.index &&
-        obj.geometry?.getAttribute('color')
-      ) {
+      if (!obj.isMesh || !obj.geometry?.getAttribute('position')) return;
+      if (obj.userData?.walkableSurface) {
+        walkableSurfaces.push(obj);
+      }
+      if (obj.geometry?.index && obj.geometry?.getAttribute('color')) {
         const cnt = obj.geometry.getAttribute('position').count;
         if (cnt > maxVerts) {
           maxVerts = cnt;
@@ -169,70 +171,80 @@ export class WalkableIslandScene {
 
     if (!terrainMesh) return;
 
-    const posAttr = terrainMesh.geometry.getAttribute('position');
-    const idxAttr = terrainMesh.geometry.index;
-    const mw = terrainMesh.matrixWorld.elements;
-    const vCount = posAttr.count;
+    const rasterizeMesh = (mesh, edgePad = -1e-4) => {
+      const posAttr = mesh.geometry.getAttribute('position');
+      const idxAttr = mesh.geometry.index;
+      const mw = mesh.matrixWorld.elements;
+      const vCount = posAttr.count;
 
-    const wx = new Float32Array(vCount);
-    const wy = new Float32Array(vCount);
-    const wz = new Float32Array(vCount);
+      const wx = new Float32Array(vCount);
+      const wy = new Float32Array(vCount);
+      const wz = new Float32Array(vCount);
 
-    for (let i = 0; i < vCount; i += 1) {
-      const lx = posAttr.getX(i);
-      const ly = posAttr.getY(i);
-      const lz = posAttr.getZ(i);
-      wx[i] = mw[0] * lx + mw[4] * ly + mw[8] * lz + mw[12];
-      wy[i] = mw[1] * lx + mw[5] * ly + mw[9] * lz + mw[13];
-      wz[i] = mw[2] * lx + mw[6] * ly + mw[10] * lz + mw[14];
-    }
+      for (let i = 0; i < vCount; i += 1) {
+        const lx = posAttr.getX(i);
+        const ly = posAttr.getY(i);
+        const lz = posAttr.getZ(i);
+        wx[i] = mw[0] * lx + mw[4] * ly + mw[8] * lz + mw[12];
+        wy[i] = mw[1] * lx + mw[5] * ly + mw[9] * lz + mw[13];
+        wz[i] = mw[2] * lx + mw[6] * ly + mw[10] * lz + mw[14];
+      }
 
-    const idxArr = idxAttr.array;
-    for (let t = 0; t < idxArr.length; t += 3) {
-      const i0 = idxArr[t];
-      const i1 = idxArr[t + 1];
-      const i2 = idxArr[t + 2];
-      const x0 = wx[i0];
-      const y0 = wy[i0];
-      const z0 = wz[i0];
-      const x1 = wx[i1];
-      const y1 = wy[i1];
-      const z1 = wz[i1];
-      const x2 = wx[i2];
-      const y2 = wy[i2];
-      const z2 = wz[i2];
+      const idxArr = idxAttr ? idxAttr.array : null;
+      const triCount = idxArr ? idxArr.length : vCount;
+      for (let t = 0; t + 2 < triCount; t += 3) {
+        const i0 = idxArr ? idxArr[t] : t;
+        const i1 = idxArr ? idxArr[t + 1] : t + 1;
+        const i2 = idxArr ? idxArr[t + 2] : t + 2;
+        const x0 = wx[i0];
+        const y0 = wy[i0];
+        const z0 = wz[i0];
+        const x1 = wx[i1];
+        const y1 = wy[i1];
+        const z1 = wz[i1];
+        const x2 = wx[i2];
+        const y2 = wy[i2];
+        const z2 = wz[i2];
 
-      const denom = (z1 - z2) * (x0 - x2) + (x2 - x1) * (z0 - z2);
-      if (Math.abs(denom) < 1e-6) continue;
-      const invDenom = 1.0 / denom;
+        const denom = (z1 - z2) * (x0 - x2) + (x2 - x1) * (z0 - z2);
+        if (Math.abs(denom) < 1e-6) continue;
+        const invDenom = 1.0 / denom;
 
-      const minX = Math.min(x0, x1, x2);
-      const maxX = Math.max(x0, x1, x2);
-      const minZ = Math.min(z0, z1, z2);
-      const maxZ = Math.max(z0, z1, z2);
+        const minX = Math.min(x0, x1, x2);
+        const maxX = Math.max(x0, x1, x2);
+        const minZ = Math.min(z0, z1, z2);
+        const maxZ = Math.max(z0, z1, z2);
 
-      const gx0 = Math.max(0, Math.floor((minX + half) * invStep));
-      const gx1 = Math.min(N, Math.ceil((maxX + half) * invStep));
-      const gz0 = Math.max(0, Math.floor((minZ + half) * invStep));
-      const gz1 = Math.min(N, Math.ceil((maxZ + half) * invStep));
+        const gx0 = Math.max(0, Math.floor((minX + half) * invStep));
+        const gx1 = Math.min(N, Math.ceil((maxX + half) * invStep));
+        const gz0 = Math.max(0, Math.floor((minZ + half) * invStep));
+        const gz1 = Math.min(N, Math.ceil((maxZ + half) * invStep));
 
-      for (let gz = gz0; gz <= gz1; gz += 1) {
-        const pz = -half + gz * step;
-        for (let gx = gx0; gx <= gx1; gx += 1) {
-          const px = -half + gx * step;
-          const w0 =
-            ((z1 - z2) * (px - x2) + (x2 - x1) * (pz - z2)) * invDenom;
-          const w1 =
-            ((z2 - z0) * (px - x2) + (x0 - x2) * (pz - z2)) * invDenom;
-          const w2 = 1.0 - w0 - w1;
-          if (w0 >= -1e-4 && w1 >= -1e-4 && w2 >= -1e-4) {
-            const py = w0 * y0 + w1 * y1 + w2 * y2;
-            const cell = gz * stride + gx;
-            if (py > this.heightGrid[cell]) {
-              this.heightGrid[cell] = py;
+        for (let gz = gz0; gz <= gz1; gz += 1) {
+          const pz = -half + gz * step;
+          for (let gx = gx0; gx <= gx1; gx += 1) {
+            const px = -half + gx * step;
+            const w0 =
+              ((z1 - z2) * (px - x2) + (x2 - x1) * (pz - z2)) * invDenom;
+            const w1 =
+              ((z2 - z0) * (px - x2) + (x0 - x2) * (pz - z2)) * invDenom;
+            const w2 = 1.0 - w0 - w1;
+            if (w0 >= edgePad && w1 >= edgePad && w2 >= edgePad) {
+              const py = w0 * y0 + w1 * y1 + w2 * y2;
+              const cell = gz * stride + gx;
+              if (py > this.heightGrid[cell]) {
+                this.heightGrid[cell] = py;
+              }
             }
           }
         }
+      }
+    };
+
+    rasterizeMesh(terrainMesh, -1e-4);
+    for (const surfaceMesh of walkableSurfaces) {
+      if (surfaceMesh !== terrainMesh) {
+        rasterizeMesh(surfaceMesh, -0.02);
       }
     }
 
