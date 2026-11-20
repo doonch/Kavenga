@@ -263,38 +263,14 @@ export class IslandHubUI {
               </div>
 
               <div class="hub-card readiness-station-card">
-                <div class="readiness-head">
-                  <div>
-                    <h4 id="landingPoiTitle">Canoe Readiness &amp; Deck Load</h4>
-                    <div class="vaka-tier-line" id="hubVakaTier"></div>
-                  </div>
-                </div>
-
-                <div class="condition-list" id="hubConditionList"></div>
-
-                <button class="secondary-btn full-width-btn" id="btnCareenAndRestock" type="button">
-                  Careen Canoe &amp; Fill Ration Baskets
-                </button>
-                <div class="careen-feedback" id="hubCareenFeedback"></div>
-
-                <div class="cargo-section">
-                  <div class="cargo-header">
-                    <strong>Deck Cargo Slots</strong>
-                    <span id="hubSlotCounter"></span>
-                  </div>
-                  <div class="ration-controls">
-                    <span>Woven Ration Baskets: <strong id="hubRationCount"></strong></span>
-                    <div class="ration-step-btns">
-                      <button class="secondary-btn small-btn" id="btnRationMinus" type="button">−</button>
-                      <button class="secondary-btn small-btn" id="btnRationPlus" type="button">+</button>
-                    </div>
-                  </div>
-                  <div class="cargo-items-list" id="hubCargoItems"></div>
+                <div class="cargo-section hidden" id="hubCargoSection">
+                  <strong>Quest Items Aboard</strong>
+                  <div class="cargo-cards-grid" id="hubCargoItems"></div>
                 </div>
 
                 <div class="crew-section">
                   <strong>Voyaging Crew Aboard</strong>
-                  <div class="crew-list" id="hubCrewList"></div>
+                  <div class="crew-cards-grid" id="hubCrewList"></div>
                 </div>
               </div>
             </section>
@@ -306,6 +282,9 @@ export class IslandHubUI {
           </div>
         </aside>
       </div>
+
+      <!-- Floating Card Tooltip (clamped inside .island-hub-shell) -->
+      <div class="hub-card-tooltip hidden" id="hubCardTooltip" role="tooltip"></div>
 
       <!-- Full-Body Character Portrait Lightbox Modal -->
       <div class="modal-backdrop hidden" id="mentorPortraitModal">
@@ -431,31 +410,6 @@ export class IslandHubUI {
         });
       });
 
-    // Ration +/- buttons
-    this.rootEl.querySelector('#btnRationMinus').addEventListener('click', () => {
-      const gs = this.callbacks.getGameState();
-      gs.setLoadedRations(gs.loadedRations - 1);
-      gs.saveToLocalStorage();
-      this.refresh();
-    });
-    this.rootEl.querySelector('#btnRationPlus').addEventListener('click', () => {
-      const gs = this.callbacks.getGameState();
-      gs.setLoadedRations(gs.loadedRations + 1);
-      gs.saveToLocalStorage();
-      this.refresh();
-    });
-
-    // Careen & Restock button
-    this.rootEl
-      .querySelector('#btnCareenAndRestock')
-      .addEventListener('click', () => {
-        const gs = this.callbacks.getGameState();
-        const msg = performBeachCareeningAndRestock(gs);
-        this.rootEl.querySelector('#hubCareenFeedback').textContent = msg;
-        this.callbacks.onAshoreStateChanged?.();
-        this.refresh();
-      });
-
     // Departure window buttons (also live-preview tide-light in ShoreDioramaRenderer!)
     this.rootEl.querySelectorAll('.dep-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -478,6 +432,65 @@ export class IslandHubUI {
         e.currentTarget.blur();
         this._handleCriticalCtaClick();
       });
+
+    // Floating tooltip clamped within .island-hub-shell
+    const handleTipShow = (e) => {
+      const target = e.target?.closest?.('[data-tooltip]');
+      if (!target) return;
+      this._showCardTooltip(target);
+    };
+    const handleTipHide = (e) => {
+      const target = e.target?.closest?.('[data-tooltip]');
+      if (!target) return;
+      if (e.relatedTarget && target.contains(e.relatedTarget)) return;
+      this._hideCardTooltip();
+    };
+    this.rootEl.addEventListener('mouseover', handleTipShow);
+    this.rootEl.addEventListener('mouseout', handleTipHide);
+    this.rootEl.addEventListener('focusin', handleTipShow);
+    this.rootEl.addEventListener('focusout', handleTipHide);
+    this.rootEl
+      .querySelector('.hub-body')
+      ?.addEventListener('scroll', () => this._hideCardTooltip(), {
+        passive: true,
+      });
+  }
+
+  _showCardTooltip(target) {
+    const tipEl = this.rootEl.querySelector('#hubCardTooltip');
+    const shell = this.rootEl.querySelector('.island-hub-shell');
+    const text = target?.getAttribute('data-tooltip');
+    if (!tipEl || !shell || !text) return;
+
+    tipEl.textContent = text;
+    tipEl.classList.remove('hidden');
+
+    const tRect = target.getBoundingClientRect();
+    const sRect = shell.getBoundingClientRect();
+    const tipRect = tipEl.getBoundingClientRect();
+    const pad = 10;
+
+    let left = tRect.left + (tRect.width - tipRect.width) * 0.5;
+    left = Math.max(
+      sRect.left + pad,
+      Math.min(sRect.right - tipRect.width - pad, left)
+    );
+
+    let top = tRect.top - tipRect.height - 8;
+    if (top < sRect.top + pad) {
+      top = tRect.bottom + 8;
+    }
+    top = Math.max(
+      sRect.top + pad,
+      Math.min(sRect.bottom - tipRect.height - pad, top)
+    );
+
+    tipEl.style.left = `${Math.round(left)}px`;
+    tipEl.style.top = `${Math.round(top)}px`;
+  }
+
+  _hideCardTooltip() {
+    this.rootEl.querySelector('#hubCardTooltip')?.classList.add('hidden');
   }
 
   setOrbitCustomized(customized) {
@@ -675,7 +688,6 @@ export class IslandHubUI {
       }
     }
 
-    this.rootEl.querySelector('#hubCareenFeedback').textContent = '';
     this.rootEl.classList.remove('hidden');
     this.closePortraitModal();
 
@@ -685,6 +697,7 @@ export class IslandHubUI {
   }
 
   hide() {
+    this._hideCardTooltip();
     this.shoreSandCanvas.stopAnimation();
     this.closePortraitModal();
     this.callbacks.onStopVoice?.();
@@ -692,6 +705,7 @@ export class IslandHubUI {
   }
 
   switchTab(tabId) {
+    this._hideCardTooltip();
     const validTabs = ['sanctuary', 'sand', 'vigil', 'landing'];
     const nextTab = validTabs.includes(tabId) ? tabId : 'sanctuary';
     if (nextTab !== 'sanctuary') {
@@ -767,9 +781,7 @@ export class IslandHubUI {
         ? 'Elder'
         : 'Rookery';
 
-    const [pLanding, pSand] = isl.pois;
-    this.rootEl.querySelector('#landingPoiTitle').textContent =
-      POI_LABELS[pLanding] || 'Canoe Readiness & Deck Load';
+    const [, pSand] = isl.pois;
     this.rootEl.querySelector('#sandPoiTitle').textContent =
       (pSand && POI_LABELS[pSand]) || 'Carved Ocean Cue Diagrams';
 
@@ -843,8 +855,7 @@ export class IslandHubUI {
           ? '🛠️ Careen Canoe & Fill Rations'
           : '🥥 Restock Coconuts & Water',
         run: () => {
-          const msg = performBeachCareeningAndRestock(gs);
-          this.rootEl.querySelector('#hubCareenFeedback').textContent = msg;
+          performBeachCareeningAndRestock(gs);
           this.callbacks.onAshoreStateChanged?.();
           if (this.activeTab !== 'landing') {
             this.switchTab('landing');
@@ -1297,44 +1308,22 @@ export class IslandHubUI {
     const gs = this.callbacks.getGameState();
     if (!gs) return;
 
-    const tierNames = {
-      1: 'Coastal Double-Hulled Vaka (4 Cargo Slots)',
-      2: 'Raised-Strake Voyaging Vaka (6 Cargo Slots)',
-      3: 'Double-Sail Deep-Ocean Vaka Moana (8 Cargo Slots)',
-    };
-    this.rootEl.querySelector('#hubVakaTier').textContent =
-      tierNames[gs.vakaTier] || tierNames[1];
-
-    const describeCond = (val) =>
-      val >= 99
-        ? 'Consecrated & Sound'
-        : val >= 75
-          ? 'Seaworthy'
-          : val >= 55
-            ? 'Weathered'
-            : 'Worn — Careen Ashore';
-
-    const sailLabel = gs.vakaTier >= 3 ? 'Twin Pandanus Sails' : 'Pandanus Sail';
-    this.rootEl.querySelector('#hubConditionList').innerHTML = `
-      <div class="cond-chip"><span>Twin Hulls</span><strong>${describeCond(gs.hullCondition)}</strong></div>
-      <div class="cond-chip"><span>${sailLabel}</span><strong>${describeCond(gs.sailCondition)}</strong></div>
-      <div class="cond-chip"><span>Sennit Lashings</span><strong>${describeCond(gs.lashingsCondition)}</strong></div>
-    `;
-
-    this.rootEl.querySelector('#hubSlotCounter').textContent =
-      `${gs.getUsedCargoSlots()} / ${gs.maxCargoSlots} Slots Lashed`;
-    this.rootEl.querySelector('#hubRationCount').textContent =
-      `${Math.floor(gs.loadedRations)} Baskets`;
-
+    const cargoSection = this.rootEl.querySelector('#hubCargoSection');
     const cargoContainer = this.rootEl.querySelector('#hubCargoItems');
     if (gs.cargoItems.length === 0) {
-      cargoContainer.innerHTML =
-        '<div class="empty-note">No trade gifts currently lashed on deck.</div>';
+      cargoSection.classList.add('hidden');
+      cargoContainer.innerHTML = '';
     } else {
+      cargoSection.classList.remove('hidden');
       cargoContainer.innerHTML = gs.cargoItems
         .map((cid) => {
           const item = CARGO_CATALOG[cid] || { name: cid, description: '' };
-          return `<div class="cargo-pill"><strong>📦 ${item.name}</strong><span>${item.description}</span></div>`;
+          const tip = `${item.name}${item.description ? ` — ${item.description}` : ''}`;
+          return `
+            <div class="cargo-item-card" tabindex="0" data-tooltip="${tip}" aria-label="${item.name}">
+              <img class="cargo-item-img" src="./assets/cargo/${cid}.jpg" alt="${item.name}" />
+            </div>
+          `;
         })
         .join('');
     }
@@ -1342,49 +1331,43 @@ export class IslandHubUI {
     const crewContainer = this.rootEl.querySelector('#hubCrewList');
     crewContainer.innerHTML = '';
     const playerProfile = getPlayerCharacterProfile(gs.difficulty);
-    const playerPill = document.createElement('div');
-    playerPill.className = 'crew-pill';
-    playerPill.innerHTML = `
-      <div class="crew-pill-text">
-        <strong>You · ${playerProfile.title} (${playerProfile.ageLabel})</strong>
-        <span>At the Helm: ${playerProfile.attireSummary}</span>
+    const playerPortrait = `./assets/crew/player_${gs.difficulty || 'easy'}.jpg`;
+    const playerCard = document.createElement('div');
+    playerCard.className = 'crew-card';
+    playerCard.tabIndex = 0;
+    playerCard.setAttribute('data-tooltip', playerProfile.title);
+    playerCard.innerHTML = `
+      <div class="crew-card-art">
+        <img src="${playerPortrait}" alt="${playerProfile.title}" />
       </div>
+      <div class="crew-card-name">You</div>
+      <div class="crew-card-role">${playerProfile.title}</div>
     `;
-    crewContainer.appendChild(playerPill);
+    crewContainer.appendChild(playerCard);
 
-    if (gs.assignedCrew.length === 0) {
-      const note = document.createElement('div');
-      note.className = 'empty-note';
-      note.textContent =
-        'Sailing with your starter paddler (recruit specialist crewmates across the islands).';
-      crewContainer.appendChild(note);
-    } else {
-      for (const crId of gs.assignedCrew) {
-        const cr = CREW_CATALOG[crId];
-        if (!cr) continue;
-        const pill = document.createElement('div');
-        pill.className = 'crew-pill crew-pill-with-portrait';
-        pill.innerHTML = `
+    for (const crId of gs.assignedCrew) {
+      const cr = CREW_CATALOG[crId];
+      if (!cr) continue;
+      const crewTip = `${cr.name} · ${cr.role} — ${cr.traitText}`;
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'crew-card crew-card-btn';
+      card.setAttribute('data-tooltip', crewTip);
+      card.innerHTML = `
+        <div class="crew-card-art">
           ${
             cr.portrait
-              ? `<button class="crew-pill-thumb-btn" type="button" title="Inspect ${cr.name}'s full-body portrait">
-                   <img class="crew-pill-thumb" src="${cr.portrait}" alt="${cr.name}" />
-                 </button>`
+              ? `<img src="${cr.portrait}" alt="${cr.name}" />`
               : ''
           }
-          <div class="crew-pill-text">
-            <strong>${cr.name} · ${cr.role}</strong>
-            <span>${cr.traitText}</span>
-          </div>
-        `;
-        const thumbBtn = pill.querySelector('.crew-pill-thumb-btn');
-        if (thumbBtn) {
-          thumbBtn.addEventListener('click', () => {
-            this.openCrewPortraitModal(crId);
-          });
-        }
-        crewContainer.appendChild(pill);
-      }
+        </div>
+        <div class="crew-card-name">${cr.name}</div>
+        <div class="crew-card-role">${cr.role}</div>
+      `;
+      card.addEventListener('click', () => {
+        this.openCrewPortraitModal(crId);
+      });
+      crewContainer.appendChild(card);
     }
 
     this._refreshRoutePanel();

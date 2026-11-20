@@ -835,6 +835,136 @@ body {
   border-top: 1px solid rgba(255, 255, 255, 0.09);
 }
 
+.cargo-section:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.cargo-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 8px;
+}
+
+.crew-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 8px;
+}
+
+.cargo-item-card {
+  position: relative;
+  background: rgba(231, 181, 99, 0.11);
+  border: 1px solid rgba(231, 181, 99, 0.28);
+  border-radius: 10px;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.cargo-item-img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 7px;
+  display: block;
+}
+
+.crew-card {
+  position: relative;
+  background: rgba(231, 181, 99, 0.11);
+  border: 1px solid rgba(231, 181, 99, 0.28);
+  border-radius: 10px;
+  padding: 9px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 5px;
+  color: inherit;
+  font-family: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.crew-card-btn {
+  cursor: pointer;
+}
+
+.cargo-item-card:hover,
+.cargo-item-card:focus-visible,
+.crew-card:hover,
+.crew-card:focus-visible {
+  border-color: rgba(244, 211, 94, 0.72);
+  background: rgba(231, 181, 99, 0.18);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.cargo-item-art,
+.crew-card-art {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background: rgba(9, 20, 30, 0.55);
+  border: 1px solid rgba(244, 211, 94, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.cargo-item-art svg,
+.crew-card-art svg {
+  width: 38px;
+  height: 38px;
+  display: block;
+}
+
+.crew-card-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  display: block;
+}
+
+.cargo-item-name,
+.crew-card-name {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #f4efe6;
+}
+
+.crew-card-role {
+  font-size: 11px;
+  line-height: 1.2;
+  color: rgba(244, 239, 230, 0.74);
+}
+
+.hub-card-tooltip {
+  position: fixed;
+  z-index: 650;
+  width: max-content;
+  max-width: 240px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(9, 19, 29, 0.96);
+  border: 1px solid rgba(244, 211, 94, 0.65);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  color: #f4efe6;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+  pointer-events: none;
+}
+
 .cargo-header,
 .ration-controls,
 .dep-label {
