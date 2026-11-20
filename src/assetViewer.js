@@ -20,7 +20,27 @@ import {
   updateCloudMaterialUniforms,
 } from './rendering/CloudSculptBuilder.js';
 import { createRapaNuiMoaiShowcaseAssembly } from './rendering/IslandRapaNuiBuilder.js';
-import { createGiantPearlShellGroup } from './rendering/IslandSculptToolkit.js';
+import {
+  addMaraePlatform,
+  addRegionalHuts,
+  createGiantPearlShellGroup,
+} from './rendering/IslandSculptToolkit.js';
+import {
+  createBasaltFishWeirGroup,
+  createCarvedHullPairGroup,
+  createCarvedStandingStoneGroup,
+  createCoralCairnGroup,
+  createKukuiTorchGroup,
+  createMarquesanTikiSculpture,
+  createPandanusSailFrameGroup,
+  createPearlLineClusterGroup,
+  createQuarriedTikiBlockGroup,
+  createSailDyeVatsCluster,
+  createSculptedShipwrightShedGroup,
+  createSculptedTridacnaAltarGroup,
+  createVillageHearthGroup,
+  createWhaleJawArchGroup,
+} from './rendering/IslandPropsBuilder.js';
 import {
   animatePlayerCharacterRig,
   createPlayerCharacterRig,
@@ -252,14 +272,116 @@ function buildAssetCatalog() {
       tag: 'Cue',
       kind: 'fronds',
     },
+
+    // 5. Island Landmarks & Props
     {
       id: 'cue_giant_pearl_shells',
-      category: 'Fish & Sea Cues',
+      category: 'Island Landmarks & Props',
       name: 'Giant Pearl Shells — Te Pārau (Manuae)',
       subtitle:
         'Sculpted fluted black-lip pearl oyster & Tridacna valves with iridescent nacre, South Seas pearls & drying-rack half-shell',
       tag: 'Manuae',
       kind: 'pearl_shells',
+    },
+    {
+      id: 'prop_tridacna_altar',
+      category: 'Island Landmarks & Props',
+      name: 'Giant White Tridacna Clam Altar (Kiritimati)',
+      subtitle:
+        'Elevated coral-limestone sanctuary pedestal cradling colossal opposing sculpted Tridacna valves & giant coral pearl',
+      tag: 'Kiritimati',
+      kind: 'prop',
+      propId: 'tridacna_altar',
+    },
+    {
+      id: 'prop_carved_hulls',
+      category: 'Island Landmarks & Props',
+      name: "Carved Vaka Hull Pair on Cradles (Mo'orea)",
+      subtitle:
+        'Lofted twin tamanu dugout canoe hulls with flared prow cutwaters, hollowed bilges, carved gunwales & Y-chock timber cradles',
+      tag: "Mo'orea",
+      kind: 'prop',
+      propId: 'carved_hulls',
+    },
+    {
+      id: 'prop_sail_dye_and_loom',
+      category: 'Island Landmarks & Props',
+      name: "Sail-Dye Vats & Pandanus Sail Loom (Mo'orea / Huahine)",
+      subtitle:
+        'Hollowed basalt dye basins with ochre/turmeric/lagoon pigment pools beside arched carved-frame pandanus sail racks',
+      tag: 'Artisan',
+      kind: 'prop',
+      propId: 'sail_dye_and_loom',
+    },
+    {
+      id: 'prop_marquesan_tiki',
+      category: 'Island Landmarks & Props',
+      name: 'Red-Tuff Marquesan Tiki & Quarry Block (Hiva Oa)',
+      subtitle:
+        'Sculpted basalt-paepae red-tuff guardian tiki (broad brow, goggle eyes, carved ribs & hands) beside a chiseled quarry monolith',
+      tag: 'Hiva Oa',
+      kind: 'prop',
+      propId: 'marquesan_tiki',
+    },
+    {
+      id: 'prop_pearl_lines',
+      category: 'Island Landmarks & Props',
+      name: 'Pearl-Oyster Lagoon Longlines (Rangiroa)',
+      subtitle:
+        'Suspended catenary harvest ropes stretched between weathered hibiscus mooring stakes, glass-pearl floats & hanging shell baskets',
+      tag: 'Rangiroa',
+      kind: 'prop',
+      propId: 'pearl_lines',
+    },
+    {
+      id: 'prop_whale_arch',
+      category: 'Island Landmarks & Props',
+      name: 'Bleached Whale-Jawbone Archway (Ua Pou)',
+      subtitle:
+        'Stepped basalt carving terrace crowned by sculpted tapered cetacean mandible arches lashed with sennit binding & bone altar bench',
+      tag: 'Ua Pou',
+      kind: 'prop',
+      propId: 'whale_arch',
+    },
+    {
+      id: 'prop_fish_weir',
+      category: 'Island Landmarks & Props',
+      name: 'Stacked Basalt Maeva Fish Weir (Huahine)',
+      subtitle:
+        'Multi-course dry-laid volcanic basalt boulders forming converging V-wing tide walls & circular trap impoundment pen',
+      tag: 'Huahine',
+      kind: 'prop',
+      propId: 'fish_weir',
+    },
+    {
+      id: 'prop_torches_hearth_cairn',
+      category: 'Island Landmarks & Props',
+      name: 'Kukui Torch, Village Hearth, Standing Stone & Coral Cairn',
+      subtitle:
+        'Split-bamboo kukui torch with ti-leaf collar, coral-ringed bonfire hearth, tapered marae backrest stela & Manuae stacked coral cairn',
+      tag: 'Shared Props',
+      kind: 'prop',
+      propId: 'torches_hearth_cairn',
+    },
+    {
+      id: 'prop_regional_fares',
+      category: 'Island Landmarks & Props',
+      name: 'Polynesian Fare Hut & Vaka Shipwright Shed',
+      subtitle:
+        'Elevated Society/Marquesan thatched fare with recessed doorway, verandah posts & overhanging eaves alongside open shipwright shed',
+      tag: 'Architecture',
+      kind: 'prop',
+      propId: 'regional_fares',
+    },
+    {
+      id: 'prop_marae_platforms',
+      category: 'Island Landmarks & Props',
+      name: "Sculpted Marae & Heiau Platforms (Mangareva / Hawai'i)",
+      subtitle:
+        "Stepped dry-laid stone paepae with fitted perimeter curbing, 3-tier Ahu altar, carved unu standards, tapered ofai orthostats, braziers & Hawaiian 'Anu'u tower",
+      tag: 'Sacred Marae',
+      kind: 'prop',
+      propId: 'marae_platforms',
     },
   ];
 
@@ -776,6 +898,8 @@ class AssetDebugViewer {
       this._mountFrondsAsset();
     } else if (item.kind === 'pearl_shells') {
       this._mountPearlShellsAsset();
+    } else if (item.kind === 'prop') {
+      this._mountIslandPropAsset(item);
     } else if (item.kind === 'moai_showcase') {
       this._mountMoaiShowcaseAsset();
     } else if (item.kind === 'island') {
@@ -1246,6 +1370,186 @@ class AssetDebugViewer {
     };
     tickShells(this.animElapsedSec);
     this.activeTickFn = (_dt, elapsed) => tickShells(elapsed);
+  }
+
+  _mountIslandPropAsset(item) {
+    const group = new THREE.Group();
+    const trackMat = (mat) => mat;
+    const isLagoonWater =
+      item.propId === 'pearl_lines' || item.propId === 'fish_weir';
+
+    // Ground / lagoon shoal inspection plinth
+    const plinthRadius =
+      item.propId === 'marae_platforms'
+        ? 11.8
+        : item.propId === 'pearl_lines' ||
+          item.propId === 'fish_weir' ||
+          item.propId === 'regional_fares'
+        ? 9.0
+        : item.propId === 'carved_hulls' || item.propId === 'sail_dye_and_loom'
+        ? 5.2
+        : 4.0;
+    const pad = new THREE.Mesh(
+      new THREE.CylinderGeometry(plinthRadius, plinthRadius + 0.35, 0.16, 40),
+      new THREE.MeshStandardMaterial({
+        color: isLagoonWater ? 0x1a7882 : 0xcfb98f,
+        roughness: isLagoonWater ? 0.25 : 0.9,
+        metalness: isLagoonWater ? 0.08 : 0.02,
+      })
+    );
+    pad.position.y = -0.08;
+    pad.receiveShadow = true;
+    group.add(pad);
+
+    const flameEntries = [];
+
+    if (item.propId === 'tridacna_altar') {
+      const altar = createSculptedTridacnaAltarGroup(trackMat);
+      altar.group.rotation.y = 0.35;
+      group.add(altar.group);
+    } else if (item.propId === 'carved_hulls') {
+      const hulls = createCarvedHullPairGroup(trackMat);
+      group.add(hulls.group);
+    } else if (item.propId === 'sail_dye_and_loom') {
+      const vats = createSailDyeVatsCluster(
+        trackMat,
+        [0xb83227, 0xd9a441, 0x2ea89c],
+        1.15
+      );
+      vats.group.position.set(-1.6, 0, 0.6);
+      group.add(vats.group);
+
+      const rack = createPandanusSailFrameGroup(trackMat, {
+        sailColorHex: 0xe6cfa3,
+        width: 2.3,
+        height: 1.45,
+        arched: true,
+      });
+      rack.group.position.set(1.5, 0, -0.4);
+      rack.group.rotation.y = -0.35;
+      group.add(rack.group);
+    } else if (item.propId === 'marquesan_tiki') {
+      const redTuffMat = new THREE.MeshStandardMaterial({
+        color: 0xa84330,
+        roughness: 0.86,
+      });
+      const darkBasaltMat = new THREE.MeshStandardMaterial({
+        color: 0x302e2d,
+        roughness: 0.92,
+      });
+      const tiki = createMarquesanTikiSculpture(redTuffMat, darkBasaltMat, 1.0);
+      tiki.position.set(-1.3, 0, 0.2);
+      tiki.rotation.y = 0.25;
+      group.add(tiki);
+
+      const quarry = createQuarriedTikiBlockGroup(redTuffMat, darkBasaltMat);
+      quarry.group.position.set(1.75, 0, -0.35);
+      quarry.group.rotation.y = 0.5;
+      group.add(quarry.group);
+    } else if (item.propId === 'pearl_lines') {
+      const cluster = createPearlLineClusterGroup(trackMat, 3, 5);
+      cluster.group.position.set(0, 0, -5.0);
+      group.add(cluster.group);
+    } else if (item.propId === 'whale_arch') {
+      const arch = createWhaleJawArchGroup(trackMat);
+      group.add(arch.group);
+    } else if (item.propId === 'fish_weir') {
+      const weir = createBasaltFishWeirGroup(trackMat);
+      weir.group.position.set(1.2, 0.28, 0);
+      group.add(weir.group);
+    } else if (item.propId === 'torches_hearth_cairn') {
+      const torch = createKukuiTorchGroup(trackMat, { height: 1.65 });
+      torch.group.position.set(-2.1, 0, 0.6);
+      group.add(torch.group);
+      flameEntries.push({
+        mesh: torch.flame,
+        baseY: torch.flame.position.y,
+        phase: 0.2,
+      });
+
+      const hearth = createVillageHearthGroup(trackMat, { scale: 1.05 });
+      hearth.group.position.set(-0.4, 0, -0.5);
+      group.add(hearth.group);
+      flameEntries.push({
+        mesh: hearth.flame,
+        baseY: hearth.flame.position.y,
+        phase: 1.7,
+      });
+
+      const stone = createCarvedStandingStoneGroup(trackMat, {
+        width: 0.48,
+        height: 1.25,
+        depth: 0.28,
+        colorHex: 0x3b3a3c,
+      });
+      stone.group.position.set(1.1, 0, 0.6);
+      stone.group.rotation.y = -0.35;
+      group.add(stone.group);
+
+      const cairn = createCoralCairnGroup(trackMat);
+      cairn.group.position.set(2.35, 0, -0.4);
+      cairn.group.scale.setScalar(0.8);
+      group.add(cairn.group);
+    } else if (item.propId === 'regional_fares') {
+      addRegionalHuts(
+        group,
+        trackMat,
+        [
+          { x: -3.2, y: 0, z: 0.8, rotY: 0.35, scale: 1.0, longHouse: false },
+          { x: -2.8, y: 0, z: -3.4, rotY: 0.15, scale: 1.05, longHouse: true },
+        ],
+        'society'
+      );
+      const shed = createSculptedShipwrightShedGroup(trackMat, {
+        width: 4.8,
+        depth: 6.8,
+      });
+      shed.group.position.set(2.6, 0, 0.0);
+      group.add(shed.group);
+
+      const hullsInside = createCarvedHullPairGroup(trackMat);
+      hullsInside.group.position.set(2.6, 0, 0.2);
+      group.add(hullsInside.group);
+    } else if (item.propId === 'marae_platforms') {
+      // Mangareva white-coral Gateway Marae alongside Hawai'i basalt Heiau with 'Anu'u tower
+      addMaraePlatform(group, trackMat, {
+        x: -4.6,
+        y: 0.0,
+        z: 0.0,
+        rotY: 0.2,
+        scale: 0.88,
+        courtHex: 0xdcd3be,
+        ahuHex: 0xf0ead9,
+      });
+      addMaraePlatform(group, trackMat, {
+        x: 4.8,
+        y: 0.0,
+        z: 0.0,
+        rotY: -0.25,
+        scale: 0.92,
+        courtHex: 0x222124,
+        ahuHex: 0x363438,
+        withOracleTower: true,
+        withBraziers: true,
+      });
+    }
+
+    this.stageGroup.add(group);
+
+    if (flameEntries.length > 0) {
+      const tickProps = (elapsed) => {
+        for (const f of flameEntries) {
+          const flk =
+            1.0 +
+            0.12 * Math.sin(elapsed * 8.5 + f.phase) +
+            0.07 * Math.cos(elapsed * 14.0 + f.phase * 1.9);
+          f.mesh.scale.set(1.0 + (flk - 1.0) * 0.45, flk, 1.0 + (flk - 1.0) * 0.45);
+          f.mesh.position.y = f.baseY + (flk - 1.0) * 0.04;
+        }
+      };
+      tickProps(this.animElapsedSec);
+      this.activeTickFn = (_dt, elapsed) => tickProps(elapsed);
+    }
   }
 
   _mountMoaiShowcaseAsset() {

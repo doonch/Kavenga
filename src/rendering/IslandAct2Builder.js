@@ -34,6 +34,14 @@ import {
   mixRgb,
   smoothstep,
 } from './IslandSculptToolkit.js';
+import {
+  createCarvedHullPairGroup,
+  createMarquesanTikiSculpture,
+  createPearlLineClusterGroup,
+  createQuarriedTikiBlockGroup,
+  createSculptedShipwrightShedGroup,
+  createWhaleJawArchGroup,
+} from './IslandPropsBuilder.js';
 
 // Helper for reefless Marquesan cliff surf collar (white foam hugging rocky coast, open at bay mouth)
 function addCliffSurfCollar(group, foamMat, radius, startRad, endRad, segs = 36) {
@@ -337,20 +345,14 @@ function buildUaPouAssembly() {
   );
   addCliffSurfCollar(group, foamMat, 40.5, 0.34, Math.PI * 2.0 - 0.34, 38);
 
-  // Vaea's Bone-Carvers' Terrace & Bleached Whale-Rib Archways above the Pebble Cove
-  const boneMat = trackMat(
-    new THREE.MeshStandardMaterial({ color: 0xf0ead8, roughness: 0.65 })
-  );
+  // Vaea's Bone-Carvers' Terrace & Bleached Whale-Jawbone Archway above the Pebble Cove
   const terraceX = 27.5;
   const terraceZ = -3.6;
   const terraceY = Math.max(1.6, evalUaPouPoint(terraceX, terraceZ).h);
-  const ribArch = new THREE.Mesh(
-    new THREE.TorusGeometry(1.85, 0.13, 6, 14, Math.PI),
-    boneMat
-  );
-  ribArch.position.set(terraceX, terraceY + 0.2, terraceZ);
-  ribArch.rotation.y = Math.PI * 0.5;
-  group.add(ribArch);
+  const jawArch = createWhaleJawArchGroup(trackMat);
+  jawArch.group.position.set(terraceX, terraceY, terraceZ);
+  jawArch.group.rotation.y = Math.PI * 0.5;
+  group.add(jawArch.group);
 
   const huts = [
     [28.5, -0.14, 0.98],
@@ -519,18 +521,10 @@ function buildRangiroaAssembly() {
   addBarrierReefArc(group, reefMat, foamMat, 48.2, 0.19, 0.61, 14);
   addBarrierReefArc(group, reefMat, foamMat, 48.2, 0.94, Math.PI * 2.0 - 0.19, 44);
 
-  // Submerged Black-Pearl Oyster Line Buoys inside the Calm Lagoon!
-  const buoyMat = trackMat(
-    new THREE.MeshStandardMaterial({ color: 0xe8efe8, roughness: 0.5 })
-  );
-  const buoyGeo = new THREE.SphereGeometry(0.24, 7, 7);
-  for (let row = -1; row <= 1; row += 1) {
-    for (let col = 0; col < 6; col += 1) {
-      const b = new THREE.Mesh(buoyGeo, buoyMat);
-      b.position.set(16.0 + row * 3.4, 0.3, 4.5 + col * 2.6);
-      group.add(b);
-    }
-  }
+  // Submerged Black-Pearl Oyster Lagoon Longlines inside the Calm Lagoon
+  const pearlCluster = createPearlLineClusterGroup(trackMat, 3, 6);
+  pearlCluster.group.position.set(16.0, 0.0, 4.5);
+  group.add(pearlCluster.group);
 
   // Tane's Pearl-Divers' Village on the Tiputa-Avatoru Motu & Southern Pass Shoulder
   const huts = [
@@ -644,42 +638,10 @@ function evalHivaOaPoint(x, z) {
 }
 
 /**
- * Builds an expressive carved red-tuff Marquesan Tiki statue (cylindrical head, brow & eyes, torso).
+ * Builds an expressive carved red-tuff Marquesan Tiki statue.
  */
 function createMarquesanTikiMesh(redTuffMat, basaltMat, scale = 1.0) {
-  const tiki = new THREE.Group();
-  tiki.scale.setScalar(scale);
-
-  const pedestal = new THREE.Mesh(
-    new THREE.BoxGeometry(1.7, 0.65, 1.7),
-    basaltMat
-  );
-  pedestal.position.y = 0.3;
-  tiki.add(pedestal);
-
-  const torso = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.58, 0.66, 1.65, 8),
-    redTuffMat
-  );
-  torso.position.y = 1.42;
-  tiki.add(torso);
-
-  const head = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.66, 0.62, 1.35, 8),
-    redTuffMat
-  );
-  head.position.y = 2.85;
-  tiki.add(head);
-
-  // Carved wide Marquesan goggle-eye rings
-  const eyeGeo = new THREE.TorusGeometry(0.18, 0.055, 5, 10);
-  for (const ex of [-0.24, 0.24]) {
-    const eye = new THREE.Mesh(eyeGeo, basaltMat);
-    eye.position.set(ex, 2.92, 0.58);
-    tiki.add(eye);
-  }
-
-  return tiki;
+  return createMarquesanTikiSculpture(redTuffMat, basaltMat, scale);
 }
 
 function buildHivaOaAssembly() {
@@ -748,17 +710,14 @@ function buildHivaOaAssembly() {
   }
 
   // Half-quarried recumbent red-tuff monolith block in the hillside quarry cut
-  const quarryBlock = new THREE.Mesh(
-    new THREE.BoxGeometry(1.5, 1.2, 3.8),
-    redTuffMat
-  );
-  quarryBlock.position.set(
+  const quarryWork = createQuarriedTikiBlockGroup(redTuffMat, darkBasaltMat);
+  quarryWork.group.position.set(
     14.2,
-    evalHivaOaPoint(14.2, -9.0).h + 0.45,
+    evalHivaOaPoint(14.2, -9.0).h + 0.05,
     -9.0
   );
-  quarryBlock.rotation.y = 0.65;
-  group.add(quarryBlock);
+  quarryWork.group.rotation.y = 0.65;
+  group.add(quarryWork.group);
 
   const huts = [
     [24.5, -0.14, 0.98],
@@ -929,9 +888,6 @@ function buildFatuHivaAssembly() {
   });
 
   // Oihanu's Great Vaka Moana Shipwright Shed & Timber Careening Slipway
-  const shedMat = trackMat(
-    new THREE.MeshStandardMaterial({ color: 0xb88b4e, roughness: 0.88 })
-  );
   const timberMat = trackMat(
     new THREE.MeshStandardMaterial({ color: 0x694224, roughness: 0.85 })
   );
@@ -939,14 +895,19 @@ function buildFatuHivaAssembly() {
   const grandShed = new THREE.Group();
   grandShed.position.set(20.5, shedY, 0.0);
 
-  const roof = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.2, 3.4, 3.6, 4),
-    shedMat
-  );
-  roof.rotation.y = Math.PI * 0.25;
-  roof.scale.set(1.35, 1.0, 1.85);
-  roof.position.y = 3.0;
-  grandShed.add(roof);
+  const shipwrightShed = createSculptedShipwrightShedGroup(trackMat, {
+    width: 6.4,
+    depth: 9.2,
+    timberHex: 0x694224,
+    thatchHex: 0xb88b4e,
+  });
+  shipwrightShed.group.rotation.y = Math.PI * 0.5;
+  grandShed.add(shipwrightShed.group);
+
+  const shedHulls = createCarvedHullPairGroup(trackMat);
+  shedHulls.group.rotation.y = Math.PI * 0.5;
+  shedHulls.group.position.set(0.6, 0.0, 0.0);
+  grandShed.add(shedHulls.group);
 
   // Timber careening slipway rails running down toward the bay water
   for (const rz of [-1.4, 1.4]) {

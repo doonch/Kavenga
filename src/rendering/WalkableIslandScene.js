@@ -31,6 +31,13 @@ import {
   getIslandApproachOrientationRad,
 } from './IslandTerrainBuilder.js';
 import {
+  createCarvedStandingStoneGroup,
+  createKukuiTorchGroup,
+  createPandanusSailFrameGroup,
+  createSailDyeVatsCluster,
+  makeStoneRockGeometry,
+} from './IslandPropsBuilder.js';
+import {
   animatePlayerCharacterAshore,
   createPlayerCharacterRig,
 } from './PlayerCharacterBuilder.js';
@@ -371,7 +378,7 @@ export class WalkableIslandScene {
     const curve = new THREE.CatmullRomCurve3(spec.waypoints);
     const stepCount = spec.steps;
     const stepGeo = new THREE.CylinderGeometry(0.58, 0.7, 0.14, 7);
-    const kerbGeo = new THREE.DodecahedronGeometry(0.26, 0);
+    const kerbGeo = makeStoneRockGeometry(0.25, 11);
 
     for (let i = 0; i <= stepCount; i += 1) {
       const t = i / stepCount;
@@ -466,40 +473,21 @@ export class WalkableIslandScene {
     const mc = this.spec.mooredCanoe;
     this.obstacles.push({ x: mc.x, z: mc.z, r: 4.0 });
 
+    const tMat = (m) => m;
     const addKukuiTorch = (x, z, height = 1.65) => {
       const y = Math.max(0.1, this.getGroundHeight(x, z));
-      const tGrp = new THREE.Group();
-      tGrp.position.set(x, y, z);
-
-      const pole = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.045, 0.06, height, 6),
-        aitoMat
-      );
-      pole.position.y = height * 0.5;
-      pole.castShadow = true;
-      tGrp.add(pole);
-
-      const cup = new THREE.Mesh(
-        new THREE.ConeGeometry(0.11, 0.22, 7),
-        sennitMat
-      );
-      cup.rotation.x = Math.PI;
-      cup.position.y = height;
-      tGrp.add(cup);
-
-      const flame = new THREE.Mesh(
-        new THREE.ConeGeometry(0.095, 0.28, 7),
-        flameMat
-      );
-      flame.position.y = height + 0.18;
-      tGrp.add(flame);
+      const torch = createKukuiTorchGroup(tMat, { height });
+      torch.group.position.set(x, y, z);
+      torch.group.traverse((ch) => {
+        if (ch.isMesh) ch.castShadow = true;
+      });
       this.torchFlames.push({
-        mesh: flame,
-        baseY: height + 0.18,
+        mesh: torch.flame,
+        baseY: torch.flame.position.y,
         phase: x * 0.7 + z,
       });
 
-      this.root.add(tGrp);
+      this.root.add(torch.group);
       this.obstacles.push({ x, z, r: 0.45 });
     };
 
@@ -575,83 +563,51 @@ export class WalkableIslandScene {
 
         for (let s = 0; s < 6; s += 1) {
           const sAng = (s / 6) * Math.PI * 2.0 + 0.52;
-          const stone = new THREE.Mesh(
-            new THREE.BoxGeometry(0.42, 1.15, 0.28),
-            basaltMat
-          );
-          stone.position.set(
+          const stone = createCarvedStandingStoneGroup(tMat, {
+            width: 0.48,
+            height: 1.15,
+            depth: 0.28,
+            colorHex: 0x3c3936,
+          });
+          stone.group.position.set(
             Math.cos(sAng) * (poi.markerRadiusM - 0.35),
-            0.55,
+            0.0,
             Math.sin(sAng) * (poi.markerRadiusM - 0.35)
           );
-          stone.rotation.y = -sAng + Math.PI * 0.5;
-          stone.castShadow = true;
-          ringGrp.add(stone);
+          stone.group.rotation.y = -sAng + Math.PI * 0.5;
+          stone.mesh.castShadow = true;
+          ringGrp.add(stone.group);
         }
         this.obstacles.push({ x: poi.x, z: poi.z, r: 1.55 });
       }
 
       // Carved Sail-Dyeing Vats & drying pandanus sail-cloth banner on Mo'orea
       if (poi.kind === 'sail_dye') {
-        const vatColors = [0xb83227, 0xd9a441, 0x2ea89c];
-        for (let v = 0; v < vatColors.length; v += 1) {
-          const ang = (v / vatColors.length) * Math.PI * 2.0 + 0.35;
-          const vx = Math.cos(ang) * 1.15;
-          const vz = Math.sin(ang) * 1.15;
-
-          const basin = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.54, 0.44, 0.56, 12),
-            basaltMat
-          );
-          basin.position.set(vx, 0.28, vz);
-          basin.castShadow = true;
-          basin.receiveShadow = true;
-          ringGrp.add(basin);
-
-          const dyePool = new THREE.Mesh(
-            new THREE.CircleGeometry(0.45, 16),
-            new THREE.MeshStandardMaterial({
-              color: vatColors[v],
-              roughness: 0.28,
-              metalness: 0.08,
-            })
-          );
-          dyePool.rotation.x = -Math.PI * 0.5;
-          dyePool.position.set(vx, 0.57, vz);
-          ringGrp.add(dyePool);
-        }
-
-        // Timber drying rack + cloth banner showing current custom sail color
-        for (const px of [-1.25, 1.25]) {
-          const post = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.06, 0.08, 2.35, 7),
-            aitoMat
-          );
-          post.position.set(px, 1.18, -0.55);
-          post.castShadow = true;
-          ringGrp.add(post);
-        }
-        const crossbar = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.055, 0.055, 2.75, 7),
-          aitoMat
+        const vatsCluster = createSailDyeVatsCluster(
+          tMat,
+          [0xb83227, 0xd9a441, 0x2ea89c],
+          1.15
         );
-        crossbar.rotation.z = Math.PI * 0.5;
-        crossbar.position.set(0.0, 2.28, -0.55);
-        crossbar.castShadow = true;
-        ringGrp.add(crossbar);
-
-        this.dyeBannerMat = new THREE.MeshStandardMaterial({
-          color: 0xe6cfa3,
-          roughness: 0.85,
-          side: THREE.DoubleSide,
+        vatsCluster.group.traverse((ch) => {
+          if (ch.isMesh) {
+            ch.castShadow = true;
+            ch.receiveShadow = true;
+          }
         });
-        const banner = new THREE.Mesh(
-          new THREE.PlaneGeometry(2.15, 1.35),
-          this.dyeBannerMat
-        );
-        banner.position.set(0.0, 1.54, -0.55);
-        banner.castShadow = true;
-        ringGrp.add(banner);
+        ringGrp.add(vatsCluster.group);
+
+        const sailFrame = createPandanusSailFrameGroup(tMat, {
+          sailColorHex: 0xe6cfa3,
+          width: 2.25,
+          height: 1.38,
+          arched: false,
+        });
+        sailFrame.group.position.set(0.0, 0.0, -0.55);
+        sailFrame.group.traverse((ch) => {
+          if (ch.isMesh) ch.castShadow = true;
+        });
+        this.dyeBannerMat = sailFrame.sailMat;
+        ringGrp.add(sailFrame.group);
 
         this.obstacles.push({ x: poi.x, z: poi.z, r: 1.65 });
       }

@@ -28,6 +28,11 @@ import {
   mixRgb,
   smoothstep,
 } from './IslandSculptToolkit.js';
+import {
+  createBasaltFishWeirGroup,
+  createCarvedHullPairGroup,
+  createPandanusSailFrameGroup,
+} from './IslandPropsBuilder.js';
 
 // ============================================================================
 // 1. HUAHINE — Twin Islands Split by Turquoise Maroe Strait + Stone Fish Traps
@@ -176,29 +181,10 @@ function buildHuahineAssembly() {
     [29.5, -1.8, 0.15],
     [25.0, 2.1, -0.2],
   ]) {
-    const weir = new THREE.Group();
-    weir.position.set(wx, 0.36, wz);
-    weir.rotation.y = rot;
-    const armA = new THREE.Mesh(
-      new THREE.BoxGeometry(6.2, 0.42, 0.38),
-      basaltWeirMat
-    );
-    armA.position.set(-2.4, 0, -1.35);
-    armA.rotation.y = 0.46;
-    const armB = new THREE.Mesh(
-      new THREE.BoxGeometry(6.2, 0.42, 0.38),
-      basaltWeirMat
-    );
-    armB.position.set(-2.4, 0, 1.35);
-    armB.rotation.y = -0.46;
-    const trapRing = new THREE.Mesh(
-      new THREE.TorusGeometry(0.85, 0.18, 5, 10),
-      basaltWeirMat
-    );
-    trapRing.rotation.x = Math.PI * 0.5;
-    trapRing.position.set(0.55, 0, 0);
-    weir.add(armA, armB, trapRing);
-    group.add(weir);
+    const weir = createBasaltFishWeirGroup(trackMat);
+    weir.group.position.set(wx, 0.32, wz);
+    weir.group.rotation.y = rot;
+    group.add(weir.group);
   }
 
   // Ari'i's Twin-Bay Sail-Weaving Village & Stretched Golden Pandanus Sail Frames
@@ -222,16 +208,6 @@ function buildHuahineAssembly() {
   });
   addRegionalHuts(group, trackMat, hutSpots, 'society');
 
-  const pandanusSailMat = trackMat(
-    new THREE.MeshStandardMaterial({
-      color: 0xe8cb88,
-      roughness: 0.78,
-      side: THREE.DoubleSide,
-    })
-  );
-  const frameTimberMat = trackMat(
-    new THREE.MeshStandardMaterial({ color: 0x6b4728, roughness: 0.86 })
-  );
   for (const [sr, sang] of [
     [29.8, -0.32],
     [30.2, -0.46],
@@ -239,24 +215,15 @@ function buildHuahineAssembly() {
     const sx = sr * Math.cos(sang);
     const sz = sr * Math.sin(sang);
     const sy = Math.max(0.55, evalHuahinePoint(sx, sz).h);
-    const frame = new THREE.Group();
-    frame.position.set(sx, sy, sz);
-    frame.rotation.y = -sang;
-    const matPanel = new THREE.Mesh(
-      new THREE.PlaneGeometry(2.6, 1.7),
-      pandanusSailMat
-    );
-    matPanel.position.y = 1.05;
-    matPanel.rotation.x = -0.48;
-    frame.add(matPanel);
-    const bar = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.05, 0.05, 2.8, 5),
-      frameTimberMat
-    );
-    bar.rotation.z = Math.PI * 0.5;
-    bar.position.set(0, 1.68, -0.38);
-    frame.add(bar);
-    group.add(frame);
+    const frame = createPandanusSailFrameGroup(trackMat, {
+      sailColorHex: 0xe8cb88,
+      width: 2.6,
+      height: 1.7,
+      arched: true,
+    });
+    frame.group.position.set(sx, sy, sz);
+    frame.group.rotation.y = -sang;
+    group.add(frame.group);
   }
 
   const mx = 28.5 * Math.cos(-0.82);
@@ -500,15 +467,9 @@ function buildMooreaAssembly() {
     }
   }
   // Twin carved hulls resting on timber cradles inside & protruding from shed
-  for (const hxOff of [-0.75, 0.75]) {
-    const hLog = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.28, 0.28, 6.2, 8),
-      tamanuHullMat
-    );
-    hLog.rotation.x = Math.PI * 0.5;
-    hLog.position.set(hxOff, 0.55, 0.8);
-    canoeYard.add(hLog);
-  }
+  const carvedHulls = createCarvedHullPairGroup(trackMat);
+  carvedHulls.group.position.set(0, 0, 0.8);
+  canoeYard.add(carvedHulls.group);
   group.add(canoeYard);
 
   // Artisan Village Huts & Spire-Foot Marae

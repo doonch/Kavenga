@@ -20,9 +20,18 @@ import { createAct2IslandAssembly } from './IslandAct2Builder.js';
 import { createAct3IslandAssembly } from './IslandAct3Builder.js';
 import { createRapaNuiIslandAssembly } from './IslandRapaNuiBuilder.js';
 import {
+  addMaraePlatform,
+  createBeveledStoneSlabGeometry,
+  createCarvedUnuStandard,
   createGiantPearlShellGroup,
   createGiantPearlValveGeometry,
 } from './IslandSculptToolkit.js';
+import {
+  createCarvedStandingStoneGroup,
+  createCoralCairnGroup,
+  createKukuiTorchGroup,
+  createVillageHearthGroup,
+} from './IslandPropsBuilder.js';
 
 function clamp01(v) {
   return Math.max(0.0, Math.min(1.0, v));
@@ -898,76 +907,112 @@ export function createDetailedIslandAssembly(islandId) {
     maraeGroup.position.set(capeX, capeY, capeZ);
     maraeGroup.rotation.y = -capeTheta;
 
-    // Low stone courtyard terrace (paepae) with fitted perimeter curb blocks
-    const pavement = new THREE.Mesh(
-      new THREE.BoxGeometry(7.8, 0.52, 10.4),
+    // Two-tier beveled stone courtyard terrace (paepae) with fitted perimeter curb blocks
+    const footingSlab = new THREE.Mesh(
+      createBeveledStoneSlabGeometry(8.5, 0.36, 11.2, 0.22),
       basaltStoneMat
     );
-    pavement.position.y = 0.1;
+    footingSlab.position.y = -0.02;
+    maraeGroup.add(footingSlab);
+
+    const pavement = new THREE.Mesh(
+      createBeveledStoneSlabGeometry(7.7, 0.36, 10.3, 0.16),
+      basaltStoneMat
+    );
+    pavement.position.y = 0.26;
     maraeGroup.add(pavement);
 
-    for (let c = -3; c <= 3; c += 1) {
-      const curbW = new THREE.Mesh(
-        new THREE.BoxGeometry(0.45, 0.28, 1.15),
-        coralSlabMat
-      );
-      curbW.position.set(-3.65, 0.42, c * 1.42);
-      curbW.rotation.y = (c % 2) * 0.04;
-      maraeGroup.add(curbW);
+    const curbGeo = createBeveledStoneSlabGeometry(0.44, 0.26, 1.08, 0.06);
+    for (let c = -4; c <= 4; c += 1) {
+      if (c !== 0) {
+        const curbW = new THREE.Mesh(curbGeo, c % 2 === 0 ? coralSlabMat : basaltStoneMat);
+        curbW.position.set(-3.6, 0.52, c * 1.12);
+        curbW.rotation.y = (c % 2) * 0.04;
+        maraeGroup.add(curbW);
+      }
+      const curbE = new THREE.Mesh(curbGeo, c % 2 === 0 ? basaltStoneMat : coralSlabMat);
+      curbE.position.set(3.6, 0.52, c * 1.12);
+      curbE.rotation.y = -(c % 2) * 0.03;
+      maraeGroup.add(curbE);
+    }
+    for (let j = -2; j <= 2; j += 1) {
+      for (const ez of [-4.95, 4.95]) {
+        const endCurb = new THREE.Mesh(curbGeo, j % 2 === 0 ? coralSlabMat : basaltStoneMat);
+        endCurb.rotation.y = Math.PI * 0.5;
+        endCurb.position.set(j * 1.25, 0.52, ez);
+        maraeGroup.add(endCurb);
+      }
     }
 
-    // Two-tier low stepped coral-stone Ahu (altar platform, ~1.05m total height)
+    // Three-tier stepped coral-stone Ahu with dressed coping blocks & central offering table
     const ahuTier1 = new THREE.Mesh(
-      new THREE.BoxGeometry(2.4, 0.42, 7.8),
+      createBeveledStoneSlabGeometry(2.55, 0.44, 8.0, 0.16),
       coralSlabMat
     );
-    ahuTier1.position.set(1.9, 0.52, 0.0);
+    ahuTier1.position.set(1.9, 0.62, 0.0);
     maraeGroup.add(ahuTier1);
 
     const ahuTier2 = new THREE.Mesh(
-      new THREE.BoxGeometry(1.45, 0.36, 6.2),
+      createBeveledStoneSlabGeometry(1.75, 0.38, 6.7, 0.12),
       coralSlabMat
     );
-    ahuTier2.position.set(2.15, 0.88, 0.0);
+    ahuTier2.position.set(2.12, 1.0, 0.0);
     maraeGroup.add(ahuTier2);
 
+    const ahuTier3 = new THREE.Mesh(
+      createBeveledStoneSlabGeometry(1.2, 0.28, 5.4, 0.08),
+      coralSlabMat
+    );
+    ahuTier3.position.set(2.24, 1.32, 0.0);
+    maraeGroup.add(ahuTier3);
+
+    for (let cap = -2; cap <= 2; cap += 1) {
+      const capSlab = new THREE.Mesh(
+        createBeveledStoneSlabGeometry(0.95, 0.16, 0.92, 0.06),
+        cap % 2 === 0 ? coralSlabMat : basaltStoneMat
+      );
+      capSlab.position.set(2.24, 1.52, cap * 1.02);
+      maraeGroup.add(capSlab);
+    }
+
+    const offeringSlab = new THREE.Mesh(
+      createBeveledStoneSlabGeometry(0.95, 0.22, 1.65, 0.08),
+      coralSlabMat
+    );
+    offeringSlab.position.set(0.32, 0.52, 0.0);
+    maraeGroup.add(offeringSlab);
+
     // Three shorter, broad, tapered basalt backrest slabs (ofai) with natural variation
-    const backrestGeo = new THREE.CylinderGeometry(0.26, 0.42, 1.0, 4);
     for (const [bz, bh, lean] of [
       [-2.4, 0.82, -0.05],
       [0.0, 1.08, 0.02],
       [2.45, 0.88, 0.06],
     ]) {
-      const slab = new THREE.Mesh(backrestGeo, basaltStoneMat);
-      slab.scale.set(0.36, bh, 1.05);
-      slab.rotation.y = Math.PI * 0.25;
-      slab.rotation.z = lean;
-      slab.position.set(-1.6, 0.34 + bh * 0.48, bz);
-      maraeGroup.add(slab);
+      const slab = createCarvedStandingStoneGroup(trackMat, {
+        width: 0.42,
+        height: bh,
+        depth: 0.28,
+        colorHex: 0x35373b,
+      });
+      slab.group.rotation.y = Math.PI * 0.5;
+      slab.group.rotation.z = lean;
+      slab.group.position.set(-1.6, 0.44, bz);
+      maraeGroup.add(slab.group);
     }
 
-    // Two carved red-ochre unu boards & glowing kukui torches flanking the Ahu
+    // Two carved red-ochre unu standards & glowing kukui torches flanking the Ahu
     for (const uz of [-3.35, 3.35]) {
-      const unu = new THREE.Mesh(
-        new THREE.BoxGeometry(0.14, 1.35, 0.36),
-        maraeUnuRedMat
+      const unu = createCarvedUnuStandard(
+        maraeTimberMat,
+        maraeUnuRedMat,
+        coralSlabMat
       );
-      unu.position.set(2.35, 1.15, uz);
+      unu.position.set(2.35, 0.44, uz);
       maraeGroup.add(unu);
 
-      const torchPole = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.06, 0.08, 1.45, 6),
-        maraeTimberMat
-      );
-      torchPole.position.set(-0.2, 1.05, uz * 1.18);
-      maraeGroup.add(torchPole);
-
-      const flame = new THREE.Mesh(
-        new THREE.ConeGeometry(0.16, 0.36, 6),
-        maraeFlameMat
-      );
-      flame.position.set(-0.2, 1.92, uz * 1.18);
-      maraeGroup.add(flame);
+      const torch = createKukuiTorchGroup(trackMat, { height: 1.45 });
+      torch.group.position.set(-0.2, 0.44, uz * 1.18);
+      maraeGroup.add(torch.group);
     }
 
     // Open-sided thatched Fare Pote'e council pavilion beside the courtyard
@@ -1206,31 +1251,10 @@ export function createDetailedIslandAssembly(islandId) {
       const cx = cRad * Math.cos(cTheta);
       const cz = cRad * Math.sin(cTheta);
       const cy = Math.max(0.32, evalManuaePoint(cx, cz).h);
-      const cairn = new THREE.Group();
-      cairn.position.set(cx, cy, cz);
-
-      const baseTier = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.95, 1.25, 0.65, 7),
-        weatheredCoralMat
-      );
-      baseTier.position.y = 0.3;
-      cairn.add(baseTier);
-
-      const midTier = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.65, 0.92, 0.6, 7),
-        coralStoneMat
-      );
-      midTier.position.y = 0.88;
-      cairn.add(midTier);
-
-      const capStone = new THREE.Mesh(
-        new THREE.DodecahedronGeometry(0.46, 0),
-        pearlShellMat
-      );
-      capStone.position.y = 1.42;
-      cairn.add(capStone);
-
-      group.add(cairn);
+      const cairn = createCoralCairnGroup(trackMat);
+      cairn.group.position.set(cx, cy, cz);
+      cairn.group.rotation.y = cTheta + 0.5;
+      group.add(cairn.group);
     }
 
     // 6. Polynesian Atoll Lagoon Village on Motu 1 (Facing the Calm Central Lagoon & Pass)
@@ -1373,39 +1397,21 @@ export function createDetailedIslandAssembly(islandId) {
       0.94
     );
 
-    // 6e. Pass-Point Coral-Slab Marae (Stepped White-Coral Ahu & Upright Limestone Slabs)
+    // 6e. Pass-Point Coral-Slab Marae (Sculpted Stepped White-Coral Ahu & Upright Orthostats)
     const maraeTheta = -0.37;
     const maraeR = 36.2;
     const mx = maraeR * Math.cos(maraeTheta);
     const mz = maraeR * Math.sin(maraeTheta);
     const my = evalManuaePoint(mx, mz).h;
-    const atollMarae = new THREE.Group();
-    atollMarae.position.set(mx, my, mz);
-    atollMarae.rotation.y = -maraeTheta;
-
-    const court = new THREE.Mesh(
-      new THREE.BoxGeometry(4.4, 0.42, 5.6),
-      weatheredCoralMat
-    );
-    court.position.y = 0.16;
-    atollMarae.add(court);
-
-    const coralAhu = new THREE.Mesh(
-      new THREE.BoxGeometry(1.35, 1.25, 4.4),
-      coralStoneMat
-    );
-    coralAhu.position.set(1.2, 0.82, 0.0);
-    atollMarae.add(coralAhu);
-
-    for (const szOff of [-1.45, 0.0, 1.45]) {
-      const slab = new THREE.Mesh(
-        new THREE.BoxGeometry(0.32, 1.75, 0.58),
-        coralStoneMat
-      );
-      slab.position.set(-1.15, 1.05, szOff);
-      atollMarae.add(slab);
-    }
-    group.add(atollMarae);
+    addMaraePlatform(group, trackMat, {
+      x: mx,
+      y: my,
+      z: mz,
+      rotY: -maraeTheta,
+      scale: 0.64,
+      courtHex: 0xbab09c,
+      ahuHex: 0xe6decb,
+    });
 
     const sharedPearlValveGeo = createGiantPearlValveGeometry();
     const sharedGiantShellMat = trackMat(
@@ -1496,22 +1502,9 @@ export function createDetailedIslandAssembly(islandId) {
     const hrx = hearthR * Math.cos(hearthTheta);
     const hrz = hearthR * Math.sin(hearthTheta);
     const hry = evalManuaePoint(hrx, hrz).h;
-    const hearth = new THREE.Group();
-    hearth.position.set(hrx, hry, hrz);
-    const curbRing = new THREE.Mesh(
-      new THREE.TorusGeometry(0.68, 0.16, 6, 12),
-      weatheredCoralMat
-    );
-    curbRing.rotation.x = Math.PI * 0.5;
-    curbRing.position.y = 0.12;
-    hearth.add(curbRing);
-    const embers = new THREE.Mesh(
-      new THREE.ConeGeometry(0.42, 0.35, 7),
-      hearthEmberMat
-    );
-    embers.position.y = 0.22;
-    hearth.add(embers);
-    group.add(hearth);
+    const manuaeHearth = createVillageHearthGroup(trackMat, { scale: 0.95 });
+    manuaeHearth.group.position.set(hrx, hry, hrz);
+    group.add(manuaeHearth.group);
 
     // 7. Dense Wind-Leaning Atoll Coconut Groves & Littoral Naupaka/Pandanus Scrub across all 5 Motu
     const palmSites = [];

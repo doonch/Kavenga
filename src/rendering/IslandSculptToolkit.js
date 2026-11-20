@@ -399,11 +399,21 @@ export function addRegionalHuts(group, trackMat, huts, style = 'society') {
   );
 
   const plinthH = isMarquesan ? 0.95 : 0.32;
-  const plinthGeo = new THREE.BoxGeometry(3.1, plinthH, 3.9);
-  const wallH = isHawaiian ? 0.75 : 1.35;
-  const wallGeo = new THREE.BoxGeometry(2.45, wallH, 3.25);
-  const roofH = isMarquesan ? 2.45 : isHawaiian ? 2.35 : 1.82;
-  const roofGeo = new THREE.ConeGeometry(2.48, roofH, 4);
+  const plinthGeo = new THREE.BoxGeometry(3.15, plinthH, 4.05);
+  const wallH = isHawaiian ? 0.72 : 1.32;
+  const wallGeo = new THREE.BoxGeometry(2.38, wallH, 3.15);
+  const doorGeo = new THREE.BoxGeometry(0.16, wallH * 0.68, 0.84);
+  const postGeo = new THREE.CylinderGeometry(0.065, 0.08, wallH + 0.14, 6);
+  const roofH = isMarquesan ? 2.48 : isHawaiian ? 2.38 : 1.88;
+  const roofGeo = new THREE.ConeGeometry(2.45, roofH, 4);
+  const eaveGeo = new THREE.CylinderGeometry(2.38, 2.66, 0.24, 4);
+  const ridgeGeo = new THREE.BoxGeometry(0.16, 0.16, 3.85);
+  const postMat = trackMat(
+    new THREE.MeshStandardMaterial({ color: 0x5c3a20, roughness: 0.86 })
+  );
+  const doorMat = trackMat(
+    new THREE.MeshStandardMaterial({ color: 0x1e1610, roughness: 0.95 })
+  );
 
   for (let i = 0; i < huts.length; i += 1) {
     const { x, y, z, rotY = 0.0, scale = 1.0, longHouse = false } = huts[i];
@@ -416,15 +426,39 @@ export function addRegionalHuts(group, trackMat, huts, style = 'society') {
     plinth.position.y = plinthH * 0.42;
     fare.add(plinth);
 
+    const wallBaseY = plinthH * 0.82;
     const walls = new THREE.Mesh(wallGeo, wallMat);
-    walls.position.y = plinthH * 0.82 + wallH * 0.5;
+    walls.position.y = wallBaseY + wallH * 0.5;
     fare.add(walls);
 
-    const roof = new THREE.Mesh(roofGeo, i % 2 === 0 ? roofMatA : roofMatB);
-    roof.position.y = plinthH * 0.82 + wallH + roofH * 0.44;
+    const door = new THREE.Mesh(doorGeo, doorMat);
+    door.position.set(1.18, wallBaseY + wallH * 0.34, 0.0);
+    fare.add(door);
+
+    for (const pxOff of [-1.24, 1.24]) {
+      for (const pzOff of [-1.56, 1.56]) {
+        const post = new THREE.Mesh(postGeo, postMat);
+        post.position.set(pxOff, wallBaseY + (wallH + 0.1) * 0.5, pzOff);
+        fare.add(post);
+      }
+    }
+
+    const rMat = i % 2 === 0 ? roofMatA : roofMatB;
+    const eave = new THREE.Mesh(eaveGeo, rMat);
+    eave.position.y = wallBaseY + wallH + 0.04;
+    eave.rotation.y = Math.PI * 0.25;
+    eave.scale.set(1.02, 1.0, 1.24);
+    fare.add(eave);
+
+    const roof = new THREE.Mesh(roofGeo, rMat);
+    roof.position.y = wallBaseY + wallH + roofH * 0.48;
     roof.rotation.y = Math.PI * 0.25;
     roof.scale.set(1.02, 1.0, 1.24);
     fare.add(roof);
+
+    const ridge = new THREE.Mesh(ridgeGeo, postMat);
+    ridge.position.y = wallBaseY + wallH + roofH * 0.94;
+    fare.add(ridge);
 
     group.add(fare);
   }
@@ -514,7 +548,83 @@ export function addOutriggerCanoe(
 }
 
 /**
- * Adds a ceremonial stone Marae / Me'ae / Heiau court with stepped Ahu altar & upright orthostats.
+ * Creates a chamfered/tapered fitted stone masonry block (replaces raw rectangular boxes on marae).
+ */
+export function createBeveledStoneSlabGeometry(
+  width,
+  height,
+  depth,
+  topInset = 0.14
+) {
+  const geo = new THREE.BoxGeometry(width, height, depth, 2, 1, 2);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i += 1) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    if (y > 0) {
+      const sx = Math.max(0.55, 1.0 - topInset / Math.max(0.4, width * 0.5));
+      const sz = Math.max(0.55, 1.0 - topInset / Math.max(0.4, depth * 0.5));
+      pos.setXYZ(i, x * sx, y, z * sz);
+    }
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/**
+ * Creates a carved Polynesian sacred *unu* wooden standard with notched chevron/diamond crest.
+ */
+export function createCarvedUnuStandard(timberMat, ochreMat, lashingMat) {
+  const grp = new THREE.Group();
+
+  const shaft = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.055, 0.075, 1.45, 7),
+    timberMat
+  );
+  shaft.position.y = 0.72;
+  grp.add(shaft);
+
+  // Carved notched board blades stacked into traditional sacred unu silhouette
+  for (let tier = 0; tier < 3; tier += 1) {
+    const w = 0.32 - tier * 0.04;
+    const h = 0.28;
+    const blade = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.04, w * 0.65, h, 4),
+      ochreMat
+    );
+    blade.rotation.y = Math.PI * 0.25;
+    blade.scale.set(0.42, 1.0, 1.35);
+    blade.position.y = 0.88 + tier * 0.27;
+    grp.add(blade);
+  }
+
+  // Twin finial horns at crown
+  for (const hz of [-0.07, 0.07]) {
+    const horn = new THREE.Mesh(
+      new THREE.ConeGeometry(0.045, 0.22, 5),
+      ochreMat
+    );
+    horn.position.set(0, 1.66, hz);
+    horn.rotation.x = hz > 0 ? 0.16 : -0.16;
+    grp.add(horn);
+  }
+
+  // Wrapping sennit collar band near base of carved blade
+  const collar = new THREE.Mesh(
+    new THREE.TorusGeometry(0.075, 0.022, 5, 8),
+    lashingMat
+  );
+  collar.rotation.x = Math.PI * 0.5;
+  collar.position.y = 0.72;
+  grp.add(collar);
+
+  return grp;
+}
+
+/**
+ * Adds a ceremonial stone Marae / Me'ae / Heiau court with stepped dry-laid masonry,
+ * fitted perimeter curbing, three-tier Ahu altar, carved *unu* standards, and tapered orthostats.
  */
 export function addMaraePlatform(
   group,
@@ -534,8 +644,28 @@ export function addMaraePlatform(
   const courtMat = trackMat(
     new THREE.MeshStandardMaterial({ color: courtHex, roughness: 0.92 })
   );
+  const baseColor = new THREE.Color(courtHex);
+  const ahuColor = new THREE.Color(ahuHex);
+  const midColor = baseColor.clone().lerp(ahuColor, 0.35);
+  const pavingColor = baseColor.clone().lerp(ahuColor, 0.18);
+
+  const midStoneMat = trackMat(
+    new THREE.MeshStandardMaterial({ color: midColor, roughness: 0.89 })
+  );
+  const pavingMat = trackMat(
+    new THREE.MeshStandardMaterial({ color: pavingColor, roughness: 0.94 })
+  );
   const ahuMat = trackMat(
     new THREE.MeshStandardMaterial({ color: ahuHex, roughness: 0.86 })
+  );
+  const ochreUnuMat = trackMat(
+    new THREE.MeshStandardMaterial({ color: 0x9b3322, roughness: 0.82 })
+  );
+  const timberMat = trackMat(
+    new THREE.MeshStandardMaterial({ color: 0x5c3a1f, roughness: 0.86 })
+  );
+  const lashingMat = trackMat(
+    new THREE.MeshStandardMaterial({ color: 0xc29e68, roughness: 0.9 })
   );
 
   const marae = new THREE.Group();
@@ -543,56 +673,285 @@ export function addMaraePlatform(
   marae.rotation.y = rotY;
   marae.scale.setScalar(scale);
 
-  const court = new THREE.Mesh(new THREE.BoxGeometry(6.8, 0.78, 9.2), courtMat);
-  court.position.y = 0.24;
-  marae.add(court);
+  // 1. Two-tier stepped stone Paepae footing + dressed inner paving bed
+  const lowerFooting = new THREE.Mesh(
+    createBeveledStoneSlabGeometry(7.5, 0.38, 10.0, 0.22),
+    courtMat
+  );
+  lowerFooting.position.y = 0.08;
+  marae.add(lowerFooting);
 
-  const ahu = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.85, 7.2), ahuMat);
-  ahu.position.set(2.0, 1.15, 0.0);
-  marae.add(ahu);
+  const mainCourt = new THREE.Mesh(
+    createBeveledStoneSlabGeometry(6.7, 0.32, 9.1, 0.16),
+    courtMat
+  );
+  mainCourt.position.y = 0.38;
+  marae.add(mainCourt);
+
+  // Warm recessed central courtyard stone/gravel mosaic floor
+  const innerPaving = new THREE.Mesh(
+    createBeveledStoneSlabGeometry(5.3, 0.08, 7.6, 0.06),
+    pavingMat
+  );
+  innerPaving.position.set(-0.25, 0.56, 0.0);
+  marae.add(innerPaving);
+
+  // 2. Fitted perimeter curb stones around north/south/east edges & flanking west entry
+  const curbGeo = createBeveledStoneSlabGeometry(0.42, 0.22, 0.96, 0.05);
+  for (let i = -4; i <= 4; i += 1) {
+    // Leave ceremonial entrance gap in center of -X court edge (i === 0)
+    if (i !== 0) {
+      const wCurb = new THREE.Mesh(curbGeo, i % 2 === 0 ? midStoneMat : ahuMat);
+      wCurb.position.set(-3.1, 0.62, i * 1.02);
+      wCurb.rotation.y = ((i * 7) % 3 - 1) * 0.04;
+      wCurb.scale.set(1.0, 0.9 + ((i + 4) % 3) * 0.08, 0.92);
+      marae.add(wCurb);
+    }
+    const eCurb = new THREE.Mesh(curbGeo, i % 2 === 0 ? courtMat : midStoneMat);
+    eCurb.position.set(3.12, 0.62, i * 1.02);
+    eCurb.rotation.y = ((i * 5) % 3 - 1) * 0.03;
+    marae.add(eCurb);
+  }
+  for (let j = -2; j <= 2; j += 1) {
+    for (const edgeZ of [-4.32, 4.32]) {
+      const endCurb = new THREE.Mesh(curbGeo, j % 2 === 0 ? midStoneMat : courtMat);
+      endCurb.rotation.y = Math.PI * 0.5 + ((j * 3) % 2) * 0.04;
+      endCurb.position.set(j * 1.18, 0.62, edgeZ);
+      marae.add(endCurb);
+    }
+  }
+
+  // Front ceremonial threshold stepping stones on the entrance side (-X)
+  for (let st = 0; st < 2; st += 1) {
+    const stepSlab = new THREE.Mesh(
+      createBeveledStoneSlabGeometry(0.95, 0.16, 2.05 - st * 0.25, 0.08),
+      ahuMat
+    );
+    stepSlab.position.set(-3.85 - st * 0.72, 0.34 - st * 0.16, 0.0);
+    marae.add(stepSlab);
+  }
+
+  // 3. Three-tier stepped dry-laid Ahu altar mound + dressed capstones + offering slab
+  const ahuTier1 = new THREE.Mesh(
+    createBeveledStoneSlabGeometry(2.55, 0.54, 7.8, 0.16),
+    midStoneMat
+  );
+  ahuTier1.position.set(2.0, 0.82, 0.0);
+  marae.add(ahuTier1);
+
+  const ahuTier2 = new THREE.Mesh(
+    createBeveledStoneSlabGeometry(2.0, 0.62, 7.05, 0.14),
+    ahuMat
+  );
+  ahuTier2.position.set(2.08, 1.38, 0.0);
+  marae.add(ahuTier2);
+
+  const ahuTier3 = new THREE.Mesh(
+    createBeveledStoneSlabGeometry(1.42, 0.44, 6.2, 0.1),
+    ahuMat
+  );
+  ahuTier3.position.set(2.14, 1.88, 0.0);
+  marae.add(ahuTier3);
+
+  // Individual fitted dressed coping slabs crowning the Ahu ridge
+  for (let c = -3; c <= 3; c += 1) {
+    const capStone = new THREE.Mesh(
+      createBeveledStoneSlabGeometry(1.15, 0.18, 0.78, 0.07),
+      c % 2 === 0 ? ahuMat : midStoneMat
+    );
+    capStone.position.set(2.14, 2.16, c * 0.86);
+    capStone.rotation.y = ((c % 3) - 1) * 0.025;
+    marae.add(capStone);
+  }
+
+  // Central flat stone offering table slab in front of the Ahu
+  const offeringTable = new THREE.Mesh(
+    createBeveledStoneSlabGeometry(0.95, 0.26, 1.55, 0.08),
+    ahuMat
+  );
+  offeringTable.position.set(0.35, 0.7, 0.0);
+  marae.add(offeringTable);
+
+  // Two sculpted carved red-ochre *unu* standards flanking the Ahu altar
+  for (const uz of [-3.3, 3.3]) {
+    const unu = createCarvedUnuStandard(timberMat, ochreUnuMat, lashingMat);
+    unu.position.set(2.2, 0.58, uz);
+    marae.add(unu);
+  }
+
+  // 4. Five sculpted tapered backrest orthostats (*ofai*) seated in stone collars
+  const orthoGeo = new THREE.CylinderGeometry(0.28, 0.44, 1.0, 6);
+  const orthoPos = orthoGeo.attributes.position;
+  for (let i = 0; i < orthoPos.count; i += 1) {
+    const vx = orthoPos.getX(i);
+    const vy = orthoPos.getY(i);
+    const vz = orthoPos.getZ(i);
+    // Slightly crown the top center & flatten front/back depth
+    const crown = vy > 0.35 ? (1.0 - Math.abs(vx) * 0.9) * 0.08 : 0.0;
+    orthoPos.setXYZ(i, vx * 0.48, vy + 0.5 + crown, vz * 0.82);
+  }
+  orthoGeo.computeVertexNormals();
 
   for (let s = -2; s <= 2; s += 1) {
-    const upright = new THREE.Mesh(
-      new THREE.BoxGeometry(0.42, 2.2, 0.54),
-      courtMat
+    const isCenter = s === 0;
+    const h = isCenter ? 1.52 : Math.abs(s) === 1 ? 1.32 : 1.16;
+    const w = isCenter ? 1.15 : 0.95;
+    const stoneCollar = new THREE.Mesh(
+      createBeveledStoneSlabGeometry(0.58, 0.16, 0.76, 0.08),
+      midStoneMat
     );
-    upright.position.set(-1.75, 1.35, s * 1.68);
+    stoneCollar.position.set(-1.68, 0.62, s * 1.58);
+    marae.add(stoneCollar);
+
+    const upright = new THREE.Mesh(
+      orthoGeo,
+      isCenter ? ahuMat : s % 2 === 0 ? courtMat : midStoneMat
+    );
+    upright.scale.set(1.0, h, w);
+    upright.position.set(-1.68, 0.64, s * 1.58);
+    upright.rotation.z = -0.04 + ((s * 3) % 2) * 0.03;
+    upright.rotation.y = s * 0.035;
     marae.add(upright);
   }
 
   if (withOracleTower) {
-    // Tall Hawaiian 'anu'u white tapa-draped oracle tower on the heiau platform
+    // Tall sculpted Hawaiian 'anu'u timber-framed & white-tapa draped oracle tower
     const tapaMat = trackMat(
-      new THREE.MeshStandardMaterial({ color: 0xefe9da, roughness: 0.82 })
+      new THREE.MeshStandardMaterial({ color: 0xf1ebdc, roughness: 0.84 })
     );
-    const tower = new THREE.Mesh(
-      new THREE.BoxGeometry(1.55, 5.4, 1.55),
-      tapaMat
+    const thatchCapMat = trackMat(
+      new THREE.MeshStandardMaterial({ color: 0xa68149, roughness: 0.9 })
     );
-    tower.position.set(0.35, 3.1, -2.4);
-    marae.add(tower);
+    const towerGrp = new THREE.Group();
+    towerGrp.position.set(0.35, 0.58, -2.55);
+
+    const towerBase = new THREE.Mesh(
+      createBeveledStoneSlabGeometry(2.1, 0.32, 2.1, 0.12),
+      courtMat
+    );
+    towerBase.position.y = 0.14;
+    towerGrp.add(towerBase);
+
+    // 4 tapered corner scaffold poles
+    for (const [px, pz] of [
+      [-0.78, -0.78],
+      [0.78, -0.78],
+      [-0.78, 0.78],
+      [0.78, 0.78],
+    ]) {
+      const pole = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.05, 0.085, 5.2, 6),
+        timberMat
+      );
+      pole.position.set(px * 0.88, 2.65, pz * 0.88);
+      pole.rotation.z = px > 0 ? 0.045 : -0.045;
+      pole.rotation.x = pz > 0 ? -0.045 : 0.045;
+      towerGrp.add(pole);
+    }
+
+    // 3 tiered tapa-wrapped tower shrouds + lashing cordage bands
+    for (let st = 0; st < 3; st += 1) {
+      const wTop = 1.38 - st * 0.18;
+      const wBot = 1.52 - st * 0.18;
+      const tierH = 1.38;
+      const shroud = new THREE.Mesh(
+        new THREE.CylinderGeometry(wTop * 0.68, wBot * 0.68, tierH, 4),
+        tapaMat
+      );
+      shroud.rotation.y = Math.PI * 0.25;
+      shroud.position.y = 1.05 + st * 1.38;
+      towerGrp.add(shroud);
+
+      const band = new THREE.Mesh(
+        new THREE.CylinderGeometry(wBot * 0.7, wBot * 0.7, 0.1, 4),
+        lashingMat
+      );
+      band.rotation.y = Math.PI * 0.25;
+      band.position.y = 0.42 + st * 1.38;
+      towerGrp.add(band);
+    }
+
+    // Pitched thatch crown cap & protruding sacred 'anu'u ridgepoles
+    const capRoof = new THREE.Mesh(
+      new THREE.ConeGeometry(1.12, 1.05, 4),
+      thatchCapMat
+    );
+    capRoof.rotation.y = Math.PI * 0.25;
+    capRoof.position.y = 5.38;
+    towerGrp.add(capRoof);
+
+    marae.add(towerGrp);
   }
 
   if (withBraziers) {
-    const flameMat = trackMat(
-      new THREE.MeshBasicMaterial({ color: 0xff842b }),
+    const outerFlameMat = trackMat(
+      new THREE.MeshBasicMaterial({ color: 0xff7a24, side: THREE.DoubleSide }),
       0.94
     );
-    for (const bz of [-3.4, 3.4]) {
-      const bowl = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.38, 0.26, 0.75, 7),
-        courtMat
-      );
-      bowl.position.set(-2.4, 0.95, bz);
-      marae.add(bowl);
+    const coreFlameMat = trackMat(
+      new THREE.MeshBasicMaterial({ color: 0xffe488 }),
+      0.98
+    );
+    const emberMat = trackMat(
+      new THREE.MeshStandardMaterial({
+        color: 0xd94816,
+        emissive: 0xff5a12,
+        emissiveIntensity: 0.75,
+        roughness: 0.9,
+      })
+    );
+    // Lathe carved stone fire-bowl profile
+    const bowlPts = [
+      new THREE.Vector2(0.001, 0.0),
+      new THREE.Vector2(0.32, 0.0),
+      new THREE.Vector2(0.24, 0.22),
+      new THREE.Vector2(0.26, 0.42),
+      new THREE.Vector2(0.46, 0.68),
+      new THREE.Vector2(0.42, 0.76),
+      new THREE.Vector2(0.28, 0.56),
+      new THREE.Vector2(0.001, 0.54),
+    ];
+    const bowlGeo = new THREE.LatheGeometry(bowlPts, 10);
+    const tonguePts = [
+      new THREE.Vector2(0.001, 0.0),
+      new THREE.Vector2(0.24, 0.12),
+      new THREE.Vector2(0.26, 0.34),
+      new THREE.Vector2(0.14, 0.62),
+      new THREE.Vector2(0.03, 0.85),
+      new THREE.Vector2(0.001, 0.94),
+    ];
+    const tongueGeo = new THREE.LatheGeometry(tonguePts, 8);
 
-      const flame = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.7, 6), flameMat);
-      flame.position.set(-2.4, 1.55, bz);
-      marae.add(flame);
+    for (const bz of [-3.35, 3.35]) {
+      const brazier = new THREE.Group();
+      brazier.position.set(-2.45, 0.56, bz);
+
+      const cupMesh = new THREE.Mesh(bowlGeo, courtMat);
+      brazier.add(cupMesh);
+
+      const emberBed = new THREE.Mesh(
+        new THREE.SphereGeometry(0.26, 8, 6),
+        emberMat
+      );
+      emberBed.scale.set(1.0, 0.42, 1.0);
+      emberBed.position.y = 0.64;
+      brazier.add(emberBed);
+
+      const mainFlame = new THREE.Mesh(tongueGeo, outerFlameMat);
+      mainFlame.position.y = 0.66;
+      brazier.add(mainFlame);
+
+      const innerCore = new THREE.Mesh(tongueGeo, coreFlameMat);
+      innerCore.scale.set(0.55, 0.72, 0.55);
+      innerCore.position.y = 0.68;
+      brazier.add(innerCore);
+
+      marae.add(brazier);
     }
   }
 
   group.add(marae);
+  return marae;
 }
 
 /**
@@ -688,6 +1047,7 @@ export function createGiantPearlValveGeometry({
   ribCount = 9,
   ribAmp = 0.044,
   thickness = 0.06,
+  tridacnaPalette = false,
   uSegs = 20,
   vSegs = 32,
 } = {}) {
@@ -739,34 +1099,57 @@ export function createGiantPearlValveGeometry({
         (1.2 - 0.76 * smoothstep(0.0, 1.0, u)) *
         (0.86 + 0.14 * ribWave);
 
-      // Inner surface: glowing cream core -> turquoise/pearl shimmer -> dark black-lip rim
+      // Inner surface: either Tridacna white-jade sanctuary clam or Pinctada black-lip pearl oyster
       const centerGlow = 1.0 - smoothstep(0.05, 0.58, u);
       const iridBand = smoothstep(0.18, 0.52, u) * smoothstep(0.95, 0.72, u);
-      const blackLip = smoothstep(0.81, 0.96, u);
+      const outerLip = smoothstep(0.81, 0.96, u);
       const shimmerShift = 0.5 + 0.5 * Math.sin(phi * 3.5 + u * 5.2);
 
-      let nr = lerp(0.84, 0.42, iridBand * shimmerShift);
-      let ng = lerp(0.9, 0.86, iridBand);
-      let nb = lerp(0.92, 0.84, iridBand * (1.0 - 0.35 * shimmerShift));
-
-      nr = lerp(nr, 0.97, centerGlow * 0.75);
-      ng = lerp(ng, 0.96, centerGlow * 0.75);
-      nb = lerp(nb, 0.91, centerGlow * 0.75);
-
-      // Black-lip nacre outer lip (Pinctada margaritifera peacock charcoal-emerald edge)
-      nr = lerp(nr, 0.14 + 0.08 * shimmerShift, blackLip);
-      ng = lerp(ng, 0.23 + 0.12 * shimmerShift, blackLip);
-      nb = lerp(nb, 0.25 + 0.14 * shimmerShift, blackLip);
-
-      // Outer calcified shell: chalky limestone ridges & deep olive-umber fluted grooves
+      let nr;
+      let ng;
+      let nb;
+      let sr;
+      let sg;
+      let sb;
       const ribShade = 0.5 + 0.5 * ribWave;
-      const umboDark = 1.0 - smoothstep(0.0, 0.36, u);
-      let sr = lerp(0.46, 0.84, ribShade);
-      let sg = lerp(0.42, 0.79, ribShade);
-      let sb = lerp(0.36, 0.7, ribShade);
-      sr = lerp(sr, 0.34, umboDark * 0.55);
-      sg = lerp(sg, 0.3, umboDark * 0.55);
-      sb = lerp(sb, 0.25, umboDark * 0.55);
+
+      if (tridacnaPalette) {
+        nr = lerp(0.95, 0.22, iridBand * 0.65);
+        ng = lerp(0.96, 0.76, iridBand * 0.55);
+        nb = lerp(0.94, 0.72, iridBand * 0.5);
+        nr = lerp(nr, 0.98, centerGlow * 0.8);
+        ng = lerp(ng, 0.98, centerGlow * 0.8);
+        nb = lerp(nb, 0.96, centerGlow * 0.8);
+        nr = lerp(nr, 0.14 + 0.1 * shimmerShift, outerLip);
+        ng = lerp(ng, 0.68 + 0.14 * shimmerShift, outerLip);
+        nb = lerp(nb, 0.64 + 0.16 * shimmerShift, outerLip);
+
+        sr = lerp(0.76, 0.97, ribShade);
+        sg = lerp(0.74, 0.96, ribShade);
+        sb = lerp(0.68, 0.91, ribShade);
+      } else {
+        nr = lerp(0.84, 0.42, iridBand * shimmerShift);
+        ng = lerp(0.9, 0.86, iridBand);
+        nb = lerp(0.92, 0.84, iridBand * (1.0 - 0.35 * shimmerShift));
+
+        nr = lerp(nr, 0.97, centerGlow * 0.75);
+        ng = lerp(ng, 0.96, centerGlow * 0.75);
+        nb = lerp(nb, 0.91, centerGlow * 0.75);
+
+        // Black-lip nacre outer lip (Pinctada margaritifera peacock charcoal-emerald edge)
+        nr = lerp(nr, 0.14 + 0.08 * shimmerShift, outerLip);
+        ng = lerp(ng, 0.23 + 0.12 * shimmerShift, outerLip);
+        nb = lerp(nb, 0.25 + 0.14 * shimmerShift, outerLip);
+
+        // Outer calcified shell: chalky limestone ridges & deep olive-umber fluted grooves
+        const umboDark = 1.0 - smoothstep(0.0, 0.36, u);
+        sr = lerp(0.46, 0.84, ribShade);
+        sg = lerp(0.42, 0.79, ribShade);
+        sb = lerp(0.36, 0.7, ribShade);
+        sr = lerp(sr, 0.34, umboDark * 0.55);
+        sg = lerp(sg, 0.3, umboDark * 0.55);
+        sb = lerp(sb, 0.25, umboDark * 0.55);
+      }
 
       topRow.push(pushV(x, yMid + halfT, z, nr, ng, nb));
       botRow.push(pushV(x, yMid - halfT, z, sr, sg, sb));
@@ -850,11 +1233,14 @@ export function createGiantPearlShellGroup(
     scale = 1.0,
     openAngleRad = 0.78,
     pearlType = 'cream',
+    tridacnaPalette = false,
     sharedValveGeo = null,
     sharedShellMat = null,
   } = {}
 ) {
-  const valveGeo = sharedValveGeo || createGiantPearlValveGeometry();
+  const valveGeo =
+    sharedValveGeo ||
+    createGiantPearlValveGeometry({ tridacnaPalette });
   const shellMat =
     sharedShellMat ||
     trackMat(

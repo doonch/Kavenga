@@ -32,6 +32,10 @@ import {
   mixRgb,
   smoothstep,
 } from './IslandSculptToolkit.js';
+import {
+  createSculptedTridacnaAltarGroup,
+  createVillageHearthGroup,
+} from './IslandPropsBuilder.js';
 
 // ============================================================================
 // 1. KAUA'I — 14-Pleat Na Pali Cathedral Razor-Cliffs & High Crag Pa Sanctuary
@@ -397,27 +401,12 @@ function buildOahuAssembly() {
   group.add(logStack);
 
   // Elder Manu's Glowing Beachside Fisher's Hearth
-  const stoneMat = trackMat(
-    new THREE.MeshStandardMaterial({ color: 0x423f3c, roughness: 0.9 })
-  );
-  const fireMat = trackMat(
-    new THREE.MeshBasicMaterial({ color: 0xff8229 }),
-    0.94
-  );
   const hx = 26.8;
   const hz = 2.4;
   const hy = Math.max(0.75, evalOahuPoint(hx, hz).h);
-  const hearthRing = new THREE.Mesh(
-    new THREE.TorusGeometry(0.85, 0.2, 6, 12),
-    stoneMat
-  );
-  hearthRing.rotation.x = Math.PI * 0.5;
-  hearthRing.position.set(hx, hy + 0.12, hz);
-  group.add(hearthRing);
-
-  const bonfire = new THREE.Mesh(new THREE.ConeGeometry(0.58, 1.15, 7), fireMat);
-  bonfire.position.set(hx, hy + 0.62, hz);
-  group.add(bonfire);
+  const oahuHearth = createVillageHearthGroup(trackMat, { scale: 1.25 });
+  oahuHearth.group.position.set(hx, hy + 0.04, hz);
+  group.add(oahuHearth.group);
 
   const huts = [
     [23.5, 0.08, 1.02],
@@ -608,25 +597,14 @@ function buildKiritimatiAssembly() {
   });
 
   // Giant Fluted White Tridacna Clam-Shell Sanctuary Altar overlooking the Lagoon
-  const clamMat = trackMat(
-    new THREE.MeshStandardMaterial({
-      color: 0xf8f6f0,
-      roughness: 0.35,
-      metalness: 0.1,
-    })
+  const clamAltar = createSculptedTridacnaAltarGroup(trackMat);
+  clamAltar.group.position.set(
+    1.5,
+    Math.max(1.2, evalKiritimatiPoint(1.5, -10.5).h),
+    -10.5
   );
-  const clamAltar = new THREE.Group();
-  clamAltar.position.set(1.5, Math.max(1.2, evalKiritimatiPoint(1.5, -10.5).h), -10.5);
-  for (const tilt of [-0.45, 0.45]) {
-    const valve = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.15, 0.35, 0.25, 9, 1, false, 0, Math.PI),
-      clamMat
-    );
-    valve.rotation.z = tilt;
-    valve.position.y = 0.55;
-    clamAltar.add(valve);
-  }
-  group.add(clamAltar);
+  clamAltar.group.rotation.y = 0.45;
+  group.add(clamAltar.group);
 
   // Grand Maneaba Pavilion & Coral-Pass Atoll Huts
   const huts = [
