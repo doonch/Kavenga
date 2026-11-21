@@ -784,7 +784,7 @@ body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding-right: 3px;
+  padding-right: 6px;
 }
 
 .hub-panel {
@@ -2359,7 +2359,9 @@ body {
   margin-top: auto;
   width: min(690px, 95vw);
   max-height: min(64vh, 520px);
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: rgba(10, 23, 37, 0.88);
   backdrop-filter: blur(14px);
   border: 1px solid rgba(231, 181, 99, 0.48);
@@ -2384,6 +2386,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  flex-shrink: 0;
   gap: 12px;
   padding-bottom: 10px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
@@ -2420,6 +2423,9 @@ body {
 }
 
 .walkable-close-btn {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
   background: rgba(255, 255, 255, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.18);
   color: var(--text-muted);
@@ -2437,6 +2443,10 @@ body {
 
 .walkable-poi-body {
   padding-top: 12px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -2605,6 +2615,7 @@ body {
 
 .walkable-canoe-modal-body {
   gap: 10px;
+  overflow: visible;
   padding-right: 0;
 }
 
@@ -3423,27 +3434,50 @@ body {
   padding: 8px 10px;
   max-height: 210px;
   overflow-y: auto;
+}
+
+.shore-objectives-list,
+.hub-content,
+.canoe-modal-body,
+.walkable-poi-body,
+.walkable-poi-popup {
   scrollbar-width: thin;
   scrollbar-color: rgba(231, 181, 99, 0.45) rgba(7, 17, 29, 0.55);
 }
 
-.shore-objectives-list::-webkit-scrollbar {
+.shore-objectives-list::-webkit-scrollbar,
+.hub-content::-webkit-scrollbar,
+.canoe-modal-body::-webkit-scrollbar,
+.walkable-poi-body::-webkit-scrollbar,
+.walkable-poi-popup::-webkit-scrollbar {
   width: 7px;
 }
 
-.shore-objectives-list::-webkit-scrollbar-track {
+.shore-objectives-list::-webkit-scrollbar-track,
+.hub-content::-webkit-scrollbar-track,
+.canoe-modal-body::-webkit-scrollbar-track,
+.walkable-poi-body::-webkit-scrollbar-track,
+.walkable-poi-popup::-webkit-scrollbar-track {
   background: rgba(7, 17, 29, 0.55);
   border-radius: 999px;
   margin: 4px 0;
 }
 
-.shore-objectives-list::-webkit-scrollbar-thumb {
+.shore-objectives-list::-webkit-scrollbar-thumb,
+.hub-content::-webkit-scrollbar-thumb,
+.canoe-modal-body::-webkit-scrollbar-thumb,
+.walkable-poi-body::-webkit-scrollbar-thumb,
+.walkable-poi-popup::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, rgba(231, 181, 99, 0.52), rgba(201, 134, 54, 0.44));
   border-radius: 999px;
   border: 1.5px solid rgba(7, 17, 29, 0.65);
 }
 
-.shore-objectives-list::-webkit-scrollbar-thumb:hover {
+.shore-objectives-list::-webkit-scrollbar-thumb:hover,
+.hub-content::-webkit-scrollbar-thumb:hover,
+.canoe-modal-body::-webkit-scrollbar-thumb:hover,
+.walkable-poi-body::-webkit-scrollbar-thumb:hover,
+.walkable-poi-popup::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, rgba(244, 200, 120, 0.78), rgba(217, 152, 68, 0.68));
 }
 

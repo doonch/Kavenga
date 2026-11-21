@@ -35,12 +35,7 @@ import { getWalkableIslandSpec } from '../data/walkableIslandsData.js';
 import { SandCanvas } from './SandCanvas.js';
 import {
   buildVoyageConfirmModalHtml,
-  createClampedTooltipController,
-  getCargoLightboxData,
-  getCrewLightboxData,
-  getPlayerLightboxData,
   populateVoyageConfirmModal,
-  renderCrewAndCargoRows,
   renderDestinationIslandCards,
 } from './canoePanelWidgets.js';
 
@@ -112,7 +107,7 @@ export class WalkableIslandUI {
             <div class="walkable-poi-heading">
               <span class="walkable-poi-glyph" id="walkPoiGlyph"></span>
               <div>
-                <div class="walkable-poi-eyebrow">Point of Interest Ashore</div>
+                <div class="walkable-poi-eyebrow" id="walkPoiEyebrow">Point of Interest Ashore</div>
                 <h3 id="walkPoiTitle"></h3>
                 <p id="walkPoiSubtitle"></p>
               </div>
@@ -122,9 +117,6 @@ export class WalkableIslandUI {
 
           <div class="walkable-poi-body" id="walkPoiBody"></div>
         </section>
-
-        <!-- Clamped Floating Tooltip for Vaka Crew & Quest Item Cards -->
-        <div class="hub-card-tooltip hidden" id="walkCardTooltip" role="tooltip"></div>
 
         <!-- Secondary Destination Voyage Modal (opened when picking an island card at the moored vaka) -->
         ${buildVoyageConfirmModalHtml({
@@ -207,10 +199,15 @@ export class WalkableIslandUI {
 
     this.rootEl
       .querySelector('#btnMinimizePoi')
-      .addEventListener('click', () => {
+      .addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.currentTarget?.blur?.();
+        this.closeVoyageConfirmModal();
         if (this.currentPoi) {
           this.minimizedPoiId = this.currentPoi.id;
           this._syncPopupVisibility();
+        } else {
+          this.rootEl.querySelector('#walkPoiPopup')?.classList.add('hidden');
         }
       });
 
@@ -250,15 +247,6 @@ export class WalkableIslandUI {
       .addEventListener('click', (e) => {
         if (e.target.id === 'walkPortraitModal') this.closePortraitModal();
       });
-
-    this._cardTooltip = createClampedTooltipController({
-      tipEl: this.rootEl.querySelector('#walkCardTooltip'),
-      getBoundsEl: () => this.rootEl.querySelector('#walkPoiPopup'),
-    });
-    this._cardTooltip.bindContainer(
-      this.rootEl.querySelector('#walkPoiPopup'),
-      this.rootEl.querySelector('#walkPoiBody')
-    );
 
     const confirmBackdrop = this.rootEl.querySelector('#walkVoyageConfirmModal');
     this.rootEl
@@ -316,7 +304,6 @@ export class WalkableIslandUI {
     this.hutFeedbackText = '';
     this.craftsmanDrawerOpen = false;
     this.minimizedPoiId = null;
-    this._cardTooltip?.hide();
     this.closeSandModal();
     this.closePortraitModal();
     this.closeVoyageConfirmModal();
@@ -329,7 +316,6 @@ export class WalkableIslandUI {
     this.sandModalOpen = false;
     this.portraitModalOpen = false;
     this.closeVoyageConfirmModal();
-    this._cardTooltip?.hide();
     this.currentPoi = null;
     this.callbacks.onStopVoice?.();
     this.rootEl.classList.add('hidden');
@@ -356,7 +342,6 @@ export class WalkableIslandUI {
    */
   setSuspendedForHub(suspended) {
     if (suspended) {
-      this._cardTooltip?.hide();
       this.closeVoyageConfirmModal();
       this.closeSandModal();
       this.closePortraitModal();
@@ -392,7 +377,6 @@ export class WalkableIslandUI {
     if (nextId !== this.minimizedPoiId) {
       this.minimizedPoiId = null;
     }
-    this._cardTooltip?.hide();
     if (this.currentPoi?.kind !== 'canoe') {
       this.closeVoyageConfirmModal();
     }
@@ -406,14 +390,12 @@ export class WalkableIslandUI {
     const popupEl = this.rootEl.querySelector('#walkPoiPopup');
     const reopenEl = this.rootEl.querySelector('#btnReopenPoi');
     if (!this.currentPoi) {
-      this._cardTooltip?.hide();
       popupEl.classList.add('hidden');
       reopenEl.classList.add('hidden');
       return;
     }
 
     if (this.minimizedPoiId === this.currentPoi.id) {
-      this._cardTooltip?.hide();
       popupEl.classList.add('hidden');
       reopenEl.classList.remove('hidden');
       reopenEl.textContent = `${this.currentPoi.glyph} ${this.currentPoi.promptHint}`;
@@ -532,13 +514,22 @@ export class WalkableIslandUI {
     const poi = this.currentPoi;
     if (!poi) return;
 
+    const isCanoe = poi.kind === 'canoe';
     const popupEl = this.rootEl.querySelector('#walkPoiPopup');
-    popupEl?.classList.toggle('canoe-poi-active', poi.kind === 'canoe');
-    this._cardTooltip?.hide();
+    popupEl?.classList.toggle('canoe-poi-active', isCanoe);
 
     this.rootEl.querySelector('#walkPoiGlyph').textContent = poi.glyph;
-    this.rootEl.querySelector('#walkPoiTitle').textContent = poi.title;
-    this.rootEl.querySelector('#walkPoiSubtitle').textContent = poi.subtitle;
+    this.rootEl
+      .querySelector('#walkPoiEyebrow')
+      ?.classList.toggle('hidden', isCanoe);
+    this.rootEl.querySelector('#walkPoiTitle').textContent = isCanoe
+      ? 'Voyaging Canoe'
+      : poi.title;
+    const subEl = this.rootEl.querySelector('#walkPoiSubtitle');
+    if (subEl) {
+      subEl.textContent = isCanoe ? '' : poi.subtitle;
+      subEl.classList.toggle('hidden', isCanoe);
+    }
 
     const bodyEl = this.rootEl.querySelector('#walkPoiBody');
     bodyEl.innerHTML = '';
@@ -946,7 +937,7 @@ export class WalkableIslandUI {
   }
 
   // -------------------------------------------------------------------------
-  // POI 4: Moored Voyaging Canoe (Destination Cards, Crew & Storage Rows)
+  // POI 4: Moored Voyaging Canoe (Destination Cards)
   // -------------------------------------------------------------------------
   _renderCanoeLandingBody(bodyEl) {
     const gs = this.callbacks.getGameState();
@@ -967,31 +958,12 @@ export class WalkableIslandUI {
     }
 
     bodyEl.innerHTML = `
-      <div class="walkable-canoe-summary">
-        <span>🛶 <strong>${Math.floor(gs.loadedRations)}</strong> Ration Baskets Aboard</span>
-        <span>·</span>
-        <span>Hulls: <strong>${this._describeCondition(gs.hullCondition)}</strong></span>
-        <span>·</span>
-        <span>Sail: <strong>${this._describeCondition(gs.sailCondition)}</strong></span>
-      </div>
-
       <div class="canoe-modal-body walkable-canoe-modal-body">
         <section class="canoe-modal-section canoe-routes-section">
           <div class="canoe-section-head">
             <h4>Where to?</h4>
           </div>
           <div class="canoe-island-cards-row" id="walkRouteList"></div>
-        </section>
-
-        <section class="canoe-modal-section canoe-roster-cargo-row" id="walkRosterCargoRow">
-          <div class="canoe-roster-col">
-            <strong class="canoe-section-title">Crew</strong>
-            <div class="crew-cards-grid" id="walkCanoeCrewList"></div>
-          </div>
-          <div class="canoe-cargo-col hidden" id="walkCanoeCargoSection">
-            <strong class="canoe-section-title">Storage</strong>
-            <div class="cargo-cards-grid" id="walkCanoeCargoItems"></div>
-          </div>
         </section>
       </div>
     `;
@@ -1008,24 +980,10 @@ export class WalkableIslandUI {
       `,
       onSelectRoute: (song) => this._openWalkVoyageConfirmModal(song),
     });
-
-    renderCrewAndCargoRows({
-      crewContainerEl: bodyEl.querySelector('#walkCanoeCrewList'),
-      cargoSectionEl: bodyEl.querySelector('#walkCanoeCargoSection'),
-      cargoContainerEl: bodyEl.querySelector('#walkCanoeCargoItems'),
-      gs,
-      onPlayerClick: (diff) => this.openPortraitModal(getPlayerLightboxData(diff)),
-      onCrewClick: (crId) => {
-        const info = getCrewLightboxData(crId);
-        if (info) this.openPortraitModal(info);
-      },
-      onCargoClick: (cid) => this.openPortraitModal(getCargoLightboxData(cid)),
-    });
   }
 
   _openWalkVoyageConfirmModal(song) {
     if (!song) return;
-    this._cardTooltip?.hide();
     this.selectedSongId = song.id;
     this.selectedDeparture = song.recommendedDeparture;
     this.voyageConfirmOpen = true;
