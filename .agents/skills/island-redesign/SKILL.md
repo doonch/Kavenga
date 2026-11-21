@@ -41,6 +41,7 @@ Every `observation_circle` POI must satisfy **all three** rules:
    - a broad, open, flat coastal meadow or inner lagoon sandspit (`0.7m <= h <= 3.0m`, local slope `<= 0.12`).
 2. **Open Sky Hemisphere (`<= 12°` Horizon Occlusion):** Across a 360° sweep from the circle center, surrounding peaks and ridges must subtend **`<= 12°`** above the circle's eye level so stars near the horizon and rising/setting constellations remain clearly visible in Sky Vigil.
 3. **Zero Overhead Canopy / Props:** Maintain a **`>= 10.0m` clearance radius** around `(circle.x, circle.z)` free of all palms, broadleaf trees, scrub, and structures so `ShoreDioramaRenderer` and the player never stand inside foliage.
+4. **Grounded Platforms & Structures (No Floating *Marae* or Huts):** Never place flat platforms (`addMaraePlatform`, `addStarStoneCircle`, `addRegionalHuts`, shipwright sheds) on sloped ridges where downhill corners hang in mid-air. Always flatten a level terrace (`r >= 5.5m` with smooth collar) around the structure *after* any adjacent trail/cliff ramps, and sink its base `y` by `~0.10–0.15m` into the ground (checking all four `±2.5m` corners sit flush).
 
 ### 5. Organic, Non-Circular Shorelines, Lagoons & Coral Atolls
 For **all islands** (volcanic fringing reefs, lagoon islands, and coral atolls alike — never leave circular `CircleGeometry` water discs, constant-radius `TorusGeometry` reef arcs, or cylindrical `motu` islets):

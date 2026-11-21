@@ -404,6 +404,62 @@ export class WalkableIslandScene {
           [49.0, 56.5],
         ],
       },
+      ua_pou: {
+        waypoints: [
+          new THREE.Vector3(20.0, 0, 46.0),
+          new THREE.Vector3(31.0, 0, 56.0),
+          new THREE.Vector3(43.0, 0, 63.0),
+          new THREE.Vector3(50.0, 0, 52.0),
+        ],
+        steps: 36,
+        torches: [
+          [25.5, 51.5],
+          [37.0, 60.0],
+          [47.0, 57.0],
+        ],
+      },
+      hiva_oa: {
+        waypoints: [
+          new THREE.Vector3(20.0, 0, 46.0),
+          new THREE.Vector3(31.0, 0, 56.0),
+          new THREE.Vector3(43.0, 0, 63.0),
+          new THREE.Vector3(51.0, 0, 52.0),
+        ],
+        steps: 36,
+        torches: [
+          [25.5, 51.5],
+          [37.0, 60.0],
+          [47.5, 57.0],
+        ],
+      },
+      fatu_hiva: {
+        waypoints: [
+          new THREE.Vector3(20.0, 0, 46.0),
+          new THREE.Vector3(31.0, 0, 56.0),
+          new THREE.Vector3(43.0, 0, 63.0),
+          new THREE.Vector3(51.0, 0, 52.0),
+        ],
+        steps: 36,
+        torches: [
+          [25.5, 51.5],
+          [37.0, 60.0],
+          [47.5, 57.0],
+        ],
+      },
+      mangareva: {
+        waypoints: [
+          new THREE.Vector3(20.0, 0, 46.0),
+          new THREE.Vector3(31.0, 0, 56.0),
+          new THREE.Vector3(43.0, 0, 62.0),
+          new THREE.Vector3(49.0, 0, 50.0),
+        ],
+        steps: 36,
+        torches: [
+          [25.5, 51.5],
+          [37.0, 59.5],
+          [46.5, 55.5],
+        ],
+      },
       hawaii: {
         waypoints: [
           new THREE.Vector3(-20.9, 0, 61.0),
