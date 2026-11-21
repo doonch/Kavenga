@@ -12,6 +12,11 @@ import * as THREE from 'three';
 import { computeSailVariantColors, Difficulty } from '../core/gameConstants.js';
 import { altAzToDirectionVec3 } from '../simulation/celestialSim.js';
 import {
+  animateCrewCharacterRig,
+  createCrewCharacterRig,
+  CREW_SEAT_SPECS,
+} from './CrewCharacterBuilder.js';
+import {
   animatePlayerCharacterRig,
   createPlayerCharacterRig,
   setPlayerCharacterOpacity,
@@ -78,6 +83,7 @@ export class VakaRenderer {
     this.rationBaskets = [];
     this.cargoBundles = [];
     this.crewMeshes = {};
+    this.crewRigs = {};
     this.playerRigs = {};
     this.activePlayerRig = null;
 
@@ -1016,29 +1022,15 @@ export class VakaRenderer {
       this.cargoBundles.push(b);
     }
 
-    // 4. Stylized Navigator Crew Silhouettes (Tama, Moana, Kahu)
-    const crewDefs = [
-      { id: 'tama', x: -1.45, z: 1.85, color: 0xb87a4b },  // Port aft fishing line
-      { id: 'moana', x: 1.18, z: -1.15, color: 0xc98b5b }, // Starboard sail sheet
-      { id: 'kahu', x: -0.95, z: -2.85, color: 0xa66a3e }, // Forward crossbeam tender
-    ];
-    for (const cd of crewDefs) {
-      const fig = new THREE.Group();
-      fig.position.set(cd.x, 0.86, cd.z);
-      const torso = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.14, 0.18, 0.58, 8),
-        new THREE.MeshStandardMaterial({ color: cd.color, roughness: 0.75 })
-      );
-      torso.position.y = 0.29;
-      const head = new THREE.Mesh(
-        new THREE.SphereGeometry(0.12, 8, 8),
-        new THREE.MeshStandardMaterial({ color: 0x7c4b2b, roughness: 0.7 })
-      );
-      head.position.y = 0.68;
-      fig.add(torso, head);
-      fig.visible = false;
-      this.root.add(fig);
-      this.crewMeshes[cd.id] = fig;
+    // 4. Articulated Seated 3D Companion Crew Rigs (Tama, Moana, Kahu)
+    for (const [crewId, seat] of Object.entries(CREW_SEAT_SPECS)) {
+      const rig = createCrewCharacterRig(crewId);
+      rig.root.position.set(seat.x, seat.y, seat.z);
+      rig.root.rotation.y = seat.yawRad;
+      rig.root.visible = false;
+      this.root.add(rig.root);
+      this.crewRigs[crewId] = rig;
+      this.crewMeshes[crewId] = rig.root;
     }
   }
 
@@ -1152,7 +1144,15 @@ export class VakaRenderer {
       });
 
       for (const [crewId, mesh] of Object.entries(this.crewMeshes)) {
-        mesh.visible = gameState.assignedCrew.includes(crewId);
+        const visible = gameState.assignedCrew.includes(crewId);
+        mesh.visible = visible;
+        if (visible && this.crewRigs[crewId]) {
+          animateCrewCharacterRig(this.crewRigs[crewId], elapsedSec, {
+            hullState: hull,
+            fastForward: Boolean(oceanSim.fastForward),
+            sailFlutter: flutter,
+          });
+        }
       }
 
       // Visual wear tinting when neglected (<55%), preserving custom dyed sail hues

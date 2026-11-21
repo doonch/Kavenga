@@ -37,6 +37,7 @@ import {
   createSailDyeVatsCluster,
   makeStoneRockGeometry,
 } from './IslandPropsBuilder.js';
+import { animateCrewCharacterRig } from './CrewCharacterBuilder.js';
 import {
   animatePlayerCharacterAshore,
   createPlayerCharacterRig,
@@ -1247,8 +1248,17 @@ export class WalkableIslandScene {
       this.vakaRenderer.cargoBundles.forEach((b, idx) => {
         b.visible = idx < gameState.cargoItems.length;
       });
+      const mooredHullState = { rollRad: gentleRoll, pitchRad: 0.0 };
       for (const [crewId, mesh] of Object.entries(this.vakaRenderer.crewMeshes)) {
-        mesh.visible = gameState.assignedCrew.includes(crewId);
+        const visible = gameState.assignedCrew.includes(crewId);
+        mesh.visible = visible;
+        if (visible && this.vakaRenderer.crewRigs?.[crewId]) {
+          animateCrewCharacterRig(
+            this.vakaRenderer.crewRigs[crewId],
+            elapsedSec,
+            { hullState: mooredHullState, sailFlutter: 0.01 }
+          );
+        }
       }
       const isSailWorn = gameState.sailCondition < 55.0;
       const sailColors = computeSailVariantColors(gameState.sailColor);

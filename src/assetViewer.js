@@ -45,6 +45,11 @@ import {
   createWhaleJawArchGroup,
 } from './rendering/IslandPropsBuilder.js';
 import {
+  animateCrewCharacterRig,
+  createCrewCharacterRig,
+  CREW_DESIGN_SPECS,
+} from './rendering/CrewCharacterBuilder.js';
+import {
   animatePlayerCharacterRig,
   createPlayerCharacterRig,
   getPlayerCharacterProfile,
@@ -180,6 +185,17 @@ function buildAssetCatalog() {
       kind: 'player_char',
       difficulty: Difficulty.MASTER_NAVIGATOR,
     },
+
+    // 1c. Voyaging Crew (Seated)
+    ...Object.values(CREW_DESIGN_SPECS).map((cs) => ({
+      id: `crew_${cs.id}`,
+      category: 'Voyaging Crew (Seated)',
+      name: `${cs.name} — ${cs.role}`,
+      subtitle: cs.attireSummary,
+      tag: cs.homeIsland,
+      kind: 'crew_char',
+      crewId: cs.id,
+    })),
 
     // 2. Seabirds (Flapping)
     {
@@ -919,6 +935,8 @@ class AssetDebugViewer {
       this._mountVakaAsset(item);
     } else if (item.kind === 'player_char') {
       this._mountPlayerCharacterAsset(item);
+    } else if (item.kind === 'crew_char') {
+      this._mountCrewCharacterAsset(item);
     } else if (item.kind === 'bird_single') {
       this._mountSingleBirdAsset(item);
     } else if (item.kind === 'bird_flock') {
@@ -1043,6 +1061,30 @@ class AssetDebugViewer {
         steerNorm: this.playerCtrl.steer,
         windStrength: this.playerCtrl.wind,
       });
+    };
+    applyPose(this.animElapsedSec);
+    this.activeTickFn = (_dt, elapsed) => applyPose(elapsed);
+  }
+
+  _mountCrewCharacterAsset(item) {
+    const rig = createCrewCharacterRig(item.crewId);
+    // Rotate 180 deg around Y in standalone studio so character faces the front camera (+Z)
+    rig.root.rotation.y = Math.PI;
+
+    const plinth = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.54, 0.58, 0.05, 32),
+      new THREE.MeshStandardMaterial({
+        color: 0xc29e65,
+        roughness: 0.88,
+        metalness: 0.02,
+      })
+    );
+    plinth.position.y = -0.025;
+    this.stageGroup.add(plinth);
+    this.stageGroup.add(rig.root);
+
+    const applyPose = (elapsed) => {
+      animateCrewCharacterRig(rig, elapsed * this.animCtrl.speed);
     };
     applyPose(this.animElapsedSec);
     this.activeTickFn = (_dt, elapsed) => applyPose(elapsed);

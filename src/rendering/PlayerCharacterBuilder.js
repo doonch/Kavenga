@@ -29,7 +29,7 @@ export { PLAYER_CHARACTER_PROFILES, getPlayerCharacterProfile };
 /**
  * Lofts an anatomical elliptical tube along Y from ring definitions [{ y, rx, rz, ox?, oz? }].
  */
-function createLoftedBodyPartGeometry(rings, radialSegments = 16, capEnds = true) {
+export function createLoftedBodyPartGeometry(rings, radialSegments = 16, capEnds = true) {
   const positions = [];
   const indices = [];
   const ringVertIndices = [];
@@ -91,7 +91,7 @@ function createLoftedBodyPartGeometry(rings, radialSegments = 16, capEnds = true
  * Builds a wraparound Polynesian pareu / lavalava skirt with vertex-colored traditional border motifs
  * and a natural front-side overlap pleat.
  */
-function createPareuSkirtMesh({
+export function createPareuSkirtMesh({
   topRx,
   topRz,
   botRx,
@@ -101,6 +101,8 @@ function createPareuSkirtMesh({
   bandRgb,
   trimRgb,
   wovenCheck = false,
+  forwardDrapeZ = 0.0,
+  colorFn = null,
 }) {
   const segU = 28;
   const segV = 12;
@@ -123,24 +125,28 @@ function createPareuSkirtMesh({
         0.014 * Math.exp(-Math.pow(((u - 0.68) * 9.0), 2.0)) * (0.3 + 0.7 * v);
       const drapeWave = 0.006 * Math.sin(theta * 5.0) * v;
       const x = Math.cos(theta) * (rx + pleat + drapeWave);
-      const z = Math.sin(theta) * (rz + pleat + drapeWave);
+      const z = Math.sin(theta) * (rz + pleat + drapeWave) - forwardDrapeZ * flare;
       positions.push(x, y, z);
 
       let col = baseRgb;
-      if (wovenCheck) {
-        const check =
-          (Math.floor(u * 36.0) + Math.floor(v * 16.0)) % 2 === 0 ? 1.0 : 0.91;
-        col = [baseRgb[0] * check, baseRgb[1] * check, baseRgb[2] * check];
-      }
+      if (colorFn) {
+        col = colorFn(u, v, theta);
+      } else {
+        if (wovenCheck) {
+          const check =
+            (Math.floor(u * 36.0) + Math.floor(v * 16.0)) % 2 === 0 ? 1.0 : 0.91;
+          col = [baseRgb[0] * check, baseRgb[1] * check, baseRgb[2] * check];
+        }
 
-      // Traditional geometric niho (spear/shark-tooth) & swell border bands near hem
-      const saw = Math.abs(((u * 18.0) % 1.0) * 2.0 - 1.0);
-      if (v > 0.88) {
-        col = trimRgb;
-      } else if (v > 0.72 && v < 0.86) {
-        col = v - 0.72 > saw * 0.09 ? bandRgb : trimRgb;
-      } else if (v > 0.56 && v < 0.62) {
-        col = bandRgb;
+        // Traditional geometric niho (spear/shark-tooth) & swell border bands near hem
+        const saw = Math.abs(((u * 18.0) % 1.0) * 2.0 - 1.0);
+        if (v > 0.88) {
+          col = trimRgb;
+        } else if (v > 0.72 && v < 0.86) {
+          col = v - 0.72 > saw * 0.09 ? bandRgb : trimRgb;
+        } else if (v > 0.56 && v < 0.62) {
+          col = bandRgb;
+        }
       }
 
       colors.push(col[0], col[1], col[2]);
@@ -207,7 +213,7 @@ function sampleTorsoEllipse(torsoRings, y) {
  * kihei shoulder sash (`medium`) that hugs the exact lofted torso contour from one
  * shoulder diagonally across the chest and back to the opposite hip without gaps or clipping.
  */
-function createTorsoCrossbodyBandMesh({
+export function createTorsoCrossbodyBandMesh({
   torsoRings,
   torsoH,
   shoulderSide = 1, // +1 = right shoulder to left hip; -1 = left shoulder to right hip
@@ -850,7 +856,7 @@ function updateKahuTapaCloak(
   cd.geo.computeVertexNormals();
 }
 
-function createFeatherPlume(length, width, colorHex, tipHex = null) {
+export function createFeatherPlume(length, width, colorHex, tipHex = null) {
   const grp = new THREE.Group();
   const quillMat = new THREE.MeshStandardMaterial({
     color: 0xeae0cc,
@@ -893,7 +899,7 @@ function createFeatherPlume(length, width, colorHex, tipHex = null) {
   return grp;
 }
 
-function addTatauBands(parentMeshGroup, radiiY, bandMat) {
+export function addTatauBands(parentMeshGroup, radiiY, bandMat) {
   for (const { y, r, h = 0.022 } of radiiY) {
     const band = new THREE.Mesh(
       new THREE.CylinderGeometry(r * 1.025, r * 1.015, h, 14, 1, true),
