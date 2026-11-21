@@ -41,6 +41,7 @@ import {
   createQuarriedTikiBlockGroup,
   createSculptedShipwrightShedGroup,
   createWhaleJawArchGroup,
+  makeStoneRockGeometry,
 } from './IslandPropsBuilder.js';
 
 // Helper for reefless Marquesan cliff surf collar (white foam hugging rocky coast, open at bay mouth)
@@ -56,49 +57,122 @@ function addCliffSurfCollar(group, foamMat, radius, startRad, endRad, segs = 36)
 }
 
 // ============================================================================
-// 1. NUKU HIVA — Taiohae Horseshoe Caldera Amphitheater & Hakaui Waterfall
+// 1. NUKU HIVA — Taiohae Horseshoe Caldera Amphitheater & Hakaui Waterfall (2x)
 // ============================================================================
+function nukuDistToSeg(px, pz, ax, az, bx, bz) {
+  const vx = bx - ax;
+  const vz = bz - az;
+  const wx = px - ax;
+  const wz = pz - az;
+  const len2 = vx * vx + vz * vz || 1e-6;
+  const t = clamp01((wx * vx + wz * vz) / len2);
+  return { d: Math.hypot(px - (ax + vx * t), pz - (az + vz * t)), t };
+}
+
 function evalNukuHivaPoint(x, z) {
   const r = Math.hypot(x, z);
   const theta = Math.atan2(z, x);
 
-  // Deep horseshoe bay indenting around theta = 0, framed by twin sea-cliff headlands at +/-0.48
-  const bayIndent = 14.5 * Math.exp(-Math.pow(theta / 0.34, 2.0));
+  // Deep horseshoe Taiohae Bay indenting around theta = 0 (+Z walkable),
+  // framed by twin towering sea-cliff headlands jutting out at theta ≈ ±0.68!
+  const bayIndent = 16.5 * Math.exp(-Math.pow(theta / 0.36, 2.0));
   const headlandJut =
-    5.2 * Math.exp(-Math.pow((theta - 0.52) / 0.2, 2.0)) +
-    5.2 * Math.exp(-Math.pow((theta + 0.52) / 0.2, 2.0));
-  const cliffWave = 2.1 * Math.cos(5.0 * theta + 0.8);
-  const coastR = Math.max(21.5, 41.5 - bayIndent + headlandJut + cliffWave);
+    23.5 * Math.exp(-Math.pow((theta + 0.72) / 0.36, 2.0)) +
+    15.0 * Math.exp(-Math.pow((theta - 0.65) / 0.32, 2.0));
+  const backBulge = 10.0 * Math.exp(-Math.pow((Math.abs(theta) - 2.4) / 0.55, 2.0));
+  const cliffWave = 3.4 * Math.cos(5.0 * theta + 0.7) + 1.8 * Math.sin(8.0 * theta);
+  const coastR = Math.max(54.0, 72.0 - bayIndent + headlandJut + backBulge + cliffWave);
 
   if (r > coastR) {
-    const drop = smoothstep(coastR, coastR + 7.5, r);
-    return { h: lerp(0.05, -4.4, drop), flute: 0.0, isBlackBeach: false };
+    const drop = smoothstep(coastR, coastR + 11.5, r);
+    return { h: lerp(0.05, -5.2, drop), flute: 0.0, isBlackBeach: false };
   }
 
   const u = r / coastR;
-  const inBay = Math.abs(theta) < 0.38;
+  const inBay = Math.abs(theta) < 0.42;
 
-  // Towering semicircular caldera wall wrapping around Taiohae Bay (~74m summit)
-  const wallCenterDist = Math.abs(Math.hypot(x + 3.5, z) - 21.0);
-  const wallBackMask = smoothstep(0.24, 0.72, Math.abs(theta));
+  // Sweeping semicircular horseshoe caldera wall wrapping around Taiohae Valley (~102m summit)
+  // Opens toward +Z bay and steps down smoothly toward the SE headland so the Star Circle stays panoramic
+  const wallCenterDist = Math.abs(Math.hypot(x + 26.0, z + 10.0) - 46.0);
+  const wallBackMask =
+    smoothstep(0.45, 1.15, Math.abs(theta)) *
+    (1.0 - 0.92 * Math.exp(-Math.pow((theta + 1.25) / 0.68, 2.0)));
   const calderaRim =
-    68.0 * Math.exp(-Math.pow(wallCenterDist / 10.8, 1.7)) * wallBackMask;
+    51.0 * Math.exp(-Math.pow(wallCenterDist / 17.5, 1.75)) * wallBackMask;
 
-  // Interior plateau & valley amphitheater floor
-  const backMassif = 44.0 * gaussian2D(x, z, -14.0, 0.0, 15.0, 18.0, 0.0);
+  // Interior massif & dramatic back amphitheater peaks
+  const backMassif = 42.0 * gaussian2D(x, z, -44.0, 12.0, 24.0, 28.0, 0.15);
 
-  // Vertical Marquesan fluted cliff ribs (12 sharp radial pleats)
-  const fluteRaw = Math.pow(0.5 + 0.5 * Math.cos(12.0 * theta), 2.1);
-  const flute = fluteRaw * smoothstep(0.95, 0.35, u) * wallBackMask;
+  // 14 vertical Marquesan fluted cathedral cliff ribs
+  const fluteRaw = Math.pow(0.5 + 0.5 * Math.cos(14.0 * theta + 0.25 * Math.sin(3.0 * theta)), 2.1);
+  const flute = fluteRaw * smoothstep(0.95, 0.34, u) * wallBackMask;
 
-  // Sheer sea-cliffs outside the bay vs gentle black-sand amphitheater beach inside the bay
+  // Sheer coastal sea-cliffs outside Taiohae Bay vs gentle black-sand crescent shore inside bay
   const cliffEdge = inBay
-    ? 2.2 * smoothstep(1.0, 0.75, u)
-    : 22.0 * Math.pow(smoothstep(1.0, 0.84, u), 0.55);
+    ? 4.0 * smoothstep(1.0, 0.68, u)
+    : 24.0 * Math.pow(smoothstep(1.0, 0.82, u), 0.58);
 
-  let h = cliffEdge + calderaRim * 0.82 + backMassif * 0.48 + flute * 9.5;
-  if (inBay && u > 0.8) {
-    h = lerp(h, 1.5 * (1.0 - smoothstep(0.8, 1.0, u)), 0.78);
+  let h = cliffEdge + calderaRim * 0.84 + backMassif * 0.45 + flute * 12.0;
+
+  // Gently scoop out Taiohae Valley floor (spawn, landing, village hut flat)
+  const valleyMask = gaussian2D(x, z, 46.0, 10.0, 18.0, 26.0, 0.08);
+  if (valleyMask > 0.02) {
+    const valleyTarget = lerp(1.2, 6.4, smoothstep(61.5, 24.0, x));
+    h = lerp(h, valleyTarget, clamp01(valleyMask * 1.15));
+  }
+
+  // East Headland Sea-Bluff Terrace for Observation Circle at walkable (52, 48) -> canon (48.0, -52.0)
+  const bluffProm = gaussian2D(x, z, 49.0, -52.0, 20.0, 19.0, -0.35);
+  h = Math.max(h, 31.5 * smoothstep(0.16, 0.82, bluffProm));
+
+  const dCircle = Math.hypot(x - 48.0, z + 52.0);
+  if (dCircle < 12.0) {
+    h = lerp(h, 31.5, 1.0 - smoothstep(5.6, 12.0, dCircle));
+  }
+
+  // Master Teiki's coastal marae terrace at walkable (20, 46) -> canon (46.0, -20.0)
+  const dElder = Math.hypot(x - 46.0, z + 20.0);
+  if (dElder < 10.5) {
+    h = lerp(h, 8.5, 1.0 - smoothstep(4.8, 10.5, dElder));
+  }
+
+  // Walkable switchback trail corridors matching WalkableIslandScene stepping stones:
+  // Compute closest point across the entire polyline ONCE so joints never fight or step-spike!
+  const trailLegs = [
+    [58.0, 11.5, 51.0, 14.5, 1.5, 2.6], // spawn -> landing
+    [58.0, 11.5, 36.0, 21.0, 1.5, 5.4], // spawn -> hut valley flat
+    [58.0, 11.5, 46.0, -20.0, 1.5, 8.5], // spawn -> elder terrace
+    [46.0, -20.0, 58.0, -32.0, 8.5, 15.5], // elder (20,46) -> mid1 (32,58) [dist=17.0m, sl=0.41]
+    [58.0, -32.0, 64.0, -45.0, 15.5, 23.0], // mid1 (32,58) -> mid2 (45,64) [dist=14.3m, sl=0.52]
+    [64.0, -45.0, 53.6, -54.4, 23.0, 31.3], // mid2 (45,64) -> rim (54.4,53.6) [dist=14.0m, sl=0.59]
+    [53.6, -54.4, 48.0, -52.0, 31.3, 31.5], // rim -> circle center (52,48)
+  ];
+  let bestTrailD = 999.0;
+  let bestTrailH = h;
+  for (const [ax, az, bx, bz, h0, h1] of trailLegs) {
+    const seg = nukuDistToSeg(x, z, ax, az, bx, bz);
+    if (seg.d < bestTrailD) {
+      bestTrailD = seg.d;
+      bestTrailH = lerp(h0, h1, seg.t);
+    }
+  }
+  if (bestTrailD < 14.5) {
+    const mask = 1.0 - smoothstep(7.5, 14.5, bestTrailD);
+    h = lerp(h, bestTrailH, mask);
+  }
+
+  // Feather bay foreshore smoothly down to waterline
+  if (inBay && u > 0.85) {
+    h = lerp(h, 1.8 * (1.0 - smoothstep(0.85, 1.0, u)), 0.85);
+  }
+  if (dCircle < 8.2) {
+    h = lerp(h, 31.5, 1.0 - smoothstep(5.6, 8.2, dCircle));
+  }
+
+  // Flat Tohua Marae plaza terrace at walkable (15.0, 56.0) -> canon (56.0, -15.0), well clear of stone trail
+  const dMarae = Math.hypot(x - 56.0, z + 15.0);
+  if (dMarae < 8.2) {
+    h = lerp(h, 8.2, 1.0 - smoothstep(5.0, 8.2, dMarae));
   }
 
   return { h, flute, isBlackBeach: inBay && u > 0.82 };
@@ -109,25 +183,28 @@ function buildNukuHivaAssembly() {
   const { materials, trackMat } = createMaterialTracker();
 
   const colDeepSea = [0.04, 0.22, 0.4];
-  const colBlackSand = [0.16, 0.16, 0.18];
-  const colValleyLush = [0.15, 0.44, 0.18];
-  const colDryRidge = [0.42, 0.47, 0.21];
-  const colDarkBasalt = [0.21, 0.2, 0.22];
-  const colHighMoss = [0.12, 0.32, 0.15];
+  const colBlackSand = [0.11, 0.11, 0.13];
+  const colValleyLush = [0.12, 0.36, 0.14];
+  const colHighMoss = [0.09, 0.26, 0.12];
+  const colDryOchre = [0.46, 0.33, 0.18];
+  const colRedScoria = [0.42, 0.19, 0.11];
+  const colDarkBasalt = [0.16, 0.16, 0.19];
 
   const terrainGeo = buildPolarTerrainGeometry({
     evalPoint: evalNukuHivaPoint,
-    maxRadius: 54.0,
-    nRings: 62,
-    nSegs: 98,
+    maxRadius: 112.0,
+    nRings: 118,
+    nSegs: 180,
     colorFn: (s, slope) => {
       if (s.h <= 0.06) return colDeepSea;
-      if (s.isBlackBeach && s.h < 2.1) {
-        return mixRgb(colBlackSand, colValleyLush, smoothstep(0.9, 2.1, s.h));
+      if (s.isBlackBeach && s.h < 2.3) {
+        return mixRgb(colBlackSand, colValleyLush, smoothstep(0.8, 2.3, s.h));
       }
-      let rgb = mixRgb(colValleyLush, colHighMoss, smoothstep(6.0, 52.0, s.h));
-      rgb = mixRgb(rgb, colDryRidge, s.flute * 0.58);
-      rgb = mixRgb(rgb, colDarkBasalt, smoothstep(0.88, 1.75, slope) * 0.9);
+      let rgb = mixRgb(colValleyLush, colHighMoss, smoothstep(8.0, 56.0, s.h));
+      rgb = mixRgb(rgb, colDryOchre, s.flute * 0.52);
+      const scoriaBand = smoothstep(52.0, 74.0, s.h) * (1.0 - smoothstep(78.0, 96.0, s.h));
+      rgb = mixRgb(rgb, colRedScoria, scoriaBand * 0.34);
+      rgb = mixRgb(rgb, colDarkBasalt, smoothstep(0.75, 1.6, slope) * 0.92);
       return rgb;
     },
   });
@@ -137,7 +214,7 @@ function buildNukuHivaAssembly() {
     trackMat(
       new THREE.MeshStandardMaterial({
         vertexColors: true,
-        roughness: 0.88,
+        roughness: 0.89,
         metalness: 0.04,
       })
     )
@@ -145,78 +222,149 @@ function buildNukuHivaAssembly() {
   terrainMesh.receiveShadow = true;
   group.add(terrainMesh);
 
+  // Reefless Marquesan Cliff Surf Collar framing Taiohae Bay capes
   const foamMat = trackMat(
     new THREE.MeshBasicMaterial({ color: 0xf0faff, depthWrite: false }),
     0.72
   );
-  addCliffSurfCollar(group, foamMat, 43.2, 0.42, Math.PI * 2.0 - 0.42, 40);
+  addCliffSurfCollar(group, foamMat, 82.0, 0.45, Math.PI * 2.0 - 0.45, 56);
 
-  // Towering 32m Hakaui Silver Waterfall plunging down the inner caldera cliff!
+  // Dramatic Offshore Basalt Sea-Stacks guarding the twin sea-cliff headlands
+  const stackMat = trackMat(
+    new THREE.MeshStandardMaterial({ color: 0x26252a, roughness: 0.92 })
+  );
+  for (const [sx, sz, hScale, rScale, rot] of [
+    [66.0, 58.0, 14.0, 4.4, 0.5],
+    [62.0, -64.0, 16.5, 4.8, 1.7],
+    [-76.0, 42.0, 12.0, 3.8, 2.4],
+  ]) {
+    const stack = new THREE.Mesh(makeStoneRockGeometry(1.0, 19), stackMat);
+    stack.scale.set(rScale, hScale, rScale * 0.85);
+    stack.position.set(sx, 0.0, sz);
+    stack.rotation.y = rot;
+    group.add(stack);
+  }
+
+  // Towering 48m Hakaui Silver Waterfall plunging down the back caldera notch!
   addWaterfallCascade(group, trackMat, {
-    x: -7.5,
-    y: 26.5,
-    z: -4.2,
-    width: 1.85,
-    height: 29.0,
-    rotY: Math.PI * 0.45,
+    x: -18.0,
+    y: 34.0,
+    z: 10.0,
+    width: 3.0,
+    height: 48.0,
+    rotY: Math.PI * 0.58,
     tiltX: -0.34,
   });
 
-  // Master Teiki's Great Tohua Ceremonial Plaza & Marquesan Stone-Paepae Village
+  // Canonical exclusion zones (rotY = -PI/2 => cx = wz, cz = -wx)
+  const toCanon = (wx, wz) => [wz, -wx];
+  const [spCx, spCz] = toCanon(-11.5, 58.0);
+  const [laCx, laCz] = toCanon(-14.5, 51.0);
+  const [huCx, huCz] = toCanon(-21.0, 36.0);
+  const [elCx, elCz] = toCanon(20.0, 46.0);
+  const [ciCx, ciCz] = toCanon(52.0, 48.0);
+  const [mid1Cx, mid1Cz] = toCanon(32.0, 58.0);
+  const [mid2Cx, mid2Cz] = toCanon(45.0, 64.0);
+  const nukuClearZones = [
+    { x: spCx, z: spCz, r: 10.5 },
+    { x: laCx, z: laCz, r: 7.0 },
+    { x: huCx, z: huCz, r: 7.5 },
+    { x: elCx, z: elCz, r: 8.0 },
+    { x: ciCx, z: ciCz, r: 12.5 },
+    { x: mid1Cx, z: mid1Cz, r: 5.5 },
+    { x: mid2Cx, z: mid2Cz, r: 5.5 },
+  ];
+  const nukuIsClear = (px, pz) => {
+    for (const bz of nukuClearZones) {
+      if (Math.hypot(px - bz.x, pz - bz.z) < bz.r) return false;
+    }
+    return true;
+  };
+
+  // Master Teiki's Great Tohua Ceremonial Plaza (tucked beside Elder terrace, grounded solidly)
+  const [marCx, marCz] = toCanon(15.0, 56.0);
   addMaraePlatform(group, trackMat, {
-    x: 15.5,
-    y: Math.max(1.8, evalNukuHivaPoint(15.5, 3.2).h),
-    z: 3.2,
-    rotY: 0.0,
-    scale: 0.92,
+    x: marCx,
+    y: evalNukuHivaPoint(marCx, marCz).h - 0.12,
+    z: marCz,
+    rotY: -0.35,
+    scale: 1.0,
     courtHex: 0x2e2c2b,
     ahuHex: 0x4b4744,
     withBraziers: true,
   });
 
+  // Marquesan Stone-Paepae Fa'e Village along Taiohae Valley apron
   const huts = [
-    [21.0, -0.18, 1.02],
-    [19.2, -0.05, 0.96],
-    [22.0, 0.14, 1.0],
-    [18.0, 0.24, 0.92],
-    [15.0, -0.22, 0.9],
-  ].map(([hr, hang, sc]) => {
-    const hx = hr * Math.cos(hang);
-    const hz = hr * Math.sin(hang);
-    return {
-      x: hx,
-      y: Math.max(0.8, evalNukuHivaPoint(hx, hz).h),
-      z: hz,
-      rotY: -hang,
-      scale: sc,
-    };
-  });
+    [toCanon(-30.0, 32.0)[0], toCanon(-30.0, 32.0)[1], 0.45, 1.04],
+    [toCanon(-28.0, 44.0)[0], toCanon(-28.0, 44.0)[1], 0.15, 0.98],
+    [toCanon(6.0, 48.0)[0], toCanon(6.0, 48.0)[1], -0.4, 0.96],
+    [toCanon(-34.0, 49.0)[0], toCanon(-34.0, 49.0)[1], 0.6, 0.92],
+  ].map(([hx, hz, rotY, sc]) => ({
+    x: hx,
+    y: Math.max(0.8, evalNukuHivaPoint(hx, hz).h),
+    z: hz,
+    rotY,
+    scale: sc,
+  }));
   addRegionalHuts(group, trackMat, huts, 'marquesan');
 
-  // Sacred Giant Banyan (Aoa) Trees & Valley Coconut Palms
+  // Timber Canoe Pier & Anchored Outrigger Va'a in Taiohae Bay
+  const [pierCx, pierCz] = toCanon(-3.5, 62.5);
+  addTimberPier(group, trackMat, {
+    x: pierCx,
+    y: 0.7,
+    z: pierCz,
+    rotY: 0.1,
+    length: 8.5,
+    width: 1.65,
+  });
+
+  const [vaaCx, vaaCz] = toCanon(7.5, 65.0);
+  addOutriggerCanoe(group, trackMat, {
+    x: vaaCx,
+    y: 0.34,
+    z: vaaCz,
+    rotY: Math.PI * 0.44,
+  });
+
+  // Sacred Giant Banyan (Aoa) Trees & Valley Coconut Palms (filtered clear of POIs/trails)
   const banyanPts = [
-    [12.5, Math.max(2.0, evalNukuHivaPoint(12.5, -5.5).h), -5.5, 1.25, 0.3],
-    [11.0, Math.max(2.0, evalNukuHivaPoint(11.0, 6.2).h), 6.2, 1.18, -0.6],
-    [16.8, Math.max(1.5, evalNukuHivaPoint(16.8, -7.2).h), -7.2, 1.05, 1.1],
-  ];
+    [toCanon(-36.0, 37.0)[0], 0, toCanon(-36.0, 37.0)[1], 1.28, 0.3],
+    [toCanon(-6.0, 34.0)[0], 0, toCanon(-6.0, 34.0)[1], 1.2, -0.5],
+    [toCanon(8.0, 38.0)[0], 0, toCanon(8.0, 38.0)[1], 1.12, 1.0],
+    [toCanon(-16.0, 24.0)[0], 0, toCanon(-16.0, 24.0)[1], 1.18, 0.8],
+  ]
+    .filter(([bx, , bz]) => nukuIsClear(bx, bz))
+    .map(([bx, , bz, sc, rot]) => [bx, Math.max(1.2, evalNukuHivaPoint(bx, bz).h), bz, sc, rot]);
   addBroadleafTrees(group, trackMat, banyanPts, {
     canopyHexA: 0x1e5220,
     canopyHexB: 0x2f6828,
   });
 
   const palmPts = [];
-  for (const ang of [-0.3, -0.22, -0.11, 0.04, 0.18, 0.28]) {
-    const pr = 24.2;
+  const scrubPts = [];
+  for (let i = 0; i < 36; i += 1) {
+    const ang = -0.5 + (i / 36) * 1.0;
+    const pr = 46.0 + (i % 4) * 3.8;
     const px = pr * Math.cos(ang);
     const pz = pr * Math.sin(ang);
-    const py = evalNukuHivaPoint(px, pz).h;
-    if (py > 0.5 && py < 8.0) {
-      palmPts.push([px, py - 0.15, pz, -ang, 0.96, 0.2]);
+    const pt = evalNukuHivaPoint(px, pz);
+    if (pt.h > 0.7 && pt.h < 12.0 && nukuIsClear(px, pz)) {
+      palmPts.push([px, pt.h - 0.15, pz, -ang, 0.94 + (i % 3) * 0.08, 0.2]);
+    }
+    if (i % 2 === 0 && pt.h > 1.2 && pt.h < 18.0 && nukuIsClear(px * 0.95, pz * 0.95)) {
+      const sc = 0.96 + (i % 3) * 0.22;
+      scrubPts.push([px * 0.95, pt.h - 0.1, pz * 0.95, sc * 1.12, sc * 0.62, sc * 1.04, -ang]);
     }
   }
   addCoconutGroves(group, trackMat, palmPts);
+  addCoastalScrub(group, trackMat, scrubPts, {
+    hexA: 0x22561e,
+    hexB: 0x356c26,
+  });
 
-  return { group, materials, sinkDepthM: 99.0 };
+  return { group, materials, sinkDepthM: 120.0 };
 }
 
 // ============================================================================

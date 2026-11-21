@@ -390,6 +390,20 @@ export class WalkableIslandScene {
           [43.5, 22.5],
         ],
       },
+      nuku_hiva: {
+        waypoints: [
+          new THREE.Vector3(20.0, 0, 46.0),
+          new THREE.Vector3(32.0, 0, 58.0),
+          new THREE.Vector3(45.0, 0, 64.0),
+          new THREE.Vector3(51.0, 0, 51.0),
+        ],
+        steps: 42,
+        torches: [
+          [26.0, 52.5],
+          [38.5, 61.5],
+          [49.0, 56.5],
+        ],
+      },
       hawaii: {
         waypoints: [
           new THREE.Vector3(-20.9, 0, 61.0),
