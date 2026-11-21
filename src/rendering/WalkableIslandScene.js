@@ -376,6 +376,20 @@ export class WalkableIslandScene {
           [20.4, -36.0],
         ],
       },
+      maupiti: {
+        waypoints: [
+          new THREE.Vector3(19.0, 0, 42.0),
+          new THREE.Vector3(34.0, 0, 38.0),
+          new THREE.Vector3(47.0, 0, 29.0),
+          new THREE.Vector3(38.0, 0, 18.0),
+        ],
+        steps: 38,
+        torches: [
+          [26.5, 40.5],
+          [41.5, 34.5],
+          [43.5, 22.5],
+        ],
+      },
       hawaii: {
         waypoints: [
           new THREE.Vector3(-20.9, 0, 61.0),

@@ -20,6 +20,7 @@ import {
   addRegionalHuts,
   addStarStoneCircle,
   addTimberPier,
+  addWaterfallCascade,
   arcMask,
   buildPolarTerrainGeometry,
   clamp01,
@@ -35,6 +36,7 @@ import {
   createBasaltFishWeirGroup,
   createCarvedHullPairGroup,
   createPandanusSailFrameGroup,
+  makeStoneRockGeometry,
 } from './IslandPropsBuilder.js';
 
 // ============================================================================
@@ -762,80 +764,202 @@ function buildMooreaAssembly() {
 }
 
 // ============================================================================
-// 3. MAUPITI — Central Sheer Basalt Fortress Citadel + Outer Coral Motu Ring
+// 3. MAUPITI — Dramatic Basalt Fortress Citadel + Organic Coral Motu Ring (2x)
 // ============================================================================
+function maupitiDistToSeg(px, pz, ax, az, bx, bz) {
+  const vx = bx - ax;
+  const vz = bz - az;
+  const wx = px - ax;
+  const wz = pz - az;
+  const len2 = vx * vx + vz * vz || 1e-6;
+  const t = clamp01((wx * vx + wz * vz) / len2);
+  return { d: Math.hypot(px - (ax + vx * t), pz - (az + vz * t)), t };
+}
+
+function evalMaupitiReefRadius(theta) {
+  return (
+    102.0 +
+    8.5 * Math.cos(2.0 * theta - 0.35) +
+    5.8 * Math.sin(3.0 * theta + 0.85) +
+    4.2 * Math.cos(5.0 * theta - 1.05) +
+    2.1 * Math.sin(7.0 * theta + 0.4)
+  );
+}
+
 function evalMaupitiPoint(x, z) {
+  // Island fortress footprint centered near origin with protruding harbor & SE fortress capes
   const r = Math.hypot(x, z);
   const theta = Math.atan2(z, x);
 
-  // Compact central fortress island (r < 23.5m)
+  // Asymmetric volcanic main-island coastline:
+  // - +X canon (walkable +Z) harbor cove cape ~61.5m
+  // - SE headland cape (theta ~ -1.13, walkable +38,+14) bulging to ~68m so cliff bluff stays inland
+  const harborCape = 5.5 * Math.exp(-Math.pow((theta - 0.1) / 0.42, 2.0));
+  const bluffCape = 13.5 * Math.exp(-Math.pow((theta + 1.05) / 0.46, 2.0));
+  const westCape = 6.5 * Math.exp(-Math.pow((theta - 2.3) / 0.45, 2.0));
   const centralCoastR =
-    22.5 + 1.8 * Math.cos(3.0 * theta - 0.4) + 1.1 * Math.sin(5.0 * theta);
+    55.0 +
+    harborCape +
+    bluffCape +
+    westCape +
+    3.8 * Math.cos(3.0 * theta - 0.4) +
+    2.1 * Math.sin(5.0 * theta + 0.65);
 
-  // Outer low white-coral motu ring (r ~ 41..48.5m), broken at Onoiau Pass around theta = 0
-  const motuRingMask =
-    1.0 - arcMask(theta, 0.0, 0.24, 0.08) - 0.85 * arcMask(theta, 2.45, 0.12, 0.05);
-  const passMask = arcMask(theta, 0.0, 0.17, 0.07);
+  // Te Ava Onoiau foaming pass cutting along canonical +X (walkable +Z) outside the harbor shore
+  const passChannel =
+    Math.exp(-Math.pow((theta - 0.04) / 0.14, 2.0)) * smoothstep(58.0, 72.0, r);
 
   if (r <= centralCoastR) {
     const u = r / centralCoastR;
     const inland = 1.0 - u;
 
-    // Lush emerald skirt rising abruptly into sheer dark-basalt Mount Teurafa'atiu citadel!
-    const skirt = 12.5 * Math.pow(smoothstep(0.03, 0.55, inland), 1.3);
-    const cragDist = Math.hypot((x + 1.5) * 0.95, (z - 0.8) * 1.12);
-    const citadelWall = 49.0 * (1.0 - smoothstep(6.2, 11.8, cragDist));
-    const cragBattlements =
-      3.8 *
-      Math.cos(6.0 * theta + 0.7) *
-      smoothstep(12.0, 7.0, cragDist) *
-      smoothstep(3.0, 7.0, cragDist);
+    // 1. Coastal valley apron on harbor side vs sheer basalt sea-cliffs on back ocean side
+    const backCliffMask = smoothstep(1.35, 2.35, Math.abs(theta));
+    const seaCliffDrop = lerp(
+      12.5 * Math.pow(smoothstep(0.02, 0.56, inland), 1.32),
+      28.0 * Math.pow(smoothstep(0.0, 0.22, inland), 0.72),
+      backCliffMask
+    );
 
-    // Flatten coastal star-observatory bluff at theta = -0.32 near shore
-    let h = skirt + citadelWall + cragBattlements;
-    const starBluff =
-      arcMask(theta, -0.32, 0.2, 0.07) *
-      smoothstep(0.62, 0.76, u) *
-      smoothstep(0.98, 0.88, u);
-    if (starBluff > 0.01) {
-      h = lerp(h, 3.6, starBluff * 0.85);
+    // 2. Sheer columnar-basalt Mount Teurafa'atiu Fortress Citadel at walkable (-34, -44) -> canon (-44, 34)
+    const cxCit = -44.0;
+    const czCit = 34.0;
+    const dxC = x - cxCit;
+    const dzC = z - czCit;
+    const cragDist = Math.hypot(dxC * 0.96 + dzC * 0.18, dzC * 1.1 - dxC * 0.18);
+    const citadelTheta = Math.atan2(dzC, dxC);
+
+    // Monolithic sheer fortress spire (~84m total summit, vertical fluted pari walls)
+    const sheerMonolith = 61.0 * (1.0 - smoothstep(10.0, 21.5, cragDist));
+    const pariFlutes =
+      Math.pow(0.5 + 0.5 * Math.cos(10.0 * citadelTheta + 0.4), 1.9) *
+      11.0 *
+      smoothstep(24.0, 13.0, cragDist) *
+      smoothstep(4.0, 11.5, cragDist);
+
+    // Secondary Twin Buttress Crag: Mount Nuupure at canon (-28, -14) (walkable +14, -28)
+    const crag2Dist = Math.hypot((x + 28.0) * 1.05, (z + 14.0) * 0.95);
+    const crag2 = 46.0 * (1.0 - smoothstep(7.5, 18.0, crag2Dist));
+
+    // Sharp fortress ridge connecting citadel across back amphitheater
+    const saddleRidge = 26.0 * gaussian2D(x, z, -36.0, 10.0, 11.0, 20.0, 0.25);
+
+    let h = Math.max(seaCliffDrop, seaCliffDrop * 0.35 + sheerMonolith + pariFlutes + saddleRidge * 0.5);
+    h = Math.max(h, seaCliffDrop * 0.35 + crag2);
+
+    // Scoria crater notch / waterfall ravine descending toward harbor bay
+    const gorgeCut = gaussian2D(x, z, -8.0, 16.0, 14.0, 8.0, 0.35);
+    h *= 1.0 - gorgeCut * 0.36;
+
+    // 3. Elevated Basalt Sea-Bluff Shoulder & Observation Circle at walkable (38, 14) -> canon (14.0, -38.0)
+    const bluffProm = gaussian2D(x, z, 15.0, -36.5, 16.5, 15.5, -0.35);
+    h = Math.max(h, 39.5 * smoothstep(0.18, 0.84, bluffProm));
+
+    // Carve flat Observation Circle terrace pad (padSlope <= 0.14)
+    const dCircle = Math.hypot(x - 14.0, z + 38.0);
+    if (dCircle < 12.0) {
+      const flatBlend = 1.0 - smoothstep(5.5, 12.0, dCircle);
+      h = lerp(h, 39.5, flatBlend);
     }
 
-    return {
-      h,
-      zone: cragDist < 11.4 ? 'citadel' : u > 0.86 ? 'beach' : 'foothill',
-    };
+    // 4. Harbor cove & village flat around approach bay (spawn (-11.5, 57.5) -> canon (57.5, 11.5))
+    const bayMask = gaussian2D(x, z, 49.0, 12.0, 15.0, 22.0, 0.12);
+    if (bayMask > 0.02) {
+      const bayTargetH = lerp(1.1, 4.6, smoothstep(60.0, 32.0, x));
+      h = lerp(h, bayTargetH, clamp01(bayMask * 1.15));
+    }
+
+    // Sanctuary paepae shelf at elder walkable (19.0, 42.0) -> canon (42.0, -19.0)
+    const dElder = Math.hypot(x - 42.0, z + 19.0);
+    if (dElder < 10.5) {
+      h = lerp(h, 9.0, 1.0 - smoothstep(5.0, 10.5, dElder));
+    }
+
+    // 5. Switchback walkable trail corridor linking Spawn -> POIs -> Observation Circle
+    // Use linear seg.t so max ramp slope stays smooth (~0.66-0.71) everywhere up to the bluff rim
+    const trailLegs = [
+      [57.5, 11.5, 50.5, 15.0, 1.5, 3.0], // spawn -> landing
+      [57.5, 11.5, 34.0, 22.0, 1.5, 4.4], // spawn -> hut flat
+      [57.5, 11.5, 42.0, -19.0, 1.5, 9.0], // spawn -> elder terrace
+      [42.0, -19.0, 38.0, -34.0, 9.0, 19.0], // elder -> coastal switchback bend (34, 38) [dist=15.5m, sl=0.64]
+      [38.0, -34.0, 29.0, -47.0, 19.0, 29.5], // switchback bend -> upper spur (47, 29) [dist=15.8m, sl=0.66]
+      [29.0, -47.0, 18.2, -40.5, 29.5, 39.2], // upper spur -> pad outer rim (dCircle=4.9m) [dist=12.6m, sl=0.77]
+      [18.2, -40.5, 14.0, -38.0, 39.2, 39.5], // pad rim -> circle center (38, 14) [flat]
+    ];
+    for (const [ax, az, bx, bz, h0, h1] of trailLegs) {
+      const seg = maupitiDistToSeg(x, z, ax, az, bx, bz);
+      if (seg.d < 8.5) {
+        const rampH = lerp(h0, h1, seg.t);
+        const mask = 1.0 - smoothstep(4.2, 8.5, seg.d);
+        h = lerp(h, rampH, mask * 0.96);
+      }
+    }
+
+    // Softly feather shoreline into jade lagoon at u > 0.89 unless on sheer back cliff
+    const shoreDrop = smoothstep(0.89, 1.0, u);
+    h = lerp(h, 0.15, shoreDrop * (1.0 - backCliffMask * 0.55));
+    if (r > centralCoastR - 1.4 && backCliffMask > 0.45) {
+      h = lerp(h, -1.8, smoothstep(centralCoastR - 1.4, centralCoastR, r));
+    }
+
+    // Flatten inner circle core cleanly (dCircle < 5.0m) without blocking the incoming spur trail
+    if (dCircle < 6.8) {
+      h = lerp(h, 39.5, 1.0 - smoothstep(4.6, 6.8, dCircle));
+    }
+
+    // Deepen harbor boat entry right at +Z pass mouth
+    if (x > 55.0 && Math.abs(z) < 6.0) {
+      const ch = smoothstep(56.0, 62.5, x) * (1.0 - smoothstep(2.2, 6.0, Math.abs(z)));
+      h = lerp(h, -2.4, ch);
+    }
+
+    const slopeHint = cragDist < 21.0 || crag2Dist < 17.0 ? 1.0 : 0.0;
+    let zone = 'foothill';
+    if (h < 0.05) zone = 'lagoon';
+    else if (cragDist < 19.5 || crag2Dist < 16.0) zone = 'citadel';
+    else if (u > 0.89 && backCliffMask < 0.45 && h < 2.4) zone = 'beach';
+    else if (h > 28.0 && dCircle < 16.0) zone = 'bluff';
+
+    return { h, zone, spireHint: slopeHint, backCliff: backCliffMask };
   }
 
-  // Wide Jade Lagoon & Outer Coral Motu Necklace
-  const motuCenterR = 44.8 + 0.9 * Math.cos(2.0 * theta);
-  const motuHalfW = 3.4;
-  const reefEdgeR = 50.8;
+  // Organic Barrier Reef Lagoon + Ring of Outer Coral Motu Islets
+  const reefEdgeR = evalMaupitiReefRadius(theta);
+  const motuCenterR = reefEdgeR - 7.5;
+  const motuHalfW = 5.8;
 
-  if (r <= reefEdgeR) {
-    let h = lerp(0.17, 0.23, smoothstep(centralCoastR, motuCenterR - motuHalfW, r));
+  // Two distinct sandy motu arcs framing the reef (broken cleanly by Te Ava Onoiau pass at theta ≈ 0)
+  const motuMask = clamp01(
+    1.0 -
+      arcMask(theta, 0.04, 0.28, 0.09) -
+      0.92 * arcMask(theta, 2.35, 0.16, 0.06) -
+      0.92 * arcMask(theta, -2.15, 0.18, 0.06)
+  );
+
+  if (r <= reefEdgeR + 2.0) {
+    let h = lerp(0.14, 0.22, smoothstep(centralCoastR, motuCenterR - motuHalfW, r));
     let zone = 'lagoon';
 
-    if (Math.abs(r - motuCenterR) <= motuHalfW && motuRingMask > 0.05) {
+    if (Math.abs(r - motuCenterR) <= motuHalfW && motuMask > 0.06) {
       const mt = 1.0 - Math.abs(r - motuCenterR) / motuHalfW;
-      const motuH = 2.85 * Math.pow(smoothstep(0.0, 1.0, mt), 0.88) * clamp01(motuRingMask);
+      const motuH = 2.6 * Math.pow(smoothstep(0.0, 1.0, mt), 0.85) * motuMask;
       if (motuH > h) {
         h = motuH;
-        zone = motuH > 1.45 ? 'motu_veg' : 'motu_sand';
+        zone = motuH > 1.35 ? 'motu_veg' : 'motu_sand';
       }
     } else if (r > motuCenterR + motuHalfW) {
-      h = 0.23;
+      h = 0.22;
       zone = 'papa_reef';
     }
 
-    h = lerp(h, -2.5, passMask * smoothstep(26.0, 35.0, r));
+    h = lerp(h, -3.2, passChannel);
     if (h < 0.05) zone = 'deep_sea';
-    return { h, zone };
+    return { h, zone, spireHint: 0.0, backCliff: 0.0 };
   }
 
-  const drop = smoothstep(reefEdgeR, 55.8, r);
-  const h = lerp(lerp(0.24, -2.5, passMask), -4.2, drop);
-  return { h, zone: h < 0.05 ? 'deep_sea' : 'papa_reef' };
+  const outerDrop = smoothstep(reefEdgeR + 2.0, reefEdgeR + 10.0, r);
+  const h = lerp(lerp(0.2, -3.2, passChannel), -5.0, outerDrop);
+  return { h, zone: h < 0.05 ? 'deep_sea' : 'papa_reef', spireHint: 0.0, backCliff: 0.0 };
 }
 
 function buildMaupitiAssembly() {
@@ -845,40 +969,52 @@ function buildMaupitiAssembly() {
   const colDeepSea = [0.05, 0.26, 0.44];
   const colJadeLagoon = [0.15, 0.83, 0.76];
   const colWhiteSand = [0.95, 0.91, 0.8];
-  const colFoothillGreen = [0.19, 0.46, 0.2];
-  const colMotuGreen = [0.25, 0.51, 0.21];
-  const colFortressBasalt = [0.21, 0.22, 0.25];
-  const colCragCrown = [0.27, 0.36, 0.23];
+  const colFoothillGreen = [0.14, 0.36, 0.15];
+  const colValleyLush = [0.09, 0.27, 0.11];
+  const colMotuGreen = [0.24, 0.49, 0.2];
+  const colFortressBasalt = [0.16, 0.16, 0.19];
+  const colObsidianCliff = [0.11, 0.11, 0.14];
+  const colRedScoria = [0.44, 0.2, 0.12];
+  const colBluffMoss = [0.22, 0.34, 0.18];
   const colPapaCoral = [0.66, 0.6, 0.53];
 
   const terrainGeo = buildPolarTerrainGeometry({
     evalPoint: evalMaupitiPoint,
-    maxRadius: 56.0,
-    nRings: 66,
-    nSegs: 100,
+    maxRadius: 118.0,
+    nRings: 112,
+    nSegs: 164,
     colorFn: (s, slope) => {
-      if (s.zone === 'deep_sea' || s.h < 0.06) {
-        return mixRgb(colJadeLagoon, colDeepSea, clamp01(-s.h / 2.5));
+      if (s.zone === 'deep_sea' || s.h < 0.05) {
+        return mixRgb(colJadeLagoon, colDeepSea, clamp01(-s.h / 2.8));
       }
       if (s.zone === 'lagoon') return colJadeLagoon;
       if (s.zone === 'papa_reef') return colPapaCoral;
       if (s.zone === 'motu_sand' || s.zone === 'beach') {
-        return mixRgb(colWhiteSand, colMotuGreen, smoothstep(1.1, 1.9, s.h));
+        return mixRgb(colWhiteSand, colMotuGreen, smoothstep(1.2, 2.2, s.h));
       }
       if (s.zone === 'motu_veg') return colMotuGreen;
-      if (s.zone === 'citadel') {
-        const cliffT = smoothstep(0.65, 1.6, slope);
-        return mixRgb(colCragCrown, colFortressBasalt, Math.max(0.68, cliffT));
+      if (s.zone === 'bluff') {
+        const rockEdge = smoothstep(0.42, 1.05, slope);
+        return mixRgb(colBluffMoss, colFortressBasalt, rockEdge * 0.88);
       }
-      const rockT = smoothstep(1.0, 1.85, slope);
-      return mixRgb(colFoothillGreen, colFortressBasalt, rockT * 0.85);
+      if (s.zone === 'citadel') {
+        const cliffT = smoothstep(0.65, 1.65, slope);
+        const scoriaBand = smoothstep(46.0, 72.0, s.h) * (1.0 - smoothstep(76.0, 92.0, s.h));
+        let c = mixRgb(colBluffMoss, colFortressBasalt, Math.max(0.55, cliffT));
+        c = mixRgb(c, colObsidianCliff, smoothstep(1.4, 2.6, slope) * 0.65);
+        c = mixRgb(c, colRedScoria, scoriaBand * 0.35);
+        return c;
+      }
+      const rockT = smoothstep(0.65, 1.45, slope);
+      const lush = mixRgb(colFoothillGreen, colValleyLush, smoothstep(6.0, 26.0, s.h));
+      return mixRgb(lush, colFortressBasalt, rockT * 0.88);
     },
   });
 
   const terrainMat = trackMat(
     new THREE.MeshStandardMaterial({
       vertexColors: true,
-      roughness: 0.87,
+      roughness: 0.88,
       metalness: 0.04,
     })
   );
@@ -886,12 +1022,15 @@ function buildMaupitiAssembly() {
   terrainMesh.receiveShadow = true;
   group.add(terrainMesh);
 
+  // Translucent Organic Jade Lagoon + Twin-Broken Barrier Reef around Te Ava Onoiau Pass
   const lagoonMat = trackMat(
-    new THREE.MeshBasicMaterial({ color: 0x28e4ce, depthWrite: false }),
-    0.36
+    new THREE.MeshBasicMaterial({ color: 0x26e2cb, depthWrite: false }),
+    0.38
   );
-  const lagoonDisc = new THREE.Mesh(new THREE.CircleGeometry(42.0, 52), lagoonMat);
-  lagoonDisc.rotation.x = -Math.PI * 0.5;
+  const lagoonDisc = new THREE.Mesh(
+    createOrganicLagoonGeometry((th) => evalMaupitiReefRadius(th) - 6.0, 108),
+    lagoonMat
+  );
   lagoonDisc.position.y = 0.255;
   group.add(lagoonDisc);
 
@@ -902,83 +1041,172 @@ function buildMaupitiAssembly() {
     new THREE.MeshBasicMaterial({ color: 0xf4fcff, depthWrite: false }),
     0.76
   );
-  addBarrierReefArc(group, reefMat, foamMat, 50.0, 0.25, Math.PI * 2.0 - 0.25, 44);
+  addOrganicBarrierReefArc(
+    group,
+    reefMat,
+    foamMat,
+    evalMaupitiReefRadius,
+    0.22,
+    Math.PI * 2.0 - 0.14,
+    88
+  );
 
-  // First Master Tera'i's 12-Stone Star-Ring Observatory (Ahu Feti'a) on the Coastal Bluff!
-  const bluffX = 18.2 * Math.cos(-0.32);
-  const bluffZ = 18.2 * Math.sin(-0.32);
+  // Sculpted organic reef motu sandbanks around outer necklace
+  const maupitiMotuSites = [];
+  for (const [mAng, rx, rz, seed] of [
+    [-0.78, 12.0, 6.2, 2.4],
+    [0.82, 11.5, 6.0, 5.1],
+    [2.95, 13.0, 6.6, 8.7],
+  ]) {
+    const mr = evalMaupitiReefRadius(mAng) - 7.5;
+    const mx = mr * Math.cos(mAng);
+    const mz = mr * Math.sin(mAng);
+    const motu = new THREE.Mesh(
+      createOrganicMotuGeometry({ radiusX: rx, radiusZ: rz, height: 1.45, seed }),
+      reefMat
+    );
+    motu.position.set(mx, 0.34, mz);
+    motu.rotation.y = -mAng + Math.PI * 0.5;
+    group.add(motu);
+    maupitiMotuSites.push([mx, mz, mAng]);
+  }
+
+  // Dramatic Offshore Basalt Sea-Stacks guarding the steep windward cliffs
+  const rockMat = trackMat(
+    new THREE.MeshStandardMaterial({ color: 0x2a292e, roughness: 0.92 })
+  );
+  for (const [sx, sz, hScale, rScale, rot] of [
+    [-68.0, 32.0, 12.5, 4.2, 0.4],
+    [-72.0, -24.0, 15.0, 4.8, 1.3],
+    [-46.0, -56.0, 9.5, 3.4, 2.2],
+  ]) {
+    const stack = new THREE.Mesh(makeStoneRockGeometry(1.0, 17), rockMat);
+    stack.scale.set(rScale, hScale, rScale * 0.85);
+    stack.position.set(sx, 0.0, sz);
+    stack.rotation.y = rot;
+    group.add(stack);
+  }
+
+  // Plunging Cascade Waterfall down Mount Teurafa'atiu Gorge toward Harbor Valley
+  addWaterfallCascade(group, trackMat, {
+    x: -22.5,
+    y: 27.0,
+    z: 22.5,
+    width: 2.8,
+    height: 34.0,
+    rotY: Math.PI * 0.65,
+    tiltX: -0.35,
+  });
+
+  // Canonical exclusion zones (rotY = -PI/2 => cx = wz, cz = -wx)
+  const toCanon = (wx, wz) => [wz, -wx];
+  const [spCx, spCz] = toCanon(-11.5, 57.5);
+  const [laCx, laCz] = toCanon(-15.0, 50.5);
+  const [huCx, huCz] = toCanon(-22.0, 34.0);
+  const [elCx, elCz] = toCanon(19.0, 42.0);
+  const [ciCx, ciCz] = toCanon(38.0, 14.0);
+  const [mid1Cx, mid1Cz] = toCanon(34.0, 38.0);
+  const [mid2Cx, mid2Cz] = toCanon(47.0, 29.0);
+  const maupitiClearZones = [
+    { x: spCx, z: spCz, r: 10.5 },
+    { x: laCx, z: laCz, r: 7.0 },
+    { x: huCx, z: huCz, r: 7.0 },
+    { x: elCx, z: elCz, r: 8.0 },
+    { x: ciCx, z: ciCz, r: 12.5 },
+    { x: mid1Cx, z: mid1Cz, r: 5.5 },
+    { x: mid2Cx, z: mid2Cz, r: 5.5 },
+  ];
+  const maupitiIsClear = (px, pz) => {
+    for (const bz of maupitiClearZones) {
+      if (Math.hypot(px - bz.x, pz - bz.z) < bz.r) return false;
+    }
+    return true;
+  };
+
+  // First Master Tera'i's 12-Stone Star-Ring Observatory (Ahu Feti'a) perched on the Panoramic Bluff!
   addStarStoneCircle(group, trackMat, {
-    x: bluffX,
-    y: Math.max(2.2, evalMaupitiPoint(bluffX, bluffZ).h),
-    z: bluffZ,
-    radius: 2.8,
-    stoneHex: 0x454340,
-    withBraziers: true,
+    x: ciCx,
+    y: evalMaupitiPoint(ciCx, ciCz).h,
+    z: ciCz,
+    radius: 5.6,
+    stoneHex: 0x3b393c,
+    withBraziers: false,
   });
 
-  // Cliff-Foot Sanctuary Huts & Outer Motu Fisher Huts
-  const huts = [
-    [19.5, -0.68, 0.96],
-    [20.2, -0.92, 0.9],
-    [19.8, 0.45, 0.92],
-    [44.6, -0.45, 0.86],
-    [44.6, 0.42, 0.86],
-  ].map(([hr, hang, sc]) => {
-    const hx = hr * Math.cos(hang);
-    const hz = hr * Math.sin(hang);
-    return {
-      x: hx,
-      y: Math.max(0.6, evalMaupitiPoint(hx, hz).h),
-      z: hz,
-      rotY: -hang + Math.PI,
-      scale: sc,
-    };
+  // Sacred Stone Sanctuary Marae tucked beside Elder Tera'i's terrace (well clear of arrival spot)
+  const [marCx, marCz] = toCanon(27.5, 48.0);
+  addMaraePlatform(group, trackMat, {
+    x: marCx,
+    y: evalMaupitiPoint(marCx, marCz).h,
+    z: marCz,
+    rotY: -0.45,
+    scale: 1.0,
   });
+
+  // Harbor Village Fare Huts & Outer Motu Fisher Huts (well clear of spawn/POIs)
+  const huts = [
+    [toCanon(-31.0, 31.0)[0], toCanon(-31.0, 31.0)[1], 0.45, 1.04],
+    [toCanon(-29.0, 44.0)[0], toCanon(-29.0, 44.0)[1], 0.15, 0.96],
+    [toCanon(6.0, 44.0)[0], toCanon(6.0, 44.0)[1], -0.4, 0.94],
+    [maupitiMotuSites[0][0], maupitiMotuSites[0][1], -maupitiMotuSites[0][2] + Math.PI, 0.88],
+    [maupitiMotuSites[1][0], maupitiMotuSites[1][1], -maupitiMotuSites[1][2] + Math.PI, 0.88],
+  ].map(([hx, hz, rotY, scale]) => ({
+    x: hx,
+    y: Math.max(0.65, evalMaupitiPoint(hx, hz).h),
+    z: hz,
+    rotY,
+    scale,
+  }));
   addRegionalHuts(group, trackMat, huts, 'society');
 
+  // Timber Canoe Pier extending into Te Ava Onoiau harbor cove (clear of spawn)
+  const [pierCx, pierCz] = toCanon(-3.5, 62.5);
   addTimberPier(group, trackMat, {
-    x: 23.5 * Math.cos(-0.12),
-    y: 0.68,
-    z: 23.5 * Math.sin(-0.12),
+    x: pierCx,
+    y: 0.7,
+    z: pierCz,
     rotY: 0.12,
-    length: 6.4,
+    length: 8.0,
+    width: 1.65,
   });
 
+  // Shore-side Outrigger Va'a anchored beside the beach (well clear of player spawn)
+  const [vaaCx, vaaCz] = toCanon(5.5, 65.5);
   addOutriggerCanoe(group, trackMat, {
-    x: 28.0 * Math.cos(-0.2),
-    y: 0.32,
-    z: 28.0 * Math.sin(-0.2),
-    rotY: 0.2 + Math.PI * 0.5,
+    x: vaaCx,
+    y: 0.34,
+    z: vaaCz,
+    rotY: Math.PI * 0.42,
   });
 
-  // Outer Motu & Central Shore Coconut Palms + Coastal Scrub
+  // Coconut Palms & Coastal Rainforest Scrub on Lowlands & Outer Motu
   const palmPts = [];
   const scrubPts = [];
-  for (let i = 0; i < 28; i += 1) {
-    const ang = (i / 28) * Math.PI * 2.0;
-    if (Math.abs(Math.sin(ang)) < 0.26 && Math.cos(ang) > 0) continue;
-    const mx = 44.8 * Math.cos(ang);
-    const mz = 44.8 * Math.sin(ang);
-    const my = evalMaupitiPoint(mx, mz).h;
-    if (my > 1.1) {
-      palmPts.push([mx, my - 0.15, mz, -ang, 0.92, 0.24]);
-      if (i % 2 === 0) {
-        scrubPts.push([mx * 1.02, my - 0.1, mz * 1.02, 1.25, 0.6, 1.1, -ang]);
-      }
+  for (let i = 0; i < 42; i += 1) {
+    const ang = (i / 42) * Math.PI * 2.0 + 0.08;
+    const rad = 42.0 + (i % 4) * 4.2;
+    const px = -12.0 + rad * Math.cos(ang);
+    const pz = rad * Math.sin(ang);
+    const pt = evalMaupitiPoint(px, pz);
+    if (pt.h > 0.7 && pt.h < 13.0 && maupitiIsClear(px, pz)) {
+      palmPts.push([px, pt.h - 0.15, pz, -ang, 0.94 + (i % 3) * 0.08, 0.2]);
+    }
+    if (i % 2 === 0 && pt.h > 1.2 && pt.h < 18.0 && maupitiIsClear(px * 0.96, pz * 0.96)) {
+      const sc = 0.95 + (i % 3) * 0.24;
+      scrubPts.push([px * 0.96, pt.h - 0.12, pz * 0.96, sc * 1.15, sc * 0.62, sc * 1.05, -ang]);
     }
   }
-  for (const cAng of [-0.52, -1.15, 0.68, 1.45, 2.35, -2.2]) {
-    const cx = 20.5 * Math.cos(cAng);
-    const cz = 20.5 * Math.sin(cAng);
-    const cy = evalMaupitiPoint(cx, cz).h;
-    if (cy > 0.7 && cy < 9.0) {
-      palmPts.push([cx, cy - 0.15, cz, -cAng, 0.96, 0.18]);
-    }
+  for (const [mox, moz, mang] of maupitiMotuSites) {
+    palmPts.push([mox + 2.2, 1.0, moz - 1.5, -mang + 0.2, 0.94, 0.24]);
+    palmPts.push([mox - 2.6, 0.95, moz + 2.1, -mang - 0.25, 0.86, 0.22]);
   }
   addCoconutGroves(group, trackMat, palmPts);
-  addCoastalScrub(group, trackMat, scrubPts);
+  addCoastalScrub(group, trackMat, scrubPts, {
+    hexA: 0x265c21,
+    hexB: 0x3b7228,
+  });
 
-  return { group, materials, sinkDepthM: 67.0 };
+  return { group, materials, sinkDepthM: 112.0 };
 }
 
 export function createAct1RemainIslandAssembly(islandId) {
