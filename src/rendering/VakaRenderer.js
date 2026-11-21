@@ -21,6 +21,10 @@ import {
   createPlayerCharacterRig,
   setPlayerCharacterOpacity,
 } from './PlayerCharacterBuilder.js';
+import {
+  createSculptedCargoBundleGroup,
+  createSculptedRationBasketGroup,
+} from './VakaCargoPropsBuilder.js';
 
 export class VakaRenderer {
   constructor(scene) {
@@ -971,32 +975,12 @@ export class VakaRenderer {
   }
 
   _buildDeckReadinessProps() {
-    // 1. Up to 8 woven ration baskets & water gourds along port deck edge
-    const basketMat = new THREE.MeshStandardMaterial({
-      color: 0xc59b57,
-      roughness: 0.85,
-    });
-    const gourdMat = new THREE.MeshStandardMaterial({
-      color: 0x9b5a28,
-      roughness: 0.55,
-    });
-
+    // 1. Up to 8 sculpted woven pandanus ration baskets & calabash gourds along port deck
     for (let i = 0; i < 8; i += 1) {
-      const grp = new THREE.Group();
+      const grp = createSculptedRationBasketGroup(i);
       const row = Math.floor(i / 2);
       const col = i % 2;
-      grp.position.set(-1.32 + col * 0.38, 0.92, -0.85 + row * 0.52);
-
-      const basket = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.15, 0.12, 0.22, 8),
-        basketMat
-      );
-      grp.add(basket);
-
-      const gourd = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), gourdMat);
-      gourd.position.set(0.06, 0.14, 0.0);
-      grp.add(gourd);
-
+      grp.position.set(-1.32 + col * 0.44, 0.85, -0.88 + row * 0.56);
       this.root.add(grp);
       this.rationBaskets.push(grp);
     }
@@ -1009,14 +993,10 @@ export class VakaRenderer {
     this.pahuDrum.position.set(0.95, 1.12, 1.85);
     this.root.add(this.pahuDrum);
 
-    // 3. Lashed Quest Cargo Bundles
-    const bundleMat = new THREE.MeshStandardMaterial({
-      color: 0x8c3b2b,
-      roughness: 0.78,
-    });
+    // 3. Sculpted Lashed Quest Cargo Bundles (mat bale, timber/adze parcel, coiled cordage chest)
     for (let i = 0; i < 3; i += 1) {
-      const b = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.24, 0.46), bundleMat);
-      b.position.set(0.92, 0.96, -0.55 + i * 0.58);
+      const b = createSculptedCargoBundleGroup(i);
+      b.position.set(0.92, 0.85, -0.58 + i * 0.62);
       b.visible = false;
       this.root.add(b);
       this.cargoBundles.push(b);
