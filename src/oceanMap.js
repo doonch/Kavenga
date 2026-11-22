@@ -20,7 +20,10 @@ import {
   getIslandApproachOrientationRad,
   getIslandShoreRadiusM,
 } from './rendering/IslandTerrainBuilder.js';
-import { decodeCompactRouteTrace } from './simulation/oceanSim.js';
+import {
+  decodeCompactRouteTrace,
+  decodeFishSchoolsParam,
+} from './simulation/oceanSim.js';
 
 // 1.0 sailing-minute unit in islandsData.js maps to 68 meters in 3D chart space
 const UNIT_TO_METERS = 68.0;
@@ -386,16 +389,25 @@ export function parsePlayerTraceFromSearch(searchString, layout) {
     unitScale = 1.0;
   }
 
-  const worldPoints = simPoints.map((pt) => {
+  const projectSimPoint = (pt) => {
     const ux = originX + pt.x * unitScale;
     const uy = originY + pt.y * unitScale;
     return new THREE.Vector3(ux * UNIT_TO_METERS, 0.0, -uy * UNIT_TO_METERS);
-  });
+  };
+
+  const worldPoints = simPoints.map(projectSimPoint);
   if (worldPoints.length === 1) {
     worldPoints.push(
       new THREE.Vector3(worldPoints[0].x + 2.0, 0.0, worldPoints[0].z)
     );
   }
+
+  const fishSchools = decodeFishSchoolsParam(params.get('fish') || '').map((fs) => ({
+    simPos: { x: fs.x, y: fs.y },
+    harvested: fs.harvested,
+    worldPos: projectSimPoint(fs),
+  }));
+  const fishHarvestRadiusM = 0.55 * UNIT_TO_METERS * unitScale;
 
   let minX = Infinity;
   let maxX = -Infinity;
@@ -448,9 +460,25 @@ export function parsePlayerTraceFromSearch(searchString, layout) {
     reason,
     simPoints,
     worldPoints,
+    fishSchools,
+    fishHarvestRadiusM,
     sailedUnits,
     bounds,
   };
+}
+
+function createFishMarkerGeometry() {
+  const shape = new THREE.Shape();
+  shape.moveTo(11.5, 0.0);
+  shape.quadraticCurveTo(4.0, 4.6, -5.5, 1.5);
+  shape.lineTo(-11.5, 4.8);
+  shape.lineTo(-8.4, 0.0);
+  shape.lineTo(-11.5, -4.8);
+  shape.lineTo(-5.5, -1.5);
+  shape.quadraticCurveTo(4.0, -4.6, 11.5, 0.0);
+  const geo = new THREE.ShapeGeometry(shape, 12);
+  geo.rotateX(-Math.PI * 0.5);
+  return geo;
 }
 
 function buildHorizontalRibbonGeometry(worldPoints, halfWidth, yHeight) {
@@ -1084,6 +1112,93 @@ class KnownOceanMapApp {
       endDot.renderOrder = 15;
       this.playerTraceGroup.add(endDot);
     }
+
+    // 5. Spawned Bonito Fish Schools (outer harvest-radius ring + leaping fish emblem)
+    const fishSchools = this.playerTrace.fishSchools || [];
+    if (fishSchools.length > 0) {
+      const harvestR = Math.max(24.0, this.playerTrace.fishHarvestRadiusM || 37.4);
+      const zoneRingGeo = new THREE.RingGeometry(
+        Math.max(16.0, harvestR - 2.4),
+        harvestR + 2.4,
+        36
+      );
+      zoneRingGeo.rotateX(-Math.PI * 0.5);
+
+      const badgeFillGeo = new THREE.CircleGeometry(15.5, 24);
+      badgeFillGeo.rotateX(-Math.PI * 0.5);
+      const badgeHaloGeo = new THREE.RingGeometry(13.8, 16.5, 28);
+      badgeHaloGeo.rotateX(-Math.PI * 0.5);
+      const fishIconGeo = createFishMarkerGeometry();
+
+      const badgeFillMat = new THREE.MeshBasicMaterial({
+        color: 0x051829,
+        transparent: true,
+        opacity: 0.88,
+        depthTest: false,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+
+      const unharvestedZoneMat = new THREE.MeshBasicMaterial({
+        color: 0x66f3ff,
+        transparent: true,
+        opacity: 0.72,
+        depthTest: false,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+      const unharvestedIconMat = new THREE.MeshBasicMaterial({
+        color: 0x66f3ff,
+        transparent: true,
+        opacity: 0.96,
+        depthTest: false,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+
+      const harvestedZoneMat = new THREE.MeshBasicMaterial({
+        color: 0xffe066,
+        transparent: true,
+        opacity: 0.82,
+        depthTest: false,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+      const harvestedIconMat = new THREE.MeshBasicMaterial({
+        color: 0xffe066,
+        transparent: true,
+        opacity: 0.98,
+        depthTest: false,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+
+      for (const fs of fishSchools) {
+        const fx = fs.worldPos.x;
+        const fz = fs.worldPos.z;
+        const zoneMat = fs.harvested ? harvestedZoneMat : unharvestedZoneMat;
+        const iconMat = fs.harvested ? harvestedIconMat : unharvestedIconMat;
+
+        const zoneRing = new THREE.Mesh(zoneRingGeo, zoneMat);
+        zoneRing.position.set(fx, 1.84, fz);
+        zoneRing.renderOrder = 13;
+
+        const badgeFill = new THREE.Mesh(badgeFillGeo, badgeFillMat);
+        badgeFill.position.set(fx, 1.86, fz);
+        badgeFill.renderOrder = 14;
+
+        const badgeHalo = new THREE.Mesh(badgeHaloGeo, iconMat);
+        badgeHalo.position.set(fx, 1.88, fz);
+        badgeHalo.renderOrder = 14;
+
+        const fishIcon = new THREE.Mesh(fishIconGeo, iconMat);
+        fishIcon.position.set(fx, 1.92, fz);
+        fishIcon.rotation.y = Math.PI * 0.18;
+        fishIcon.renderOrder = 15;
+
+        this.playerTraceGroup.add(zoneRing, badgeFill, badgeHalo, fishIcon);
+      }
+    }
   }
 
   _buildHtmlLabels() {
@@ -1286,6 +1401,17 @@ class KnownOceanMapApp {
           );
         }
 
+        const fishTotal = pt.fishSchools?.length || 0;
+        const fishCaught = pt.fishSchools?.filter((f) => f.harvested).length || 0;
+        const fishBadge =
+          fishTotal > 0
+            ? `<span class="cue-badge fish-aqua">Fish Schools · ${fishCaught}/${fishTotal} Caught</span>`
+            : '';
+        const fishNote =
+          fishTotal > 0
+            ? ' Cyan rings mark spawned fish schools (gold when harvested).'
+            : '';
+
         this.inspectorEl.innerHTML = `
           <div class="inspector-header">
             <div>
@@ -1299,9 +1425,10 @@ class KnownOceanMapApp {
           <div class="badge-row">
             ${outcomeBadge}
             <span class="cue-badge trace-red">Red Line · ${pt.sailedUnits.toFixed(1)} Units</span>
+            ${fishBadge}
           </div>
           <div class="inspector-meta">
-            Red line marks the actual path sailed from <strong>${fromName}</strong> toward <strong>${toName}</strong>. Concentric cue rings show target island detection screens.
+            Red line marks the actual path sailed from <strong>${fromName}</strong> toward <strong>${toName}</strong>. Concentric cue rings show target island detection screens.${fishNote}
           </div>
           ${
             jumpChips.length
@@ -1802,11 +1929,15 @@ class KnownOceanMapApp {
 
     const toggleTraceBtn = document.getElementById('toggle-trace');
     const legendTraceEl = document.getElementById('legend-trace');
+    const legendFishEl = document.getElementById('legend-fish');
     if (this.playerTrace && toggleTraceBtn) {
       toggleTraceBtn.style.display = 'inline-block';
       toggleTraceBtn.classList.toggle('active', this.showPlayerTrace);
       if (legendTraceEl) {
         legendTraceEl.style.display = 'inline-flex';
+      }
+      if (legendFishEl && this.playerTrace.fishSchools?.length > 0) {
+        legendFishEl.style.display = 'inline-flex';
       }
       toggleTraceBtn.addEventListener('click', () => {
         this.showPlayerTrace = !this.showPlayerTrace;

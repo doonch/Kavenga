@@ -1005,6 +1005,42 @@ export function decodeCompactRouteTrace(encoded) {
 }
 
 /**
+ * Encodes spawned fish schools as underscore-separated triplets (`x_y_h`, where `h` is
+ * `1` if harvested or `0` if unharvested) using only URL-unencoded characters (`0-9`, `-`, `.`, `_`).
+ */
+export function encodeFishSchoolsParam(fishSchools) {
+  if (!Array.isArray(fishSchools) || fishSchools.length === 0) return '';
+  const fmt = (v) => {
+    const r = Math.round(v * 100) / 100;
+    return Object.is(r, -0) ? '0' : String(r);
+  };
+  const tokens = [];
+  for (const s of fishSchools) {
+    if (!s || !Number.isFinite(s.x) || !Number.isFinite(s.y)) continue;
+    tokens.push(fmt(s.x), fmt(s.y), s.harvested ? '1' : '0');
+  }
+  return tokens.join('_');
+}
+
+/**
+ * Decodes a `?fish=x0_y0_h0_...` query string back into
+ * `Array<{ x: number, y: number, harvested: boolean }>`.
+ */
+export function decodeFishSchoolsParam(encoded) {
+  if (typeof encoded !== 'string' || !encoded.trim()) return [];
+  const nums = encoded.trim().split('_');
+  const out = [];
+  for (let i = 0; i + 2 < nums.length; i += 3) {
+    const x = Number(nums[i]);
+    const y = Number(nums[i + 1]);
+    if (Number.isFinite(x) && Number.isFinite(y)) {
+      out.push({ x, y, harvested: nums[i + 2] === '1' });
+    }
+  }
+  return out;
+}
+
+/**
  * Builds plain string query parameters describing a finished voyage's sailed trajectory
  * for inspection on `map.html`. Free of DOM/window dependencies for headless tests.
  */
@@ -1026,5 +1062,9 @@ export function buildVoyageDebugTraceParams(oceanSim, outcomeEvent = null) {
     params.reason = outcomeEvent?.reason || oceanSim?.lostReason || '';
   }
   params.pts = encodeCompactRouteTrace(oceanSim?.routeTrace || []);
+  const encodedFish = encodeFishSchoolsParam(oceanSim?.fishSchools);
+  if (encodedFish) {
+    params.fish = encodedFish;
+  }
   return params;
 }

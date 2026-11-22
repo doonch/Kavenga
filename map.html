@@ -18,7 +18,7 @@
         "./src/data/songsData.js": "./src/data/songsData.js?v=20261120t",
         "./src/simulation/celestialSim.js": "./src/simulation/celestialSim.js?v=20261120t",
         "./src/simulation/hullPhysics.js": "./src/simulation/hullPhysics.js?v=20261120t",
-        "./src/simulation/oceanSim.js": "./src/simulation/oceanSim.js?v=20261120t",
+        "./src/simulation/oceanSim.js": "./src/simulation/oceanSim.js?v=20261122b",
         "./src/simulation/shadowCraft.js": "./src/simulation/shadowCraft.js?v=20261120t",
         "./src/rendering/CloudSculptBuilder.js": "./src/rendering/CloudSculptBuilder.js?v=20261120t",
         "./src/rendering/IslandAct1RemainBuilder.js": "./src/rendering/IslandAct1RemainBuilder.js?v=20261121m",
@@ -483,6 +483,12 @@
       background: rgba(255, 48, 48, 0.18);
     }
 
+    .cue-badge.fish-aqua {
+      border-color: rgba(102, 243, 255, 0.52);
+      color: #d6fbff;
+      background: rgba(102, 243, 255, 0.14);
+    }
+
     .inspector-meta {
       font-size: 12px;
       line-height: 1.42;
@@ -770,6 +776,7 @@
           <span class="legend-item"><span class="chain-dot" style="background:#9eb8ff"></span>Act III</span>
           <span class="legend-item"><span class="chain-dot" style="background:#f08c6b"></span>Secret</span>
           <span id="legend-trace" class="legend-item" style="display:none"><span class="chain-dot" style="background:#ff2b2b"></span>Route</span>
+          <span id="legend-fish" class="legend-item" style="display:none"><span class="chain-dot" style="background:#66f3ff"></span>Fish</span>
         </div>
         <div class="scale-bar-row">
           <div id="scale-bar-graphic" class="scale-bar-graphic"></div>
@@ -779,6 +786,6 @@
     </main>
   </div>
 
-  <script type="module" src="./src/oceanMap.js?v=20261121e"></script>
+  <script type="module" src="./src/oceanMap.js?v=20261122b"></script>
 </body>
 </html>

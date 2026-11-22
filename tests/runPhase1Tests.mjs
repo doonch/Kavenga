@@ -88,6 +88,7 @@ import {
   VoyageStatus,
   buildVoyageDebugTraceParams,
   decodeCompactRouteTrace,
+  decodeFishSchoolsParam,
   encodeCompactRouteTrace,
 } from '../src/simulation/oceanSim.js';
 import { LASHING_ZONES, evaluateDeckShadow } from '../src/simulation/shadowCraft.js';
@@ -868,6 +869,14 @@ auditText(returnSong.verses[0].lyrics, 'Dynamic return song lyrics');
       ) < 0.02,
     'Lost-at-sea debug trace captures off-course trajectory and termination point'
   );
+  const lostFish = decodeFishSchoolsParam(lostTrace.fish);
+  assert(
+    typeof lostTrace.fish === 'string' &&
+      /^[0-9._-]+$/.test(lostTrace.fish) &&
+      lostFish.length === sim.fishSchools.length &&
+      lostFish.every((f, idx) => Math.hypot(f.x - sim.fishSchools[idx].x, f.y - sim.fishSchools[idx].y) < 0.02 && !f.harvested),
+    'Lost-at-sea debug trace encodes spawned fish schools with clean URL characters'
+  );
   // Dogleg polyline simplification check (>200 points compressed to <=40 while preserving sharp corner)
   const doglegRaw = [];
   for (let i = 0; i <= 100; i += 1) doglegRaw.push({ x: i * 0.1, y: 0 });
@@ -1047,6 +1056,13 @@ logLine('\n[8/8] Verifying Objectives Lifecycle, Multi-Fish Harvest, 24h Ocean S
       fullCrewRapaSim.status === VoyageStatus.ARRIVED &&
       fullCrewRapaSim.arrivedIsland?.id === 'rapa_nui',
     'Full 4-person crew harvests the Mangareva-Rapa Nui midway fish school and reaches Rapa Nui'
+  );
+  const rapaTraceParams = buildVoyageDebugTraceParams(fullCrewRapaSim);
+  const rapaDecodedFish = decodeFishSchoolsParam(rapaTraceParams.fish);
+  assert(
+    rapaDecodedFish.length === fullCrewRapaSim.fishSchools.length &&
+      rapaDecodedFish.some((f) => f.harvested),
+    'Debug trace fish param preserves both harvested and unharvested spawned school flags'
   );
 
   // E. Complete all 17 canonical songs in Master Navigator difficulty -> unlocks `all_songs_master_difficulty`
