@@ -678,94 +678,172 @@ function buildUaPouAssembly() {
 // ============================================================================
 // 3. RANGIROA — Twin Passes (Tiputa & Avatoru), Pink Sandbar & Pearl Farms
 // ============================================================================
-function evalRangiroaPoint(x, z) {
-  // Elongated oval Tuamotu ring
-  const sx = x * 1.06;
-  const sz = z * 0.94;
-  const r = Math.hypot(sx, sz);
-  const theta = Math.atan2(sz, sx);
+function rangiroaRingR(theta) {
+  const tw = theta + 0.16 * Math.sin(2.0 * theta - 0.35);
+  return (
+    64.5 +
+    7.4 * Math.cos(2.0 * tw - 0.42) +
+    4.6 * Math.sin(3.0 * tw + 0.55) +
+    2.8 * Math.cos(4.0 * tw - 0.85) +
+    1.6 * Math.sin(5.0 * tw)
+  );
+}
 
-  const ringR = 40.2 + 1.5 * Math.cos(2.0 * theta - 0.3);
-  // Two famous navigable passes: Tiputa (theta = 0) & Avatoru (theta = +0.78)
-  const tiputaPass = arcMask(theta, 0.0, 0.15, 0.06);
-  const avatoruPass = arcMask(theta, 0.78, 0.13, 0.055);
+function rangiroaOuterReefR(theta) {
+  return (
+    rangiroaRingR(theta) +
+    15.5 +
+    2.2 * Math.sin(4.0 * theta + 0.4) +
+    1.2 * Math.cos(7.0 * theta)
+  );
+}
+
+function rangiroaLagoonR(theta) {
+  return (
+    rangiroaRingR(theta) -
+    10.2 +
+    2.4 * Math.cos(3.0 * theta - 0.5) +
+    1.4 * Math.sin(5.0 * theta + 0.2)
+  );
+}
+
+function evalRangiroaPoint(x, z) {
+  const r = Math.hypot(x, z);
+  const theta = Math.atan2(z, x);
+
+  const ringR = rangiroaRingR(theta);
+  // Two famous navigable passes on the lateral flanks: Tiputa (port-forward +0.78) & Avatoru (starboard-forward -0.82)
+  const tiputaPass = arcMask(theta, 0.78, 0.14, 0.06);
+  const avatoruPass = arcMask(theta, -0.82, 0.13, 0.055);
   const passMask = clamp01(tiputaPass + avatoruPass);
 
-  // Long Tiputa-Avatoru Village Motu (theta in [0.16, 0.64]) + long southern & western motu chains
-  const villageMotu = arcMask(theta, 0.4, 0.23, 0.06);
-  const southChain = arcMask(theta, -1.15, 0.85, 0.08);
-  const pinkSandSector = arcMask(theta, -2.55, 0.42, 0.08); // Les Sables Roses!
-  const northWestMotu = arcMask(theta, 1.85, 0.72, 0.08);
-  const motuMask = clamp01(villageMotu + southChain + pinkSandSector + northWestMotu);
+  // Continuous front Village Motu across arrival shore (theta in [-0.66, +0.62]),
+  // plus sweeping eastern/southern motu chains, Les Sables Roses pink-sand motu, & NW motu chain
+  const villageMotu = arcMask(theta, -0.02, 0.64, 0.09);
+  const southEastChain = arcMask(theta, -1.48, 0.52, 0.08);
+  const pinkSandSector = arcMask(theta, -2.42, 0.38, 0.08); // Iconic Les Sables Roses!
+  const northWestMotu = arcMask(theta, 1.85, 0.88, 0.09);
+  const motuMask = clamp01(villageMotu + southEastChain + pinkSandSector + northWestMotu);
 
-  const halfW = lerp(3.8, 5.6, clamp01(villageMotu + southChain * 0.5));
+  const halfW = lerp(7.8, 12.2, villageMotu);
   const innerR = ringR - halfW;
   const outerR = ringR + halfW;
-  const reefEdgeR = outerR + 3.6;
+  const reefEdgeR = rangiroaOuterReefR(theta);
 
-  if (r < innerR) {
+  // Inner-Lagoon Star-Watching Sandspit & Causeway connecting front motu (60, 0) to Observation Circle (44, -2)
+  const spitSeg = uaPouDistToSeg(x, z, 60.0, 0.0, 44.0, -2.0);
+  const spitMask = 1.0 - smoothstep(4.5, 9.2, spitSeg.d);
+  const dCircle = Math.hypot(x - 44.0, z + 2.0);
+  const circleSpit = 1.0 - smoothstep(5.8, 10.5, dCircle);
+  const sandspitMask = Math.max(spitMask, circleSpit);
+
+  // Submerged pink-sand shoal inside the western lagoon near Les Sables Roses
+  const pinkShoal = gaussian2D(x, z, -24.0, -22.0, 14.0, 10.0, 0.45);
+
+  // Grounded flat coral terrace for Tane's Pearl-Divers' Village & Marae at walkable (-24, 56) -> canon (56.0, 24.0)
+  const dElder = Math.hypot(x - 56.0, z - 24.0);
+
+  if (r < innerR && sandspitMask < 0.02 && dElder >= 9.5) {
     const lu = clamp01(r / innerR);
-    let h = lerp(0.15, 0.22, smoothstep(0.65, 1.0, lu));
-    h = lerp(h, -2.4, passMask * smoothstep(22.0, 32.0, r));
+    let h = lerp(0.14, 0.24, smoothstep(0.62, 1.0, lu));
+    if (pinkShoal > 0.15) {
+      h = Math.max(h, lerp(0.24, 0.62, smoothstep(0.15, 0.85, pinkShoal)));
+    }
+    h = lerp(h, -2.6, passMask * smoothstep(36.0, 52.0, r));
     return {
       h,
-      zone: h < 0.05 ? 'deep_sea' : 'lagoon',
-      isPinkSand: false,
+      zone: h < 0.05 ? 'deep_sea' : pinkShoal > 0.35 ? 'pink_sand' : 'lagoon',
+      isPinkSand: pinkShoal > 0.35,
     };
   }
 
+  let h = 0.22;
+  let zone = 'hoa_reef';
+
   if (r <= reefEdgeR) {
-    let h = 0.22;
-    let zone = 'hoa_reef';
     if (r <= outerR && motuMask > 0.02) {
       const mt = 1.0 - Math.abs(r - ringR) / halfW;
-      const peakH = pinkSandSector > 0.3 ? 1.85 : 3.65;
-      const mh = peakH * Math.pow(smoothstep(0.0, 1.0, mt), 0.85) * motuMask;
+      const peakH = pinkSandSector > 0.3 ? 2.1 : lerp(2.8, 3.6, villageMotu);
+      const mh = peakH * Math.pow(smoothstep(0.0, 1.0, mt), 0.72) * motuMask;
       if (mh > h) {
         h = mh;
         zone =
           pinkSandSector > 0.3
             ? 'pink_sand'
-            : mh < 1.5
+            : mh < 1.35
               ? 'white_sand'
               : 'motu_veg';
       }
     }
-    h = lerp(h, -2.5, passMask);
+    h = lerp(h, -2.8, passMask);
     if (h < 0.05) zone = 'deep_sea';
-    return { h, zone, isPinkSand: pinkSandSector > 0.3 };
+  } else {
+    const drop = smoothstep(reefEdgeR, reefEdgeR + 18.0, r);
+    h = lerp(lerp(0.24, -2.8, passMask), -4.5, drop);
+    zone = h < 0.05 ? 'deep_sea' : 'hoa_reef';
   }
 
-  const drop = smoothstep(reefEdgeR, 55.8, r);
-  const h = lerp(lerp(0.24, -2.5, passMask), -4.1, drop);
-  return { h, zone: h < 0.05 ? 'deep_sea' : 'hoa_reef', isPinkSand: false };
+  // Apply connected Inner-Lagoon Sandspit & Star-Watching Circle Terrace (h=2.4m, flat)
+  if (sandspitMask > 0.02) {
+    h = lerp(h, 2.4, sandspitMask);
+    if (sandspitMask > 0.25) zone = 'white_sand';
+  }
+
+  // Apply Tane's Pearl-Divers' Village & Marae terrace
+  if (dElder < 9.5) {
+    h = lerp(h, 2.5, 1.0 - smoothstep(5.5, 9.5, dElder));
+    if (dElder < 7.5) zone = 'white_sand';
+  }
+
+  // Gently level Spawn & Canoe Landing beach apron around canon (80.0, 4.0)
+  const dSpawn = Math.hypot(x - 80.0, z - 4.0);
+  if (dSpawn < 8.5) {
+    h = lerp(h, 1.25, 1.0 - smoothstep(4.5, 8.5, dSpawn));
+    if (dSpawn < 6.5) zone = 'white_sand';
+  }
+
+  // Carve a sheltered canoe-mooring cove at walkable (-2, 86..98) -> canon (86..98, 2) so the vaka floats in water
+  const coveMask = gaussian2D(x, z, 92.5, 2.0, 6.5, 6.5, 0.0);
+  if (coveMask > 0.05) {
+    h = lerp(h, -1.4, smoothstep(0.05, 0.55, coveMask));
+    if (h < 0.05) zone = 'deep_sea';
+  }
+
+  // Grounded flat terrace for Divers' Drying Fare at walkable (16, 56) -> canon (56.0, -16.0)
+  const dHut = Math.hypot(x - 56.0, z + 16.0);
+  if (dHut < 8.5) {
+    h = lerp(h, 2.2, 1.0 - smoothstep(5.0, 8.5, dHut));
+    if (dHut < 6.5) zone = 'white_sand';
+  }
+
+  return { h, zone, isPinkSand: pinkSandSector > 0.3 || pinkShoal > 0.35 };
 }
 
 function buildRangiroaAssembly() {
   const group = new THREE.Group();
   const { materials, trackMat } = createMaterialTracker();
 
-  const colDeepSea = [0.04, 0.25, 0.44];
-  const colCeruleanLagoon = [0.1, 0.72, 0.76];
+  const colDeepSea = [0.04, 0.24, 0.43];
+  const colCeruleanLagoon = [0.1, 0.74, 0.77];
   const colWhiteSand = [0.95, 0.91, 0.81];
-  const colPinkSand = [0.96, 0.75, 0.74]; // Iconic Les Sables Roses!
-  const colHoaAqua = [0.52, 0.86, 0.81];
-  const colTuamotuPalm = [0.22, 0.49, 0.2];
+  const colPinkSand = [0.96, 0.74, 0.73]; // Iconic Les Sables Roses!
+  const colHoaAqua = [0.48, 0.85, 0.8];
+  const colTuamotuPalm = [0.22, 0.5, 0.21];
 
   const terrainGeo = buildPolarTerrainGeometry({
     evalPoint: evalRangiroaPoint,
-    maxRadius: 56.0,
-    nRings: 66,
-    nSegs: 112,
+    maxRadius: 108.0,
+    nRings: 92,
+    nSegs: 136,
     colorFn: (s) => {
       if (s.zone === 'deep_sea' || s.h < 0.06) {
-        return mixRgb(colCeruleanLagoon, colDeepSea, clamp01(-s.h / 2.5));
+        return mixRgb(colCeruleanLagoon, colDeepSea, clamp01(-s.h / 2.8));
       }
       if (s.zone === 'lagoon') return colCeruleanLagoon;
       if (s.zone === 'hoa_reef') return colHoaAqua;
       if (s.zone === 'pink_sand') return colPinkSand;
       if (s.zone === 'white_sand') return colWhiteSand;
-      return mixRgb(colWhiteSand, colTuamotuPalm, smoothstep(1.3, 2.2, s.h));
+      return mixRgb(colWhiteSand, colTuamotuPalm, smoothstep(1.3, 2.3, s.h));
     },
   });
 
@@ -782,15 +860,17 @@ function buildRangiroaAssembly() {
   terrainMesh.receiveShadow = true;
   group.add(terrainMesh);
 
+  // Contour-matched organic jade lagoon water plane
   const lagoonMat = trackMat(
-    new THREE.MeshBasicMaterial({ color: 0x22d8db, depthWrite: false }),
+    new THREE.MeshBasicMaterial({ color: 0x1fd4d8, depthWrite: false }),
     0.34
   );
-  const lagoonDisc = new THREE.Mesh(new THREE.CircleGeometry(33.5, 56), lagoonMat);
-  lagoonDisc.rotation.x = -Math.PI * 0.5;
-  lagoonDisc.position.y = 0.255;
-  group.add(lagoonDisc);
+  const lagoonGeo = createOrganicLagoonGeometry(rangiroaLagoonR, 120);
+  const lagoonMesh = new THREE.Mesh(lagoonGeo, lagoonMat);
+  lagoonMesh.position.y = 0.255;
+  group.add(lagoonMesh);
 
+  // Contour-matched organic outer barrier reef & breaking surf foam, leaving Tiputa (+0.78) & Avatoru (-0.82) passes open!
   const reefMat = trackMat(
     new THREE.MeshStandardMaterial({ color: 0xe6d8b5, roughness: 0.88 })
   );
@@ -798,75 +878,159 @@ function buildRangiroaAssembly() {
     new THREE.MeshBasicMaterial({ color: 0xf4fcff, depthWrite: false }),
     0.75
   );
-  // Leave BOTH Tiputa Pass (0.0) and Avatoru Pass (+0.78) open!
-  addBarrierReefArc(group, reefMat, foamMat, 48.2, 0.19, 0.61, 14);
-  addBarrierReefArc(group, reefMat, foamMat, 48.2, 0.94, Math.PI * 2.0 - 0.19, 44);
+  addOrganicBarrierReefArc(group, reefMat, foamMat, rangiroaOuterReefR, -0.64, 0.6, 36);
+  addOrganicBarrierReefArc(group, reefMat, foamMat, rangiroaOuterReefR, 0.96, Math.PI * 2.0 - 0.98, 72);
 
-  // Submerged Black-Pearl Oyster Lagoon Longlines inside the Calm Lagoon
-  const pearlCluster = createPearlLineClusterGroup(trackMat, 3, 6);
-  pearlCluster.group.position.set(16.0, 0.0, 4.5);
+  // Emergent Fe'o (fossilized coral-limestone pinnacles) & turquoise reef-head collars inside the lagoon!
+  const feoMat = trackMat(
+    new THREE.MeshStandardMaterial({ color: 0x8f8a82, roughness: 0.94, flatShading: true })
+  );
+  const shoalMat = trackMat(
+    new THREE.MeshBasicMaterial({ color: 0x5ae6dc, depthWrite: false }),
+    0.42
+  );
+  for (const [fx, fz, fr, fh, seed] of [
+    [-14.0, 22.0, 3.2, 4.4, 0.2],
+    [12.0, 28.0, 2.6, 3.6, 1.1],
+    [-28.0, -4.0, 3.8, 5.2, 2.3],
+    [10.0, -24.0, 2.9, 3.9, 0.7],
+    [-4.0, -34.0, 3.4, 4.6, 1.8],
+  ]) {
+    const collar = new THREE.Mesh(new THREE.CircleGeometry(fr * 2.1, 16), shoalMat);
+    collar.rotation.x = -Math.PI * 0.5;
+    collar.position.set(fx, 0.28, fz);
+    group.add(collar);
+
+    const spire = new THREE.Mesh(
+      new THREE.CylinderGeometry(fr * 0.28, fr * 0.95, fh, 7),
+      feoMat
+    );
+    spire.position.set(fx, fh * 0.42, fz);
+    spire.rotation.y = seed;
+    group.add(spire);
+
+    const sideSpire = new THREE.Mesh(
+      new THREE.CylinderGeometry(fr * 0.18, fr * 0.55, fh * 0.65, 6),
+      feoMat
+    );
+    sideSpire.position.set(fx + fr * 0.6, fh * 0.28, fz - fr * 0.45);
+    sideSpire.rotation.y = seed + 0.9;
+    group.add(sideSpire);
+  }
+
+  // Submerged Black-Pearl Oyster Lagoon Longlines inside the Calm Jade Lagoon
+  const pearlCluster = createPearlLineClusterGroup(trackMat, 4, 7);
+  pearlCluster.group.position.set(30.0, 0.0, 22.0);
   group.add(pearlCluster.group);
 
-  // Tane's Pearl-Divers' Village on the Tiputa-Avatoru Motu & Southern Pass Shoulder
-  const huts = [
-    [38.5, 0.25, 0.96, false],
-    [39.8, 0.34, 1.02, true],
-    [38.2, 0.45, 0.94, false],
-    [39.5, 0.55, 0.9, false],
-    [39.2, -0.34, 0.95, false],
-    [38.4, -0.48, 0.9, false],
-  ].map(([hr, hang, sc, longHouse]) => {
-    const hx = hr * Math.cos(hang);
-    const hz = hr * Math.sin(hang);
-    return {
-      x: hx,
-      y: Math.max(0.8, evalRangiroaPoint(hx, hz).h),
-      z: hz,
-      rotY: -hang,
-      scale: sc,
-      longHouse,
-    };
+  // Canonical exclusion zones (rotY = -PI/2 => cx = wz, cz = -wx)
+  const toCanon = (wx, wz) => [wz, -wx];
+  const [spCx, spCz] = toCanon(-5.0, 81.5);
+  const [laCx, laCz] = toCanon(-1.0, 75.5);
+  const [huCx, huCz] = toCanon(16.0, 56.0);
+  const [elCx, elCz] = toCanon(-24.0, 56.0);
+  const [ciCx, ciCz] = toCanon(2.0, 44.0);
+  const rangiroaClearZones = [
+    { x: spCx, z: spCz, r: 10.5 },
+    { x: laCx, z: laCz, r: 8.0 },
+    { x: huCx, z: huCz, r: 10.5 },
+    { x: elCx, z: elCz, r: 11.0 },
+    { x: ciCx, z: ciCz, r: 12.5 },
+  ];
+  const rangiroaIsClear = (px, pz) => {
+    for (const bz of rangiroaClearZones) {
+      if (Math.hypot(px - bz.x, pz - bz.z) < bz.r) return false;
+    }
+    const seg = uaPouDistToSeg(px, pz, 60.0, 0.0, 44.0, -2.0);
+    if (seg.d < 7.5) return false;
+    return true;
+  };
+
+  // Grounded Coral-Slab Pearl-Sorting Marae at Tane's Village (-24, 56) -> canon (56.0, 24.0)
+  const maraeY = evalRangiroaPoint(elCx, elCz).h;
+  addMaraePlatform(group, trackMat, {
+    x: elCx,
+    y: maraeY - 0.1,
+    z: elCz,
+    rotY: -0.35,
+    scale: 0.95,
+    whiteCoral: true,
   });
+
+  // Tane's Pearl-Divers' Village & Lagoon Divers' Drying Fare along the inner lagoon rim
+  const huts = [
+    [huCx, huCz, -0.32, 1.0, true],
+    [60.0, -25.0, -0.42, 0.92, false],
+    [62.5, -14.0, -0.22, 0.9, false],
+    [60.5, 16.0, 0.28, 0.96, false],
+    [54.0, 32.0, 0.48, 0.92, false],
+  ].map(([hx, hz, hang, sc, longHouse]) => ({
+    x: hx,
+    y: Math.max(0.8, evalRangiroaPoint(hx, hz).h - 0.1),
+    z: hz,
+    rotY: -hang,
+    scale: sc,
+    longHouse,
+  }));
   addRegionalHuts(group, trackMat, huts, 'atoll');
 
-  // Twin Pearl-Diving Lagoon Piers
-  for (const pAng of [0.3, -0.38]) {
+  // Twin Pearl-Diving Lagoon Piers extending from the village & drying fare into the jade lagoon
+  for (const [px, pz, rotY] of [
+    [49.0, 24.0, 0.35],
+    [49.5, -16.0, -0.28],
+  ]) {
     addTimberPier(group, trackMat, {
-      x: 31.5 * Math.cos(pAng),
-      y: 0.7,
-      z: 31.5 * Math.sin(pAng),
-      rotY: -pAng,
-      length: 7.8,
+      x: px,
+      y: 0.72,
+      z: pz,
+      rotY,
+      length: 9.2,
     });
   }
 
   addOutriggerCanoe(group, trackMat, {
-    x: 28.2 * Math.cos(0.36),
-    y: 0.32,
-    z: 28.2 * Math.sin(0.36),
-    rotY: -0.36 + Math.PI * 0.5,
+    x: 42.5,
+    y: 0.34,
+    z: 27.0,
+    rotY: 0.35 + Math.PI * 0.5,
   });
   addOutriggerCanoe(group, trackMat, {
-    x: 28.5 * Math.cos(-0.32),
-    y: 0.32,
-    z: 28.5 * Math.sin(-0.32),
-    rotY: 0.32 + Math.PI * 0.5,
+    x: 42.0,
+    y: 0.34,
+    z: -19.5,
+    rotY: -0.28 + Math.PI * 0.5,
   });
 
+  // Coconut palms & coastal scrub along the motu chains, strictly clear of spawn, huts, marae, & sandspit
   const palmPts = [];
-  for (let i = 0; i < 36; i += 1) {
-    const ang = (i / 36) * Math.PI * 2.0;
-    const pr = 39.5;
+  for (let i = 0; i < 64; i += 1) {
+    const ang = (i / 64) * Math.PI * 2.0;
+    const pr = rangiroaRingR(ang) + ((i % 3) - 1) * 2.2;
     const px = pr * Math.cos(ang);
     const pz = pr * Math.sin(ang);
+    if (!rangiroaIsClear(px, pz)) continue;
     const py = evalRangiroaPoint(px, pz).h;
-    if (py > 1.55) {
-      palmPts.push([px, py - 0.16, pz, -ang, 0.95, 0.24]);
+    if (py > 1.75) {
+      palmPts.push([px, py - 0.16, pz, -ang, 0.92 + (i % 3) * 0.08, 0.24]);
     }
   }
   addCoconutGroves(group, trackMat, palmPts);
 
-  return { group, materials, sinkDepthM: 12.5 };
+  const scrubPts = [];
+  for (let i = 0; i < 52; i += 1) {
+    const ang = (i / 52) * Math.PI * 2.0 + 0.05;
+    const pr = rangiroaRingR(ang) + ((i % 2) ? 3.5 : -3.5);
+    const px = pr * Math.cos(ang);
+    const pz = pr * Math.sin(ang);
+    if (!rangiroaIsClear(px, pz)) continue;
+    const py = evalRangiroaPoint(px, pz).h;
+    if (py > 1.25 && py < 3.2) {
+      scrubPts.push([px, py - 0.1, pz, 0.8 + (i % 3) * 0.2]);
+    }
+  }
+  addCoastalScrub(group, trackMat, scrubPts);
+
+  return { group, materials, sinkDepthM: 13.0 };
 }
 
 // ============================================================================
