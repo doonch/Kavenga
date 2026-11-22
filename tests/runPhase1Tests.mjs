@@ -1013,6 +1013,42 @@ logLine('\n[8/8] Verifying Objectives Lifecycle, Multi-Fish Harvest, 24h Ocean S
   achMgr.evaluateLandfall(rapaSim, rapaGs, 'rapa_nui');
   assert(achMgr.isUnlocked('reach_rapa_nui'), 'Landing on Rapa Nui unlocks reach_rapa_nui');
 
+  // Verify Mangareva -> Rapa Nui midway fish school allows a full 4-person crew (including Tama) to reach Rapa Nui
+  const fullCrewRapaGs = new GameState();
+  fullCrewRapaGs.difficulty = Difficulty.HARD;
+  fullCrewRapaGs.vakaTier = 3;
+  fullCrewRapaGs.maxCargoSlots = 8;
+  fullCrewRapaGs.loadedRations = 8;
+  fullCrewRapaGs.recruitCrew('tama');
+  fullCrewRapaGs.recruitCrew('moana');
+  fullCrewRapaGs.recruitCrew('kahu');
+  const fullCrewRapaSim = new OceanSim();
+  fullCrewRapaSim.startVoyage(buildReturnSong('mangareva', 'nuku_hiva'), DepartureWindow.DAWN, fullCrewRapaGs);
+  const midExpectedX =
+    ISLANDS.mangareva.pos.x + (ISLANDS.rapa_nui.pos.x - ISLANDS.mangareva.pos.x) * 0.4;
+  const midExpectedY =
+    ISLANDS.mangareva.pos.y + (ISLANDS.rapa_nui.pos.y - ISLANDS.mangareva.pos.y) * 0.4;
+  assert(
+    fullCrewRapaSim.fishSchools.some(
+      (s) => Math.hypot(s.x - midExpectedX, s.y - midExpectedY) < 0.01
+    ),
+    'Every intra-basin sail from Mangareva spawns a fish school midway to Rapa Nui'
+  );
+  for (let t = 0; t < 2000 && fullCrewRapaSim.status === VoyageStatus.SAILING; t += 1) {
+    const rt = fullCrewRapaSim.activeIslands.rapa_nui;
+    const dx = rt.simPos.x - fullCrewRapaSim.pos.x;
+    const dy = rt.simPos.y - fullCrewRapaSim.pos.y;
+    const brg = (((Math.atan2(dx, dy) * 180.0) / Math.PI) + 360.0) % 360.0;
+    fullCrewRapaSim.setHeading(brg);
+    fullCrewRapaSim.step(1.0);
+  }
+  assert(
+    fullCrewRapaSim.fishSchoolsHarvestedCount >= 1 &&
+      fullCrewRapaSim.status === VoyageStatus.ARRIVED &&
+      fullCrewRapaSim.arrivedIsland?.id === 'rapa_nui',
+    'Full 4-person crew harvests the Mangareva-Rapa Nui midway fish school and reaches Rapa Nui'
+  );
+
   // E. Complete all 17 canonical songs in Master Navigator difficulty -> unlocks `all_songs_master_difficulty`
   //    (and verify downgrading difficulty mid-voyage prevents Master credit!)
   const masterGs = new GameState();
