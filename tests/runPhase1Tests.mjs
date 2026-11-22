@@ -1032,16 +1032,16 @@ logLine('\n[8/8] Verifying Objectives Lifecycle, Multi-Fish Harvest, 24h Ocean S
   fullCrewRapaGs.recruitCrew('moana');
   fullCrewRapaGs.recruitCrew('kahu');
   const fullCrewRapaSim = new OceanSim();
-  fullCrewRapaSim.startVoyage(buildReturnSong('mangareva', 'nuku_hiva'), DepartureWindow.DAWN, fullCrewRapaGs);
+  fullCrewRapaSim.startVoyage(buildReturnSong('mangareva', 'nuku_hiva'), DepartureWindow.MIDNIGHT, fullCrewRapaGs);
   const midExpectedX =
-    ISLANDS.mangareva.pos.x + (ISLANDS.rapa_nui.pos.x - ISLANDS.mangareva.pos.x) * 0.4;
+    ISLANDS.mangareva.pos.x + (ISLANDS.rapa_nui.pos.x - ISLANDS.mangareva.pos.x) * 0.6;
   const midExpectedY =
-    ISLANDS.mangareva.pos.y + (ISLANDS.rapa_nui.pos.y - ISLANDS.mangareva.pos.y) * 0.4;
+    ISLANDS.mangareva.pos.y + (ISLANDS.rapa_nui.pos.y - ISLANDS.mangareva.pos.y) * 0.6;
   assert(
     fullCrewRapaSim.fishSchools.some(
       (s) => Math.hypot(s.x - midExpectedX, s.y - midExpectedY) < 0.01
     ),
-    'Every intra-basin sail from Mangareva spawns a fish school midway to Rapa Nui'
+    'Every intra-basin sail from Mangareva spawns a fish school 60% of the way to Rapa Nui'
   );
   for (let t = 0; t < 2000 && fullCrewRapaSim.status === VoyageStatus.SAILING; t += 1) {
     const rt = fullCrewRapaSim.activeIslands.rapa_nui;

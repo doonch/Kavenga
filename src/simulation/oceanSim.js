@@ -289,8 +289,7 @@ export class OceanSim {
       }
     );
 
-    // On every intra-basin sail from Mangareva, spawn a leaping bonito school between Mangareva and Rapa Nui
-    // (placed at 40% along the track so both Dawn and Midnight departures pass it in bright daylight)
+    // On every intra-basin sail from Mangareva, spawn a leaping bonito school 60% of the way to Rapa Nui
     if (
       song.fromIsland === 'mangareva' &&
       this.activeIslands.mangareva?.simPos &&
@@ -299,8 +298,8 @@ export class OceanSim {
       const mPos = this.activeIslands.mangareva.simPos;
       const rPos = this.activeIslands.rapa_nui.simPos;
       this.fishSchools.push({
-        x: mPos.x + (rPos.x - mPos.x) * 0.4,
-        y: mPos.y + (rPos.y - mPos.y) * 0.4,
+        x: mPos.x + (rPos.x - mPos.x) * 0.6,
+        y: mPos.y + (rPos.y - mPos.y) * 0.6,
         radius: 0.55,
         harvested: false,
       });
