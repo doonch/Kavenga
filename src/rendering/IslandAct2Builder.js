@@ -1462,25 +1462,37 @@ function buildFatuHivaAssembly() {
   group.add(terrainMesh);
 
   // Iconic Hanavave ("Bay of Virgins") Towering Rectangular Basalt Sea-Pillar Monoliths (2x)!
+  // Tapered, faceted Hanavave columnar basalt spires along the back amphitheater headwall
   const pillarMat = trackMat(
     new THREE.MeshStandardMaterial({
-      color: 0x2c2d31,
-      roughness: 0.9,
+      color: 0x3b3835,
+      roughness: 0.92,
       flatShading: true,
     })
   );
-  for (const [px, pz, pw, ph, rotY] of [
-    [-48.0, 22.0, 5.8, 38.0, 0.2],
-    [-55.0, 10.0, 5.0, 34.0, -0.15],
-    [-42.0, -32.0, 5.2, 36.0, 0.35],
+  for (const [px, pz, pr, ph, rotY, tiltZ] of [
+    [-48.0, 22.0, 4.4, 34.0, 0.2, 0.04],
+    [-55.0, 10.0, 4.0, 32.0, -0.15, -0.03],
+    [-42.0, -32.0, 4.2, 30.0, 0.35, 0.03],
   ]) {
-    const pillar = new THREE.Mesh(
-      new THREE.BoxGeometry(pw, ph, pw * 0.88),
+    const baseH = evalFatuHivaPoint(px, pz).h;
+    const spire = new THREE.Mesh(
+      new THREE.CylinderGeometry(pr * 0.16, pr * 0.95, ph, 7),
       pillarMat
     );
-    pillar.position.set(px, ph * 0.45, pz);
-    pillar.rotation.y = rotY;
-    group.add(pillar);
+    spire.position.set(px, baseH * 0.5 + ph * 0.34, pz);
+    spire.rotation.y = rotY;
+    spire.rotation.z = tiltZ;
+    group.add(spire);
+
+    const shoulder = new THREE.Mesh(
+      new THREE.CylinderGeometry(pr * 0.14, pr * 0.72, ph * 0.62, 6),
+      pillarMat
+    );
+    shoulder.position.set(px + Math.cos(rotY) * pr * 0.55, baseH * 0.5 + ph * 0.2, pz + Math.sin(rotY) * pr * 0.55);
+    shoulder.rotation.y = rotY + 0.8;
+    shoulder.rotation.z = -tiltZ * 1.4;
+    group.add(shoulder);
   }
 
   const foamMat = trackMat(
