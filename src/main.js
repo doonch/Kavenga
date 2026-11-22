@@ -1155,7 +1155,7 @@ class KavengaApp {
       this.btnShoreWalkToggle.setAttribute(
         'data-tooltip',
         isWalking
-          ? 'Return to 4-Station Shore Stage'
+          ? 'Island View'
           : 'Walk Shore in 3rd-person (Arrow Keys / WASD)'
       );
       this.btnShoreWalkToggle.setAttribute(

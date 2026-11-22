@@ -454,6 +454,36 @@ export class WalkableIslandScene {
           [-34.0, 63.0],
         ],
       },
+      kauai: {
+        waypoints: [
+          new THREE.Vector3(8.0, 0, 48.0),
+          new THREE.Vector3(18.0, 0, 42.0),
+          new THREE.Vector3(23.5, 0, 46.5),
+          new THREE.Vector3(29.8, 0, 41.5),
+          new THREE.Vector3(31.8, 0, 39.8),
+        ],
+        steps: 30,
+        torches: [
+          [13.0, 45.0],
+          [21.0, 44.5],
+          [27.0, 44.0],
+        ],
+      },
+      oahu: {
+        waypoints: [
+          new THREE.Vector3(18.0, 0, 48.0),
+          new THREE.Vector3(26.0, 0, 48.0),
+          new THREE.Vector3(35.0, 0, 49.0),
+          new THREE.Vector3(30.0, 0, 55.5),
+          new THREE.Vector3(27.8, 0, 58.2),
+        ],
+        steps: 26,
+        torches: [
+          [22.0, 48.0],
+          [30.0, 49.0],
+          [32.0, 53.0],
+        ],
+      },
       hawaii: {
         waypoints: [
           new THREE.Vector3(-20.9, 0, 61.0),
@@ -765,22 +795,30 @@ export class WalkableIslandScene {
     }
 
     // Sculpted Birds wheeling above the shore & cove (with land/stand/takeoff lifecycle)
-    // On Manuae exclusively, spawn 9 sacred red Kura birds!
+    // On Manuae spawn 9 red Kura birds; on Kiritimati spawn 12 mixed red Kura, white terns & brown boobies!
     const isManuaeKura =
       this.builtIslandId === 'manuae' || islDef?.birdSpecies === 'red_kura';
-    const birdCount = isManuaeKura ? 9 : 3;
-    const birdScale = isManuaeKura ? 1.45 : 1.25;
+    const isKiritimatiFlock = this.builtIslandId === 'kiritimati';
+    const useLargeRookery = isManuaeKura || isKiritimatiFlock;
+    const birdCount = isKiritimatiFlock ? 12 : isManuaeKura ? 9 : 3;
+    const birdScale = isManuaeKura ? 1.45 : isKiritimatiFlock ? 1.32 : 1.25;
     this.birdPerchSpots = this._findPerchSpots(
-      isManuaeKura ? 14 : 6,
-      isManuaeKura ? { minZ: -64.0, maxZ: 92.0, minX: -86.0, maxX: 86.0 } : null
+      useLargeRookery ? 16 : 6,
+      useLargeRookery ? { minZ: -64.0, maxZ: 92.0, minX: -86.0, maxX: 86.0 } : null
     );
     if (this.worldCues) {
       for (let i = 0; i < birdCount; i += 1) {
-        const species = isManuaeKura
-          ? 'red_kura'
-          : i === 1
-            ? 'brown_booby'
-            : 'white_tern';
+        const species = isKiritimatiFlock
+          ? i % 3 === 0
+            ? 'red_kura'
+            : i % 3 === 1
+              ? 'white_tern'
+              : 'brown_booby'
+          : isManuaeKura
+            ? 'red_kura'
+            : i === 1
+              ? 'brown_booby'
+              : 'white_tern';
         const entry = this.worldCues.createSeabird(species, { opaque: true });
         entry.root.userData.sharedGeometries = true;
         entry.root.scale.setScalar(birdScale);
@@ -788,28 +826,28 @@ export class WalkableIslandScene {
 
         const slot = i % 3;
         const band = Math.floor(i / 3);
-        const cx = isManuaeKura
+        const cx = useLargeRookery
           ? -18.0 + slot * 24.0 + (band - 1) * 6.0
           : -4.0 + i * 14.0;
-        const cz = isManuaeKura
+        const cz = useLargeRookery
           ? this.spec.mooredCanoe.z - 14.0 - band * 32.0 - slot * 5.0
           : this.spec.mooredCanoe.z - 4.0 - i * 5.0;
-        const radius = isManuaeKura
+        const radius = useLargeRookery
           ? 16.0 + slot * 5.0 + band * 3.0
           : 14.0 + i * 4.5;
-        const altY = isManuaeKura ? 4.6 + (i % 4) * 1.35 : 14.5 + i * 2.4;
-        const speed = isManuaeKura ? 0.32 + (i % 5) * 0.045 : 0.34 + i * 0.05;
-        const orbitAngle = isManuaeKura
+        const altY = useLargeRookery ? 4.6 + (i % 4) * 1.35 : 14.5 + i * 2.4;
+        const speed = useLargeRookery ? 0.32 + (i % 5) * 0.045 : 0.34 + i * 0.05;
+        const orbitAngle = useLargeRookery
           ? i * ((Math.PI * 2.0) / birdCount)
           : i * 2.1;
 
         let initState = 'flying';
         let initPerch = null;
         let initYaw = orbitAngle;
-        let stateTimer = isManuaeKura ? 1.5 + (i % 5) * 2.2 : 3.5 + i * 4.5;
+        let stateTimer = useLargeRookery ? 1.5 + (i % 5) * 2.2 : 3.5 + i * 4.5;
 
-        // Seed up to 4 Manuae Red Kura birds already perched/standing on sandy flats & rookery sandbar!
-        if (isManuaeKura && i < 4 && this.birdPerchSpots.length > 0) {
+        // Seed up to 4 birds already perched/standing on sandy flats & rookery sandbars!
+        if (useLargeRookery && i < 4 && this.birdPerchSpots.length > 0) {
           const openSpot = this.birdPerchSpots.find(
             (s) =>
               !s.occupiedBy &&

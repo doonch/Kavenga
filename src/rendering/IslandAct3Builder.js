@@ -18,6 +18,7 @@ import {
   addCoconutGroves,
   addCoastalScrub,
   addMaraePlatform,
+  addOrganicBarrierReefArc,
   addOutriggerCanoe,
   addRegionalHuts,
   addStarStoneCircle,
@@ -27,6 +28,7 @@ import {
   buildPolarTerrainGeometry,
   clamp01,
   createMaterialTracker,
+  createOrganicLagoonGeometry,
   gaussian2D,
   lerp,
   mixRgb,
@@ -40,48 +42,117 @@ import {
 // ============================================================================
 // 1. KAUA'I — 14-Pleat Na Pali Cathedral Razor-Cliffs & High Crag Pa Sanctuary
 // ============================================================================
+function kauaiDistToSeg(px, pz, ax, az, bx, bz) {
+  const vx = bx - ax;
+  const vz = bz - az;
+  const wx = px - ax;
+  const wz = pz - az;
+  const len2 = vx * vx + vz * vz || 1e-6;
+  const t = clamp01((wx * vx + wz * vz) / len2);
+  return { d: Math.hypot(px - (ax + vx * t), pz - (az + vz * t)), t };
+}
+
+function kauaiCoastR(theta) {
+  const coveIndent = 9.0 * Math.exp(-Math.pow((theta - 0.05) / 0.34, 2.0));
+  const starboardSpur = 10.5 * Math.exp(-Math.pow((theta + 0.72) / 0.38, 2.0));
+  const paliPleats =
+    3.6 * Math.cos(14.0 * theta) * smoothstep(0.28, 0.75, Math.abs(theta));
+  const macroLobes =
+    5.4 * Math.cos(3.0 * theta + 0.48) + 2.8 * Math.sin(4.0 * theta - 0.6);
+  return Math.max(58.0, 71.0 - coveIndent + starboardSpur + paliPleats + macroLobes);
+}
+
 function evalKauaiPoint(x, z) {
   const r = Math.hypot(x, z);
   const theta = Math.atan2(z, x);
-
-  const coveIndent = 7.2 * Math.exp(-Math.pow(theta / 0.28, 2.0));
-  const paliPleats = 2.6 * Math.cos(14.0 * theta) * smoothstep(0.25, 0.7, Math.abs(theta));
-  const coastR = 40.0 - coveIndent + paliPleats + 2.2 * Math.cos(3.0 * theta + 0.5);
+  const coastR = kauaiCoastR(theta);
 
   if (r > coastR) {
     return {
-      h: lerp(0.05, -4.5, smoothstep(coastR, coastR + 7.2, r)),
+      h: lerp(0.05, -5.0, smoothstep(coastR, coastR + 12.0, r)),
       pleat: 0.0,
       isBlackCove: false,
     };
   }
 
   const u = r / coastR;
-  const inCove = Math.abs(theta) < 0.28;
 
-  // Towering Wai'ale'ale central wet massif (~80m) + 14 deep razor-sharp Na Pali pleated ribs!
-  const summitDome = 74.0 * Math.pow(smoothstep(0.98, 0.08, u), 1.22);
+  // Towering Wai'ale'ale wet massif offset astern-port (-28, 22) canon (~68m peak) + 14 Na Pali cathedral pleats
+  const waialealePeak = 49.0 * gaussian2D(x, z, -28.0, 22.0, 22.0, 24.0, 0.25);
+  const secondaryRidge = 34.0 * gaussian2D(x, z, -22.0, -14.0, 20.0, 18.0, -0.3);
   const pleatWave = Math.pow(0.5 + 0.5 * Math.cos(14.0 * theta), 2.15);
-  const pleatEnv = smoothstep(0.12, 0.42, 1.0 - u) * smoothstep(0.95, 0.32, 1.0 - u);
-  const pleatRelief = (pleatWave - 0.3) * 19.5 * pleatEnv;
+  // Smooth coastal headland cliffs on the Na Pali flanks & back, tapering gently into the broad front harbor
+  const flankCliffMask = smoothstep(0.32, 0.96, Math.abs(theta - 0.04));
+  const pleatEnv = smoothstep(0.14, 0.44, 1.0 - u) * smoothstep(0.95, 0.32, 1.0 - u) * flankCliffMask;
+  const pleatRelief = (pleatWave - 0.28) * 18.0 * pleatEnv;
 
-  const cliffDrop = inCove ? 1.8 * (1.0 - u) : 21.0 * smoothstep(1.0, 0.85, u);
-  let h = Math.max(0.0, summitDome + pleatRelief + cliffDrop * 0.55);
+  const cliffDrop =
+    19.0 * smoothstep(1.0, 0.83, u) * flankCliffMask +
+    2.6 * (1.0 - u) * (1.0 - flankCliffMask);
+  let h = Math.max(0.0, waialealePeak + secondaryRidge * 0.68 + pleatRelief + cliffDrop * 0.68);
 
-  // Flatten Pohaku's High Crag Pa bluff overlooking the cove at theta = -0.44
-  const paBluff = gaussian2D(x, z, 25.5, -11.8, 5.2, 4.8, 0.3);
-  if (paBluff > 0.15) {
-    h = lerp(h, 16.5, paBluff * 0.82);
+  // Broad, natural black-sand harbor slope (no radial wedge cut toward center)
+  const harborSlope = gaussian2D(x, z, 54.0, 4.0, 16.0, 24.0, 0.06);
+  if (harborSlope > 0.04) {
+    const coveTarget = lerp(1.1, 4.8, smoothstep(64.0, 38.0, x));
+    h = lerp(h, coveTarget, smoothstep(0.04, 0.72, harborSlope) * 0.88);
   }
 
-  if (inCove && u > 0.8) {
-    h = lerp(h, 1.4 * (1.0 - smoothstep(0.8, 1.0, u)), 0.82);
+  // Starboard-East Na Pali Coastal Ridge Bench for Observation Circle at walkable (34, 38) -> canon (38.0, -34.0)
+  const spurProm = gaussian2D(x, z, 38.0, -34.0, 17.0, 16.0, -0.35);
+  h = Math.max(h, 22.5 * smoothstep(0.18, 0.84, spurProm));
+
+  const dCircle = Math.hypot(x - 38.0, z + 34.0);
+  if (dCircle < 11.5) {
+    h = lerp(h, 22.5, 1.0 - smoothstep(5.6, 11.5, dCircle));
+  }
+
+  // Grounded terrace for Swell Master Pohaku's High Crag Pa Sanctuary at canon (35.0, -15.0)
+  const dElder = Math.hypot(x - 35.0, z + 15.0);
+  if (dElder < 9.0) {
+    h = lerp(h, 13.5, 1.0 - smoothstep(5.4, 9.0, dElder));
+  }
+
+  // Single-pass polyline trail climbing from Black-Sand Cove -> Pohaku's Pa -> Starboard Coastal Ridge Circle
+  const trailLegs = [
+    [56.0, 6.0, 50.0, 0.0, 1.2, 2.5], // spawn (-6, 56) -> landing (0, 50)
+    [56.0, 6.0, 42.0, 22.0, 1.2, 5.2], // spawn -> hut (-22, 42)
+    [56.0, 6.0, 48.0, -8.0, 1.2, 7.2], // spawn -> base of starboard ramp (8, 48)
+    [48.0, -8.0, 42.0, -18.0, 7.2, 13.5], // base (8, 48) -> Pohaku's Pa (18, 42) [dist=11.7m, sl=0.54]
+    [42.0, -18.0, 46.5, -23.5, 13.5, 17.5], // Pa (18, 42) -> mid1 (23.5, 46.5) [dist=7.1m, sl=0.56]
+    [46.5, -23.5, 41.5, -29.8, 17.5, 22.5], // mid1 (23.5, 46.5) -> mid2 (29.8, 41.5) [dist=8.0m, sl=0.62]
+    [41.5, -29.8, 38.0, -34.0, 22.5, 22.5], // mid2 (29.8, 41.5) -> circle (34, 38) [dist=5.5m, sl=0.00]
+  ];
+  let bestTrailD = 999.0;
+  let bestTrailH = h;
+  for (const [ax, az, bx, bz, h0, h1] of trailLegs) {
+    const seg = kauaiDistToSeg(x, z, ax, az, bx, bz);
+    if (seg.d < bestTrailD) {
+      bestTrailD = seg.d;
+      bestTrailH = lerp(h0, h1, seg.t);
+    }
+  }
+  if (bestTrailD < 13.5) {
+    const mask = 1.0 - smoothstep(6.8, 13.5, bestTrailD);
+    h = lerp(h, bestTrailH, mask);
+  }
+
+  // Re-apply flat terraces for Pa Sanctuary, Hut, & Circle after trail blend so platforms sit 100% flush
+  if (dElder < 6.8) {
+    h = lerp(h, 13.5, 1.0 - smoothstep(5.0, 6.8, dElder));
+  }
+  const dHut = Math.hypot(x - 36.5, z - 26.5);
+  if (dHut < 8.5) {
+    h = lerp(h, 5.2, 1.0 - smoothstep(5.4, 8.5, dHut));
+  }
+  if (dCircle < 7.8) {
+    h = lerp(h, 22.5, 1.0 - smoothstep(5.6, 7.8, dCircle));
   }
 
   return {
     h,
     pleat: pleatWave * pleatEnv,
-    isBlackCove: inCove && u > 0.8,
+    isBlackCove: Math.abs(theta - 0.04) < 0.45 && u > 0.78,
   };
 }
 
@@ -98,18 +169,18 @@ function buildKauaiAssembly() {
 
   const terrainGeo = buildPolarTerrainGeometry({
     evalPoint: evalKauaiPoint,
-    maxRadius: 53.0,
-    nRings: 64,
-    nSegs: 112,
+    maxRadius: 96.0,
+    nRings: 112,
+    nSegs: 164,
     colorFn: (s, slope, _x, _z, _r, theta) => {
       if (s.h <= 0.06) return colDeepSea;
       if (s.isBlackCove && s.h < 2.2) {
         return mixRgb(colBlackSand, colNaPaliEmerald, smoothstep(1.0, 2.2, s.h));
       }
       let rgb = mixRgb(colNaPaliEmerald, colRazorMoss, clamp01(s.pleat * 1.35));
-      const redStreak = Math.max(0.0, Math.sin(7.0 * theta + 1.1)) * smoothstep(1.1, 1.9, slope);
+      const redStreak = Math.max(0.0, Math.sin(7.0 * theta + 1.1)) * smoothstep(0.95, 1.75, slope);
       rgb = mixRgb(rgb, colRedDirt, redStreak * 0.48);
-      rgb = mixRgb(rgb, colDarkBasalt, smoothstep(1.15, 2.1, slope) * 0.82);
+      rgb = mixRgb(rgb, colDarkBasalt, smoothstep(1.05, 1.95, slope) * 0.82);
       return rgb;
     },
   });
@@ -127,85 +198,103 @@ function buildKauaiAssembly() {
   terrainMesh.receiveShadow = true;
   group.add(terrainMesh);
 
-  // White surf collar along the sheer Na Pali lava benches
+  // Contour-matched surf collar along the sheer Na Pali lava benches
+  const reefMat = trackMat(
+    new THREE.MeshStandardMaterial({ color: 0x3b3a3d, roughness: 0.92 })
+  );
   const foamMat = trackMat(
     new THREE.MeshBasicMaterial({ color: 0xf0faff, depthWrite: false }),
     0.74
   );
-  const foamGeo = new THREE.TorusGeometry(42.2, 1.0, 5, 42, Math.PI * 2.0 - 0.68);
-  const foam = new THREE.Mesh(foamGeo, foamMat);
-  foam.rotation.x = Math.PI * 0.5;
-  foam.rotation.z = 0.34;
-  foam.scale.set(1.0, 1.0, 0.14);
-  foam.position.y = 0.28;
-  group.add(foam);
+  addOrganicBarrierReefArc(group, reefMat, foamMat, kauaiCoastR, 0.38, Math.PI * 2.0 - 0.34, 72, {
+    reefWidth: 2.0,
+    foamWidth: 2.6,
+    foamOffset: 1.5,
+  });
 
-  // Twin Weeping Wai'ale'ale Highland Waterfalls
+  // Twin Weeping Wai'ale'ale Highland Waterfalls hugging the sheer pleated cliff walls
   addWaterfallCascade(group, trackMat, {
-    x: 11.5,
-    y: 34.0,
-    z: -14.5,
-    width: 1.4,
+    x: -14.0,
+    y: 22.0,
+    z: 18.0,
+    width: 1.8,
+    height: 32.0,
+    rotY: 0.65,
+    tiltX: -0.38,
+  });
+  addWaterfallCascade(group, trackMat, {
+    x: -12.0,
+    y: 19.0,
+    z: -12.0,
+    width: 1.7,
     height: 28.0,
-    rotY: 0.45,
-    tiltX: -0.32,
-  });
-  addWaterfallCascade(group, trackMat, {
-    x: 12.0,
-    y: 31.0,
-    z: 14.0,
-    width: 1.35,
-    height: 25.0,
-    rotY: 2.55,
-    tiltX: -0.34,
+    rotY: 2.35,
+    tiltX: -0.38,
   });
 
-  // Swell Master Pohaku's High Crag Pa Sanctuary with Flaming Signal Braziers!
+  // Canonical exclusion zones (rotY = -PI/2 => cx = wz, cz = -wx)
+  const toCanon = (wx, wz) => [wz, -wx];
+  const [spCx, spCz] = toCanon(-6.0, 56.0);
+  const [laCx, laCz] = toCanon(0.0, 50.0);
+  const [huCx, huCz] = toCanon(-22.0, 42.0);
+  const [elCx, elCz] = toCanon(18.0, 42.0);
+  const [ciCx, ciCz] = toCanon(34.0, 38.0);
+  const [midCx, midCz] = toCanon(27.0, 41.0);
+  const kauaiClearZones = [
+    { x: spCx, z: spCz, r: 12.0 },
+    { x: laCx, z: laCz, r: 8.0 },
+    { x: huCx, z: huCz, r: 10.5 },
+    { x: elCx, z: elCz, r: 10.0 },
+    { x: ciCx, z: ciCz, r: 12.5 },
+    { x: midCx, z: midCz, r: 5.5 },
+  ];
+  const kauaiIsClear = (px, pz) => {
+    for (const bz of kauaiClearZones) {
+      if (Math.hypot(px - bz.x, pz - bz.z) < bz.r) return false;
+    }
+    return true;
+  };
+
+  // Swell Master Pohaku's High Crag Pa Sanctuary grounded solidly at canon (35.0, -15.0)
+  const maraeCx = 35.0;
+  const maraeCz = -15.0;
   addMaraePlatform(group, trackMat, {
-    x: 25.5,
-    y: Math.max(12.0, evalKauaiPoint(25.5, -11.8).h),
-    z: -11.8,
+    x: maraeCx,
+    y: evalKauaiPoint(maraeCx, maraeCz).h - 0.12,
+    z: maraeCz,
     rotY: 0.42,
-    scale: 0.84,
+    scale: 0.92,
     courtHex: 0x2c2b2e,
     ahuHex: 0x454346,
     withBraziers: true,
   });
 
-  // Steep A-frame Hawaiian Pili-Grass Hale Village behind the Black-Sand Cove
+  // Steep A-frame Hawaiian Pili-Grass Hale Village behind the Black-Sand Cove (clear of hut arrival (-22, 42))
   const huts = [
-    [28.5, -0.15, 0.98],
-    [26.5, -0.04, 1.04],
-    [28.8, 0.12, 0.94],
-    [26.2, 0.21, 0.9],
-  ].map(([hr, hang, sc]) => {
-    const hx = hr * Math.cos(hang);
-    const hz = hr * Math.sin(hang);
-    return {
-      x: hx,
-      y: Math.max(0.8, evalKauaiPoint(hx, hz).h),
-      z: hz,
-      rotY: -hang,
-      scale: sc,
-    };
-  });
+    [huCx - 5.5, huCz + 4.5, 0.25, 1.02],
+    [46.0, 12.5, 0.14, 0.96],
+    [44.5, 32.0, 0.34, 0.94],
+    [48.5, -8.0, -0.18, 0.92],
+  ].map(([hx, hz, hang, sc]) => ({
+    x: hx,
+    y: Math.max(0.8, evalKauaiPoint(hx, hz).h - 0.1),
+    z: hz,
+    rotY: -hang,
+    scale: sc,
+  }));
   addRegionalHuts(group, trackMat, huts, 'hawaiian');
 
-  // Crimson-Blossomed 'Ohi'a Lehua Highland Trees & Cove Palms
+  // Crimson-Blossomed 'Ohi'a Lehua Highland Trees & Cove Palms (filtered by kauaiIsClear)
   const ohiaPts = [];
-  for (const [or, oang] of [
-    [21.0, -0.35],
-    [19.5, -0.65],
-    [20.5, 0.45],
-    [18.5, 0.85],
-    [21.0, 2.1],
-    [19.5, -2.2],
-  ]) {
+  for (let i = 0; i < 24; i += 1) {
+    const oang = -2.4 + (i / 23) * 4.8;
+    const or = 34.0 + (i % 3) * 5.5;
     const ox = or * Math.cos(oang);
     const oz = or * Math.sin(oang);
+    if (!kauaiIsClear(ox, oz)) continue;
     const oy = evalKauaiPoint(ox, oz).h;
-    if (oy > 4.0 && oy < 32.0) {
-      ohiaPts.push([ox, oy - 0.2, oz, 0.95, oang]);
+    if (oy > 4.5 && oy < 30.0) {
+      ohiaPts.push([ox, oy - 0.2, oz, 0.95 + (i % 3) * 0.08, oang]);
     }
   }
   addBroadleafTrees(group, trackMat, ohiaPts, {
@@ -215,11 +304,14 @@ function buildKauaiAssembly() {
   });
 
   const palmPts = [];
-  for (const ang of [-0.24, -0.14, 0.04, 0.16, 0.25]) {
-    const px = 30.8 * Math.cos(ang);
-    const pz = 30.8 * Math.sin(ang);
+  for (let i = 0; i < 22; i += 1) {
+    const ang = -0.52 + (i / 21) * 1.04;
+    const pr = 52.0 + (i % 2) * 3.5;
+    const px = pr * Math.cos(ang);
+    const pz = pr * Math.sin(ang);
+    if (!kauaiIsClear(px, pz)) continue;
     const py = evalKauaiPoint(px, pz).h;
-    if (py > 0.5 && py < 8.0) {
+    if (py > 0.8 && py < 9.0) {
       palmPts.push([px, py - 0.15, pz, -ang, 0.95, 0.2]);
     }
   }
@@ -231,62 +323,167 @@ function buildKauaiAssembly() {
 // ============================================================================
 // 2. O'AHU — Sweeping Ko'olau Pali Wall, Barrier Beach & Russet Miro Grove
 // ============================================================================
+// 2. O'AHU — Sweeping Ko'olau Pali Wall, Barrier Sandbar, Timber Village & Mokapu Knoll
+// ============================================================================
+function oahuCoastR(theta) {
+  const baySweep = 6.5 * Math.exp(-Math.pow((theta - 0.08) / 0.46, 2.0));
+  const mokapuProm = 14.0 * Math.exp(-Math.pow((theta + 0.41) / 0.28, 2.0));
+  const westHead = 8.5 * Math.exp(-Math.pow((theta - 0.92) / 0.36, 2.0));
+  return Math.max(
+    56.0,
+    66.5 - baySweep + mokapuProm + westHead + 4.2 * Math.sin(3.0 * theta + 0.4) + 2.4 * Math.cos(4.0 * theta)
+  );
+}
+
+function oahuReefR(theta) {
+  return (
+    oahuCoastR(theta) +
+    18.5 +
+    4.0 * Math.cos(2.0 * theta - 0.35) +
+    2.2 * Math.sin(5.0 * theta + 0.6)
+  );
+}
+
+// Grounded coastal village hut pads for Oahu's expanded 10-hut Windward Village
+const OAHU_HUT_SPECS = [
+  // Forester Malia's Miro Timber Village (port-central coastal plain)
+  [38.5, 28.5, 0.28, 1.04, true, 3.8],
+  [39.0, 36.5, 0.38, 0.96, false, 3.4],
+  [47.5, 34.0, 0.24, 0.94, false, 2.3],
+  [35.0, 19.5, 0.18, 0.98, false, 4.2],
+  [53.0, 31.0, 0.34, 0.9, false, 1.8],
+  // Elder Manu's Windward Fisher's Hamlet (starboard bay)
+  [42.0, -5.0, -0.1, 0.98, false, 3.1],
+  [38.0, -13.0, -0.2, 0.96, false, 3.6],
+  [52.5, -7.5, -0.14, 0.95, false, 2.0],
+  [40.5, -24.5, -0.28, 0.94, false, 3.4],
+  [56.0, -14.0, -0.18, 0.92, false, 1.9],
+];
+
 function evalOahuPoint(x, z) {
-  // Elongated windward bay & long curved Ko'olau Pali escarpment wall
-  const sx = x * 1.05;
-  const sz = z * 0.88;
-  const r = Math.hypot(sx, sz);
-  const theta = Math.atan2(sz, sx);
+  const r = Math.hypot(x, z);
+  const theta = Math.atan2(z, x);
+  const coastR = oahuCoastR(theta);
+  const outerSandbarR = oahuReefR(theta);
 
-  const baySweep = 4.8 * Math.exp(-Math.pow(theta / 0.58, 2.0));
-  const mokapuPeninsula = 5.5 * Math.exp(-Math.pow((theta - 0.72) / 0.22, 2.0));
-  const coastR = 37.5 - baySweep + mokapuPeninsula + 2.0 * Math.sin(4.0 * theta);
+  // Outer barrier channel pass strictly seaward of the dry beach (r > coastR - 2)
+  const passMask = arcMask(theta, -0.06, 0.14, 0.06) * smoothstep(58.0, 66.0, r);
 
-  const passMask = arcMask(theta, 0.0, 0.2, 0.08) * smoothstep(26.0, 36.0, r);
+  // Mokapu Seaward Headland Promontory jutting toward canon (60.0, -26.0) -> walkable (26.0, 60.0)
+  const mokapuDist = Math.hypot(x - 60.0, z + 26.0);
+  const mokapuBluff = gaussian2D(x, z, 60.0, -26.0, 14.5, 13.5, -0.25);
 
-  if (r > coastR) {
-    const outerSandbarR = 49.0;
+  if (r > coastR && mokapuBluff < 0.08) {
     if (r <= outerSandbarR) {
-      const floor = lerp(0.17, 0.23, smoothstep(coastR, outerSandbarR, r));
+      const floor = lerp(0.16, 0.24, smoothstep(coastR, outerSandbarR, r));
+      let h = lerp(floor, -2.2, passMask);
+      // Deepen immediate canoe mooring cove at walkable (-6, 68.5) -> canon (68.5, 6.0)
+      const moorCove = gaussian2D(x, z, 69.5, 6.0, 6.0, 6.0, 0.0);
+      if (moorCove > 0.05) {
+        h = lerp(h, -1.6, smoothstep(0.05, 0.5, moorCove));
+      }
       return {
-        h: lerp(floor, -2.3, passMask),
+        h,
         paliFlute: 0.0,
         miroZone: 0.0,
-        inBay: true,
+        inBay: h > 0.05,
       };
     }
-    const drop = smoothstep(outerSandbarR, 55.6, r);
+    const drop = smoothstep(outerSandbarR, outerSandbarR + 18.0, r);
+    const h = lerp(lerp(0.24, -2.2, passMask), -4.2, drop);
     return {
-      h: lerp(lerp(0.23, -2.3, passMask), -4.0, drop),
+      h,
       paliFlute: 0.0,
       miroZone: 0.0,
       inBay: false,
     };
   }
 
-  const u = r / coastR;
-  // Long curved Ko'olau Pali wall running N-S behind the wooded coastal plain (x ~ -9)
-  const paliAxisX = x + 9.5 - 0.018 * z * z;
-  const paliSpanZ = 1.0 - smoothstep(18.0, 29.0, Math.abs(z));
+  const u = clamp01(r / coastR);
+
+  // Towering curved Ko'olau Pali escarpment wall & peaks offset astern (x ~ -34) with NO center wedge cut!
+  const paliAxisX = x + 34.0 - 0.008 * z * z;
+  const paliSpanZ = 1.0 - smoothstep(32.0, 52.0, Math.abs(z));
   const paliAsym =
     paliAxisX > 0.0
-      ? Math.exp(-Math.pow(paliAxisX / 5.2, 1.65)) // Sheer fluted windward Pali cliff facing the bay!
-      : Math.exp(-Math.pow(paliAxisX / 15.5, 2.0)); // Gentle leeward slope behind
+      ? Math.exp(-Math.pow(paliAxisX / 10.5, 1.55)) // Sheer fluted windward Pali cliff facing the coastal plain
+      : Math.exp(-Math.pow(paliAxisX / 24.0, 2.0)); // Broad leeward slope astern
   const paliFlute =
-    (0.5 + 0.5 * Math.cos(z * 0.85)) *
-    smoothstep(10.0, 1.5, Math.abs(paliAxisX)) *
+    (0.5 + 0.5 * Math.cos(z * 0.42)) *
+    smoothstep(18.0, 2.5, Math.abs(paliAxisX)) *
     paliSpanZ;
-  const paliWall = (37.5 + 4.5 * paliFlute) * paliAsym * paliSpanZ;
+  // Two iconic Pali peaks (Konahuanui at z = 14, Lanihuli at z = -20)
+  const konahuanui = 20.0 * gaussian2D(x, z, -36.0, 14.0, 14.0, 15.0, 0.2);
+  const lanihuli = 18.0 * gaussian2D(x, z, -34.0, -20.0, 13.0, 15.0, -0.2);
+  const paliWall = (39.0 + 7.0 * paliFlute) * paliAsym * paliSpanZ + konahuanui + lanihuli;
 
-  // Wooded coastal plain & wide golden-cream barrier beach on x > 4
-  const foothills = 8.5 * smoothstep(1.0, 0.35, u);
+  // Broad, gently rolling coastal plain & forest foothills (whole across front, NO radial wedge)
+  const foothills = 8.2 * smoothstep(1.0, 0.28, u);
   let h = foothills + paliWall;
 
-  if (Math.abs(theta) < 0.65 && u > 0.76) {
-    h = lerp(h, 1.45 * (1.0 - smoothstep(0.76, 1.0, u)), 0.76);
+  // Smooth golden barrier beach shelf along the entire front bay (x ~ 38..62)
+  const beachMask = gaussian2D(x, z, 51.0, 4.0, 14.0, 32.0, 0.05);
+  if (beachMask > 0.03) {
+    const beachTarget = lerp(1.1, 4.2, smoothstep(63.0, 34.0, x));
+    h = lerp(h, beachTarget, smoothstep(0.03, 0.72, beachMask) * 0.9);
   }
 
-  const miroZone = clamp01(gaussian2D(x, z, 11.5, -6.5, 11.5, 13.5, 0.15));
+  // Mokapu Sea-Bluff Knoll for Observation Circle at walkable (26, 60) -> canon (60.0, -26.0), h=18.5m
+  h = Math.max(h, 18.5 * smoothstep(0.16, 0.84, mokapuBluff));
+
+  // Walkable single-pass curved ramp connecting Elder Manu's (18, 48) -> (26, 48) -> (35, 49) -> (30.0, 55.5) -> Mokapu Circle (26, 60)
+  const oahuTrailLegs = [
+    [48.0, -18.0, 48.0, -26.0, 2.8, 7.2],
+    [48.0, -26.0, 49.0, -35.0, 7.2, 12.8],
+    [49.0, -35.0, 55.5, -30.0, 12.8, 18.5],
+    [55.5, -30.0, 60.0, -26.0, 18.5, 18.5],
+  ];
+  let bestRampD = 999.0;
+  let bestRampH = h;
+  for (const [ax, az, bx, bz, h0, h1] of oahuTrailLegs) {
+    const seg = kauaiDistToSeg(x, z, ax, az, bx, bz);
+    if (seg.d < bestRampD) {
+      bestRampD = seg.d;
+      bestRampH = lerp(h0, h1, seg.t);
+    }
+  }
+  if (bestRampD < 11.5) {
+    h = lerp(h, bestRampH, 1.0 - smoothstep(5.8, 11.5, bestRampD));
+  }
+
+  // Grounded gentle level pads for all 10 extra huts before POI terrace locks
+  for (let i = 0; i < OAHU_HUT_SPECS.length; i += 1) {
+    const [hx, hz, , , , hh] = OAHU_HUT_SPECS[i];
+    const dh = Math.hypot(x - hx, z - hz);
+    if (dh < 5.2) {
+      h = lerp(h, hh, 1.0 - smoothstep(3.0, 5.2, dh));
+    }
+  }
+
+  // Flat terraces after ramp for Circle (26, 60), Elder Manu's Village (18, 48), Hut (-24, 44), & Spawn (-10, 58)
+  if (mokapuDist < 6.8) {
+    h = lerp(h, 18.5, 1.0 - smoothstep(5.6, 6.8, mokapuDist));
+  }
+  const dElder = Math.hypot(x - 48.0, z + 18.0);
+  if (dElder < 6.4) {
+    h = lerp(h, 2.8, 1.0 - smoothstep(4.4, 6.4, dElder));
+  }
+  const dHut = Math.hypot(x - 44.0, z - 24.0);
+  if (dHut < 9.5) {
+    h = lerp(h, 3.8, 1.0 - smoothstep(5.8, 9.5, dHut));
+  }
+  const dSpawn = Math.hypot(x - 58.0, z - 10.0);
+  if (dSpawn < 9.0) {
+    h = lerp(h, 1.35, 1.0 - smoothstep(5.5, 9.0, dSpawn));
+  }
+
+  // Canoe mooring cove clipping clean through beach margin
+  const moorCove = gaussian2D(x, z, 69.5, 6.0, 6.0, 6.0, 0.0);
+  if (moorCove > 0.08) {
+    h = lerp(h, -1.6, smoothstep(0.08, 0.55, moorCove));
+  }
+
+  const miroZone = clamp01(gaussian2D(x, z, 28.0, 22.0, 18.0, 20.0, 0.15));
   return { h, paliFlute, miroZone, inBay: false };
 }
 
@@ -304,12 +501,12 @@ function buildOahuAssembly() {
 
   const terrainGeo = buildPolarTerrainGeometry({
     evalPoint: evalOahuPoint,
-    maxRadius: 56.0,
-    nRings: 62,
-    nSegs: 98,
+    maxRadius: 108.0,
+    nRings: 112,
+    nSegs: 164,
     colorFn: (s, slope) => {
       if (s.h < 0.06) {
-        return mixRgb(colSandbarAqua, colDeepSea, clamp01(-s.h / 2.3));
+        return mixRgb(colSandbarAqua, colDeepSea, clamp01(-s.h / 2.4));
       }
       if (s.inBay || s.h < 0.27) return colSandbarAqua;
       if (s.h < 2.2 && slope < 0.75) {
@@ -317,7 +514,7 @@ function buildOahuAssembly() {
       }
       let rgb = mixRgb(colPaliGreen, colPaliRib, s.paliFlute * 0.7);
       rgb = mixRgb(rgb, colMiroForest, s.miroZone * 0.65);
-      rgb = mixRgb(rgb, colCliffGrey, smoothstep(1.1, 2.0, slope) * 0.72);
+      rgb = mixRgb(rgb, colCliffGrey, smoothstep(1.05, 1.95, slope) * 0.76);
       return rgb;
     },
   });
@@ -335,14 +532,15 @@ function buildOahuAssembly() {
   terrainMesh.receiveShadow = true;
   group.add(terrainMesh);
 
+  // Contour-matched organic turquoise Kaneohe sandbar lagoon water plane (no circular CircleGeometry!)
   const bayWaterMat = trackMat(
     new THREE.MeshBasicMaterial({ color: 0x30e5cf, depthWrite: false }),
-    0.38
+    0.36
   );
-  const bayDisc = new THREE.Mesh(new THREE.CircleGeometry(48.2, 50), bayWaterMat);
-  bayDisc.rotation.x = -Math.PI * 0.5;
-  bayDisc.position.y = 0.255;
-  group.add(bayDisc);
+  const bayGeo = createOrganicLagoonGeometry(oahuReefR, 120);
+  const bayMesh = new THREE.Mesh(bayGeo, bayWaterMat);
+  bayMesh.position.y = 0.255;
+  group.add(bayMesh);
 
   const reefMat = trackMat(
     new THREE.MeshStandardMaterial({ color: 0xe8dab4, roughness: 0.88 })
@@ -351,23 +549,79 @@ function buildOahuAssembly() {
     new THREE.MeshBasicMaterial({ color: 0xf2fbff, depthWrite: false }),
     0.7
   );
-  addBarrierReefArc(group, reefMat, foamMat, 48.5, 0.26, Math.PI * 2.0 - 0.26, 40);
+  addOrganicBarrierReefArc(group, reefMat, foamMat, oahuReefR, 0.14, Math.PI * 2.0 - 0.26, 84);
 
-  // Dense Red-Heartwood Miro & Koa Timber Forest Grove!
+  // Twin misty Ko'olau Pali windward waterfalls (hugging the Pali cliff at x ~ -26..-30)
+  addWaterfallCascade(group, trackMat, {
+    x: -28.0,
+    y: 22.0,
+    z: 14.0,
+    width: 1.8,
+    height: 30.0,
+    rotY: 1.45,
+    tiltX: -0.38,
+  });
+  addWaterfallCascade(group, trackMat, {
+    x: -26.0,
+    y: 20.0,
+    z: -20.0,
+    width: 1.7,
+    height: 28.0,
+    rotY: 1.72,
+    tiltX: -0.38,
+  });
+
+  // Canonical exclusion zones (rotY = -PI/2 => cx = wz, cz = -wx)
+  const toCanon = (wx, wz) => [wz, -wx];
+  const [spCx, spCz] = toCanon(-10.0, 58.0);
+  const [laCx, laCz] = toCanon(-5.0, 52.0);
+  const [huCx, huCz] = toCanon(-24.0, 44.0);
+  const [elCx, elCz] = toCanon(18.0, 48.0);
+  const [ciCx, ciCz] = toCanon(26.0, 60.0);
+  const oahuClearZones = [
+    { x: spCx, z: spCz, r: 10.5 },
+    { x: laCx, z: laCz, r: 8.0 },
+    { x: huCx, z: huCz, r: 9.0 },
+    { x: elCx, z: elCz, r: 9.0 },
+    { x: ciCx, z: ciCz, r: 12.5 },
+  ];
+  const oahuIsClear = (px, pz) => {
+    for (const bz of oahuClearZones) {
+      if (Math.hypot(px - bz.x, pz - bz.z) < bz.r) return false;
+    }
+    for (const [hx, hz] of OAHU_HUT_SPECS) {
+      if (Math.hypot(px - hx, pz - hz) < 5.5) return false;
+    }
+    for (const [ax, az, bx, bz] of [
+      [48.0, -18.0, 48.0, -26.0],
+      [48.0, -26.0, 50.0, -34.0],
+      [50.0, -34.0, 55.6, -30.4],
+      [55.6, -30.4, 60.0, -26.0],
+    ]) {
+      if (kauaiDistToSeg(px, pz, ax, az, bx, bz).d < 5.5) return false;
+    }
+    return true;
+  };
+
+  // Dense Red-Heartwood Miro & Koa Timber Forest Grove (filtered through oahuIsClear)
   const miroPts = [];
   for (const [mx, mz, sc] of [
-    [12.0, -4.5, 1.15],
-    [9.5, -8.2, 1.22],
-    [14.5, -9.5, 1.08],
-    [7.8, -3.5, 1.18],
-    [11.0, -12.5, 1.05],
-    [15.2, -14.0, 0.98],
-    [8.5, 5.5, 1.12],
-    [12.5, 8.8, 1.06],
-    [6.5, 10.5, 1.15],
+    [22.0, 34.0, 1.15],
+    [16.0, 26.0, 1.22],
+    [28.0, 16.0, 1.1],
+    [18.0, 10.0, 1.18],
+    [24.0, -2.0, 1.08],
+    [16.0, -14.0, 1.12],
+    [26.0, -24.0, 1.06],
+    [34.0, 32.0, 1.04],
+    [32.0, 10.0, 1.1],
+    [30.0, -8.0, 1.08],
+    [14.0, 38.0, 1.14],
+    [12.0, -28.0, 1.12],
   ]) {
+    if (!oahuIsClear(mx, mz)) continue;
     const my = evalOahuPoint(mx, mz).h;
-    if (my > 1.5) {
+    if (my > 1.8 && my < 24.0) {
       miroPts.push([mx, my - 0.2, mz, sc, mx * 0.4]);
     }
   }
@@ -378,21 +632,21 @@ function buildOahuAssembly() {
     blossomHex: 0xb86b2b, // Russet seedpods/heartwood hue
   });
 
-  // Stacked Seasoned Red Miro Drum-Wood Logs on Beach Skids + Elder Manu's Warm Hearth!
+  // Stacked Seasoned Red Miro Drum-Wood Logs on Beach Skids near Forester Malia's Timber Store
   const miroLogMat = trackMat(
     new THREE.MeshStandardMaterial({ color: 0x8a3820, roughness: 0.78 })
   );
   const logStack = new THREE.Group();
-  const lx = 24.5;
-  const lz = -3.8;
-  logStack.position.set(lx, Math.max(0.9, evalOahuPoint(lx, lz).h), lz);
+  const lx = 41.0;
+  const lz = 17.5;
+  logStack.position.set(lx, Math.max(0.9, evalOahuPoint(lx, lz).h - 0.08), lz);
   logStack.rotation.y = 0.25;
-  const logGeo = new THREE.CylinderGeometry(0.24, 0.26, 3.2, 7);
+  const logGeo = new THREE.CylinderGeometry(0.28, 0.3, 3.6, 7);
   logGeo.rotateZ(Math.PI * 0.5);
   for (const [ly, lzOff] of [
-    [0.24, -0.28],
-    [0.24, 0.28],
-    [0.64, 0.0],
+    [0.28, -0.32],
+    [0.28, 0.32],
+    [0.72, 0.0],
   ]) {
     const mLog = new THREE.Mesh(logGeo, miroLogMat);
     mLog.position.set(0, ly, lzOff);
@@ -400,99 +654,135 @@ function buildOahuAssembly() {
   }
   group.add(logStack);
 
-  // Elder Manu's Glowing Beachside Fisher's Hearth
-  const hx = 26.8;
-  const hz = 2.4;
+  // Elder Manu's Glowing Beachside Fisher's Hearth (clear of elder arrival (18, 48) and ramp)
+  const hx = 43.0;
+  const hz = -21.5;
   const hy = Math.max(0.75, evalOahuPoint(hx, hz).h);
-  const oahuHearth = createVillageHearthGroup(trackMat, { scale: 1.25 });
-  oahuHearth.group.position.set(hx, hy + 0.04, hz);
+  const oahuHearth = createVillageHearthGroup(trackMat, { scale: 1.28 });
+  oahuHearth.group.position.set(hx, hy - 0.05, hz);
   group.add(oahuHearth.group);
 
-  const huts = [
-    [23.5, 0.08, 1.02],
-    [22.0, 0.24, 0.96],
-    [24.2, 0.38, 0.92],
-    [21.5, -0.06, 0.94],
-  ].map(([hr, hang, sc]) => {
-    const px = hr * Math.cos(hang);
-    const pz = hr * Math.sin(hang);
-    return {
-      x: px,
-      y: Math.max(0.8, evalOahuPoint(px, pz).h),
-      z: pz,
-      rotY: -hang,
-      scale: sc,
-    };
-  });
+  // Extra Hawaiian Pili-Grass Hale Village (10 grounded huts spanning Timber Store & Fisher's Bay)
+  const huts = OAHU_HUT_SPECS.map(([px, pz, hang, sc, longHouse]) => ({
+    x: px,
+    y: Math.max(0.8, evalOahuPoint(px, pz).h - 0.12),
+    z: pz,
+    rotY: -hang,
+    scale: sc,
+    longHouse,
+  }));
   addRegionalHuts(group, trackMat, huts, 'hawaiian');
 
   addOutriggerCanoe(group, trackMat, {
-    x: 29.8,
-    y: Math.max(0.45, evalOahuPoint(29.8, 0.5).h + 0.15),
-    z: 0.5,
-    rotY: 0.15,
+    x: 61.5,
+    y: Math.max(0.45, evalOahuPoint(61.5, -3.5).h + 0.12),
+    z: -3.5,
+    rotY: 0.18,
   });
 
+  // Coastal Coconut Palms across the barrier beaches (strictly filtered by oahuIsClear)
   const palmPts = [];
-  for (let i = -5; i <= 5; i += 1) {
-    const ang = i * 0.12;
-    const px = 28.2 * Math.cos(ang);
-    const pz = 28.2 * Math.sin(ang);
+  for (let i = 0; i < 42; i += 1) {
+    const ang = -1.25 + (i / 41) * 2.5;
+    const pr = oahuCoastR(ang) - 6.5 - (i % 3) * 2.4;
+    const px = pr * Math.cos(ang);
+    const pz = pr * Math.sin(ang);
+    if (!oahuIsClear(px, pz)) continue;
     const py = evalOahuPoint(px, pz).h;
-    if (py > 0.5 && py < 6.0) {
-      palmPts.push([px, py - 0.15, pz, -ang, 0.94, 0.22]);
+    if (py > 0.7 && py < 7.0) {
+      palmPts.push([px, py - 0.15, pz, -ang, 0.94 + (i % 3) * 0.08, 0.22]);
     }
   }
   addCoconutGroves(group, trackMat, palmPts);
 
-  return { group, materials, sinkDepthM: 53.0 };
+  return { group, materials, sinkDepthM: 78.0 };
 }
 
 // ============================================================================
-// 3. KIRITIMATI — Broad Claw Land-Atoll, Interior Star-Mirror Ponds & Shrine
+// 3. KIRITIMATI — Elongated Claw Land-Atoll, Green Mineral Ponds & Star Shrine
 // ============================================================================
+// Organic mineral ponds (canon [cx, cz, baseRadius, phase]): emerald-green hypersaline lakes!
 const KIRITIMATI_MIRROR_PONDS = [
-  [-12.5, -6.5, 6.2], // Sacred Star-Mirror Pond beside Keeper Akura's Shrine!
-  [-18.5, 9.5, 5.4],
-  [-4.5, 16.5, 4.8],
-  [-22.0, -14.0, 4.5],
-  [4.5, -18.5, 4.6],
+  [36.0, -4.0, 6.2, 0.3], // Central green mineral lake between village & shrine
+  [24.0, 26.0, 6.8, 1.4], // Port mineral lake near drying racks
+  [12.0, -34.0, 6.4, 2.2], // Lagoon-side mineral lake near Observation Circle
+  [-18.0, 18.0, 7.0, 0.9], // Interior northern emerald pond
+  [-26.0, -16.0, 6.5, 3.1], // Interior southern mineral basin
+  [-4.0, 42.0, 5.6, 1.8], // Outer port salt-rimmed green pool
 ];
+
+function kiritimatiOuterR(theta) {
+  // Asymmetric claw / crooked hammerhead land-atoll (~20% larger footprint, cove-indented front at theta ~ 0)
+  const tw = theta + 0.24 * Math.sin(2.0 * theta - 0.45);
+  return (
+    63.5 -
+    9.5 * Math.cos(2.0 * tw - 0.12) +
+    7.6 * Math.sin(3.0 * tw - 0.4) +
+    4.2 * Math.cos(4.0 * tw + 0.9) +
+    2.2 * Math.sin(5.0 * tw + 0.2)
+  );
+}
+
+function kiritimatiReefEdgeR(theta) {
+  return (
+    kiritimatiOuterR(theta) +
+    7.2 +
+    1.8 * Math.cos(4.0 * theta - 0.3) +
+    1.1 * Math.sin(6.0 * theta)
+  );
+}
+
+function kiritimatiPondRadius(ang, baseR, phase) {
+  return (
+    baseR *
+    (1.0 +
+      0.22 * Math.cos(2.0 * ang + phase) +
+      0.13 * Math.sin(3.0 * ang - phase * 0.7) +
+      0.07 * Math.cos(4.0 * ang + 0.5))
+  );
+}
 
 function evalKiritimatiPoint(x, z) {
   const r = Math.hypot(x, z);
   const theta = Math.atan2(z, x);
 
-  // Broad C-shaped / claw land-atoll enclosing a western lagoon bay on x > 0 (theta ~ 0)
-  const outerR =
-    46.5 + 2.4 * Math.cos(2.0 * theta + 0.4) + 1.5 * Math.sin(3.0 * theta);
-  const passMask = arcMask(theta, 0.0, 0.28, 0.09);
+  const outerR = kiritimatiOuterR(theta);
+  const reefEdgeR = kiritimatiReefEdgeR(theta);
+  // Main deep lagoon channel opening on the starboard flank (theta ~ -0.92), keeping front land continuous!
+  const passMask = arcMask(theta, -0.92, 0.24, 0.08);
 
-  // Western lagoon basin centered at (14, 0) opening out through theta = 0!
-  const mainLagoonMask = gaussian2D(x, z, 14.5, 0.0, 19.5, 16.5, 0.0);
+  // Asymmetric crooked interior lagoon basin tucked inside the eastern/starboard bend
+  const mainLagoonMask = gaussian2D(x, z, 2.0, -28.0, 22.0, 17.5, -0.45);
 
   if (r > outerR) {
-    const reefEdgeR = outerR + 3.8;
     if (r <= reefEdgeR) {
-      const h = lerp(0.22, -2.5, passMask);
-      return { h, zone: h < 0.05 ? 'deep_sea' : 'papa_reef', pondRim: 0.0 };
+      let h = lerp(0.22, -2.5, passMask);
+      const moorCove = gaussian2D(x, z, 68.5, 4.0, 7.2, 5.8, 0.0);
+      if (moorCove > 0.05) {
+        h = lerp(h, -1.5, smoothstep(0.05, 0.45, moorCove));
+      }
+      return { h, zone: h < 0.05 ? 'deep_sea' : 'papa_reef', pondRim: 0.0, pondDepth: 0.0 };
     }
-    const drop = smoothstep(reefEdgeR, 55.8, r);
-    const h = lerp(lerp(0.23, -2.5, passMask), -4.1, drop);
-    return { h, zone: h < 0.05 ? 'deep_sea' : 'papa_reef', pondRim: 0.0 };
+    const drop = smoothstep(reefEdgeR, reefEdgeR + 15.0, r);
+    let h = lerp(lerp(0.23, -2.5, passMask), -4.2, drop);
+    const moorCove = gaussian2D(x, z, 68.5, 4.0, 7.2, 5.8, 0.0);
+    if (moorCove > 0.05) {
+      h = Math.min(h, lerp(0.1, -1.5, smoothstep(0.05, 0.45, moorCove)));
+    }
+    return { h, zone: h < 0.05 ? 'deep_sea' : 'papa_reef', pondRim: 0.0, pondDepth: 0.0 };
   }
 
   // Broad flat coral-sand & gypsum land table (~2.8m elevation)
-  const edgeSlope = smoothstep(outerR, outerR - 5.5, r);
-  let h = 0.22 + 2.85 * Math.pow(edgeSlope, 0.78);
+  const edgeSlope = smoothstep(outerR, outerR - 9.0, r);
+  let h = 0.24 + 2.65 * Math.pow(edgeSlope, 0.75);
   let zone = h < 1.35 ? 'white_sand' : 'atoll_land';
 
-  // Carve main western turquoise lagoon & coral pass
-  if (mainLagoonMask > 0.24 || (passMask > 0.1 && x > 6.0)) {
+  // Carve asymmetric turquoise lagoon bay opening to the starboard pass
+  if (mainLagoonMask > 0.24 || (passMask > 0.1 && r > 18.0)) {
     const lagBlend = clamp01(
-      Math.max(smoothstep(0.24, 0.52, mainLagoonMask), passMask * smoothstep(6.0, 22.0, x))
+      Math.max(smoothstep(0.24, 0.54, mainLagoonMask), passMask * smoothstep(18.0, 38.0, r))
     );
-    const lagTarget = lerp(0.18, -2.4, passMask * smoothstep(22.0, 36.0, r));
+    const lagTarget = lerp(0.18, -2.5, passMask * smoothstep(28.0, 52.0, r));
     h = lerp(h, lagTarget, lagBlend);
     if (lagBlend > 0.55) {
       zone = h < 0.05 ? 'deep_sea' : 'lagoon';
@@ -501,21 +791,60 @@ function evalKiritimatiPoint(x, z) {
     }
   }
 
-  // Carve 5 circular hypersaline Star-Mirror Ponds with pale rose-gypsum salt rims!
+  // Carve 6 organic hypersaline green mineral lakes/ponds with pale rose-gypsum salt rims!
   let pondRim = 0.0;
+  let pondDepth = 0.0;
   for (let i = 0; i < KIRITIMATI_MIRROR_PONDS.length; i += 1) {
-    const [px, pz, pr] = KIRITIMATI_MIRROR_PONDS[i];
-    const d = Math.hypot(x - px, z - pz);
-    if (d < pr + 2.4 && zone !== 'lagoon' && zone !== 'deep_sea') {
-      const inPond = 1.0 - smoothstep(pr - 1.1, pr + 0.4, d);
-      const rim = Math.exp(-Math.pow((d - (pr + 0.6)) / 1.35, 2.0));
+    const [px, pz, pr, phase] = KIRITIMATI_MIRROR_PONDS[i];
+    const dx = x - px;
+    const dz = z - pz;
+    const d = Math.hypot(dx, dz);
+    const prVar = kiritimatiPondRadius(Math.atan2(dz, dx), pr, phase);
+    if (d < prVar + 3.2 && zone !== 'lagoon' && zone !== 'deep_sea') {
+      const inPond = 1.0 - smoothstep(prVar - 1.5, prVar + 0.5, d);
+      const rim = Math.exp(-Math.pow((d - (prVar + 0.8)) / 1.5, 2.0));
       pondRim = Math.max(pondRim, rim);
-      h = lerp(h, 0.21, inPond);
-      if (inPond > 0.55) zone = 'mirror_pond';
+      pondDepth = Math.max(pondDepth, inPond);
+      // Keep pond bed at ~0.34m (above main lagoon water sheet 0.25m) so custom green pond surface shines!
+      h = lerp(h, 0.34, inPond);
+      if (inPond > 0.42) zone = 'mirror_pond';
     }
   }
 
-  return { h, zone, pondRim };
+  // Flat Observation Circle terrace on open salt-pan peninsula at walkable (26, 28) -> canon (28.0, -26.0)
+  const dCircle = Math.hypot(x - 28.0, z + 26.0);
+  if (dCircle < 10.5) {
+    h = lerp(h, 2.6, 1.0 - smoothstep(6.2, 10.5, dCircle));
+    if (dCircle < 8.5) zone = 'white_sand';
+  }
+
+  // Flat grounded terrace for Keeper Akura's 12-Stone Shrine & Tridacna Altar at walkable (18, 44)
+  const dElder = Math.hypot(x - 43.0, z + 19.0);
+  if (dElder < 11.5) {
+    h = lerp(h, 2.7, 1.0 - smoothstep(7.5, 11.5, dElder));
+    if (dElder < 8.5) zone = 'white_sand';
+  }
+
+  // Flat grounded terrace for Grand-Voyage Drying Racks at walkable (-26, 38) -> canon (38.0, 26.0)
+  const dHut = Math.hypot(x - 38.0, z - 26.0);
+  if (dHut < 9.0) {
+    h = lerp(h, 2.5, 1.0 - smoothstep(5.5, 9.0, dHut));
+    if (dHut < 7.0) zone = 'white_sand';
+  }
+
+  // Gentle arrival & spawn beach at walkable (-8, 54) -> canon (54.0, 8.0) and sheltered mooring cove (-4, 65)
+  const dSpawn = Math.hypot(x - 54.0, z - 8.0);
+  if (dSpawn < 10.0) {
+    h = lerp(h, 1.35, 1.0 - smoothstep(6.0, 10.0, dSpawn));
+    if (dSpawn < 8.0) zone = 'white_sand';
+  }
+  const moorCove = gaussian2D(x, z, 68.5, 4.0, 7.2, 5.8, 0.0);
+  if (moorCove > 0.08) {
+    h = lerp(h, -1.5, smoothstep(0.08, 0.45, moorCove));
+    if (h < 0.05) zone = 'deep_sea';
+  }
+
+  return { h, zone, pondRim, pondDepth };
 }
 
 function buildKiritimatiAssembly() {
@@ -523,8 +852,9 @@ function buildKiritimatiAssembly() {
   const { materials, trackMat } = createMaterialTracker();
 
   const colDeepSea = [0.04, 0.25, 0.44];
-  const colLagoon = [0.14, 0.8, 0.77];
-  const colMirrorPond = [0.18, 0.64, 0.78];
+  const colLagoon = [0.14, 0.78, 0.75];
+  const colMirrorPondDeep = [0.08, 0.42, 0.24]; // Rich Kiritimati emerald-green mineral lake center
+  const colMirrorPondRim = [0.24, 0.62, 0.31]; // Olive-green algae/brine shelf around ponds
   const colGypsumRose = [0.94, 0.8, 0.78]; // Rose-gypsum salt flat rims!
   const colSaltWhite = [0.96, 0.94, 0.88];
   const colRenScrub = [0.34, 0.49, 0.29]; // Silvery-olive dry equatorial atoll scrub
@@ -532,20 +862,22 @@ function buildKiritimatiAssembly() {
 
   const terrainGeo = buildPolarTerrainGeometry({
     evalPoint: evalKiritimatiPoint,
-    maxRadius: 56.0,
-    nRings: 66,
-    nSegs: 112,
+    maxRadius: 104.0,
+    nRings: 92,
+    nSegs: 140,
     colorFn: (s) => {
       if (s.zone === 'deep_sea' || s.h < 0.06) {
         return mixRgb(colLagoon, colDeepSea, clamp01(-s.h / 2.4));
       }
       if (s.zone === 'lagoon') return colLagoon;
-      if (s.zone === 'mirror_pond') return colMirrorPond;
+      if (s.zone === 'mirror_pond') {
+        return mixRgb(colMirrorPondRim, colMirrorPondDeep, smoothstep(0.42, 0.9, s.pondDepth));
+      }
       if (s.zone === 'papa_reef') return colPapaCoral;
       if (s.zone === 'white_sand') {
-        return mixRgb(colSaltWhite, colGypsumRose, s.pondRim * 0.7);
+        return mixRgb(colSaltWhite, colGypsumRose, s.pondRim * 0.75);
       }
-      let rgb = mixRgb(colSaltWhite, colRenScrub, smoothstep(1.4, 2.5, s.h) * 0.82);
+      let rgb = mixRgb(colSaltWhite, colRenScrub, smoothstep(1.35, 2.45, s.h) * 0.82);
       rgb = mixRgb(rgb, colGypsumRose, s.pondRim * 0.85);
       return rgb;
     },
@@ -564,16 +896,33 @@ function buildKiritimatiAssembly() {
   terrainMesh.receiveShadow = true;
   group.add(terrainMesh);
 
-  // Glassy Reflective Star-Mirror Lagoon & Pond Shimmer Sheet
+  // Contour-matched outer turquoise lagoon sheet sitting below the green interior ponds (y=0.25m < pond 0.34m)
   const mirrorMat = trackMat(
-    new THREE.MeshBasicMaterial({ color: 0x3ce8e4, depthWrite: false }),
-    0.38
+    new THREE.MeshBasicMaterial({ color: 0x32ddd6, depthWrite: false }),
+    0.34
   );
-  const mirrorDisc = new THREE.Mesh(new THREE.CircleGeometry(43.5, 56), mirrorMat);
-  mirrorDisc.rotation.x = -Math.PI * 0.5;
-  mirrorDisc.position.y = 0.255;
-  group.add(mirrorDisc);
+  const lagoonContourGeo = createOrganicLagoonGeometry((t) => kiritimatiOuterR(t) * 0.88, 120);
+  const lagoonSheet = new THREE.Mesh(lagoonContourGeo, mirrorMat);
+  lagoonSheet.position.y = 0.25;
+  group.add(lagoonSheet);
 
+  // Dedicated organic emerald-jade water surfaces filling the 6 interior hypersaline Kiritimati lakes!
+  const greenPondMat = trackMat(
+    new THREE.MeshBasicMaterial({ color: 0x2ea65d, depthWrite: false }),
+    0.58
+  );
+  for (let i = 0; i < KIRITIMATI_MIRROR_PONDS.length; i += 1) {
+    const [px, pz, pr, phase] = KIRITIMATI_MIRROR_PONDS[i];
+    const pondGeo = createOrganicLagoonGeometry(
+      (ang) => kiritimatiPondRadius(ang, pr * 0.92, phase),
+      32
+    );
+    const pondWater = new THREE.Mesh(pondGeo, greenPondMat);
+    pondWater.position.set(px, 0.44, pz);
+    group.add(pondWater);
+  }
+
+  // Contour-matched organic outer barrier reef & breaking foam leaving starboard lagoon pass (-0.92) open!
   const reefMat = trackMat(
     new THREE.MeshStandardMaterial({ color: 0xe8ddc2, roughness: 0.88 })
   );
@@ -581,80 +930,104 @@ function buildKiritimatiAssembly() {
     new THREE.MeshBasicMaterial({ color: 0xf4fcff, depthWrite: false }),
     0.75
   );
-  addBarrierReefArc(group, reefMat, foamMat, 49.2, 0.34, Math.PI * 2.0 - 0.34, 46);
+  addOrganicBarrierReefArc(group, reefMat, foamMat, kiritimatiReefEdgeR, -0.62, Math.PI * 2.0 - 1.22, 84);
 
-  // Keeper Akura's 12-Stone Star-Mirror Shrine + Giant Fluted Tridacna Clam Altar!
-  const sx = -4.2;
-  const sz = -7.8;
-  const sy = Math.max(1.8, evalKiritimatiPoint(sx, sz).h);
+  // Canonical exclusion zones (rotY = -PI/2 => cx = wz, cz = -wx)
+  const toCanon = (wx, wz) => [wz, -wx];
+  const [spCx, spCz] = toCanon(-8.0, 54.0);
+  const [laCx, laCz] = toCanon(-4.0, 48.0);
+  const [huCx, huCz] = toCanon(-26.0, 38.0);
+  const [elCx, elCz] = toCanon(18.0, 44.0);
+  const [ciCx, ciCz] = toCanon(26.0, 28.0);
+  const kiritClearZones = [
+    { x: spCx, z: spCz, r: 10.5 },
+    { x: laCx, z: laCz, r: 8.0 },
+    { x: huCx, z: huCz, r: 10.5 },
+    { x: elCx, z: elCz, r: 11.5 },
+    { x: ciCx, z: ciCz, r: 16.5 },
+  ];
+  const kiritIsClear = (px, pz) => {
+    for (const bz of kiritClearZones) {
+      if (Math.hypot(px - bz.x, pz - bz.z) < bz.r) return false;
+    }
+    if (evalKiritimatiPoint(px, pz).zone === 'mirror_pond') return false;
+    return true;
+  };
+
+  // Keeper Akura's 12-Stone Star-Mirror Shrine + Giant Fluted Tridacna Clam Altar grounded behind elder (18, 44)!
+  const shrineCx = 42.5;
+  const shrineCz = -17.5;
   addStarStoneCircle(group, trackMat, {
-    x: sx,
-    y: sy,
-    z: sz,
+    x: shrineCx,
+    y: evalKiritimatiPoint(shrineCx, shrineCz).h - 0.08,
+    z: shrineCz,
     radius: 3.4,
     stoneHex: 0xf0ebe0,
     withBraziers: true,
   });
 
-  // Giant Fluted White Tridacna Clam-Shell Sanctuary Altar overlooking the Lagoon
+  // Giant Fluted White Tridacna Clam-Shell Sanctuary Altar beside the Shrine
+  const altarCx = 44.5;
+  const altarCz = -21.5;
   const clamAltar = createSculptedTridacnaAltarGroup(trackMat);
   clamAltar.group.position.set(
-    1.5,
-    Math.max(1.2, evalKiritimatiPoint(1.5, -10.5).h),
-    -10.5
+    altarCx,
+    Math.max(1.2, evalKiritimatiPoint(altarCx, altarCz).h - 0.08),
+    altarCz
   );
-  clamAltar.group.rotation.y = 0.45;
+  clamAltar.group.rotation.y = 0.55;
   group.add(clamAltar.group);
 
-  // Grand Maneaba Pavilion & Coral-Pass Atoll Huts
+  // Grand Maneaba Pavilion & Coral-Pass Atoll Huts (clear of spawns, POIs & ponds)
   const huts = [
-    [22.0 * Math.cos(-0.68), -0.68, 1.15, true], // Grand Maneaba meeting pavilion
-    [26.5 * Math.cos(-0.54), -0.54, 0.95, false],
-    [28.5 * Math.cos(-0.44), -0.44, 0.92, false],
-    [26.0 * Math.cos(0.56), 0.56, 0.95, false],
-    [28.5 * Math.cos(0.45), 0.45, 0.9, false],
-  ].map(([_unused, hang, sc, longHouse], idx) => {
-    const rad = idx === 0 ? 22.0 : 28.0 + (idx % 2) * 2.5;
-    const hx = rad * Math.cos(hang);
-    const hz = rad * Math.sin(hang);
-    return {
-      x: hx,
-      y: Math.max(0.9, evalKiritimatiPoint(hx, hz).h),
-      z: hz,
-      rotY: -hang + Math.PI,
-      scale: sc,
-      longHouse,
-    };
-  });
+    [huCx - 5.5, huCz + 4.5, -0.42, 1.16, true], // Grand Maneaba behind drying racks (-26, 38)
+    [42.0, 36.0, -0.32, 0.96, false],
+    [49.0, 32.0, -0.24, 0.92, false],
+    [28.0, 44.0, -0.58, 0.95, false],
+    [52.0, -24.0, 0.36, 0.94, false],
+  ].map(([hx, hz, hang, sc, longHouse]) => ({
+    x: hx,
+    y: Math.max(0.9, evalKiritimatiPoint(hx, hz).h - 0.1),
+    z: hz,
+    rotY: -hang + Math.PI,
+    scale: sc,
+    longHouse,
+  }));
   addRegionalHuts(group, trackMat, huts, 'atoll');
 
+  // Lagoon Timber Pier & Outrigger Canoe overlooking the starboard lagoon (clear of circle (28, -26))
   addTimberPier(group, trackMat, {
-    x: 25.0,
+    x: 13.0,
     y: 0.7,
-    z: -11.2,
-    rotY: Math.PI * 0.48,
-    length: 7.4,
+    z: -41.0,
+    rotY: 0.45,
+    length: 8.6,
   });
-
   addOutriggerCanoe(group, trackMat, {
-    x: 22.5,
+    x: 9.0,
     y: 0.32,
-    z: -8.2,
-    rotY: 0.3,
+    z: -45.5,
+    rotY: 0.48,
   });
 
-  // Silvery-Olive Ren Scrub & Equatorial Coconut Groves
+  // Silvery-Olive Ren Scrub & Equatorial Coconut Groves (filtered by kiritIsClear)
   const palmPts = [];
   const scrubPts = [];
-  for (let i = 0; i < 34; i += 1) {
-    const ang = 0.45 + (i / 34) * (Math.PI * 2.0 - 0.9);
-    const pr = 34.5 + (i % 3) * 3.2;
+  for (let i = 0; i < 64; i += 1) {
+    const ang = (i / 64) * Math.PI * 2.0;
+    const pr = kiritimatiOuterR(ang) - 9.5 - (i % 3) * 3.0;
     const px = pr * Math.cos(ang);
     const pz = pr * Math.sin(ang);
-    const py = evalKiritimatiPoint(px, pz).h;
-    if (py > 1.8) {
-      palmPts.push([px, py - 0.16, pz, -ang, 0.94, 0.22]);
-      scrubPts.push([px * 0.92, py - 0.12, pz * 0.92, 1.35, 0.62, 1.2, -ang]);
+    if (!kiritIsClear(px, pz)) continue;
+    const pt = evalKiritimatiPoint(px, pz);
+    if (pt.h > 1.75 && pt.zone === 'atoll_land') {
+      palmPts.push([px, pt.h - 0.16, pz, -ang, 0.94, 0.22]);
+      if (i % 2 === 0 && kiritIsClear(px * 0.94, pz * 0.94)) {
+        const spt = evalKiritimatiPoint(px * 0.94, pz * 0.94);
+        if (spt.h > 1.4 && spt.zone !== 'mirror_pond') {
+          scrubPts.push([px * 0.94, spt.h - 0.12, pz * 0.94, 1.35, 0.62, 1.2, -ang]);
+        }
+      }
     }
   }
   addCoconutGroves(group, trackMat, palmPts);
@@ -663,7 +1036,7 @@ function buildKiritimatiAssembly() {
     hexB: 0x627e50,
   });
 
-  return { group, materials, sinkDepthM: 12.5 };
+  return { group, materials, sinkDepthM: 13.0 };
 }
 
 // ============================================================================

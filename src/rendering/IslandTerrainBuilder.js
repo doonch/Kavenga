@@ -2068,9 +2068,9 @@ const ISLAND_SHORE_RADIUS_M = Object.freeze({
   hiva_oa: 64.0,
   fatu_hiva: 63.0,
   mangareva: 65.0,
-  kauai: 35.5,
-  oahu: 34.5,
-  kiritimati: 36.5,
+  kauai: 66.5,
+  oahu: 65.0,
+  kiritimati: 61.5,
   hawaii: 74.5,
   rapa_nui: 55.0,
 });
