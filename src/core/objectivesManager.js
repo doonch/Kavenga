@@ -322,6 +322,50 @@ export function getActiveObjectivesForDisplay(gameState) {
     });
   }
 
+  // Secret Rapa Nui relic delivery objective (only active while Carved Rei Miro & Obsidian Mata'a is aboard)
+  const q = gameState.completedQuests || {};
+  if (gameState.hasCargoItem?.('sacred_rei_miro_relic')) {
+    const needsRongo = !q.mangareva_rei_miro_blessing;
+    const needsCouncil = !q.hawaii_rei_miro_tribute;
+    if (needsRongo || needsCouncil) {
+      const targetId =
+        curIslandId === 'hawaii' && needsCouncil
+          ? 'hawaii'
+          : needsRongo
+            ? 'mangareva'
+            : 'hawaii';
+      const targetIsl = ISLANDS[targetId];
+      const isHere =
+        (curIslandId === 'mangareva' && needsRongo) ||
+        (curIslandId === 'hawaii' && needsCouncil);
+      items.push({
+        id: 'quest_rei_miro_presentation',
+        kind: 'quest',
+        glyph: '🗿',
+        title:
+          curIslandId === 'hawaii' && needsCouncil
+            ? "Present the Carved Rei Miro & Obsidian Mata'a to the Ancestral Council"
+            : needsRongo
+              ? "Present the Rei Miro & Obsidian Mata'a to Elder Rongo on Mangareva (or the Hawai'i Council)"
+              : "Present the Carved Rei Miro & Obsidian Mata'a to the Council in Hawai'i",
+        detail: isHere
+          ? targetId === 'mangareva'
+            ? "Elder Rongo awaits at Mangareva's Gateway Marae to behold Rapa Nui's Rei Miro and obsidian Mata'a."
+            : "The Ancestral Council awaits at Hawai'i's Great Heiau Ahu to honor your Rei Miro and obsidian Mata'a."
+          : "Carry Rapa Nui's crescent Rei Miro and obsidian Mata'a to Elder Rongo on Mangareva or the Ancestral Council in Hawai'i.",
+        islandId: targetId,
+        islandName: targetIsl?.name || '',
+        isHere,
+        hasRequiredCargo: true,
+        statusBadge: isHere
+          ? 'Ready Here'
+          : needsRongo
+            ? "Mata'a Ready → Mangareva / Hawai'i"
+            : "Mata'a Ready → Hawai'i",
+      });
+    }
+  }
+
   // Sort: 1) Objectives actionable on the player's current island first (arrival before quest),
   //       2) Quests whose required cargo is already aboard, 3) Canonical campaign order.
   items.sort((a, b) => {

@@ -15,8 +15,11 @@ import {
   CREW_CATALOG,
   POI_LABELS,
   getAvailableRoutesFromCurrentIsland,
+  getDefaultRouteFromList,
   getLearnedSandLessonsList,
+  getReiMiroRelicGuidance,
   interactWithIslandSanctuary,
+  resolveCriticalNextStepDescriptor,
 } from '../core/campaignManager.js';
 import { getActiveObjectivesForDisplay } from '../core/objectivesManager.js';
 import {
@@ -655,25 +658,20 @@ export class IslandHubUI {
 
   _resolveCriticalNextStep(gs) {
     const isl = ISLANDS[gs.currentIslandId] || ISLANDS.raiatea;
-    const activeObjs = getActiveObjectivesForDisplay(gs);
-    const hasLocalAction = activeObjs.some(
-      (o) => o.isHere && (o.kind !== 'quest' || o.hasRequiredCargo)
-    );
-    const hasGiftHere = activeObjs.some((o) => o.isHere && o.hasRequiredCargo);
     const routes = this._getAvailableRoutes();
+    const unlearnedLocal = getAvailableUnlearnedLessonForIsland(gs, isl.id);
+    const sel = this.callbacks.getSelectedRouteAndDeparture?.();
+    const desc = resolveCriticalNextStepDescriptor(gs, {
+      routes,
+      selectedSong: sel?.song || null,
+      lastSanctuaryResult: this.lastSanctuaryResult,
+      unlearnedLocal,
+    });
 
-    // 1. Meet Elder / Harvest Wild Outpost
-    if (hasLocalAction || (routes.length === 0 && !this.lastSanctuaryResult)) {
-      const label = isl.inhabited
-        ? hasGiftHere
-          ? `🌺 Present Offering to ${isl.mentorName}`
-          : `🌺 Greet ${isl.mentorName}`
-        : isl.isSecret
-          ? '🗿 Survey the Silent Moai Terrace'
-          : '🌴 Harvest Wild Rookery & Shallows';
+    if (desc.kind === 'sanctuary') {
       return {
-        kind: 'sanctuary',
-        label,
+        kind: desc.kind,
+        label: desc.label,
         run: () => {
           if (this.activeTab !== 'sanctuary') {
             this.switchTab('sanctuary');
@@ -684,12 +682,10 @@ export class IslandHubUI {
       };
     }
 
-    // 2. Sky Vigil (unlearned constellation teaching on this island)
-    const unlearnedLocal = getAvailableUnlearnedLessonForIsland(gs, isl.id);
-    if (unlearnedLocal) {
+    if (desc.kind === 'vigil') {
       return {
-        kind: 'vigil',
-        label: `✨ Sky Vigil: Learn ${unlearnedLocal.title}`,
+        kind: desc.kind,
+        label: desc.label,
         run: () => {
           this.callbacks.onOpenSkyVigil?.({
             islandId: isl.id,
@@ -699,28 +695,22 @@ export class IslandHubUI {
       };
     }
 
-    // 3. Set Sail for the Newly Discovered / Selected Song
-    if (routes.length > 0) {
-      const sel = this.callbacks.getSelectedRouteAndDeparture?.();
-      const song = sel?.song || (this._getDefaultRoute(routes) || routes[0]).song;
-      const departure = sel?.departure || song?.recommendedDeparture;
-      const dstName =
-        ISLANDS[song?.toIsland]?.name || song?.toIsland || 'Next Island';
+    if (desc.kind === 'sail') {
+      const departure = sel?.departure || desc.song?.recommendedDeparture;
       return {
-        kind: 'sail',
-        label: `⛵ Set Sail → ${dstName}`,
+        kind: desc.kind,
+        label: desc.label,
         run: () => {
-          if (song) {
-            this.callbacks.onLaunchVoyage?.(song, departure);
+          if (desc.song) {
+            this.callbacks.onLaunchVoyage?.(desc.song, departure);
           }
         },
       };
     }
 
-    // 4. Post-Finale Fallback: open Vaka & Star-Path Departure modal
     return {
       kind: 'canoe',
-      label: '🛶 Open Vaka & Set Sail →',
+      label: desc.label,
       run: () => {
         this.callbacks.onOpenCanoeModal?.();
       },
@@ -849,9 +839,16 @@ export class IslandHubUI {
       this.rootEl.querySelector('#sanctuaryMentorRole').textContent =
         isl.mentorRole || isl.subtitle;
 
-      speakBtn.textContent = hasGiftHere
-        ? `Present Offering to ${isl.mentorName}`
-        : `Greet ${isl.mentorName}`;
+      const relic = getReiMiroRelicGuidance(gs);
+      if (isl.id === 'mangareva' && relic.needsRongo) {
+        speakBtn.textContent = "Present Rei Miro & Mata'a to Elder Rongo";
+      } else if (isl.id === 'hawaii' && relic.needsCouncil) {
+        speakBtn.textContent = "Present Rei Miro & Mata'a to the Ancestral Council";
+      } else {
+        speakBtn.textContent = hasGiftHere
+          ? `Present Offering to ${isl.mentorName}`
+          : `Greet ${isl.mentorName}`;
+      }
       speakBtn.className = 'secondary-btn';
     } else {
       layoutEl.classList.add('no-mentor');
@@ -1120,10 +1117,6 @@ export class IslandHubUI {
   }
 
   _getDefaultRoute(routes) {
-    if (!routes || routes.length === 0) return null;
-    const forwardRoutes = routes.filter((r) => !r.isReturn);
-    return forwardRoutes.length > 0
-      ? forwardRoutes[forwardRoutes.length - 1]
-      : routes[0];
+    return getDefaultRouteFromList(routes);
   }
 }

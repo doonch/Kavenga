@@ -23,9 +23,11 @@ import { GameState } from '../src/core/gameState.js';
 import {
   CARGO_CATALOG,
   getAvailableRoutesFromCurrentIsland,
+  getDefaultRouteFromList,
   interactWithIslandSanctuary,
   onVoyageLandfall,
   performBeachCareeningAndRestock,
+  resolveCriticalNextStepDescriptor,
 } from '../src/core/campaignManager.js';
 import {
   AchievementsManager,
@@ -54,6 +56,7 @@ import {
   NAVIGATION_STARS,
 } from '../src/data/constellationsData.js';
 import { CONSTELLATION_SILHOUETTES } from '../src/data/constellationSilhouettesData.js';
+import { VOICE_LINES } from '../src/data/voiceLinesData.js';
 import { ISLANDS, OCEAN_BASINS } from '../src/data/islandsData.js';
 import {
   PLAYER_CHARACTER_PROFILES,
@@ -1081,8 +1084,16 @@ logLine('\n[8/8] Verifying Objectives Lifecycle, Multi-Fish Harvest, 24h Ocean S
   );
 
   // D2. Verify Rapa Nui unique Rei Miro & Obsidian Mata'a artifact, Mangareva/Hawai'i secret dialogues,
-  //     and both directions of the Secret Pilgrimage Chant (Mangareva <-> Rapa Nui)!
+  //     Critical CTA guidance, and both directions of the Secret Pilgrimage Chant (Mangareva <-> Rapa Nui)!
   onVoyageLandfall(fullCrewRapaGs, 'rapa_nui');
+  const rapaPreSurveyCta = resolveCriticalNextStepDescriptor(fullCrewRapaGs, {
+    routes: getAvailableRoutesFromCurrentIsland(fullCrewRapaGs),
+  });
+  auditText(rapaPreSurveyCta.label, 'CriticalCTA RapaNui preSurvey');
+  assert(
+    rapaPreSurveyCta.kind === 'sanctuary' && rapaPreSurveyCta.label.includes('Moai'),
+    `Rapa Nui critical CTA guides surveying the Moai terrace first (got "${rapaPreSurveyCta.label}")`
+  );
   const rapaRes = interactWithIslandSanctuary(fullCrewRapaGs);
   auditText(rapaRes.title, 'RapaNui sanctuary.title');
   auditText(rapaRes.speech, 'RapaNui sanctuary.speech');
@@ -1096,6 +1107,18 @@ logLine('\n[8/8] Verifying Objectives Lifecycle, Multi-Fish Harvest, 24h Ocean S
   assert(
     rapaOutRoutes.some((r) => r.song.id === 'secret_rapa_nui_to_mangareva'),
     'Secret Pilgrimage Return Chant is offered from Rapa Nui'
+  );
+  const rapaPostRelicCta = resolveCriticalNextStepDescriptor(fullCrewRapaGs, {
+    routes: rapaOutRoutes,
+    lastSanctuaryResult: rapaRes,
+  });
+  auditText(rapaPostRelicCta.label, 'CriticalCTA RapaNui postRelic');
+  assert(
+    rapaPostRelicCta.kind === 'sail' &&
+      rapaPostRelicCta.song?.id === 'secret_rapa_nui_to_mangareva' &&
+      rapaPostRelicCta.label.includes("Mata'a") &&
+      rapaPostRelicCta.label.includes('Elder Rongo'),
+    `Post-relic Critical CTA on Rapa Nui guides sailing to Mangareva for Elder Rongo / Council (got "${rapaPostRelicCta.label}")`
   );
   const returnPilgrimageSim = new OceanSim();
   returnPilgrimageSim.startVoyage(
@@ -1114,21 +1137,73 @@ logLine('\n[8/8] Verifying Objectives Lifecycle, Multi-Fish Harvest, 24h Ocean S
     `Secret Pilgrimage Return Chant reaches Mangareva cleanly (status=${returnPilgrimageSim.status}, rations=${returnPilgrimageSim.rationsRemaining.toFixed(2)})`
   );
   fullCrewRapaGs.currentIslandId = 'mangareva';
+  fullCrewRapaGs.completedQuests.mangareva_gateway = true;
+  fullCrewRapaGs.learnSong('song_13');
+  const mangRoutesWithRelic = getAvailableRoutesFromCurrentIsland(fullCrewRapaGs);
+  const mangDefaultRoute = getDefaultRouteFromList(mangRoutesWithRelic);
+  assert(
+    mangDefaultRoute?.song?.id === 'song_13',
+    `Mangareva default forward route prioritizes Song 13 toward Kaua'i/Hawai'i over looping back to Rapa Nui (got ${mangDefaultRoute?.song?.id})`
+  );
+  const mangPrePresentCta = resolveCriticalNextStepDescriptor(fullCrewRapaGs, {
+    routes: mangRoutesWithRelic,
+  });
+  auditText(mangPrePresentCta.label, 'CriticalCTA Mangareva prePresent');
+  assert(
+    mangPrePresentCta.kind === 'sanctuary' &&
+      mangPrePresentCta.label.includes("Mata'a") &&
+      mangPrePresentCta.label.includes('Elder Rongo'),
+    `Critical CTA on Mangareva with Rei Miro relic guides presenting the Mata'a to Elder Rongo (got "${mangPrePresentCta.label}")`
+  );
   const mangSecretRes = interactWithIslandSanctuary(fullCrewRapaGs);
   auditText(mangSecretRes.speech, 'Mangareva Rapa Nui secret dialogue');
   assert(
     mangSecretRes.speech.includes('Rei Miro') &&
+      mangSecretRes.voiceId === 'sanctuary_mangareva_rei_miro' &&
+      VOICE_LINES.sanctuary_mangareva_rei_miro &&
+      fullCrewRapaGs.completedQuests.mangareva_rei_miro_blessing &&
       getAvailableRoutesFromCurrentIsland(fullCrewRapaGs).some(
         (r) => r.song.id === 'secret_mangareva_to_rapa_nui'
       ),
-    'Elder Rongo greets Rapa Nui Rei Miro relic with secret dialogue and offers Chant of Te Pito o Te Henua'
+    'Elder Rongo greets Rapa Nui Rei Miro relic with secret dialogue, unique voiceId, and Chant of Te Pito o Te Henua'
+  );
+  const mangPostPresentCta = resolveCriticalNextStepDescriptor(fullCrewRapaGs, {
+    routes: getAvailableRoutesFromCurrentIsland(fullCrewRapaGs),
+    lastSanctuaryResult: mangSecretRes,
+  });
+  auditText(mangPostPresentCta.label, 'CriticalCTA Mangareva postPresent');
+  assert(
+    mangPostPresentCta.kind === 'sail' &&
+      mangPostPresentCta.song?.id === 'song_13' &&
+      mangPostPresentCta.label.includes("Mata'a") &&
+      mangPostPresentCta.label.includes('Council'),
+    `After Elder Rongo's blessing, Mangareva CTA guides carrying the Mata'a onward to the Hawai'i Council (got "${mangPostPresentCta.label}")`
   );
   fullCrewRapaGs.currentIslandId = 'hawaii';
+  fullCrewRapaGs.completedQuests.hawaii_finale = true;
+  const hawaiiPrePresentCta = resolveCriticalNextStepDescriptor(fullCrewRapaGs, {
+    routes: getAvailableRoutesFromCurrentIsland(fullCrewRapaGs),
+  });
+  auditText(hawaiiPrePresentCta.label, 'CriticalCTA Hawaii prePresent');
+  assert(
+    hawaiiPrePresentCta.kind === 'sanctuary' &&
+      hawaiiPrePresentCta.label.includes("Mata'a") &&
+      hawaiiPrePresentCta.label.includes('Council'),
+    `Critical CTA on Hawaiʻi with Rei Miro relic guides presenting the Mata'a to the Ancestral Council (got "${hawaiiPrePresentCta.label}")`
+  );
   const hawaiiSecretRes = interactWithIslandSanctuary(fullCrewRapaGs);
   auditText(hawaiiSecretRes.speech, 'Hawaii Rapa Nui secret dialogue');
+  for (const [vid, vObj] of Object.entries(VOICE_LINES)) {
+    auditText(vObj.text, `VOICE_LINES.${vid}`);
+  }
   assert(
-    hawaiiSecretRes.speech.includes('Rei Miro'),
-    'Ancestral Council on Hawaiʻi honors Rapa Nui Rei Miro relic with secret tribute dialogue'
+    !rapaRes.voiceId &&
+      hawaiiSecretRes.speech.includes('Rei Miro') &&
+      hawaiiSecretRes.voiceId === 'sanctuary_hawaii_rei_miro' &&
+      VOICE_LINES.sanctuary_hawaii_rei_miro &&
+      fullCrewRapaGs.completedQuests.hawaii_rei_miro_tribute &&
+      getActiveObjectivesForDisplay(fullCrewRapaGs).every((o) => o.id !== 'quest_rei_miro_presentation'),
+    'Ancestral Council on Hawaiʻi honors Rapa Nui Rei Miro relic with unique voiceId while Rapa Nui stays silent'
   );
   const forwardPilgrimageSim = new OceanSim();
   forwardPilgrimageSim.startVoyage(

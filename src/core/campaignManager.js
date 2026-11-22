@@ -9,6 +9,7 @@ import { SAND_LESSONS } from '../data/sandDiagramsData.js';
 import { SECRET_SONGS, SONGS, buildReturnSong } from '../data/songsData.js';
 import {
   activateIslandArrivalObjective,
+  getActiveObjectivesForDisplay,
   recordSanctuaryObjectiveProgress,
 } from './objectivesManager.js';
 
@@ -647,7 +648,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
         rewardsList.push('Secret Pilgrimage Chant Ready: Chant of Te Pito o Te Henua (Mangareva -> Rapa Nui)');
       }
       return {
-        voiceId: 'sanctuary_mangareva_visit',
+        voiceId: 'sanctuary_mangareva_rei_miro',
         title: "Elder Rongo's Gateway Marae",
         speech:
           "Elder Rongo gazes wide-eyed at the crescent Rei Miro and black obsidian blade from Te Pito o Te Henua. 'Our grandfathers spoke only in sacred chants of that three-volcano isle of giant stone ancestors! Your twin prows have sailed farther than legend—whenever you wish to return, sing the Whale's Spout at dusk back to Rapa Nui, or follow the Setting Horse toward Kaua'i.'",
@@ -770,12 +771,15 @@ function _interactWithIslandSanctuaryCore(gameState) {
     const hasRapaNuiRelicOrDiscovery =
       gameState.hasCargoItem('sacred_rei_miro_relic') ||
       Boolean(gameState.discoveredIslands?.rapa_nui);
+    if (gameState.hasCargoItem('sacred_rei_miro_relic')) {
+      gameState.completedQuests.hawaii_rei_miro_tribute = true;
+    }
     if (hasRapaNuiRelicOrDiscovery) {
       rewardsList.push("Council Tribute: Honored the Crescent Rei Miro & Journey Beyond Rapa Nui!");
     }
     gameState.saveToLocalStorage();
     return {
-      voiceId: 'sanctuary_hawaii_finale',
+      voiceId: hasRapaNuiRelicOrDiscovery ? 'sanctuary_hawaii_rei_miro' : 'sanctuary_hawaii_finale',
       title: 'Council of Ancestral Wayfinders — Great Heiau Ahu',
       speech: hasRapaNuiRelicOrDiscovery
         ? 'As conch shells echo from Kealakekua cliff to sea, the Ancestral Council bows before the crescent Rei Miro and obsidian blade borne all the way from Te Pito o Te Henua! Across all three ocean chains—and even to the silent navel rock beneath the spinning Sea Turtle—no horizon has escaped your twin prows. You are named Tupaia-Nui — Sovereign of Every Star Path!'
@@ -890,4 +894,127 @@ export function getLearnedSandLessonsList(gameState) {
     }
   }
   return ordered;
+}
+
+/**
+ * Selects the default next route from `getAvailableRoutesFromCurrentIsland(gs)`:
+ * prefers main-campaign forward songs over secret side routes so Mangareva's
+ * forward crossing to Kaua'i remains the primary path ahead when both exist.
+ */
+export function getDefaultRouteFromList(routes) {
+  if (!routes || routes.length === 0) return null;
+  const mainForward = routes.filter((r) => !r.isReturn && !r.isSecret);
+  if (mainForward.length > 0) {
+    return mainForward[mainForward.length - 1];
+  }
+  const secretForward = routes.filter((r) => !r.isReturn);
+  if (secretForward.length > 0) {
+    return secretForward[secretForward.length - 1];
+  }
+  return routes[0];
+}
+
+/**
+ * Returns live presentation state for the Rapa Nui Rei Miro & Obsidian Mata'a relic.
+ */
+export function getReiMiroRelicGuidance(gameState) {
+  const hasRelic = Boolean(gameState?.hasCargoItem?.('sacred_rei_miro_relic'));
+  const q = gameState?.completedQuests || {};
+  return {
+    hasRelic,
+    needsRongo: hasRelic && !q.mangareva_rei_miro_blessing,
+    needsCouncil: hasRelic && !q.hawaii_rei_miro_tribute,
+  };
+}
+
+/**
+ * Resolves the pure descriptor `{ kind, label, song }` for the Island Hub's pinned Critical CTA button.
+ */
+export function resolveCriticalNextStepDescriptor(
+  gameState,
+  { routes = [], selectedSong = null, lastSanctuaryResult = null, unlearnedLocal = null } = {}
+) {
+  const isl = ISLANDS[gameState?.currentIslandId] || ISLANDS.raiatea;
+  const activeObjs = getActiveObjectivesForDisplay(gameState);
+  const hasLocalAction = activeObjs.some(
+    (o) => o.isHere && (o.kind !== 'quest' || o.hasRequiredCargo)
+  );
+  const hasGiftHere = activeObjs.some((o) => o.isHere && o.hasRequiredCargo);
+  const needsRapaNuiSurvey =
+    isl.id === 'rapa_nui' && !gameState?.completedQuests?.rapa_nui_relic;
+  const relic = getReiMiroRelicGuidance(gameState);
+
+  if (
+    hasLocalAction ||
+    needsRapaNuiSurvey ||
+    (routes.length === 0 && !lastSanctuaryResult)
+  ) {
+    let label;
+    if (isl.id === 'mangareva' && relic.needsRongo) {
+      label = "🌺 Present Rei Miro & Mata'a to Elder Rongo";
+    } else if (isl.id === 'hawaii' && relic.needsCouncil) {
+      label = "🌺 Present Rei Miro & Mata'a to the Ancestral Council";
+    } else if (isl.inhabited) {
+      label = hasGiftHere
+        ? `🌺 Present Offering to ${isl.mentorName}`
+        : `🌺 Greet ${isl.mentorName}`;
+    } else if (isl.isSecret) {
+      label = '🗿 Survey the Silent Moai Terrace';
+    } else {
+      label = '🌴 Harvest Wild Rookery & Shallows';
+    }
+    return { kind: 'sanctuary', label, song: null };
+  }
+
+  if (unlearnedLocal) {
+    return {
+      kind: 'vigil',
+      label: `✨ Sky Vigil: Learn ${unlearnedLocal.title}`,
+      song: null,
+    };
+  }
+
+  if (routes.length > 0) {
+    let chosenSong = selectedSong;
+    if (!chosenSong) {
+      if (relic.needsRongo && isl.basinId === 'act2_nuku_hiva' && isl.id !== 'mangareva') {
+        const mangRoute = routes.find((r) => r.song?.toIsland === 'mangareva');
+        if (mangRoute) chosenSong = mangRoute.song;
+      }
+      if (!chosenSong) {
+        chosenSong = (getDefaultRouteFromList(routes) || routes[0]).song;
+      }
+    }
+
+    const dstName =
+      ISLANDS[chosenSong?.toIsland]?.name || chosenSong?.toIsland || 'Next Island';
+
+    let label = `⛵ Set Sail → ${dstName}`;
+    if (relic.hasRelic && (relic.needsRongo || relic.needsCouncil)) {
+      if (isl.id === 'rapa_nui' && chosenSong?.toIsland === 'mangareva') {
+        label = relic.needsRongo
+          ? "⛵ Sail to Mangareva · Present Mata'a to Elder Rongo or Council"
+          : "⛵ Sail to Mangareva · Carry Mata'a to Hawai'i Council";
+      } else if (chosenSong?.toIsland === 'mangareva' && relic.needsRongo) {
+        label = "⛵ Set Sail → Mangareva · Present Mata'a to Elder Rongo";
+      } else if (chosenSong?.toIsland === 'hawaii' && relic.needsCouncil) {
+        label = "⛵ Set Sail → Hawai'i · Present Mata'a to the Council";
+      } else if (
+        relic.needsCouncil &&
+        (isl.id === 'mangareva' || isl.basinId === 'act3_mist_isles') &&
+        chosenSong &&
+        !chosenSong.isSecret
+      ) {
+        label = `⛵ Set Sail → ${dstName} · Carry Mata'a to Hawai'i Council`;
+      }
+    }
+
+    return { kind: 'sail', label, song: chosenSong };
+  }
+
+  return {
+    kind: 'canoe',
+    label: '🛶 Open Vaka & Set Sail →',
+    song: null,
+  };
 }

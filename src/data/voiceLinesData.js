@@ -147,6 +147,13 @@ export const SANCTUARY_VOICE_LINES = Object.freeze({
     category: 'sanctuary',
     text: "Elder Rongo points toward the pale mist-curtain brooding over the horizon. 'Follow the Setting Horse at Dusk where the Sea Turtle sinks astern and the Steadfast Peg lifts ahead; when morning sea-fog blinds every star, hold your steering sweep locked without wavering until Kaua'i's black crag pierces above the mist!'",
   }),
+  sanctuary_mangareva_rei_miro: Object.freeze({
+    id: 'sanctuary_mangareva_rei_miro',
+    islandId: 'mangareva',
+    elderName: 'Elder Rongo',
+    category: 'sanctuary',
+    text: "Elder Rongo gazes wide-eyed at the crescent Rei Miro and black obsidian blade from Te Pito o Te Henua. 'Our grandfathers spoke only in sacred chants of that three-volcano isle of giant stone ancestors! Your twin prows have sailed farther than legend—whenever you wish to return, sing the Whale's Spout at dusk back to Rapa Nui, or follow the Setting Horse toward Kaua'i.'",
+  }),
   sanctuary_kauai_trial: Object.freeze({
     id: 'sanctuary_kauai_trial',
     islandId: 'kauai',
@@ -188,6 +195,13 @@ export const SANCTUARY_VOICE_LINES = Object.freeze({
     elderName: 'Council of Ancestral Wayfinders',
     category: 'sanctuary',
     text: 'Carved stone guardians watch silently over Kealakekua Bay beneath snow-crowned peaks as conch shells echo from cliff to sea. Across both skies—from the spinning Sea Turtle to the unmoving Steadfast Peg—you read cloud, bird, crossbeam shadow, star-house, and four-beat ocean swell. You are named Tupaia-Nui — Master Navigator!',
+  }),
+  sanctuary_hawaii_rei_miro: Object.freeze({
+    id: 'sanctuary_hawaii_rei_miro',
+    islandId: 'hawaii',
+    elderName: 'Council of Ancestral Wayfinders',
+    category: 'sanctuary',
+    text: 'As conch shells echo from Kealakekua cliff to sea, the Ancestral Council bows before the crescent Rei Miro and obsidian blade borne all the way from Te Pito o Te Henua! Across all three ocean chains—and even to the silent navel rock beneath the spinning Sea Turtle—no horizon has escaped your twin prows. You are named Tupaia-Nui — Sovereign of Every Star Path!',
   }),
 });
 

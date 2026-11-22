@@ -14,6 +14,7 @@ import {
   CREW_CATALOG,
   getAvailableRoutesFromCurrentIsland,
   getLearnedSandLessonsList,
+  getReiMiroRelicGuidance,
   interactWithIslandSanctuary,
   performBeachCareeningAndRestock,
 } from '../core/campaignManager.js';
@@ -699,6 +700,10 @@ export class WalkableIslandUI {
       isl.id === 'raiatea' && gs.hasCargoItem('red_kura_feathers');
     const hasTridacnaShell =
       isl.id === 'hawaii' && gs.hasCargoItem('sacred_tridacna_shell');
+    const relic = getReiMiroRelicGuidance(gs);
+    const hasRelicHere =
+      (isl.id === 'mangareva' && relic.needsRongo) ||
+      (isl.id === 'hawaii' && relic.needsCouncil);
     const recruitCrewId = isl.rewards?.recruitsCrew || null;
     const recruitCrew = recruitCrewId ? CREW_CATALOG[recruitCrewId] : null;
 
@@ -716,9 +721,17 @@ export class WalkableIslandUI {
       defaultSpeech = hasKuraFeathers
         ? 'Elder Metua sees the sacred crimson Kura feathers gleaming in your cargo! Present them at the Marae to consecrate your vaka and learn the outer-pass chant to Maupiti.'
         : 'Step before the coral altar to receive Elder Metua’s star-path blessing and guidance for your lagoon crossings.';
+    } else if (isl.id === 'mangareva' && relic.needsRongo) {
+      defaultTitle = "Elder Rongo's Gateway Marae";
+      defaultSpeech =
+        "Elder Rongo spots the crescent Rei Miro and razor obsidian Mata'a from Rapa Nui lashed aboard your canoe! Present them at his Marae to consecrate your twin hulls and receive his counsel.";
     } else if (isl.id === 'hawaii' && hasTridacnaShell) {
       defaultSpeech =
         'The Ancestral Wayfinders behold the Sacred Giant Tridacna Shell carried from Kiritimati! Lay it upon the Great Heiau Ahu to complete the Grand Voyage.';
+    } else if (isl.id === 'hawaii' && relic.needsCouncil) {
+      defaultTitle = 'Council of Ancestral Wayfinders — Great Heiau Ahu';
+      defaultSpeech =
+        "The Ancestral Council beholds the carved Rei Miro and obsidian Mata'a borne all the way from Te Pito o Te Henua! Present the relic at the Great Heiau Ahu.";
     }
 
     const res = this.lastSanctuaryResult || {
@@ -734,8 +747,12 @@ export class WalkableIslandUI {
         : `${poi?.glyph || '🗿'} Contemplate ${poi?.label || 'the Stone Guardians'}`;
     } else if (hasKuraFeathers && !gs.completedQuests.raiatea_consecration) {
       actionLabel = '🌺 Present Crimson Kura Feathers & Consecrate Vaka';
-    } else if (hasTridacnaShell) {
+    } else if (isl.id === 'mangareva' && relic.needsRongo) {
+      actionLabel = "🌺 Present Rei Miro & Mata'a to Elder Rongo";
+    } else if (hasTridacnaShell && !hasRelicHere) {
       actionLabel = '🌺 Present Sacred Tridacna Shell at the Heiau';
+    } else if (isl.id === 'hawaii' && relic.needsCouncil) {
+      actionLabel = "🌺 Present Rei Miro & Mata'a to the Ancestral Council";
     } else if (isl.id === 'tahaa' && !gs.completedQuests.tahaa_visit) {
       actionLabel = '🌺 Greet Hina & Recruit Fisher Tama';
     } else {

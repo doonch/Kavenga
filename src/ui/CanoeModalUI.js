@@ -13,7 +13,10 @@
  */
 
 import { DepartureWindow } from '../core/gameConstants.js';
-import { getAvailableRoutesFromCurrentIsland } from '../core/campaignManager.js';
+import {
+  getAvailableRoutesFromCurrentIsland,
+  getDefaultRouteFromList,
+} from '../core/campaignManager.js';
 import {
   buildVoyageConfirmModalHtml,
   createClampedTooltipController,
@@ -294,11 +297,7 @@ export class CanoeModalUI {
   }
 
   _getDefaultRoute(routes) {
-    if (!routes || routes.length === 0) return null;
-    const forwardRoutes = routes.filter((r) => !r.isReturn);
-    return forwardRoutes.length > 0
-      ? forwardRoutes[forwardRoutes.length - 1]
-      : routes[0];
+    return getDefaultRouteFromList(routes);
   }
 
   getSelectedSongObject() {
