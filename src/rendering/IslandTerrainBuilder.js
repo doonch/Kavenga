@@ -2063,7 +2063,7 @@ const ISLAND_SHORE_RADIUS_M = Object.freeze({
   moorea: 76.0,
   maupiti: 60.5,
   nuku_hiva: 59.5,
-  ua_pou: 66.5,
+  ua_pou: 70.5,
   rangiroa: 41.5,
   hiva_oa: 64.0,
   fatu_hiva: 63.0,

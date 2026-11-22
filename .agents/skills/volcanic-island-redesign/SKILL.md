@@ -35,9 +35,14 @@ Design **two deliberate terrain zones**:
    - Every POI (`landing`, `hut`, `elder`, `observation_circle`, plus any `extraPois`) sits on a gentle pocket terrace (`slope <= 0.25`, obstacle-free radius `>= 4.5m`).
    - **Connected Path Rule:** From `initialSpawn`, **every POI and `observation_circle` MUST be reachable on foot** along dry terrain (`h >= 0.25m`) without crossing obstacles or exceeding `uphillSlope > 0.88` above `y = 14m` (safe margin below runtime `0.92`). Sculpt smooth valley floors, coastal ledges, or terraced ridge-spur switchbacks connecting POIs while leaving flanking cliff walls vertical!
 
-### Lookout Observation Circles (Spur, Promontory, or Crater Rim)
-Instead of burying the Observation Circle in a dark canyon or flattening the tallest monolith:
-- Place `observation_circle` on an **open shoulder bluff, sea-facing promontory plateau, crater rim spur, or elevated coastal saddle** (`h = 10m–55m`).
+### Lookout Observation Circles (Varied Archetypes — Never Reuse One Template!)
+Instead of burying the Observation Circle in a dark canyon, flattening the tallest monolith, or putting every island's lookout on the exact same right-hand cape hill:
+- **Vary Observation Circle Archetypes Across Islands:** Rotate across distinct geographic settings so each island has a unique silhouette and walking journey:
+  1. *Port (`-X`) or Starboard (`+X`) Coastal Cliff Promontory* (`h = 25m–40m`)
+  2. *Low Seaward Basalt Spit / Cobble Peninsula* (`h = 4m–8m`) jutting toward the open ocean while looking back at distant towering spires (`dist >= (peakH - eyeY) / tan(28°)`)
+  3. *Inland Quarry / Amphitheater Rim Bench* (`h = 28m–36m`) climbing past cultural landmarks
+  4. *Connected Outer Lagoon Motu / White-Sand Causeway* (`h = 2.5m–4m`) out in a barrier lagoon looking back at the central mountain massif
+  5. *Elevated Col / Saddle Pass* between twin peaks
 - Carve a flat level pad (`padSlope <= 0.18` over `r >= 6.2m`, smoothed into a `12m` collar) and keep props `>= 10.0m` away from circle center.
 - **Panoramic Star-View Rule:** An iconic unreachable spire may rise dramatically behind *one narrow azimuth sector*, provided **`>= 75%` of the 360° sky horizon stays `<= 15.0°`** (over `270°` of unobstructed ocean/sky dome) and **`maxTerrainHorizon <= 28.0°`**. Never trap the circle inside a bowl (`45°–80°` cliff walls ringing half the sky).
 

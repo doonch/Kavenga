@@ -77,11 +77,11 @@ function evalNukuHivaPoint(x, z) {
   const theta = Math.atan2(z, x);
 
   // Deep horseshoe Taiohae Bay indenting around theta = 0 (+Z walkable),
-  // framed by twin towering sea-cliff headlands jutting out at theta ≈ ±0.68!
+  // framed by twin towering sea-cliff headlands jutting out with a bold PORT (-X / theta>0) cape!
   const bayIndent = 16.5 * Math.exp(-Math.pow(theta / 0.36, 2.0));
   const headlandJut =
-    23.5 * Math.exp(-Math.pow((theta + 0.72) / 0.36, 2.0)) +
-    15.0 * Math.exp(-Math.pow((theta - 0.65) / 0.32, 2.0));
+    23.5 * Math.exp(-Math.pow((theta - 0.72) / 0.38, 2.0)) +
+    15.0 * Math.exp(-Math.pow((theta + 0.65) / 0.32, 2.0));
   const backBulge = 10.0 * Math.exp(-Math.pow((Math.abs(theta) - 2.4) / 0.55, 2.0));
   const cliffWave = 3.4 * Math.cos(5.0 * theta + 0.7) + 1.8 * Math.sin(8.0 * theta);
   const coastR = Math.max(54.0, 72.0 - bayIndent + headlandJut + backBulge + cliffWave);
@@ -94,61 +94,61 @@ function evalNukuHivaPoint(x, z) {
   const u = r / coastR;
   const inBay = Math.abs(theta) < 0.42;
 
-  // Sweeping semicircular horseshoe caldera wall wrapping around Taiohae Valley (~102m summit)
-  // Opens toward +Z bay and steps down smoothly toward the SE headland so the Star Circle stays panoramic
-  const wallCenterDist = Math.abs(Math.hypot(x + 26.0, z + 10.0) - 46.0);
+  // Sweeping semicircular horseshoe caldera wall wrapping around Taiohae Valley (~86m summit),
+  // stepping down smoothly toward the PORT (-X) headland so the Star Circle stays panoramic
+  const wallCenterDist = Math.abs(Math.hypot(x + 26.0, z - 10.0) - 46.0);
   const wallBackMask =
     smoothstep(0.45, 1.15, Math.abs(theta)) *
-    (1.0 - 0.92 * Math.exp(-Math.pow((theta + 1.25) / 0.68, 2.0)));
+    (1.0 - 0.92 * Math.exp(-Math.pow((theta - 1.22) / 0.68, 2.0)));
   const calderaRim =
-    51.0 * Math.exp(-Math.pow(wallCenterDist / 17.5, 1.75)) * wallBackMask;
+    49.0 * Math.exp(-Math.pow(wallCenterDist / 17.5, 1.75)) * wallBackMask;
 
   // Interior massif & dramatic back amphitheater peaks
-  const backMassif = 42.0 * gaussian2D(x, z, -44.0, 12.0, 24.0, 28.0, 0.15);
+  const backMassif = 42.0 * gaussian2D(x, z, -44.0, -12.0, 24.0, 28.0, -0.15);
 
   // 14 vertical Marquesan fluted cathedral cliff ribs
   const fluteRaw = Math.pow(0.5 + 0.5 * Math.cos(14.0 * theta + 0.25 * Math.sin(3.0 * theta)), 2.1);
   const flute = fluteRaw * smoothstep(0.95, 0.34, u) * wallBackMask;
 
-  // Sheer coastal sea-cliffs outside Taiohae Bay vs gentle black-sand crescent shore inside bay
-  const cliffEdge = inBay
-    ? 4.0 * smoothstep(1.0, 0.68, u)
-    : 24.0 * Math.pow(smoothstep(1.0, 0.82, u), 0.58);
+  // Smooth coastal sea-cliffs outside Taiohae Bay (no sharp polar-wedge cut or circular bay bowl)
+  const bayOpen = smoothstep(0.22, 0.78, Math.abs(theta + 0.14));
+  const cliffEdge =
+    23.0 * Math.pow(smoothstep(1.0, 0.82, u), 0.58) * bayOpen +
+    3.5 * smoothstep(1.0, 0.65, u) * (1.0 - bayOpen);
 
   let h = cliffEdge + calderaRim * 0.84 + backMassif * 0.45 + flute * 12.0;
 
-  // Gently scoop out Taiohae Valley floor (spawn, landing, village hut flat)
-  const valleyMask = gaussian2D(x, z, 46.0, 10.0, 18.0, 26.0, 0.08);
-  if (valleyMask > 0.02) {
-    const valleyTarget = lerp(1.2, 6.4, smoothstep(61.5, 24.0, x));
-    h = lerp(h, valleyTarget, clamp01(valleyMask * 1.15));
+  // Smooth harbor valley floor sloping organically from Taiohae shore into the amphitheater
+  const harborFan = (1.0 - smoothstep(0.18, 0.68, Math.abs(theta + 0.18))) * smoothstep(0.18, 0.52, u);
+  if (harborFan > 0.02) {
+    const valleyTarget = lerp(1.1, 6.2, smoothstep(0.95, 0.42, u));
+    h = lerp(h, valleyTarget, clamp01(harborFan * 0.92));
   }
 
-  // East Headland Sea-Bluff Terrace for Observation Circle at walkable (52, 48) -> canon (48.0, -52.0)
-  const bluffProm = gaussian2D(x, z, 49.0, -52.0, 20.0, 19.0, -0.35);
+  // Port/West Headland Sea-Bluff Terrace for Observation Circle at walkable (-48, 44) -> canon (44.0, 48.0)
+  const bluffProm = gaussian2D(x, z, 45.0, 48.0, 20.0, 19.0, 0.35);
   h = Math.max(h, 31.5 * smoothstep(0.16, 0.82, bluffProm));
 
-  const dCircle = Math.hypot(x - 48.0, z + 52.0);
+  const dCircle = Math.hypot(x - 44.0, z - 48.0);
   if (dCircle < 12.0) {
     h = lerp(h, 31.5, 1.0 - smoothstep(5.6, 12.0, dCircle));
   }
 
-  // Master Teiki's coastal marae terrace at walkable (20, 46) -> canon (46.0, -20.0)
-  const dElder = Math.hypot(x - 46.0, z + 20.0);
+  // Master Teiki's coastal marae terrace on port bay at walkable (-18, 44) -> canon (44.0, 18.0)
+  const dElder = Math.hypot(x - 44.0, z - 18.0);
   if (dElder < 10.5) {
     h = lerp(h, 8.5, 1.0 - smoothstep(4.8, 10.5, dElder));
   }
 
-  // Walkable switchback trail corridors matching WalkableIslandScene stepping stones:
-  // Compute closest point across the entire polyline ONCE so joints never fight or step-spike!
+  // Single-pass polyline trail climbing the PORT (-X) headland switchback
   const trailLegs = [
-    [58.0, 11.5, 51.0, 14.5, 1.5, 2.6], // spawn -> landing
-    [58.0, 11.5, 36.0, 21.0, 1.5, 5.4], // spawn -> hut valley flat
-    [58.0, 11.5, 46.0, -20.0, 1.5, 8.5], // spawn -> elder terrace
-    [46.0, -20.0, 58.0, -32.0, 8.5, 15.5], // elder (20,46) -> mid1 (32,58) [dist=17.0m, sl=0.41]
-    [58.0, -32.0, 64.0, -45.0, 15.5, 23.0], // mid1 (32,58) -> mid2 (45,64) [dist=14.3m, sl=0.52]
-    [64.0, -45.0, 53.6, -54.4, 23.0, 31.3], // mid2 (45,64) -> rim (54.4,53.6) [dist=14.0m, sl=0.59]
-    [53.6, -54.4, 48.0, -52.0, 31.3, 31.5], // rim -> circle center (52,48)
+    [56.5, -12.0, 49.0, -15.5, 1.4, 2.6], // spawn (12, 56.5) -> landing (15.5, 49)
+    [56.5, -12.0, 34.0, -24.0, 1.4, 5.4], // spawn -> hut valley flat (24, 34)
+    [56.5, -12.0, 44.0, 18.0, 1.4, 8.5], // spawn -> elder terrace (-18, 44)
+    [44.0, 18.0, 56.0, 30.0, 8.5, 16.0], // elder (-18,44) -> mid1 (-30,56)
+    [56.0, 30.0, 60.0, 42.0, 16.0, 23.5], // mid1 (-30,56) -> mid2 (-42,60)
+    [60.0, 42.0, 49.0, 51.0, 23.5, 31.3], // mid2 (-42,60) -> rim (-51,49)
+    [49.0, 51.0, 44.0, 48.0, 31.3, 31.5], // rim -> circle center (-48,44)
   ];
   let bestTrailD = 999.0;
   let bestTrailH = h;
@@ -164,7 +164,6 @@ function evalNukuHivaPoint(x, z) {
     h = lerp(h, bestTrailH, mask);
   }
 
-  // Feather bay foreshore smoothly down to waterline
   if (inBay && u > 0.85) {
     h = lerp(h, 1.8 * (1.0 - smoothstep(0.85, 1.0, u)), 0.85);
   }
@@ -172,8 +171,8 @@ function evalNukuHivaPoint(x, z) {
     h = lerp(h, 31.5, 1.0 - smoothstep(5.6, 8.2, dCircle));
   }
 
-  // Flat Tohua Marae plaza terrace at walkable (15.0, 56.0) -> canon (56.0, -15.0), well clear of stone trail
-  const dMarae = Math.hypot(x - 56.0, z + 15.0);
+  // Flat Tohua Marae plaza terrace at walkable (-14.0, 54.0) -> canon (54.0, 14.0), clear of stone trail
+  const dMarae = Math.hypot(x - 54.0, z - 14.0);
   if (dMarae < 8.2) {
     h = lerp(h, 8.2, 1.0 - smoothstep(5.0, 8.2, dMarae));
   }
@@ -261,21 +260,21 @@ function buildNukuHivaAssembly() {
 
   // Canonical exclusion zones (rotY = -PI/2 => cx = wz, cz = -wx)
   const toCanon = (wx, wz) => [wz, -wx];
-  const [spCx, spCz] = toCanon(-11.5, 58.0);
-  const [laCx, laCz] = toCanon(-14.5, 51.0);
-  const [huCx, huCz] = toCanon(-21.0, 36.0);
-  const [elCx, elCz] = toCanon(20.0, 46.0);
-  const [ciCx, ciCz] = toCanon(52.0, 48.0);
-  const [mid1Cx, mid1Cz] = toCanon(32.0, 58.0);
-  const [mid2Cx, mid2Cz] = toCanon(45.0, 64.0);
+  const [spCx, spCz] = toCanon(12.0, 56.5);
+  const [laCx, laCz] = toCanon(15.5, 49.0);
+  const [huCx, huCz] = toCanon(24.0, 34.0);
+  const [elCx, elCz] = toCanon(-18.0, 44.0);
+  const [ciCx, ciCz] = toCanon(-48.0, 44.0);
+  const [mid1Cx, mid1Cz] = toCanon(-30.0, 56.0);
+  const [mid2Cx, mid2Cz] = toCanon(-42.0, 60.0);
   const nukuClearZones = [
     { x: spCx, z: spCz, r: 10.5 },
-    { x: laCx, z: laCz, r: 7.0 },
-    { x: huCx, z: huCz, r: 7.5 },
-    { x: elCx, z: elCz, r: 8.0 },
+    { x: laCx, z: laCz, r: 7.5 },
+    { x: huCx, z: huCz, r: 10.5 },
+    { x: elCx, z: elCz, r: 8.5 },
     { x: ciCx, z: ciCz, r: 12.5 },
-    { x: mid1Cx, z: mid1Cz, r: 5.5 },
-    { x: mid2Cx, z: mid2Cz, r: 5.5 },
+    { x: mid1Cx, z: mid1Cz, r: 6.0 },
+    { x: mid2Cx, z: mid2Cz, r: 6.0 },
   ];
   const nukuIsClear = (px, pz) => {
     for (const bz of nukuClearZones) {
@@ -284,28 +283,28 @@ function buildNukuHivaAssembly() {
     return true;
   };
 
-  // Master Teiki's Great Tohua Ceremonial Plaza (tucked beside Elder terrace, grounded solidly)
-  const [marCx, marCz] = toCanon(15.0, 56.0);
+  // Master Teiki's Great Tohua Ceremonial Plaza (port bay flat, grounded solidly)
+  const [marCx, marCz] = toCanon(-14.0, 54.0);
   addMaraePlatform(group, trackMat, {
     x: marCx,
     y: evalNukuHivaPoint(marCx, marCz).h - 0.12,
     z: marCz,
-    rotY: -0.35,
+    rotY: 0.35,
     scale: 1.0,
     courtHex: 0x2e2c2b,
     ahuHex: 0x4b4744,
     withBraziers: true,
   });
 
-  // Marquesan Stone-Paepae Fa'e Village along Taiohae Valley apron
+  // Marquesan Stone-Paepae Fa'e Village along starboard Taiohae Valley apron
   const huts = [
-    [toCanon(-30.0, 32.0)[0], toCanon(-30.0, 32.0)[1], 0.45, 1.04],
-    [toCanon(-28.0, 44.0)[0], toCanon(-28.0, 44.0)[1], 0.15, 0.98],
-    [toCanon(6.0, 48.0)[0], toCanon(6.0, 48.0)[1], -0.4, 0.96],
-    [toCanon(-34.0, 49.0)[0], toCanon(-34.0, 49.0)[1], 0.6, 0.92],
+    [toCanon(30.0, 32.0)[0], toCanon(30.0, 32.0)[1], -0.45, 1.04],
+    [toCanon(28.0, 44.0)[0], toCanon(28.0, 44.0)[1], -0.15, 0.98],
+    [toCanon(-6.0, 48.0)[0], toCanon(-6.0, 48.0)[1], 0.4, 0.96],
+    [toCanon(34.0, 49.0)[0], toCanon(34.0, 49.0)[1], -0.6, 0.92],
   ].map(([hx, hz, rotY, sc]) => ({
     x: hx,
-    y: Math.max(0.8, evalNukuHivaPoint(hx, hz).h),
+    y: Math.max(0.8, evalNukuHivaPoint(hx, hz).h - 0.08),
     z: hz,
     rotY,
     scale: sc,
@@ -313,30 +312,30 @@ function buildNukuHivaAssembly() {
   addRegionalHuts(group, trackMat, huts, 'marquesan');
 
   // Timber Canoe Pier & Anchored Outrigger Va'a in Taiohae Bay
-  const [pierCx, pierCz] = toCanon(-2.0, 62.5);
+  const [pierCx, pierCz] = toCanon(2.5, 62.5);
   addTimberPier(group, trackMat, {
     x: pierCx,
     y: 0.7,
     z: pierCz,
-    rotY: 0.1,
+    rotY: -0.1,
     length: 8.5,
     width: 1.65,
   });
 
-  const [vaaCx, vaaCz] = toCanon(7.5, 65.0);
+  const [vaaCx, vaaCz] = toCanon(-7.5, 65.0);
   addOutriggerCanoe(group, trackMat, {
     x: vaaCx,
     y: 0.34,
     z: vaaCz,
-    rotY: Math.PI * 0.44,
+    rotY: -Math.PI * 0.44,
   });
 
   // Sacred Giant Banyan (Aoa) Trees & Valley Coconut Palms (filtered clear of POIs/trails)
   const banyanPts = [
-    [toCanon(-36.0, 37.0)[0], 0, toCanon(-36.0, 37.0)[1], 1.28, 0.3],
-    [toCanon(-6.0, 34.0)[0], 0, toCanon(-6.0, 34.0)[1], 1.2, -0.5],
-    [toCanon(8.0, 38.0)[0], 0, toCanon(8.0, 38.0)[1], 1.12, 1.0],
-    [toCanon(-16.0, 24.0)[0], 0, toCanon(-16.0, 24.0)[1], 1.18, 0.8],
+    [toCanon(36.0, 37.0)[0], 0, toCanon(36.0, 37.0)[1], 1.28, -0.3],
+    [toCanon(6.0, 34.0)[0], 0, toCanon(6.0, 34.0)[1], 1.2, 0.5],
+    [toCanon(-8.0, 38.0)[0], 0, toCanon(-8.0, 38.0)[1], 1.12, -1.0],
+    [toCanon(16.0, 24.0)[0], 0, toCanon(16.0, 24.0)[1], 1.18, -0.8],
   ]
     .filter(([bx, , bz]) => nukuIsClear(bx, bz))
     .map(([bx, , bz, sc, rot]) => [bx, Math.max(1.2, evalNukuHivaPoint(bx, bz).h), bz, sc, rot]);
@@ -371,15 +370,15 @@ function buildNukuHivaAssembly() {
 }
 
 // ============================================================================
-// 2. UA POU — 6 Soaring Phonolite Basalt Needle Spires & Bone-Carvers' Terrace (2x)
+// 2. UA POU — 6 Soaring Phonolite Needle Spires & Low Seaward Cobble Peninsula
 // ============================================================================
 const UA_POU_SPIRES = [
-  [-40.0, 18.0, 9.2, 34.0], // Mount Oave central fang (80m terrain + faceted basalt obelisk to ~114m)
-  [-28.0, -6.0, 8.0, 29.0], // Pouakei spire
-  [-42.0, 32.0, 8.2, 32.0], // Poutetainui spire
-  [-50.0, -8.0, 7.6, 28.0], // Western fang
-  [-20.0, 28.0, 7.4, 26.0], // Harbor-west spire
-  [-52.0, 16.0, 7.0, 26.0], // Back sentinel spire
+  [-48.0, 12.0, 9.0, 18.0], // Mount Oave central fang (~64m terrain + faceted basalt obelisk to ~112m!)
+  [-38.0, -10.0, 8.0, 16.0], // Pouakei spire
+  [-50.0, 28.0, 8.2, 17.0], // Poutetainui spire
+  [-54.0, -8.0, 7.6, 16.0], // Western fang
+  [-34.0, 28.0, 7.4, 15.0], // Harbor-west spire
+  [-56.0, 14.0, 7.0, 15.0], // Back sentinel spire
 ];
 
 function uaPouDistToSeg(px, pz, ax, az, bx, bz) {
@@ -396,12 +395,12 @@ function evalUaPouPoint(x, z) {
   const r = Math.hypot(x, z);
   const theta = Math.atan2(z, x);
 
-  // Rugged asymmetric coastline with Pebble Cove (+X canon / +Z walkable) & jutting east lookout cape
-  const coveIndent = 11.5 * Math.exp(-Math.pow(theta / 0.34, 2.0));
-  const eastCape = 14.5 * Math.exp(-Math.pow((theta + 0.76) / 0.38, 2.0));
-  const westCape = 10.5 * Math.exp(-Math.pow((theta - 0.68) / 0.34, 2.0));
-  const rockyLobes = 4.6 * Math.cos(4.0 * theta - 0.45) + 2.4 * Math.sin(7.0 * theta);
-  const coastR = Math.max(58.0, 72.0 - coveIndent + eastCape + westCape + rockyLobes);
+  // Rugged Pebble Cove (+Z) + low seaward basalt-cobble spit jutting port-forward at (-30, 64) -> canon (64, 30)
+  const coveIndent = 9.5 * Math.exp(-Math.pow((theta + 0.12) / 0.32, 2.0));
+  const cobbleSpit = 18.0 * Math.exp(-Math.pow((theta - 0.44) / 0.3, 2.0));
+  const eastHeadland = 9.0 * Math.exp(-Math.pow((theta + 0.78) / 0.34, 2.0));
+  const rockyLobes = 4.2 * Math.cos(4.0 * theta - 0.45) + 2.2 * Math.sin(7.0 * theta);
+  const coastR = Math.max(58.0, 70.0 - coveIndent + cobbleSpit + eastHeadland + rockyLobes);
 
   if (r > coastR) {
     return {
@@ -413,7 +412,7 @@ function evalUaPouPoint(x, z) {
   }
 
   const u = r / coastR;
-  const shield = 34.0 * Math.pow(smoothstep(0.97, 0.14, u), 1.32);
+  const shield = 15.5 * Math.pow(smoothstep(0.97, 0.14, u), 1.32);
 
   let spireLift = 0.0;
   let spireIntensity = 0.0;
@@ -425,41 +424,44 @@ function evalUaPouPoint(x, z) {
     spireIntensity = Math.max(spireIntensity, needle);
   }
 
-  const inCove = Math.abs(theta) < 0.36;
-  const cliffApron = inCove ? 3.2 * (1.0 - u) : 18.0 * smoothstep(1.0, 0.84, u);
+  // Open seaward piedmont apron; steep basalt cliffs only on the back & lateral flanks
+  const flankCliffMask = smoothstep(0.42, 1.28, Math.abs(theta - 0.1));
+  const cliffApron =
+    11.5 * smoothstep(1.0, 0.82, u) * flankCliffMask +
+    2.6 * (1.0 - u) * (1.0 - flankCliffMask);
   let h = shield + spireLift + cliffApron;
 
-  // Gently level Pebble Cove bay apron & Sail-Tenders' Loft valley
-  const coveMask = gaussian2D(x, z, 46.0, 10.0, 17.0, 24.0, 0.08);
-  if (coveMask > 0.02) {
-    const coveTarget = lerp(1.2, 6.0, smoothstep(61.5, 24.0, x));
-    h = lerp(h, coveTarget, clamp01(coveMask * 1.15));
+  // Smooth, broad Pebble Cove & Sail-Tenders' coastal slope (no circular crater depression)
+  const piedmontSlope = (1.0 - smoothstep(0.25, 0.72, Math.abs(theta + 0.16))) * smoothstep(0.24, 0.58, u);
+  if (piedmontSlope > 0.02) {
+    const coveTarget = lerp(1.1, 5.8, smoothstep(0.96, 0.38, u));
+    h = lerp(h, coveTarget, clamp01(piedmontSlope * 0.9));
   }
 
-  // East Headland Sea-Bluff Terrace for Observation Circle at walkable (46, 48) -> canon (48.0, -46.0)
-  const bluffProm = gaussian2D(x, z, 48.0, -47.0, 19.0, 18.0, -0.35);
-  h = Math.max(h, 27.5 * smoothstep(0.18, 0.84, bluffProm));
+  // Low Seaward Basalt-Cobble Peninsula for Observation Circle at walkable (-30, 64) -> canon (64.0, 30.0)
+  const spitProm = gaussian2D(x, z, 62.0, 28.0, 15.0, 14.0, 0.32);
+  if (spitProm > 0.04) {
+    h = lerp(h, 5.5, clamp01(spitProm * 1.15));
+  }
 
-  const dCircle = Math.hypot(x - 48.0, z + 46.0);
+  const dCircle = Math.hypot(x - 64.0, z - 30.0);
   if (dCircle < 12.0) {
-    h = lerp(h, 27.5, 1.0 - smoothstep(5.6, 12.0, dCircle));
+    h = lerp(h, 5.5, 1.0 - smoothstep(5.6, 12.0, dCircle));
   }
 
-  // Vaea's Carvers' Terrace at walkable (20, 46) -> canon (46.0, -20.0)
-  const dElder = Math.hypot(x - 46.0, z + 20.0);
+  // Vaea's Carvers' Terrace on port cove at walkable (-14, 46) -> canon (46.0, 14.0)
+  const dElder = Math.hypot(x - 46.0, z - 14.0);
   if (dElder < 10.5) {
-    h = lerp(h, 8.5, 1.0 - smoothstep(4.8, 10.5, dElder));
+    h = lerp(h, 7.5, 1.0 - smoothstep(4.8, 10.5, dElder));
   }
 
-  // Single-pass closest-segment polyline trail matching WalkableIslandScene stepping stones
+  // Easy coastal pebble trail from spawn (14, 56) across bay to Vaea & out onto Seaward Cobble Spit (-30, 64)
   const trailLegs = [
-    [62.5, 9.5, 51.0, 14.5, 1.0, 2.6], // spawn (-9.5, 62.5) -> landing
-    [62.5, 9.5, 36.0, 21.0, 1.0, 5.4], // spawn -> hut loft
-    [62.5, 9.5, 46.0, -20.0, 1.0, 8.5], // spawn -> elder terrace
-    [46.0, -20.0, 56.0, -31.0, 8.5, 14.5], // elder (20,46) -> mid1 (31,56) [dist=14.9m, sl=0.40]
-    [56.0, -31.0, 63.0, -43.0, 14.5, 20.8], // mid1 (31,56) -> mid2 (43,63) [dist=13.9m, sl=0.45]
-    [63.0, -43.0, 52.0, -50.0, 20.8, 27.3], // mid2 (43,63) -> rim (50,52) [dist=13.0m, sl=0.50]
-    [52.0, -50.0, 48.0, -46.0, 27.3, 27.5], // rim -> circle center (46,48)
+    [56.0, -14.0, 48.0, -19.0, 1.2, 2.5], // spawn (14, 56) -> landing (19, 48)
+    [56.0, -14.0, 32.0, -28.0, 1.2, 5.4], // spawn -> hut loft (28, 32)
+    [56.0, -14.0, 46.0, 14.0, 1.2, 7.5], // spawn -> elder terrace (-14, 46)
+    [46.0, 14.0, 56.0, 22.0, 7.5, 6.4], // elder (-14,46) -> spit neck (-22,56)
+    [56.0, 22.0, 64.0, 30.0, 6.4, 5.5], // spit neck -> circle center (-30,64)
   ];
   let bestTrailD = 999.0;
   let bestTrailH = h;
@@ -470,29 +472,30 @@ function evalUaPouPoint(x, z) {
       bestTrailH = lerp(h0, h1, seg.t);
     }
   }
-  if (bestTrailD < 14.5) {
-    const mask = 1.0 - smoothstep(7.2, 14.5, bestTrailD);
+  if (bestTrailD < 13.5) {
+    const mask = 1.0 - smoothstep(6.8, 13.5, bestTrailD);
     h = lerp(h, bestTrailH, mask);
   }
 
-  if (inCove && u > 0.84) {
-    h = lerp(h, 1.6 * (1.0 - smoothstep(0.84, 1.0, u)), 0.82);
+  const inCove = Math.abs(theta) < 0.48;
+  if (inCove && u > 0.87 && dCircle > 10.5 && bestTrailD > 8.0) {
+    h = lerp(h, 1.5 * (1.0 - smoothstep(0.87, 1.0, u)), 0.82);
   }
   if (dCircle < 8.2) {
-    h = lerp(h, 27.5, 1.0 - smoothstep(5.6, 8.2, dCircle));
+    h = lerp(h, 5.5, 1.0 - smoothstep(5.6, 8.2, dCircle));
   }
 
-  // Flat grounded terrace for Vaea's Whale-Jawbone Archway at walkable (14.5, 55.5) -> canon (55.5, -14.5)
-  const dArch = Math.hypot(x - 55.5, z + 14.5);
+  // Flat grounded terrace for Vaea's Whale-Jawbone Archway at walkable (-10.0, 54.5) -> canon (54.5, 10.0)
+  const dArch = Math.hypot(x - 54.5, z - 10.0);
   if (dArch < 7.5) {
-    h = lerp(h, 7.6, 1.0 - smoothstep(4.6, 7.5, dArch));
+    h = lerp(h, 7.2, 1.0 - smoothstep(4.6, 7.5, dArch));
   }
 
   return {
     h,
     spireIntensity,
     drySide: clamp01(0.5 + 0.5 * Math.sin(theta - 0.8)),
-    isPebbleCove: inCove && u > 0.8,
+    isPebbleCove: (inCove && u > 0.8) || dCircle < 12.0,
   };
 }
 
@@ -551,12 +554,12 @@ function buildUaPouAssembly() {
   for (let i = 0; i < UA_POU_SPIRES.length; i += 1) {
     const [sx, sz, sr, sh] = UA_POU_SPIRES[i];
     const baseH = evalUaPouPoint(sx, sz).h;
-    const obeliskH = sh * 1.05;
+    const obeliskH = sh * 2.55;
     const obelisk = new THREE.Mesh(
       new THREE.CylinderGeometry(sr * 0.14, sr * 0.52, obeliskH, 6),
       spireRockMat
     );
-    obelisk.position.set(sx, baseH + obeliskH * 0.28, sz);
+    obelisk.position.set(sx, baseH + obeliskH * 0.36, sz);
     obelisk.rotation.y = i * 0.7;
     obelisk.rotation.z = ((i % 3) - 1) * 0.04;
     group.add(obelisk);
@@ -586,21 +589,19 @@ function buildUaPouAssembly() {
 
   // Canonical exclusion zones (rotY = -PI/2 => cx = wz, cz = -wx)
   const toCanon = (wx, wz) => [wz, -wx];
-  const [spCx, spCz] = toCanon(-9.5, 62.5);
-  const [laCx, laCz] = toCanon(-14.5, 51.0);
-  const [huCx, huCz] = toCanon(-21.0, 36.0);
-  const [elCx, elCz] = toCanon(20.0, 46.0);
-  const [ciCx, ciCz] = toCanon(46.0, 48.0);
-  const [mid1Cx, mid1Cz] = toCanon(31.0, 56.0);
-  const [mid2Cx, mid2Cz] = toCanon(43.0, 63.0);
+  const [spCx, spCz] = toCanon(14.0, 56.0);
+  const [laCx, laCz] = toCanon(19.0, 48.0);
+  const [huCx, huCz] = toCanon(28.0, 32.0);
+  const [elCx, elCz] = toCanon(-14.0, 46.0);
+  const [ciCx, ciCz] = toCanon(-30.0, 64.0);
+  const [mid1Cx, mid1Cz] = toCanon(-22.0, 56.0);
   const uaClearZones = [
     { x: spCx, z: spCz, r: 10.5 },
     { x: laCx, z: laCz, r: 7.5 },
     { x: huCx, z: huCz, r: 10.5 },
     { x: elCx, z: elCz, r: 8.5 },
     { x: ciCx, z: ciCz, r: 12.5 },
-    { x: mid1Cx, z: mid1Cz, r: 6.0 },
-    { x: mid2Cx, z: mid2Cz, r: 6.0 },
+    { x: mid1Cx, z: mid1Cz, r: 6.5 },
   ];
   const uaIsClear = (px, pz) => {
     for (const bz of uaClearZones) {
@@ -610,7 +611,7 @@ function buildUaPouAssembly() {
   };
 
   // Vaea's Bleached Whale-Jawbone Archway grounded solidly on its flat terrace
-  const [archCx, archCz] = toCanon(14.5, 55.5);
+  const [archCx, archCz] = toCanon(-10.0, 54.5);
   const jawArch = createWhaleJawArchGroup(trackMat);
   jawArch.group.position.set(archCx, evalUaPouPoint(archCx, archCz).h - 0.1, archCz);
   jawArch.group.rotation.y = Math.PI * 0.5;
@@ -618,10 +619,10 @@ function buildUaPouAssembly() {
 
   // Marquesan Stone-Paepae Huts around Pebble Cove & Sail-Tenders' Loft
   const huts = [
-    [toCanon(-30.0, 34.0)[0], toCanon(-30.0, 34.0)[1], 0.45, 1.02],
-    [toCanon(-28.0, 45.0)[0], toCanon(-28.0, 45.0)[1], 0.18, 0.96],
-    [toCanon(4.0, 48.0)[0], toCanon(4.0, 48.0)[1], -0.35, 0.94],
-    [toCanon(-33.0, 50.0)[0], toCanon(-33.0, 50.0)[1], 0.6, 0.9],
+    [toCanon(34.0, 30.0)[0], toCanon(34.0, 30.0)[1], -0.45, 1.02],
+    [toCanon(31.0, 43.0)[0], toCanon(31.0, 43.0)[1], -0.18, 0.96],
+    [toCanon(-2.0, 46.0)[0], toCanon(-2.0, 46.0)[1], 0.35, 0.94],
+    [toCanon(36.0, 48.0)[0], toCanon(36.0, 48.0)[1], -0.6, 0.9],
   ].map(([hx, hz, rotY, sc]) => ({
     x: hx,
     y: Math.max(0.8, evalUaPouPoint(hx, hz).h - 0.08),
@@ -631,22 +632,22 @@ function buildUaPouAssembly() {
   }));
   addRegionalHuts(group, trackMat, huts, 'marquesan');
 
-  const [pierCx, pierCz] = toCanon(-2.0, 62.5);
+  const [pierCx, pierCz] = toCanon(6.0, 62.5);
   addTimberPier(group, trackMat, {
     x: pierCx,
     y: 0.7,
     z: pierCz,
-    rotY: 0.1,
+    rotY: -0.1,
     length: 8.5,
     width: 1.65,
   });
 
-  const [vaaCx, vaaCz] = toCanon(7.0, 65.0);
+  const [vaaCx, vaaCz] = toCanon(-4.0, 64.5);
   addOutriggerCanoe(group, trackMat, {
     x: vaaCx,
     y: 0.34,
     z: vaaCz,
-    rotY: Math.PI * 0.42,
+    rotY: -Math.PI * 0.42,
   });
 
   const palmPts = [];
@@ -869,17 +870,17 @@ function buildRangiroaAssembly() {
 }
 
 // ============================================================================
-// 4. HIVA OA — Red-Tuff Quarry Cliffs, Black-Sand Bay & Colossal Carved Tikis (2x)
+// 4. HIVA OA — Western Inland Red-Tuff Quarry Escarpment & Mount Temetiu Spine
 // ============================================================================
 function evalHivaOaPoint(x, z) {
   const r = Math.hypot(x, z);
   const theta = Math.atan2(z, x);
 
-  const bayIndent = 12.0 * Math.exp(-Math.pow(theta / 0.34, 2.0));
-  const eastCape = 15.0 * Math.exp(-Math.pow((theta + 0.74) / 0.38, 2.0));
-  const westCape = 11.0 * Math.exp(-Math.pow((theta - 0.68) / 0.34, 2.0));
+  const bayIndent = 10.5 * Math.exp(-Math.pow((theta + 0.08) / 0.34, 2.0));
+  const westBench = 14.5 * Math.exp(-Math.pow((theta - 0.85) / 0.44, 2.0));
+  const eastHeadland = 10.5 * Math.exp(-Math.pow((theta + 0.72) / 0.34, 2.0));
   const cragCoast = 4.6 * Math.cos(3.0 * theta + 0.9) + 2.4 * Math.sin(6.0 * theta);
-  const coastR = Math.max(58.0, 72.0 - bayIndent + eastCape + westCape + cragCoast);
+  const coastR = Math.max(58.0, 70.0 - bayIndent + westBench + eastHeadland + cragCoast);
 
   if (r > coastR) {
     return {
@@ -892,45 +893,48 @@ function evalHivaOaPoint(x, z) {
   const u = r / coastR;
   const inBay = Math.abs(theta) < 0.36;
 
-  // Elongated Mount Temetiu dark volcanic spine (~82m peak astern) + stepped red-tuff quarry wall
+  // Elongated Mount Temetiu dark volcanic spine astern-east (~79m peak) + stepped red-tuff quarry wall
   const ridgeSpine =
-    60.0 * gaussian2D(x, z, -38.0, 12.0, 22.0, 30.0, 0.28) +
-    26.0 * gaussian2D(x, z, -10.0, -14.0, 18.0, 16.0, -0.2);
+    58.0 * gaussian2D(x, z, -49.0, -22.0, 22.0, 30.0, -0.25) +
+    24.0 * gaussian2D(x, z, -12.0, -24.0, 18.0, 16.0, 0.2);
 
-  const cliffWall = inBay ? 3.2 * (1.0 - u) : 22.0 * smoothstep(1.0, 0.84, u);
+  // Smooth asymmetric cliffs on the astern & western flanks; open terraced slope on the harbor side
+  const flankMask = smoothstep(0.32, 1.12, Math.abs(theta + 0.22));
+  const cliffWall =
+    18.5 * smoothstep(1.0, 0.83, u) * flankMask +
+    3.0 * (1.0 - u) * (1.0 - flankMask);
   let h = ridgeSpine + cliffWall;
 
-  // Gently level black-sand bay apron & Quarry Carvers' Shed flat
-  const bayMask = gaussian2D(x, z, 46.0, 10.0, 17.0, 24.0, 0.08);
-  if (bayMask > 0.02) {
-    const bayTarget = lerp(1.2, 6.0, smoothstep(61.5, 24.0, x));
-    h = lerp(h, bayTarget, clamp01(bayMask * 1.15));
+  // Broad, natural coastal terrace on the harbor side (no circular crater bowl)
+  const harborSlope = (1.0 - smoothstep(0.22, 0.66, Math.abs(theta + 0.24))) * smoothstep(0.22, 0.52, u);
+  if (harborSlope > 0.02) {
+    const bayTarget = lerp(1.0, 6.2, smoothstep(0.96, 0.36, u));
+    h = lerp(h, bayTarget, clamp01(harborSlope * 0.9));
   }
 
-  // East Headland Sea-Bluff Terrace for Observation Circle at walkable (48, 48) -> canon (48.0, -48.0)
-  const bluffProm = gaussian2D(x, z, 49.0, -49.0, 19.0, 18.0, -0.35);
-  h = Math.max(h, 27.5 * smoothstep(0.18, 0.84, bluffProm));
+  // Western Quarry Rim Escarpment Bench for Observation Circle at walkable (-28, 22) -> canon (22.0, 28.0)
+  const bluffProm = gaussian2D(x, z, 23.0, 29.0, 19.0, 18.0, 0.35);
+  h = Math.max(h, 34.5 * smoothstep(0.18, 0.84, bluffProm));
 
-  const dCircle = Math.hypot(x - 48.0, z + 48.0);
+  const dCircle = Math.hypot(x - 22.0, z - 28.0);
   if (dCircle < 12.0) {
-    h = lerp(h, 27.5, 1.0 - smoothstep(5.6, 12.0, dCircle));
+    h = lerp(h, 34.5, 1.0 - smoothstep(5.6, 12.0, dCircle));
   }
 
-  // Tahia's Volcanic Quarry Terrace at walkable (20, 46) -> canon (46.0, -20.0)
-  const dElder = Math.hypot(x - 46.0, z + 20.0);
+  // Tahia's Red-Tuff Quarry Shelf at walkable (-14, 42) -> canon (42.0, 14.0)
+  const dElder = Math.hypot(x - 42.0, z - 14.0);
   if (dElder < 10.5) {
-    h = lerp(h, 8.5, 1.0 - smoothstep(4.8, 10.5, dElder));
+    h = lerp(h, 11.5, 1.0 - smoothstep(4.8, 10.5, dElder));
   }
 
-  // Single-pass closest-segment polyline trail matching WalkableIslandScene stepping stones
+  // Single-pass polyline trail climbing inland past the red-tuff quarry up to the western escarpment
   const trailLegs = [
-    [61.0, 9.5, 52.0, 13.5, 1.1, 2.6], // spawn (-9.5, 61.0) -> landing
-    [61.0, 9.5, 36.0, 21.0, 1.1, 5.4], // spawn -> hut shed
-    [61.0, 9.5, 46.0, -20.0, 1.1, 8.5], // spawn -> elder terrace
-    [46.0, -20.0, 56.0, -31.0, 8.5, 14.5], // elder (20,46) -> mid1 (31,56)
-    [56.0, -31.0, 63.0, -43.0, 14.5, 20.8], // mid1 (31,56) -> mid2 (43,63)
-    [63.0, -43.0, 52.0, -51.0, 20.8, 27.3], // mid2 (43,63) -> rim (51,52)
-    [52.0, -51.0, 48.0, -48.0, 27.3, 27.5], // rim -> circle center (48,48)
+    [58.0, -6.0, 51.0, -12.0, 1.1, 2.6], // spawn (6, 58) -> landing (12, 51)
+    [58.0, -6.0, 34.0, -22.0, 1.1, 5.4], // spawn -> hut shed (22, 34)
+    [58.0, -6.0, 42.0, 14.0, 1.1, 11.5], // spawn -> elder quarry shelf (-14, 42)
+    [42.0, 14.0, 34.0, 24.0, 11.5, 22.5], // elder (-14,42) -> mid1 (-24,34)
+    [34.0, 24.0, 29.0, 35.0, 22.5, 33.0], // mid1 (-24,34) -> mid2 (-35,29)
+    [29.0, 35.0, 22.0, 28.0, 33.0, 34.5], // mid2 (-35,29) -> circle (-28,22)
   ];
   let bestTrailD = 999.0;
   let bestTrailH = h;
@@ -950,21 +954,21 @@ function evalHivaOaPoint(x, z) {
     h = lerp(h, 1.5 * (1.0 - smoothstep(0.84, 1.0, u)), 0.82);
   }
   if (dCircle < 8.2) {
-    h = lerp(h, 27.5, 1.0 - smoothstep(5.6, 8.2, dCircle));
+    h = lerp(h, 34.5, 1.0 - smoothstep(5.6, 8.2, dCircle));
   }
 
-  // Flat grounded Tiki Quarry Plaza terrace at walkable (13.0, 56.0) -> canon (56.0, -13.0)
-  const dQuarry = Math.hypot(x - 56.0, z + 13.0);
+  // Flat grounded Tiki Quarry Plaza terrace at walkable (-10.0, 54.0) -> canon (54.0, 10.0)
+  const dQuarry = Math.hypot(x - 54.0, z - 10.0);
   if (dQuarry < 9.5) {
-    h = lerp(h, 8.2, 1.0 - smoothstep(6.2, 9.5, dQuarry));
+    h = lerp(h, 6.8, 1.0 - smoothstep(6.2, 9.5, dQuarry));
   }
 
   return {
     h,
     isBlackSand: inBay && u > 0.8,
     redQuarry: clamp01(
-      gaussian2D(x, z, 46.0, -14.0, 16.0, 14.0, 0.2) * 1.35 +
-        gaussian2D(x, z, -12.0, -14.0, 14.0, 12.0, -0.2) * 0.9
+      gaussian2D(x, z, 36.0, 18.0, 22.0, 18.0, 0.25) * 1.35 +
+        gaussian2D(x, z, 22.0, 28.0, 14.0, 14.0, 0.0) * 0.75
     ),
   };
 }
@@ -1039,13 +1043,13 @@ function buildHivaOaAssembly() {
 
   // Canonical exclusion zones (rotY = -PI/2 => cx = wz, cz = -wx)
   const toCanon = (wx, wz) => [wz, -wx];
-  const [spCx, spCz] = toCanon(-9.5, 61.0);
-  const [laCx, laCz] = toCanon(-13.5, 52.0);
-  const [huCx, huCz] = toCanon(-21.0, 36.0);
-  const [elCx, elCz] = toCanon(20.0, 46.0);
-  const [ciCx, ciCz] = toCanon(48.0, 48.0);
-  const [mid1Cx, mid1Cz] = toCanon(31.0, 56.0);
-  const [mid2Cx, mid2Cz] = toCanon(43.0, 63.0);
+  const [spCx, spCz] = toCanon(6.0, 58.0);
+  const [laCx, laCz] = toCanon(12.0, 51.0);
+  const [huCx, huCz] = toCanon(22.0, 34.0);
+  const [elCx, elCz] = toCanon(-14.0, 42.0);
+  const [ciCx, ciCz] = toCanon(-28.0, 22.0);
+  const [mid1Cx, mid1Cz] = toCanon(-24.0, 34.0);
+  const [mid2Cx, mid2Cz] = toCanon(-34.0, 24.0);
   const hivaClearZones = [
     { x: spCx, z: spCz, r: 10.5 },
     { x: laCx, z: laCz, r: 7.5 },
@@ -1071,9 +1075,9 @@ function buildHivaOaAssembly() {
   );
 
   for (const [wx, wz, rotY, sc] of [
-    [11.0, 54.5, 0.35, 1.15],
-    [14.5, 57.5, 0.5, 1.05],
-    [9.5, 58.0, -0.25, 1.0],
+    [-8.0, 52.5, -0.35, 1.15],
+    [-12.0, 56.0, -0.5, 1.05],
+    [-6.5, 56.0, 0.25, 1.0],
   ]) {
     const [tx, tz] = toCanon(wx, wz);
     const ty = evalHivaOaPoint(tx, tz).h;
@@ -1084,17 +1088,17 @@ function buildHivaOaAssembly() {
   }
 
   // Half-quarried recumbent red-tuff monolith block grounded on the quarry terrace
-  const [qCx, qCz] = toCanon(13.5, 53.5);
+  const [qCx, qCz] = toCanon(-11.0, 51.5);
   const quarryWork = createQuarriedTikiBlockGroup(redTuffMat, darkBasaltMat);
   quarryWork.group.position.set(qCx, evalHivaOaPoint(qCx, qCz).h - 0.08, qCz);
-  quarryWork.group.rotation.y = 0.65;
+  quarryWork.group.rotation.y = -0.65;
   group.add(quarryWork.group);
 
   const huts = [
-    [toCanon(-30.0, 34.0)[0], toCanon(-30.0, 34.0)[1], 0.45, 1.02],
-    [toCanon(-28.0, 45.0)[0], toCanon(-28.0, 45.0)[1], 0.18, 0.96],
-    [toCanon(4.0, 48.0)[0], toCanon(4.0, 48.0)[1], -0.35, 0.94],
-    [toCanon(-33.0, 50.0)[0], toCanon(-33.0, 50.0)[1], 0.6, 0.9],
+    [toCanon(30.0, 32.0)[0], toCanon(30.0, 32.0)[1], -0.45, 1.02],
+    [toCanon(28.0, 44.0)[0], toCanon(28.0, 44.0)[1], -0.18, 0.96],
+    [toCanon(4.0, 46.0)[0], toCanon(4.0, 46.0)[1], 0.35, 0.94],
+    [toCanon(33.0, 48.0)[0], toCanon(33.0, 48.0)[1], -0.6, 0.9],
   ].map(([hx, hz, rotY, sc]) => ({
     x: hx,
     y: Math.max(0.8, evalHivaOaPoint(hx, hz).h - 0.08),
@@ -1104,22 +1108,22 @@ function buildHivaOaAssembly() {
   }));
   addRegionalHuts(group, trackMat, huts, 'marquesan');
 
-  const [pierCx, pierCz] = toCanon(-2.0, 62.5);
+  const [pierCx, pierCz] = toCanon(-1.0, 62.5);
   addTimberPier(group, trackMat, {
     x: pierCx,
     y: 0.7,
     z: pierCz,
-    rotY: 0.1,
+    rotY: -0.08,
     length: 8.5,
     width: 1.65,
   });
 
-  const [vaaCx, vaaCz] = toCanon(6.5, 65.5);
+  const [vaaCx, vaaCz] = toCanon(-7.0, 65.5);
   addOutriggerCanoe(group, trackMat, {
     x: vaaCx,
     y: 0.34,
     z: vaaCz,
-    rotY: Math.PI * 0.42,
+    rotY: -Math.PI * 0.42,
   });
 
   const banyanPts = [
@@ -1153,17 +1157,17 @@ function buildHivaOaAssembly() {
 }
 
 // ============================================================================
-// 5. FATU HIVA — Hanavave Basalt Sea-Pillars, Twin Waterfalls & Shipwright Shed (2x)
+// 5. FATU HIVA — Hanavave Pillars, Twin Waterfalls & Port Rainforest Shelf
 // ============================================================================
 function evalFatuHivaPoint(x, z) {
   const r = Math.hypot(x, z);
   const theta = Math.atan2(z, x);
 
-  const canyonBay = 14.5 * Math.exp(-Math.pow(theta / 0.34, 2.0));
-  const eastCape = 15.0 * Math.exp(-Math.pow((theta + 0.74) / 0.38, 2.0));
-  const westCape = 11.5 * Math.exp(-Math.pow((theta - 0.68) / 0.34, 2.0));
+  const canyonBay = 13.5 * Math.exp(-Math.pow(theta / 0.34, 2.0));
+  const portButtress = 14.5 * Math.exp(-Math.pow((theta - 0.85) / 0.4, 2.0));
+  const eastHeadland = 10.5 * Math.exp(-Math.pow((theta + 0.7) / 0.34, 2.0));
   const cliffFolding = 3.8 * Math.cos(6.0 * theta) + 2.2 * Math.sin(9.0 * theta);
-  const coastR = Math.max(58.0, 72.0 - canyonBay + eastCape + westCape + cliffFolding);
+  const coastR = Math.max(58.0, 71.0 - canyonBay + portButtress + eastHeadland + cliffFolding);
 
   if (r > coastR) {
     return {
@@ -1176,45 +1180,49 @@ function evalFatuHivaPoint(x, z) {
   const u = r / coastR;
   const inBay = Math.abs(theta) < 0.36;
 
-  // Steep emerald rainforest amphitheater canyon walls framing Hanavave / Waterfall Bay (~84m back headwall)
-  const backHeadwall = 63.0 * gaussian2D(x, z, -40.0, 10.0, 22.0, 30.0, 0.1);
-  const westWall = 52.0 * gaussian2D(x, z, -12.0, 30.0, 22.0, 14.0, 0.25);
-  const eastWall = 38.0 * gaussian2D(x, z, -24.0, -24.0, 20.0, 14.0, -0.2);
+  // Steep emerald rainforest amphitheater canyon walls astern-east (~64m back headwall)
+  const backHeadwall = 47.0 * gaussian2D(x, z, -51.0, -20.0, 22.0, 30.0, -0.15);
+  const eastWall = 40.0 * gaussian2D(x, z, -12.0, -28.0, 22.0, 14.0, -0.25);
+  const westWall = 19.0 * gaussian2D(x, z, -36.0, 16.0, 18.0, 14.0, 0.2);
 
-  const seaCliff = inBay ? 2.6 * (1.0 - u) : 22.0 * smoothstep(1.0, 0.84, u);
-  let h = seaCliff + Math.max(backHeadwall, westWall, eastWall);
+  // Smooth gorge-opening sea cliffs (no sharp polar-wedge triangle or circular crater)
+  const gorgeOpen = smoothstep(0.24, 0.88, Math.abs(theta + 0.06));
+  const seaCliff =
+    16.5 * smoothstep(1.0, 0.83, u) * gorgeOpen +
+    2.8 * (1.0 - u) * (1.0 - gorgeOpen);
+  let h = seaCliff + Math.max(backHeadwall, eastWall, westWall);
 
-  // Gently level Waterfall Bay careening foreshore & Forest Timber Yard
-  const bayMask = gaussian2D(x, z, 46.0, 10.0, 17.0, 24.0, 0.08);
-  if (bayMask > 0.02) {
-    const bayTarget = lerp(1.2, 5.8, smoothstep(61.5, 24.0, x));
-    h = lerp(h, bayTarget, clamp01(bayMask * 1.15));
+  // V-shaped Waterfall Bay river-mouth floor sloping naturally up into the gorge
+  const gorgeFloor = (1.0 - smoothstep(0.18, 0.62, Math.abs(theta + 0.08))) * smoothstep(0.22, 0.52, u);
+  if (gorgeFloor > 0.02) {
+    const bayTarget = lerp(1.0, 6.4, smoothstep(0.95, 0.34, u));
+    h = lerp(h, bayTarget, clamp01(gorgeFloor * 0.88));
   }
 
-  // East Headland Sea-Bluff Terrace for Observation Circle at walkable (48, 48) -> canon (48.0, -48.0)
-  const bluffProm = gaussian2D(x, z, 49.0, -49.0, 19.0, 18.0, -0.35);
-  h = Math.max(h, 27.5 * smoothstep(0.18, 0.84, bluffProm));
+  // Port Rainforest Waterfall-Amphitheater Shelf for Observation Circle at walkable (-42, 32) -> canon (32.0, 42.0)
+  const bluffProm = gaussian2D(x, z, 33.0, 43.0, 19.0, 18.0, 0.35);
+  h = Math.max(h, 28.5 * smoothstep(0.18, 0.84, bluffProm));
 
-  const dCircle = Math.hypot(x - 48.0, z + 48.0);
+  const dCircle = Math.hypot(x - 32.0, z - 42.0);
   if (dCircle < 12.0) {
-    h = lerp(h, 27.5, 1.0 - smoothstep(5.6, 12.0, dCircle));
+    h = lerp(h, 28.5, 1.0 - smoothstep(5.6, 12.0, dCircle));
   }
 
-  // Oihanu's Great Vaka Moana Shed Terrace at walkable (20, 46) -> canon (46.0, -20.0)
-  const dElder = Math.hypot(x - 46.0, z + 20.0);
+  // Oihanu's Great Vaka Moana Shed Terrace on starboard bay at walkable (24, 44) -> canon (44.0, -24.0)
+  const dElder = Math.hypot(x - 44.0, z + 24.0);
   if (dElder < 10.5) {
-    h = lerp(h, 8.5, 1.0 - smoothstep(4.8, 10.5, dElder));
+    h = lerp(h, 6.5, 1.0 - smoothstep(4.8, 10.5, dElder));
   }
 
-  // Single-pass closest-segment polyline trail matching WalkableIslandScene stepping stones
+  // Single-pass polyline trail climbing the PORT (-X) rainforest cliff shelf to (-42, 32)
   const trailLegs = [
-    [61.0, 9.5, 52.0, 13.5, 1.1, 2.6], // spawn (-9.5, 61.0) -> landing
-    [61.0, 9.5, 36.0, 21.0, 1.1, 5.4], // spawn -> hut timber yard
-    [61.0, 9.5, 46.0, -20.0, 1.1, 8.5], // spawn -> elder terrace
-    [46.0, -20.0, 56.0, -31.0, 8.5, 14.5], // elder (20,46) -> mid1 (31,56)
-    [56.0, -31.0, 63.0, -43.0, 14.5, 20.8], // mid1 (31,56) -> mid2 (43,63)
-    [63.0, -43.0, 52.0, -51.0, 20.8, 27.3], // mid2 (43,63) -> rim (51,52)
-    [52.0, -51.0, 48.0, -48.0, 27.3, 27.5], // rim -> circle center (48,48)
+    [58.0, 4.0, 52.0, -6.0, 1.2, 2.4], // spawn (-4, 58) -> landing (6, 52)
+    [58.0, 4.0, 32.0, -16.0, 1.2, 5.4], // spawn -> hut timber yard (16, 32)
+    [58.0, 4.0, 44.0, -24.0, 1.2, 6.5], // spawn -> elder shipwright (24, 44)
+    [58.0, 4.0, 48.0, 20.0, 1.2, 9.5], // spawn (-4,58) -> port trail base (-20,48) [dist=18.9m, sl=0.44]
+    [48.0, 20.0, 44.0, 34.0, 9.5, 19.0], // port base (-20,48) -> mid (-34,44) [dist=14.6m, sl=0.65]
+    [44.0, 34.0, 36.0, 46.0, 19.0, 28.5], // mid (-34,44) -> rim (-46,36) [dist=14.4m, sl=0.66]
+    [36.0, 46.0, 32.0, 42.0, 28.5, 28.5], // rim -> circle center (-42,32)
   ];
   let bestTrailD = 999.0;
   let bestTrailH = h;
@@ -1234,11 +1242,11 @@ function evalFatuHivaPoint(x, z) {
     h = lerp(h, 1.5 * (1.0 - smoothstep(0.84, 1.0, u)), 0.82);
   }
   if (dCircle < 8.2) {
-    h = lerp(h, 27.5, 1.0 - smoothstep(5.6, 8.2, dCircle));
+    h = lerp(h, 28.5, 1.0 - smoothstep(5.6, 8.2, dCircle));
   }
 
-  // Flat grounded terrace for Oihanu's Great Vaka Moana Shipwright Shed at walkable (8.0, 57.5) -> canon (57.5, -8.0)
-  const dShed = Math.hypot(x - 57.5, z + 8.0);
+  // Flat grounded terrace for Oihanu's Great Vaka Moana Shipwright Shed at walkable (31.0, 56.0) -> canon (56.0, -31.0)
+  const dShed = Math.hypot(x - 56.0, z + 31.0);
   if (dShed < 9.5) {
     h = lerp(h, 4.6, 1.0 - smoothstep(6.2, 9.5, dShed));
   }
@@ -1298,11 +1306,9 @@ function buildFatuHivaAssembly() {
     })
   );
   for (const [px, pz, pw, ph, rotY] of [
-    [52.0, 32.0, 5.8, 48.0, 0.2],
-    [59.0, 38.0, 5.0, 38.0, -0.15],
-    [46.0, 36.0, 5.2, 42.0, 0.35],
-    [46.0, -28.0, 5.4, 38.0, -0.22],
-    [58.0, -26.0, 4.6, 32.0, 0.18],
+    [-48.0, 22.0, 5.8, 38.0, 0.2],
+    [-55.0, 10.0, 5.0, 34.0, -0.15],
+    [-42.0, -32.0, 5.2, 36.0, 0.35],
   ]) {
     const pillar = new THREE.Mesh(
       new THREE.BoxGeometry(pw, ph, pw * 0.88),
@@ -1319,35 +1325,35 @@ function buildFatuHivaAssembly() {
   );
   addCliffSurfCollar(group, foamMat, 80.0, 0.4, Math.PI * 2.0 - 0.4, 54);
 
-  // Twin Hanging Rainforest Waterfalls Cascading into Waterfall Bay!
+  // Twin Hanging Rainforest Waterfalls Cascading down the amphitheater cliffs into Waterfall Bay
   addWaterfallCascade(group, trackMat, {
     x: -10.0,
-    y: 34.0,
-    z: -16.0,
-    width: 2.4,
-    height: 44.0,
-    rotY: 0.22,
-    tiltX: -0.35,
+    y: 21.0,
+    z: -17.0,
+    width: 2.2,
+    height: 34.0,
+    rotY: 0.2,
+    tiltX: -0.42,
   });
   addWaterfallCascade(group, trackMat, {
-    x: -16.0,
-    y: 36.0,
-    z: 14.0,
-    width: 2.6,
-    height: 46.0,
-    rotY: Math.PI * 0.62,
-    tiltX: -0.34,
+    x: -28.0,
+    y: 18.0,
+    z: -8.0,
+    width: 2.4,
+    height: 32.0,
+    rotY: Math.PI * 0.45,
+    tiltX: -0.45,
   });
 
   // Canonical exclusion zones (rotY = -PI/2 => cx = wz, cz = -wx)
   const toCanon = (wx, wz) => [wz, -wx];
-  const [spCx, spCz] = toCanon(-9.5, 61.0);
-  const [laCx, laCz] = toCanon(-13.5, 52.0);
-  const [huCx, huCz] = toCanon(-21.0, 36.0);
-  const [elCx, elCz] = toCanon(20.0, 46.0);
-  const [ciCx, ciCz] = toCanon(48.0, 48.0);
-  const [mid1Cx, mid1Cz] = toCanon(31.0, 56.0);
-  const [mid2Cx, mid2Cz] = toCanon(43.0, 63.0);
+  const [spCx, spCz] = toCanon(-4.0, 58.0);
+  const [laCx, laCz] = toCanon(6.0, 52.0);
+  const [huCx, huCz] = toCanon(16.0, 32.0);
+  const [elCx, elCz] = toCanon(24.0, 44.0);
+  const [ciCx, ciCz] = toCanon(-42.0, 32.0);
+  const [mid1Cx, mid1Cz] = toCanon(-20.0, 48.0);
+  const [mid2Cx, mid2Cz] = toCanon(-34.0, 44.0);
   const fatuClearZones = [
     { x: spCx, z: spCz, r: 10.5 },
     { x: laCx, z: laCz, r: 7.5 },
@@ -1368,7 +1374,7 @@ function buildFatuHivaAssembly() {
   const timberMat = trackMat(
     new THREE.MeshStandardMaterial({ color: 0x694224, roughness: 0.85 })
   );
-  const [shedCx, shedCz] = toCanon(8.0, 57.5);
+  const [shedCx, shedCz] = toCanon(31.0, 56.0);
   const shedY = evalFatuHivaPoint(shedCx, shedCz).h;
   const grandShed = new THREE.Group();
   grandShed.position.set(shedCx, shedY - 0.12, shedCz);
@@ -1400,10 +1406,10 @@ function buildFatuHivaAssembly() {
   group.add(grandShed);
 
   const huts = [
-    [toCanon(-30.0, 34.0)[0], toCanon(-30.0, 34.0)[1], 0.45, 1.02],
-    [toCanon(-28.0, 45.0)[0], toCanon(-28.0, 45.0)[1], 0.18, 0.96],
-    [toCanon(4.0, 48.0)[0], toCanon(4.0, 48.0)[1], -0.35, 0.94],
-    [toCanon(-33.0, 50.0)[0], toCanon(-33.0, 50.0)[1], 0.6, 0.9],
+    [toCanon(30.0, 32.0)[0], toCanon(30.0, 32.0)[1], -0.45, 1.02],
+    [toCanon(28.0, 44.0)[0], toCanon(28.0, 44.0)[1], -0.18, 0.96],
+    [toCanon(-12.0, 46.0)[0], toCanon(-12.0, 46.0)[1], 0.35, 0.94],
+    [toCanon(33.0, 48.0)[0], toCanon(33.0, 48.0)[1], -0.6, 0.9],
   ].map(([hx, hz, rotY, sc]) => ({
     x: hx,
     y: Math.max(0.8, evalFatuHivaPoint(hx, hz).h - 0.08),
@@ -1413,22 +1419,22 @@ function buildFatuHivaAssembly() {
   }));
   addRegionalHuts(group, trackMat, huts, 'marquesan');
 
-  const [pierCx, pierCz] = toCanon(-2.0, 62.5);
+  const [pierCx, pierCz] = toCanon(4.0, 62.5);
   addTimberPier(group, trackMat, {
     x: pierCx,
     y: 0.7,
     z: pierCz,
-    rotY: 0.1,
+    rotY: -0.08,
     length: 8.5,
     width: 1.65,
   });
 
-  const [vaaCx, vaaCz] = toCanon(6.5, 65.5);
+  const [vaaCx, vaaCz] = toCanon(-8.5, 65.5);
   addOutriggerCanoe(group, trackMat, {
     x: vaaCx,
     y: 0.34,
     z: vaaCz,
-    rotY: Math.PI * 0.42,
+    rotY: -Math.PI * 0.42,
   });
 
   const palmPts = [];
@@ -1473,27 +1479,43 @@ function evalMangarevaPoint(x, z) {
   const r = Math.hypot(x, z);
   const theta = Math.atan2(z, x);
 
-  // Asymmetric crooked-headland central island footprint (non-circular!)
+  // Asymmetric crooked-headland central island footprint (no side hill!)
   const rx = x * 0.94 + z * 0.08;
   const rz = z * 1.08 - x * 0.06;
   const rWarp = Math.hypot(rx, rz);
-  const eastCape = 24.5 * Math.exp(-Math.pow((theta + 0.78) / 0.48, 2.0));
-  const westCape = 10.5 * Math.exp(-Math.pow((theta - 0.85) / 0.36, 2.0));
+  const southHeadland = 11.5 * Math.exp(-Math.pow((theta + 0.78) / 0.42, 2.0));
+  const westCape = 12.5 * Math.exp(-Math.pow((theta - 0.85) / 0.38, 2.0));
   const bayIndent = 6.5 * Math.exp(-Math.pow((theta - 0.08) / 0.3, 2.0));
   const organicWaves =
     5.4 * Math.cos(2.0 * theta - 0.5) +
     3.6 * Math.sin(3.0 * theta + 0.8) +
     2.4 * Math.cos(5.0 * theta - 0.7);
-  const islandCoastR = Math.max(54.0, 61.0 - bayIndent + eastCape + westCape + organicWaves);
+  const islandCoastR = Math.max(54.0, 60.0 - bayIndent + southHeadland + westCape + organicWaves);
 
   const outerReefR = evalMangarevaReefRadius(theta);
-  const passMask = arcMask(theta, 0.02, 0.16, 0.06);
+  const passMask = arcMask(theta, -0.04, 0.16, 0.06);
+
+  // Walkable white-sand causeway & outer lagoon coral motu peninsula at (-44, 64) -> canon (64.0, 44.0)
+  const causewayLegs = [
+    [58.0, 8.0, 62.0, 26.0, 1.3, 2.2], // spawn (-8, 58) -> sandbar neck (-26, 62)
+    [62.0, 26.0, 64.0, 44.0, 2.2, 3.2], // sandbar neck -> outer motu Star Circle (-44, 64)
+  ];
+  let bestCauseD = 999.0;
+  let bestCauseH = 0.0;
+  for (const [ax, az, bx, bz, h0, h1] of causewayLegs) {
+    const seg = uaPouDistToSeg(x, z, ax, az, bx, bz);
+    if (seg.d < bestCauseD) {
+      bestCauseD = seg.d;
+      bestCauseH = lerp(h0, h1, seg.t);
+    }
+  }
+  const dMotuCircle = Math.hypot(x - 64.0, z - 44.0);
 
   if (r <= islandCoastR) {
     const u = rWarp / (islandCoastR + 4.0);
-    // Iconic Mount Duff asymmetric tilted hogback wedge (gradual north slope, sheer south cliff!)
-    const dx = x + 32.0;
-    const dz = z - 12.0;
+    // Iconic Mount Duff asymmetric tilted hogback wedge (~67m crest astern-east) + Mount Mokoto
+    const dx = x + 54.0;
+    const dz = z + 24.0;
     const rotX = dx * 0.85 + dz * 0.52;
     const rotZ = -dx * 0.52 + dz * 0.85;
     const ridgeSpine = Math.exp(-Math.pow(rotX / 22.0, 2.0));
@@ -1501,80 +1523,50 @@ function evalMangarevaPoint(x, z) {
       rotZ < 4.5
         ? smoothstep(-28.0, 4.5, rotZ)
         : Math.exp(-Math.pow((rotZ - 4.5) / 5.8, 2.0));
-    const mountDuff = 78.0 * ridgeSpine * asymWedge;
+    const mountDuff = 59.0 * ridgeSpine * asymWedge;
 
     // Secondary Mount Mokoto dramatic twin peak
-    const mokoto = 52.0 * gaussian2D(x, z, -30.0, -18.0, 14.0, 12.0, 0.2);
-    const apron = 6.0 * smoothstep(1.0, 0.65, clamp01(u));
+    const mokoto = 44.0 * gaussian2D(x, z, -42.0, 0.0, 14.0, 12.0, 0.2);
+    const apron = 5.5 * smoothstep(1.0, 0.65, clamp01(u));
 
     let h = apron + mountDuff + mokoto;
 
     // Gently level Mist-Border harbor cove & Outfitting Fare apron
-    const bayMask = gaussian2D(x, z, 46.0, 10.0, 17.0, 24.0, 0.08);
+    const bayMask = gaussian2D(x, z, 44.0, -8.0, 18.0, 24.0, -0.08);
     if (bayMask > 0.02) {
       const bayTarget = lerp(1.1, 5.8, smoothstep(60.5, 24.0, x));
       h = lerp(h, bayTarget, clamp01(bayMask * 1.15));
     }
 
-    // East Headland Sea-Bluff Terrace for Observation Circle at walkable (46, 46) -> canon (46.0, -46.0)
-    const bluffProm = gaussian2D(x, z, 47.0, -47.0, 19.0, 18.0, -0.35);
-    h = Math.max(h, 27.5 * smoothstep(0.18, 0.84, bluffProm));
-
-    const dCircle = Math.hypot(x - 46.0, z + 46.0);
-    if (dCircle < 12.0) {
-      h = lerp(h, 27.5, 1.0 - smoothstep(5.6, 12.0, dCircle));
-    }
-
-    // Elder Rongo's terrace at walkable (20, 46) -> canon (46.0, -20.0)
-    const dElder = Math.hypot(x - 46.0, z + 20.0);
+    // Elder Rongo's terrace at walkable (20, 44) -> canon (44.0, -20.0)
+    const dElder = Math.hypot(x - 44.0, z + 20.0);
     if (dElder < 10.5) {
-      h = lerp(h, 8.5, 1.0 - smoothstep(4.8, 10.5, dElder));
+      h = lerp(h, 6.8, 1.0 - smoothstep(4.8, 10.5, dElder));
     }
 
-    // Single-pass closest-segment polyline trail matching WalkableIslandScene stepping stones
-    const trailLegs = [
-      [59.5, 9.5, 51.0, 13.5, 1.1, 2.6], // spawn (-9.5, 59.5) -> landing
-      [59.5, 9.5, 36.0, 21.0, 1.1, 5.4], // spawn -> hut fare
-      [59.5, 9.5, 46.0, -20.0, 1.1, 8.5], // spawn -> elder terrace
-      [46.0, -20.0, 56.0, -31.0, 8.5, 14.5], // elder (20,46) -> mid1 (31,56)
-      [56.0, -31.0, 62.0, -43.0, 14.5, 20.8], // mid1 (31,56) -> mid2 (43,62)
-      [62.0, -43.0, 50.0, -49.0, 20.8, 27.3], // mid2 (43,62) -> rim (49,50)
-      [50.0, -49.0, 46.0, -46.0, 27.3, 27.5], // rim -> circle center (46,46)
-    ];
-    let bestTrailD = 999.0;
-    let bestTrailH = h;
-    for (const [ax, az, bx, bz, h0, h1] of trailLegs) {
-      const seg = uaPouDistToSeg(x, z, ax, az, bx, bz);
-      if (seg.d < bestTrailD) {
-        bestTrailD = seg.d;
-        bestTrailH = lerp(h0, h1, seg.t);
-      }
-    }
-    if (bestTrailD < 14.5) {
-      const mask = 1.0 - smoothstep(7.2, 14.5, bestTrailD);
-      h = lerp(h, bestTrailH, mask);
+    if (r / islandCoastR > 0.86) {
+      h = lerp(h, 0.45, smoothstep(0.86, 1.0, r / islandCoastR));
     }
 
-    if (r / islandCoastR > 0.88 && dCircle > 10.5 && bestTrailD > 8.5) {
-      h = lerp(h, 0.45, smoothstep(0.88, 1.0, r / islandCoastR));
-    }
-    if (dCircle < 8.2) {
-      h = lerp(h, 27.5, 1.0 - smoothstep(5.6, 8.2, dCircle));
+    // Blend onto the white-sand causeway where it leaves the main beach
+    if (bestCauseD < 10.5) {
+      h = Math.max(h, lerp(h, bestCauseH, 1.0 - smoothstep(5.5, 10.5, bestCauseD)));
     }
 
-    // Flat grounded Gateway Marae terrace at walkable (13.0, 56.0) -> canon (56.0, -13.0)
-    const dMarae = Math.hypot(x - 56.0, z + 13.0);
+    // Flat grounded Gateway Marae terrace at walkable (14.0, 54.0) -> canon (54.0, -14.0)
+    const dMarae = Math.hypot(x - 54.0, z + 14.0);
     if (dMarae < 8.5) {
-      h = lerp(h, 6.2, 1.0 - smoothstep(5.5, 8.5, dMarae));
+      h = lerp(h, 5.8, 1.0 - smoothstep(5.5, 8.5, dMarae));
     }
 
     return {
       h,
-      zone: r / islandCoastR > 0.87 && h < 2.2 ? 'beach' : 'island',
+      zone: (r / islandCoastR > 0.87 && h < 2.2) || bestCauseD < 8.0 ? 'beach' : 'island',
     };
   }
 
-  // Expansive organic turquoise Lapa lagoon out to warped outerReefR(theta)
+  // Expansive organic turquoise Lapa lagoon out to warped outerReefR(theta),
+  // with the walkable white-sand causeway & outer coral motu sanctuary peninsula!
   if (r <= outerReefR) {
     let h = lerp(0.16, 0.23, smoothstep(islandCoastR, outerReefR, r));
     let zone = 'lapa_lagoon';
@@ -1594,6 +1586,21 @@ function evalMangarevaPoint(x, z) {
           zone = mh > 1.35 ? 'motu_veg' : 'beach';
         }
       }
+    }
+
+    // Outer Lagoon Motu Sandbar & Causeway carrying Observation Circle at (-44, 64)
+    if (bestCauseD < 11.5) {
+      const cMask = 1.0 - smoothstep(5.8, 11.5, bestCauseD);
+      const ch = lerp(0.18, bestCauseH, cMask);
+      if (ch > h) {
+        h = ch;
+        zone = 'beach';
+      }
+    }
+    if (dMotuCircle < 14.0) {
+      const mPad = 1.0 - smoothstep(8.2, 14.0, dMotuCircle);
+      h = lerp(h, 3.2, mPad);
+      if (mPad > 0.2) zone = 'beach';
     }
 
     h = lerp(h, -3.0, passMask * smoothstep(64.0, 78.0, r));
@@ -1700,21 +1707,19 @@ function buildMangarevaAssembly() {
 
   // Canonical exclusion zones (rotY = -PI/2 => cx = wz, cz = -wx)
   const toCanon = (wx, wz) => [wz, -wx];
-  const [spCx, spCz] = toCanon(-9.5, 59.5);
-  const [laCx, laCz] = toCanon(-13.5, 51.0);
-  const [huCx, huCz] = toCanon(-21.0, 36.0);
-  const [elCx, elCz] = toCanon(20.0, 46.0);
-  const [ciCx, ciCz] = toCanon(46.0, 46.0);
-  const [mid1Cx, mid1Cz] = toCanon(31.0, 56.0);
-  const [mid2Cx, mid2Cz] = toCanon(43.0, 62.0);
+  const [spCx, spCz] = toCanon(-8.0, 58.0);
+  const [laCx, laCz] = toCanon(-2.0, 50.0);
+  const [huCx, huCz] = toCanon(22.0, 28.0);
+  const [elCx, elCz] = toCanon(20.0, 44.0);
+  const [ciCx, ciCz] = toCanon(-44.0, 64.0);
+  const [mid1Cx, mid1Cz] = toCanon(-26.0, 62.0);
   const mangClearZones = [
     { x: spCx, z: spCz, r: 10.5 },
     { x: laCx, z: laCz, r: 7.5 },
     { x: huCx, z: huCz, r: 10.5 },
     { x: elCx, z: elCz, r: 8.5 },
     { x: ciCx, z: ciCz, r: 12.5 },
-    { x: mid1Cx, z: mid1Cz, r: 6.0 },
-    { x: mid2Cx, z: mid2Cz, r: 6.0 },
+    { x: mid1Cx, z: mid1Cz, r: 6.5 },
   ];
   const mangIsClear = (px, pz) => {
     for (const bz of mangClearZones) {
@@ -1724,7 +1729,7 @@ function buildMangarevaAssembly() {
   };
 
   // Elder Rongo's Dressed White-Coral Block Gateway Marae grounded solidly on its flat terrace!
-  const [marCx, marCz] = toCanon(13.0, 56.0);
+  const [marCx, marCz] = toCanon(14.0, 54.0);
   addMaraePlatform(group, trackMat, {
     x: marCx,
     y: evalMangarevaPoint(marCx, marCz).h - 0.12,
@@ -1736,10 +1741,10 @@ function buildMangarevaAssembly() {
   });
 
   const huts = [
-    [toCanon(-30.0, 34.0)[0], toCanon(-30.0, 34.0)[1], 0.45, 1.02, true],
-    [toCanon(-28.0, 45.0)[0], toCanon(-28.0, 45.0)[1], 0.18, 0.96, false],
-    [toCanon(4.0, 48.0)[0], toCanon(4.0, 48.0)[1], -0.35, 0.94, false],
-    [toCanon(-33.0, 50.0)[0], toCanon(-33.0, 50.0)[1], 0.6, 0.9, false],
+    [toCanon(30.0, 28.0)[0], toCanon(30.0, 28.0)[1], -0.45, 1.02, true],
+    [toCanon(28.0, 40.0)[0], toCanon(28.0, 40.0)[1], -0.18, 0.96, false],
+    [toCanon(6.0, 44.0)[0], toCanon(6.0, 44.0)[1], 0.35, 0.94, false],
+    [toCanon(33.0, 46.0)[0], toCanon(33.0, 46.0)[1], -0.6, 0.9, false],
   ].map(([hx, hz, rotY, sc, longHouse]) => ({
     x: hx,
     y: Math.max(0.8, evalMangarevaPoint(hx, hz).h - 0.08),
@@ -1750,17 +1755,17 @@ function buildMangarevaAssembly() {
   }));
   addRegionalHuts(group, trackMat, huts, 'society');
 
-  const [pierCx, pierCz] = toCanon(-2.0, 62.5);
+  const [pierCx, pierCz] = toCanon(1.0, 62.0);
   addTimberPier(group, trackMat, {
     x: pierCx,
     y: 0.7,
     z: pierCz,
-    rotY: 0.08,
+    rotY: -0.08,
     length: 8.5,
     width: 1.65,
   });
 
-  const [vaaCx, vaaCz] = toCanon(6.5, 65.5);
+  const [vaaCx, vaaCz] = toCanon(8.0, 65.0);
   addOutriggerCanoe(group, trackMat, {
     x: vaaCx,
     y: 0.34,
