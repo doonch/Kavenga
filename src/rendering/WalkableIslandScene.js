@@ -40,6 +40,7 @@ import {
 import { animateCrewCharacterRig } from './CrewCharacterBuilder.js';
 import {
   animatePlayerCharacterAshore,
+  createElderFemaleRig,
   createPlayerCharacterRig,
 } from './PlayerCharacterBuilder.js';
 
@@ -486,16 +487,16 @@ export class WalkableIslandScene {
       },
       hawaii: {
         waypoints: [
-          new THREE.Vector3(-20.9, 0, 61.0),
-          new THREE.Vector3(-11.8, 0, 60.5),
-          new THREE.Vector3(-2.8, 0, 60.0),
-          new THREE.Vector3(4.7, 0, 59.6),
+          new THREE.Vector3(-4.0, 0, 62.2),
+          new THREE.Vector3(7.0, 0, 62.6),
+          new THREE.Vector3(18.5, 0, 63.0),
+          new THREE.Vector3(28.5, 0, 62.4),
         ],
         steps: 22,
         torches: [
-          [-18.0, 60.8],
-          [-7.5, 60.2],
-          [2.0, 59.7],
+          [1.0, 62.4],
+          [12.5, 62.8],
+          [23.5, 62.7],
         ],
       },
       rapa_nui: {
@@ -640,6 +641,32 @@ export class WalkableIslandScene {
       addKukuiTorch
     );
 
+    const placeShoreNpc = (npcRig, standX, standZ, holdsStaffRight) => {
+      const standY = Math.max(0.08, this.getGroundHeight(standX, standZ));
+      npcRig.root.position.set(standX, standY, standZ);
+      npcRig.root.rotation.y = Math.atan2(
+        -(this.spec.initialSpawn.x - standX),
+        -(this.spec.initialSpawn.z - standZ)
+      );
+      if (holdsStaffRight) {
+        const staff = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.024, 0.018, 1.82, 7),
+          aitoMat
+        );
+        staff.position.set(0.24, 0.91, -0.22);
+        staff.castShadow = true;
+        npcRig.root.add(staff);
+      }
+      this.root.add(npcRig.root);
+      this.obstacles.push({ x: standX, z: standZ, r: 0.85 });
+      this.npcEntries.push({
+        rig: npcRig,
+        watchX: standX,
+        watchZ: standZ,
+        holdsStaffRight: Boolean(holdsStaffRight),
+      });
+    };
+
     for (const poi of this.spec.pois) {
       const groundY = this.getGroundHeight(poi.x, poi.z);
       const py = Math.max(0.14, groundY + 0.06);
@@ -757,41 +784,29 @@ export class WalkableIslandScene {
       // Add welcoming 3D Artisan & Elder figures on inhabited islands
       if (islDef?.inhabited && (poi.kind === 'hut' || poi.kind === 'elder')) {
         const isElder = poi.kind === 'elder';
-        const npcRig = createPlayerCharacterRig(
-          isElder ? Difficulty.MASTER_NAVIGATOR : Difficulty.MEDIUM
-        );
-        const standX = poi.x + (isElder ? 1.1 : -0.9);
-        const standZ = poi.z - 0.8;
-        const standY = Math.max(0.08, this.getGroundHeight(standX, standZ));
-        npcRig.root.position.set(standX, standY, standZ);
-        const toSpawnAngle = Math.atan2(
-          -(this.spec.initialSpawn.x - standX),
-          -(this.spec.initialSpawn.z - standZ)
-        );
-        npcRig.root.rotation.y = toSpawnAngle;
-
-        if (isElder) {
-          const staff = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.024, 0.018, 1.82, 7),
-            aitoMat
-          );
-          staff.position.set(0.24, 0.91, -0.22);
-          staff.castShadow = true;
-          npcRig.root.add(staff);
-        }
-        this.root.add(npcRig.root);
-        this.obstacles.push({ x: standX, z: standZ, r: 0.85 });
-        this.npcEntries.push({
-          rig: npcRig,
-          watchX: standX,
-          watchZ: standZ,
-          holdsStaffRight: isElder,
-        });
+        const npcRig =
+          isElder && islandId === 'hawaii'
+            ? createElderFemaleRig({ variant: 'kupuna_heiau' })
+            : createPlayerCharacterRig(
+                isElder ? Difficulty.MASTER_NAVIGATOR : Difficulty.MEDIUM
+              );
+        placeShoreNpc(npcRig, poi.x + (isElder ? 1.1 : -0.9), poi.z - 0.8, isElder);
         addKukuiTorch(poi.x - poi.markerRadiusM * 0.85, poi.z + 1.4, 1.65);
       }
 
       this.root.add(ringGrp);
       this.poiVisuals[poi.id] = { group: ringGrp, ringMat: outerMat, baseY: py };
+    }
+
+    // Spawn additional regional NPCs (e.g., Hawai'i Council of elders, taro farmers & villagers)
+    if (islDef?.inhabited && Array.isArray(this.spec.extraNpcs)) {
+      for (const npcSpec of this.spec.extraNpcs) {
+        const npcRig =
+          npcSpec.rigKind === 'elder_female'
+            ? createElderFemaleRig({ variant: npcSpec.variant || 'kupuna_village' })
+            : createPlayerCharacterRig(npcSpec.difficulty || Difficulty.MEDIUM);
+        placeShoreNpc(npcRig, npcSpec.x, npcSpec.z, Boolean(npcSpec.holdsStaffRight));
+      }
     }
 
     // Sculpted Birds wheeling above the shore & cove (with land/stand/takeoff lifecycle)

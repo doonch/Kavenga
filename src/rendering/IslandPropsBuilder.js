@@ -894,3 +894,232 @@ export function createSculptedShipwrightShedGroup(
 
   return { group: grp };
 }
+
+/**
+ * Stepped irrigated Hawaiian lo'i kalo (wetland taro terraces) enclosed by
+ * dry-stacked basalt bund walls with emerald water sheets & kalo leaf clumps.
+ */
+export function createHawaiianLoiKaloGroup(trackMat) {
+  const group = new THREE.Group();
+  const stoneMat = trackMat(
+    new THREE.MeshStandardMaterial({ color: 0x3b3a3e, roughness: 0.92, flatShading: true })
+  );
+  const waterMat = trackMat(
+    new THREE.MeshBasicMaterial({ color: 0x2f9478, depthWrite: false }),
+    0.72
+  );
+  const stemMat = trackMat(
+    new THREE.MeshStandardMaterial({ color: 0x4b7a2c, roughness: 0.78 })
+  );
+  const leafMatA = trackMat(
+    new THREE.MeshStandardMaterial({ color: 0x267522, roughness: 0.68, side: THREE.DoubleSide })
+  );
+  const leafMatB = trackMat(
+    new THREE.MeshStandardMaterial({ color: 0x3c942c, roughness: 0.65, side: THREE.DoubleSide })
+  );
+  const leafGeo = new THREE.ConeGeometry(0.28, 0.56, 5);
+  leafGeo.scale(1.0, 1.0, 0.22);
+
+  for (let tier = 0; tier < 3; tier += 1) {
+    const ty = tier * 0.55;
+    const tz = -tier * 3.4;
+    const w = 9.4 - tier * 1.1;
+    const d = 3.2;
+
+    const dikeFront = new THREE.Mesh(new THREE.BoxGeometry(w, 0.72, 0.55), stoneMat);
+    dikeFront.position.set(0, ty + 0.22, tz + d * 0.5);
+    group.add(dikeFront);
+
+    for (const side of [-1, 1]) {
+      const sideWall = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.72, d), stoneMat);
+      sideWall.position.set(side * (w * 0.5 - 0.25), ty + 0.22, tz);
+      group.add(sideWall);
+    }
+
+    const pond = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.8, d - 0.45), waterMat);
+    pond.rotation.x = -Math.PI * 0.5;
+    pond.position.set(0, ty + 0.34, tz);
+    group.add(pond);
+
+    const nPlants = 12 - tier * 2;
+    for (let p = 0; p < nPlants; p += 1) {
+      const px = ((p + 0.5) / nPlants - 0.5) * (w - 1.8) + ((p % 2) - 0.5) * 0.35;
+      const pz = tz + (((p * 37) % 10) / 10 - 0.5) * (d - 1.1);
+      const plant = new THREE.Group();
+      plant.position.set(px, ty + 0.32, pz);
+      for (let s = 0; s < 3; s += 1) {
+        const ang = (s / 3) * Math.PI * 2.0 + p * 0.7;
+        const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.032, 0.45, 5), stemMat);
+        stalk.position.set(Math.cos(ang) * 0.07, 0.2, Math.sin(ang) * 0.07);
+        stalk.rotation.z = -Math.cos(ang) * 0.28;
+        stalk.rotation.x = Math.sin(ang) * 0.28;
+        plant.add(stalk);
+
+        const blade = new THREE.Mesh(leafGeo, s % 2 === 0 ? leafMatA : leafMatB);
+        blade.position.set(Math.cos(ang) * 0.17, 0.42, Math.sin(ang) * 0.17);
+        blade.rotation.y = -ang + Math.PI * 0.5;
+        blade.rotation.x = 1.05;
+        plant.add(blade);
+      }
+      group.add(plant);
+    }
+  }
+
+  return { group };
+}
+
+/**
+ * Carved Hawaiian wooden ki'i akua temple statue flanked by feathered kahili
+ * royal standards and white kapa-wrapped pulo'ulou tabu staffs.
+ */
+export function createHawaiianKahiliAndKiiGroup(trackMat, { scale = 1.0 } = {}) {
+  const group = new THREE.Group();
+  const woodMat = trackMat(
+    new THREE.MeshStandardMaterial({ color: 0x3b2214, roughness: 0.84, flatShading: true })
+  );
+  const kapaMat = trackMat(
+    new THREE.MeshStandardMaterial({ color: 0xf4eee0, roughness: 0.86 })
+  );
+  const crimsonFeatherMat = trackMat(
+    new THREE.MeshStandardMaterial({ color: 0xc2271e, roughness: 0.68 })
+  );
+  const goldFeatherMat = trackMat(
+    new THREE.MeshStandardMaterial({ color: 0xe6a828, roughness: 0.64 })
+  );
+
+  const kiiBase = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.35, 0.9), woodMat);
+  kiiBase.position.y = 0.16;
+  group.add(kiiBase);
+
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, 1.55, 8), woodMat);
+  body.position.y = 1.08;
+  group.add(body);
+
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.52, 0.44), woodMat);
+  head.position.y = 2.02;
+  group.add(head);
+
+  const crest = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.32, 0.55, 6), woodMat);
+  crest.scale.set(0.55, 1.0, 1.35);
+  crest.position.y = 2.48;
+  group.add(crest);
+
+  const kahiliPole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.036, 3.1, 7), woodMat);
+  kahiliPole.position.set(-1.35, 1.55, 0.15);
+  group.add(kahiliPole);
+
+  const featherCore = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.22, 0.85, 10), crimsonFeatherMat);
+  featherCore.position.set(-1.35, 2.75, 0.15);
+  group.add(featherCore);
+
+  const featherTip = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), goldFeatherMat);
+  featherTip.position.set(-1.35, 3.18, 0.15);
+  group.add(featherTip);
+
+  const kapuPole = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.035, 2.7, 7), woodMat);
+  kapuPole.position.set(1.35, 1.35, 0.15);
+  group.add(kapuPole);
+
+  const kapuOrb = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), kapaMat);
+  kapuOrb.position.set(1.35, 2.72, 0.15);
+  group.add(kapuOrb);
+
+  group.scale.setScalar(scale);
+  return { group };
+}
+
+/**
+ * Hawaiian stone-lined imu earth oven pit with hot lava pohaku stones,
+ * ti-leaf steaming mat, and glowing ember core.
+ */
+export function createHawaiianImuPitGroup(trackMat, { scale = 1.0 } = {}) {
+  const group = new THREE.Group();
+  const rockMat = trackMat(
+    new THREE.MeshStandardMaterial({ color: 0x2f2d30, roughness: 0.92, flatShading: true })
+  );
+  const emberMat = trackMat(
+    new THREE.MeshBasicMaterial({ color: 0xff6218, depthWrite: false }),
+    0.85
+  );
+  const leafMat = trackMat(
+    new THREE.MeshStandardMaterial({ color: 0x356928, roughness: 0.8 })
+  );
+
+  for (let i = 0; i < 12; i += 1) {
+    const a = (i / 12) * Math.PI * 2.0;
+    const stone = new THREE.Mesh(makeStoneRockGeometry(0.28, i + 4), rockMat);
+    stone.position.set(Math.cos(a) * 1.05, 0.14, Math.sin(a) * 1.05);
+    group.add(stone);
+  }
+  const glowBed = new THREE.Mesh(new THREE.CircleGeometry(0.88, 14), emberMat);
+  glowBed.rotation.x = -Math.PI * 0.5;
+  glowBed.position.y = 0.06;
+  group.add(glowBed);
+
+  for (let p = 0; p < 5; p += 1) {
+    const a = (p / 5) * Math.PI * 2.0;
+    const tiPatch = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.42, 0.12, 6), leafMat);
+    tiPatch.position.set(Math.cos(a) * 0.36, 0.12, Math.sin(a) * 0.36);
+    tiPatch.rotation.z = Math.cos(a) * 0.15;
+    group.add(tiPatch);
+  }
+
+  group.scale.setScalar(scale);
+  return { group };
+}
+
+/**
+ * Authentic Hawaiian Loko Kuapa (coastal basalt seawall fishpond) with a timber
+ * makaha sluice gate, tranquil aqua fishpool, and darting mullet silhouettes.
+ */
+export function createHawaiianLokoIaFishpondGroup(trackMat, { radius = 8.4 } = {}) {
+  const group = new THREE.Group();
+  const wallMat = trackMat(
+    new THREE.MeshStandardMaterial({ color: 0x2c2b2f, roughness: 0.92, flatShading: true })
+  );
+  const timberMat = trackMat(
+    new THREE.MeshStandardMaterial({ color: 0x6b4728, roughness: 0.86 })
+  );
+  const waterMat = trackMat(
+    new THREE.MeshBasicMaterial({ color: 0x2198a0, depthWrite: false }),
+    0.72
+  );
+  const fishMat = trackMat(
+    new THREE.MeshBasicMaterial({ color: 0x103c42, depthWrite: false }),
+    0.78
+  );
+
+  const pool = new THREE.Mesh(new THREE.CircleGeometry(radius - 0.5, 24), waterMat);
+  pool.rotation.x = -Math.PI * 0.5;
+  pool.position.y = 0.18;
+  group.add(pool);
+
+  for (let i = 0; i < 16; i += 1) {
+    const a = -1.25 + (i / 15) * 2.5;
+    const wx = Math.cos(a) * radius;
+    const wz = Math.sin(a) * radius;
+    if (i === 7 || i === 8) {
+      const sluice = new THREE.Mesh(new THREE.BoxGeometry(0.45, 1.1, 1.7), timberMat);
+      sluice.position.set(wx, 0.4, wz);
+      sluice.rotation.y = -a;
+      group.add(sluice);
+      continue;
+    }
+    const block = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.15, 1.9), wallMat);
+    block.position.set(wx, 0.36, wz);
+    block.rotation.y = -a;
+    group.add(block);
+  }
+
+  for (let f = 0; f < 6; f += 1) {
+    const fa = (f / 6) * Math.PI * 2.0;
+    const fr = radius * (0.35 + (f % 2) * 0.25);
+    const fish = new THREE.Mesh(new THREE.SphereGeometry(0.24, 6, 5), fishMat);
+    fish.scale.set(2.2, 0.45, 0.7);
+    fish.position.set(Math.cos(fa) * fr, 0.22, Math.sin(fa) * fr);
+    fish.rotation.y = -fa + Math.PI * 0.5;
+    group.add(fish);
+  }
+
+  return { group };
+}

@@ -35,6 +35,12 @@ import {
   smoothstep,
 } from './IslandSculptToolkit.js';
 import {
+  createCarvedHullPairGroup,
+  createHawaiianImuPitGroup,
+  createHawaiianKahiliAndKiiGroup,
+  createHawaiianLoiKaloGroup,
+  createHawaiianLokoIaFishpondGroup,
+  createSculptedShipwrightShedGroup,
   createSculptedTridacnaAltarGroup,
   createVillageHearthGroup,
 } from './IslandPropsBuilder.js';
@@ -1040,148 +1046,247 @@ function buildKiritimatiAssembly() {
 }
 
 // ============================================================================
-// 4. HAWAI'I — Active Glowing Kilauea & Mauna Loa Lava Calderas + Great Heiau
+// 4. HAWAI'I — Twin-Mauna Shield, Active Kilauea Calderas, Royal Village,
+//              Lo'i Kalo, Loko Kuapa & Black Basalt Lava-Point Peninsula
 // ============================================================================
-const HI_W = 2.0;
-const KILAUEA_CENTER = [-3.5 * HI_W, -9.5 * HI_W];
-const KILAUEA_RADIUS = 9.6 * 1.45;
-const MAUNA_LOA_CENTER = [-11.5 * HI_W, 9.8 * HI_W];
-const MAUNA_LOA_RADIUS = 5.4 * 1.45;
+const KILAUEA_CENTER = [-34.0, -28.0];
+const KILAUEA_RADIUS = 13.5;
+const MAUNA_LOA_CENTER = [-58.0, 22.0];
+const MAUNA_LOA_RADIUS = 7.6;
 
-/**
- * Computes proximity [0..1] to the two sinuous molten lava rivers spilling from
- * Kilauea's southern/western rim notch down the black basalt flank into the sea!
- */
+// Leveled coastal benches, temple terrace, canoe-shed apron & taro terrace
+// in canonical coordinates (cx, cz), guaranteeing flush prop & platform grounding (maxCornerDiff <= 0.15m).
+const HAWAII_LEVEL_PADS = [
+  // Lava-Point Peninsula Observation Circle (walkable (32, 62) -> canon (62, -32))
+  { cx: 62.0, cz: -32.0, h: 6.5, innerR: 7.5, outerR: 13.5, blend: 1.0 },
+  // Great Ancestral Heiau headland terrace (canon (25.5, 50.5))
+  { cx: 25.5, cz: 50.5, h: 7.8, innerR: 10.5, outerR: 17.0, blend: 1.0 },
+  // Halau Wa'a canoe shed & hull terrace (canon (43.8, 35.0))
+  { cx: 43.8, cz: 35.0, h: 3.2, innerR: 7.2, outerR: 10.6, blend: 1.0 },
+  // Stepped irrigated Lo'i Kalo wetland terrace (walkable (-12, 27) -> canon (27, 12))
+  { cx: 27.0, cz: 12.0, h: 5.8, innerR: 6.2, outerR: 8.8, blend: 1.0 },
+  // Steaming Imu earth oven commons plaza (matches Hale Ali'i & Hale Mua height 4.2m)
+  { cx: 42.5, cz: 10.5, h: 4.2, innerR: 4.2, outerR: 6.2, blend: 1.0 },
+];
+
+// 13 grounded Hawaiian hale huts (placed safely inland cx <= 50.5, clear of landing & walking lanes)
+const HAWAII_HUT_SPECS = [
+  { cx: 42.0, cz: 5.5, h: 4.2, rotY: -0.14, scale: 1.24, longHouse: true },   // 1. Royal Hale Ali'i
+  { cx: 40.5, cz: 15.0, h: 4.2, rotY: 0.16, scale: 1.12, longHouse: true },   // 2. Ceremonial Hale Mua
+  { cx: 50.5, cz: 4.2, h: 2.6, rotY: -0.22, scale: 0.96, longHouse: false },  // 3. Hale Noho (shore)
+  { cx: 50.5, cz: 13.5, h: 2.6, rotY: 0.08, scale: 0.94, longHouse: false },  // 4. Hale Noho (commons)
+  { cx: 48.0, cz: 21.5, h: 2.6, rotY: -0.18, scale: 0.98, longHouse: false }, // 5. Hale Kuku (kapa house)
+  { cx: 35.5, cz: 2.2, h: 4.4, rotY: 0.24, scale: 0.96, longHouse: false },   // 6. Hale 'Aina (feast house)
+  { cx: 36.5, cz: 23.5, h: 4.6, rotY: -0.3, scale: 0.95, longHouse: false },  // 7. Hale Papa'a (gear store)
+  { cx: 36.5, cz: 8.2, h: 4.2, rotY: -0.08, scale: 1.0, longHouse: false },   // 8. Hale Ku'i Kalo (beside Lo'i)
+  { cx: 26.0, cz: 32.0, h: 7.4, rotY: -0.38, scale: 0.96, longHouse: false }, // 9. Hale Kalai (carver's hale)
+  { cx: 16.5, cz: 38.5, h: 7.8, rotY: -0.52, scale: 1.04, longHouse: true },  // 10. Hale Kahuna (heiau keepers)
+  { cx: 45.0, cz: 44.0, h: 2.6, rotY: -0.68, scale: 0.98, longHouse: false }, // 11. Hale Lawai'a (fishpond keeper)
+  { cx: 20.5, cz: 21.5, h: 8.2, rotY: -0.2, scale: 0.95, longHouse: false },  // 12. Hale La'au (healer's hale)
+  { cx: 29.5, cz: 25.5, h: 5.8, rotY: 0.14, scale: 0.94, longHouse: false },  // 13. Hale Ulana (mat weaver's hale)
+];
+
 function evalHawaiiLavaChannels(x, z) {
-  const lx = x / HI_W;
-  const lz = z / HI_W;
-
-  // Primary molten river flowing from Kilauea (-3.5, -9.5) toward sea cliff at (-8.5, -42.0)
+  // Primary molten river pouring from Kilauea (-34, -28) down the black delta toward coast (-60, -72)
   let flowA = 0.0;
-  if (lz < -9.0 && lz > -45.5) {
-    const t = clamp01((-lz - 9.0) / 34.0);
+  if (z < -28.0 && z > -76.0) {
+    const t = clamp01((-z - 28.0) / 46.0);
     const centerX =
-      lerp(-3.5, -9.5, t) + 2.8 * Math.sin(t * Math.PI * 2.6 + 0.3);
-    const width = lerp(2.1, 3.2, t);
-    flowA = Math.exp(-Math.pow(Math.abs(lx - centerX) / width, 2.2));
+      lerp(-34.0, -58.0, t) + 5.0 * Math.sin(t * Math.PI * 2.4 + 0.35);
+    const width = lerp(3.4, 5.2, t);
+    flowA = Math.exp(-Math.pow(Math.abs(x - centerX) / width, 2.2));
   }
 
-  // Secondary braided molten branch splitting toward (4.5, -39.5)
+  // Secondary braided molten fork spilling toward black coastal ledges (-14, -74)
   let flowB = 0.0;
-  if (lz < -15.0 && lz > -43.0) {
-    const t = clamp01((-lz - 15.0) / 26.5);
+  if (z < -34.0 && z > -76.0) {
+    const t = clamp01((-z - 34.0) / 40.0);
     const centerX =
-      lerp(-2.5, 5.2, t) - 1.9 * Math.sin(t * Math.PI * 2.0);
-    const width = lerp(1.5, 2.3, t);
-    flowB = Math.exp(-Math.pow(Math.abs(lx - centerX) / width, 2.2));
+      lerp(-30.0, -14.0, t) - 3.6 * Math.sin(t * Math.PI * 2.0);
+    const width = lerp(2.4, 3.8, t);
+    flowB = Math.exp(-Math.pow(Math.abs(x - centerX) / width, 2.2));
   }
 
   return clamp01(Math.max(flowA, flowB));
 }
 
-function evalHawaiiPoint(x, z) {
-  const lx = x / HI_W;
-  const lz = z / HI_W;
-  const r = Math.hypot(lx, lz);
-  const theta = Math.atan2(lz, lx);
+function evalHawaiiCoastR(theta) {
+  // Smooth organic Big Island shoreline — zero rectangular inBay wedge cutout.
+  // Gentle Kealakekua sandy crescent near theta = +0.10, jutting black Lava-Point Peninsula
+  // near theta = -0.48 (canon (62, -32)), and wide basalt lava delta around theta = -2.25.
+  const kealakekuaCove = 10.5 * Math.exp(-Math.pow((theta - 0.10) / 0.40, 2.0));
+  const lavaPointLobe = 13.5 * Math.exp(-Math.pow((theta + 0.48) / 0.25, 2.0));
+  const lavaDeltaLobe = 9.0 * Math.exp(-Math.pow((theta + 2.22) / 0.42, 2.0));
+  const portHeadlandLobe = 5.5 * Math.exp(-Math.pow((theta - 0.85) / 0.32, 2.0));
+  return (
+    76.5 -
+    kealakekuaCove +
+    lavaPointLobe +
+    lavaDeltaLobe +
+    portHeadlandLobe +
+    2.6 * Math.cos(3.0 * theta - 0.35) +
+    1.5 * Math.sin(5.0 * theta + 0.8)
+  );
+}
 
-  // Sheltered Kealakekua Bay on theta = 0 (+X approach) & rugged black lava delta on -Z flank
-  const kealakekuaBay = 6.8 * Math.exp(-Math.pow(theta / 0.32, 2.0));
-  const lavaDeltaBulge = 4.2 * Math.exp(-Math.pow((theta + 1.72) / 0.35, 2.0));
-  const coastR =
-    41.5 - kealakekuaBay + lavaDeltaBulge + 2.4 * Math.cos(4.0 * theta - 0.5);
+function distToSeg2D(x, z, ax, az, bx, bz) {
+  const abx = bx - ax;
+  const abz = bz - az;
+  const lenSq = abx * abx + abz * abz;
+  const t =
+    lenSq > 1e-6
+      ? clamp01(((x - ax) * abx + (z - az) * abz) / lenSq)
+      : 0.0;
+  const px = ax + abx * t;
+  const pz = az + abz * t;
+  return { d: Math.hypot(x - px, z - pz), t };
+}
+
+function evalHawaiiPoint(x, z) {
+  const r = Math.hypot(x, z);
+  const theta = Math.atan2(z, x);
+  const coastR = evalHawaiiCoastR(theta);
 
   if (r > coastR) {
     return {
-      h: lerp(0.05, -4.6, smoothstep(coastR, coastR + 7.5, r)),
+      h: lerp(0.06, -4.8, smoothstep(coastR, coastR + 12.5, r)),
       inKilauea: 0.0,
       inMaunaLoa: 0.0,
       lavaRiver: 0.0,
-      blackLavaField: 0.0,
+      blackLavaField: theta < -0.15 ? 0.9 : 0.0,
       alpineCap: 0.0,
       isGoldenBay: false,
+      isValleyMist: false,
     };
   }
 
   const u = r / coastR;
-  const inBay = Math.abs(theta) < 0.32;
 
-  // 1. Broad Ancestral Twin-Mauna Volcanic Shield Massif:
-  //    - Mauna Kea / Mauna Loa high shield on +Z/-X (~72m summit)
-  //    - Active Kilauea shield dome on -Z flank (~52m crater rim)
-  const highMauna = 69.0 * gaussian2D(lx, lz, -11.0, 9.5, 19.5, 17.5, 0.25);
-  const kilaueaDome = 49.0 * gaussian2D(lx, lz, -3.5, -9.5, 18.5, 17.5, -0.15);
-  const baseShield = 22.0 * Math.pow(smoothstep(1.0, 0.12, u), 1.15);
+  // 1. Twin-Mauna Shield Massif (shifted astern-port so Lava-Point Peninsula stays <= 26.5deg horizon!)
+  //    - Towering frosted Mauna Kea / Mauna Loa shield summit around canon (-54, 34) (~71m)
+  //    - Active Kilauea shield dome on starboard-astern (-34, -28) (~40m crater rim)
+  //    - Broad vegetated Hualalai / windward saddle spine sloping gently down toward Kealakekua Bay
+  const highMauna = 66.5 * gaussian2D(x, z, -54.0, 34.0, 29.0, 26.0, 0.22);
+  const kilaueaDome = 41.0 * gaussian2D(x, z, -34.0, -28.0, 26.5, 25.5, -0.18);
+  const uplandSpine = 24.5 * gaussian2D(x, z, -10.0, 26.0, 24.0, 22.0, -0.2);
+  const baseShield = 15.5 * Math.pow(smoothstep(1.0, 0.14, u), 1.2);
+  // Coastal cliffs wrap windward/astern shores while Kealakekua bay & black lava-point shelf stay low
+  const notCove =
+    1.0 -
+    clamp01(
+      Math.exp(-Math.pow((theta - 0.08) / 0.52, 2.0)) +
+        0.92 * Math.exp(-Math.pow((theta + 0.48) / 0.34, 2.0))
+    );
+  const basaltSeaCliffs = 8.5 * notCove * smoothstep(1.0, 0.85, u) * smoothstep(0.62, 0.86, u);
 
-  const seaCliff = inBay ? 1.8 * (1.0 - u) : 14.0 * smoothstep(1.0, 0.86, u);
-  let h = baseShield + Math.max(highMauna * 0.82, kilaueaDome * 0.85) + seaCliff * 0.45;
+  let h =
+    baseShield +
+    Math.max(highMauna, kilaueaDome * 0.88, uplandSpine) +
+    basaltSeaCliffs +
+    1.2 * Math.sin(x * 0.09) * Math.cos(z * 0.08) * (1.0 - smoothstep(0.65, 1.0, u));
 
-  // 2. Carve Open-Top Sunken Kilauea / Halema'uma'u Caldera (wide sunken lava crater!)
-  const kd = Math.hypot(lx - (-3.5), lz - (-9.5));
-  const kRimRaise = 5.8 * Math.exp(-Math.pow((kd - 9.6) / 2.6, 2.0));
-  // Breach a glowing spillway notch on the -Z rim so molten lava visibly pours out!
+  // Suppress upland height on the starboard Lava-Point basalt shelf (cz < -4, cx > 28)
+  // so there is NO green hill to the right of Kealakekua landing!
+  if (x > 18.0 && z < 4.0) {
+    const rightShelfSuppress =
+      smoothstep(18.0, 42.0, x) * smoothstep(4.0, -14.0, z);
+    const shelfTarget = lerp(4.2, 2.4, smoothstep(45.0, 82.0, r));
+    h = lerp(h, Math.min(h, shelfTarget), rightShelfSuppress * 0.82);
+  }
+
+  // 2. Open-Top Sunken Kilauea (Halema'uma'u) Caldera with south-astern spillway notch
+  const kd = Math.hypot(x - KILAUEA_CENTER[0], z - KILAUEA_CENTER[1]);
+  const kRimRaise = 5.2 * Math.exp(-Math.pow((kd - KILAUEA_RADIUS) / 3.4, 2.0));
   const kSpillway =
-    arcMask(Math.atan2(lz - (-9.5), lx - (-3.5)), -1.62, 0.28, 0.1) *
-    Math.exp(-Math.pow((kd - 9.6) / 3.2, 2.0));
-  const inKilauea = 1.0 - smoothstep(9.6 - 1.8, 9.6 + 0.4, kd);
+    arcMask(
+      Math.atan2(z - KILAUEA_CENTER[1], x - KILAUEA_CENTER[0]),
+      -1.85,
+      0.34,
+      0.14
+    ) * Math.exp(-Math.pow((kd - KILAUEA_RADIUS) / 4.2, 2.0));
+  const inKilauea = 1.0 - smoothstep(KILAUEA_RADIUS - 2.6, KILAUEA_RADIUS + 0.5, kd);
   h += kRimRaise * (1.0 - 0.72 * kSpillway);
-  h = lerp(h, 39.2, inKilauea);
+  h = lerp(h, 33.8, inKilauea);
 
-  // 3. Carve Upper Mauna Loa Summit Rift Caldera (second glowing summit crater!)
-  const md = Math.hypot(lx - (-11.5), lz - 9.8);
-  const mRimRaise = 4.6 * Math.exp(-Math.pow((md - 5.4) / 2.0, 2.0));
-  const inMaunaLoa = 1.0 - smoothstep(5.4 - 1.3, 5.4 + 0.3, md);
+  // 3. Upper Mauna Loa Glowing Summit Caldera
+  const md = Math.hypot(x - MAUNA_LOA_CENTER[0], z - MAUNA_LOA_CENTER[1]);
+  const mRimRaise = 4.2 * Math.exp(-Math.pow((md - MAUNA_LOA_RADIUS) / 2.6, 2.0));
+  const inMaunaLoa = 1.0 - smoothstep(MAUNA_LOA_RADIUS - 1.8, MAUNA_LOA_RADIUS + 0.4, md);
   h += mRimRaise;
-  h = lerp(h, 58.5, inMaunaLoa);
+  h = lerp(h, 58.2, inMaunaLoa);
 
-  // 4. Molten Lava River Channels etched slightly into the black pahoehoe slope
+  // 4. Molten Lava River Channels incised cleanly into the black basalt delta
   const lavaRiver = inKilauea > 0.5 ? 0.0 : evalHawaiiLavaChannels(x, z);
-  h -= 0.65 * lavaRiver;
+  h -= 0.72 * lavaRiver;
 
-  // Flatten Great Ancestral Heiau headland terrace overlooking Kealakekua Bay (theta = 0.38)
-  const heiauTerrace = gaussian2D(x, z, 57.0, 22.4, 11.0, 10.0, -0.35);
-  if (heiauTerrace > 0.15) {
-    h = lerp(h, 5.4, heiauTerrace * 0.82);
-  }
-
-  if (inBay && u > 0.8) {
-    h = lerp(h, 1.45 * (1.0 - smoothstep(0.8, 1.0, u)), 0.82);
+  // 5. Gently sloped sandy Kealakekua Bay shelf (around +X, theta near 0.08)
+  const bayShelfMask = Math.exp(-Math.pow((theta - 0.10) / 0.36, 2.0)) * smoothstep(0.76, 0.97, u);
+  if (bayShelfMask > 0.02) {
+    h = lerp(h, 1.55 * (1.0 - smoothstep(0.84, 1.0, u)) + 0.15, bayShelfMask * 0.88);
   }
 
-  // Exposed coastal cinder hill (Pu'u Kilohoku) at canonical (54.0, -26.0) -> world (7.69, 59.44)
-  // with a level summit terrace (h = 18.5m, clear above seaward bluffs) and gentle walkable ramp from beach (65.0, 2.0)
-  const kx = 54.0;
-  const kz = -26.0;
-  const sx = 65.0;
-  const sz = 2.0;
-  const dKnoll = Math.hypot(x - kx, z - kz);
-  if (dKnoll < 16.0) {
-    const hillDome = 18.5 * Math.exp(-Math.pow(dKnoll / 10.5, 2.0));
-    h = Math.max(h, hillDome);
+  // 6. Gentle walkable corridors (slope <= 0.25 everywhere!)
+  // 6a. Beach (62.2, 2.0) across bare black basalt shelf (62.8, -16.0) to Lava-Point Circle (62.0, -32.0)
+  const shelfSegA = distToSeg2D(x, z, 62.2, 2.0, 62.8, -16.0);
+  if (shelfSegA.d < 10.5) {
+    const mask = smoothstep(10.5, 4.8, shelfSegA.d);
+    h = lerp(h, lerp(1.5, 3.8, shelfSegA.t), mask);
   }
-  const abx = kx - sx;
-  const abz = kz - sz;
-  const abLenSq = abx * abx + abz * abz;
-  const tProj = Math.max(0.0, Math.min(1.0, ((x - sx) * abx + (z - sz) * abz) / abLenSq));
-  const px = sx + abx * tProj;
-  const pz = sz + abz * tProj;
-  const dRamp = Math.hypot(x - px, z - pz);
-  const rampT = Math.min(1.0, tProj / 0.8);
-  if (dRamp < 7.2) {
-    const rampMask = smoothstep(7.2, 3.6, dRamp);
-    const rampH = lerp(1.6, 18.5, rampT);
-    h = lerp(h, rampH, rampMask);
-  }
-  if (dKnoll < 6.2) {
-    const knollFlat = smoothstep(6.2, 4.0, dKnoll);
-    h = lerp(h, 18.5, knollFlat);
+  const shelfSegB = distToSeg2D(x, z, 62.8, -16.0, 62.0, -32.0);
+  if (shelfSegB.d < 10.5) {
+    const mask = smoothstep(10.5, 4.8, shelfSegB.d);
+    h = lerp(h, lerp(3.8, 6.5, shelfSegB.t), mask);
   }
 
+  // 6b. Landing (61.5, 16.0) -> Halau Wa'a (49.0, 31.5) -> Great Heiau courtyard (33.0, 44.0)
+  const pathCanoe = distToSeg2D(x, z, 61.5, 16.0, 49.0, 31.5);
+  if (pathCanoe.d < 9.5) {
+    const mask = smoothstep(9.5, 4.2, pathCanoe.d);
+    h = lerp(h, lerp(1.6, 3.2, pathCanoe.t), mask * 0.9);
+  }
+  const pathHeiau = distToSeg2D(x, z, 49.0, 31.5, 33.0, 44.0);
+  if (pathHeiau.d < 9.0) {
+    const mask = smoothstep(9.0, 4.2, pathHeiau.d);
+    h = lerp(h, lerp(3.2, 7.8, pathHeiau.t), mask * 0.92);
+  }
+
+  // 6c. Village commons link: landing (59, 14) -> Hale Ali'i plaza (44.5, 10.5) -> Lo'i Kalo (27, 12)
+  const pathLoi = distToSeg2D(x, z, 44.5, 10.5, 27.0, 12.0);
+  if (pathLoi.d < 8.5) {
+    const mask = smoothstep(8.5, 3.8, pathLoi.d);
+    h = lerp(h, lerp(4.2, 5.8, pathLoi.t), mask * 0.85);
+  }
+
+  // 7. Apply leveled pads for 13 huts first (innerR=4.05 covers full 2.4m half-diag corners cleanly)
+  for (let i = 0; i < HAWAII_HUT_SPECS.length; i += 1) {
+    const hs = HAWAII_HUT_SPECS[i];
+    const dh = Math.hypot(x - hs.cx, z - hs.cz);
+    if (dh < 5.6) {
+      h = lerp(h, hs.h, smoothstep(5.6, 4.05, dh));
+    }
+  }
+  for (let i = 0; i < HAWAII_LEVEL_PADS.length; i += 1) {
+    const pad = HAWAII_LEVEL_PADS[i];
+    const dp = Math.hypot(x - pad.cx, z - pad.cz);
+    if (dp < pad.outerR) {
+      const m = smoothstep(pad.outerR, pad.innerR, dp) * (pad.blend ?? 1.0);
+      h = lerp(h, pad.h, m);
+    }
+  }
+
+  // Shore waterline fade right along outer perimeter so coastline bevels softly into surf
+  h *= smoothstep(coastR + 0.35, coastR - 2.6, r);
+
+  // Vertex material zones: black pahoehoe lava covers starboard headland & Lava-Point Peninsula (cz < -1.5)
+  const peninsulaBasalt = smoothstep(1.5, -6.5, z) * smoothstep(26.0, 46.0, r);
+  const kilaueaLavaZone = smoothstep(0.0, -24.0, z) * smoothstep(14.0, 34.0, r);
   const blackLavaField = clamp01(
-    smoothstep(-2.0, -16.0, lz) * 0.9 + inKilauea + lavaRiver
+    Math.max(peninsulaBasalt, kilaueaLavaZone * 0.94, inKilauea, lavaRiver)
   );
   const alpineCap =
-    inMaunaLoa < 0.2 && lz > 2.0 ? smoothstep(58.0, 67.5, h) : 0.0;
+    inMaunaLoa < 0.22 && z > 2.0 ? smoothstep(56.0, 67.5, h) : 0.0;
+  const isGoldenBay =
+    u > 0.79 && theta > -0.14 && theta < 0.56 && h < 2.25;
 
   return {
     h,
@@ -1190,15 +1295,11 @@ function evalHawaiiPoint(x, z) {
     lavaRiver,
     blackLavaField,
     alpineCap,
-    isGoldenBay: inBay && u > 0.78,
+    isGoldenBay,
+    isValleyMist: false,
   };
 }
 
-/**
- * Builds a self-luminous (`MeshBasicMaterial` vertex-colored) open-top molten lava lake mesh
- * with incandescent yellow-white upwelling fountain core, fiery orange convection cells,
- * dark cooling basalt crust plates, and glowing radial magma fissures!
- */
 function createGlowingLavaLakeMesh(trackMat, radius, yLevel) {
   const nRings = 24;
   const nSegs = 48;
@@ -1221,7 +1322,6 @@ function createGlowingLavaLakeMesh(trackMat, radius, yLevel) {
       const lx = r * Math.cos(th);
       const lz = r * Math.sin(th);
 
-      // Upwelling central fountain + glowing radial/polygonal crustal fracture web!
       const coreHot = Math.exp(-Math.pow(u / 0.34, 2.0));
       const crackA = Math.abs(Math.sin(4.0 * th + u * 5.2));
       const crackB = Math.abs(Math.cos(6.0 * th - u * 6.8));
@@ -1239,7 +1339,6 @@ function createGlowingLavaLakeMesh(trackMat, radius, yLevel) {
         rgb = mixRgb(colDarkCrust, colCrimsonMagma, heat / 0.32);
       }
 
-      // Slight domed lava fountain mound in center
       const ly = yLevel + 0.85 * coreHot + 0.18 * fissure;
       const idx = positions.length / 3;
       positions.push(lx, ly, lz);
@@ -1268,17 +1367,19 @@ function createGlowingLavaLakeMesh(trackMat, radius, yLevel) {
   geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   geo.setIndex(indices);
 
-  const mat = trackMat(
-    new THREE.MeshBasicMaterial({ vertexColors: true })
-  );
+  const mat = trackMat(new THREE.MeshBasicMaterial({ vertexColors: true }));
   return new THREE.Mesh(geo, mat);
 }
 
-/**
- * Builds a 3D self-luminous molten lava river ribbon hugging `evalHawaiiPoint` down the volcano flank.
- */
-function createGlowingLavaRiverRibbon(trackMat, pathFn, zStart, zEnd, halfWidthStart, halfWidthEnd) {
-  const steps = 34;
+function createGlowingLavaRiverRibbon(
+  trackMat,
+  pathFn,
+  zStart,
+  zEnd,
+  halfWidthStart,
+  halfWidthEnd
+) {
+  const steps = 36;
   const positions = [];
   const colors = [];
   const indices = [];
@@ -1295,7 +1396,7 @@ function createGlowingLavaRiverRibbon(trackMat, pathFn, zStart, zEnd, halfWidthS
     for (let k = 0; k <= 2; k += 1) {
       const offset = (k - 1) * hw;
       const px = cx + offset;
-      const py = Math.max(0.28, evalHawaiiPoint(px, z).h + (k === 1 ? 0.34 : 0.18));
+      const py = Math.max(0.28, evalHawaiiPoint(px, z).h + (k === 1 ? 0.36 : 0.18));
       positions.push(px, py, z);
       const c = k === 1 ? colCore : colEdge;
       colors.push(c[0], c[1], c[2]);
@@ -1321,48 +1422,73 @@ function createGlowingLavaRiverRibbon(trackMat, pathFn, zStart, zEnd, halfWidthS
   return new THREE.Mesh(geo, mat);
 }
 
+function hawaiiIsClear(x, z) {
+  // Keep landing strip, canoe, trails, village pads, taro paddies, lava channels & Lava-Point Circle open
+  if (Math.hypot(x - 62.0, z - -32.0) < 18.0) return false; // Lava-Point Circle sky clearance
+  if (Math.hypot(x - 61.5, z - 16.0) < 9.0) return false; // Initial spawn
+  if (Math.hypot(x - 62.5, z - 10.0) < 7.5) return false; // Canoe landing
+  if (Math.hypot(x - 45.0, z - 32.5) < 11.5) return false; // Halau Wa'a
+  if (Math.hypot(x - 32.0, z - 44.0) < 13.5) return false; // Great Heiau
+  if (Math.hypot(x - 27.0, z - 12.0) < 9.5) return false; // Lo'i Kalo
+  if (Math.hypot(x - 43.0, z - 10.5) < 6.5) return false; // Imu pit
+  if (distToSeg2D(x, z, 62.2, 2.0, 62.0, -32.0).d < 8.0) return false; // Lava-Point shelf trail
+  if (distToSeg2D(x, z, 61.5, 16.0, 32.0, 44.0).d < 7.5) return false; // Beach -> Heiau trail
+  for (let i = 0; i < HAWAII_HUT_SPECS.length; i += 1) {
+    const hs = HAWAII_HUT_SPECS[i];
+    if (Math.hypot(x - hs.cx, z - hs.cz) < 6.2) return false;
+  }
+  const s = evalHawaiiPoint(x, z);
+  if (s.inKilauea > 0.1 || s.inMaunaLoa > 0.1 || s.lavaRiver > 0.08) return false;
+  if (s.blackLavaField > 0.6) return false; // Never grow lush forest on fresh black lava shelf!
+  return true;
+}
+
 function buildHawaiiAssembly() {
   const group = new THREE.Group();
   const { materials, trackMat } = createMaterialTracker();
 
   const colDeepSea = [0.04, 0.22, 0.41];
   const colGoldenSand = [0.92, 0.82, 0.58];
-  const colOhiaEmerald = [0.16, 0.45, 0.19];
-  const colUplandKoa = [0.26, 0.42, 0.18];
-  const colBlackPahoehoe = [0.09, 0.09, 0.11]; // Fresh glassy black basalt lava field!
-  const colCraterScoria = [0.28, 0.11, 0.08]; // Warm glowing oxidized crater wall
+  const colOhiaEmerald = [0.16, 0.46, 0.20];
+  const colUplandKoa = [0.25, 0.42, 0.19];
+  const colBlackPahoehoe = [0.09, 0.09, 0.11];
+  const colWeatheredLava = [0.16, 0.15, 0.17];
+  const colCraterScoria = [0.28, 0.11, 0.08];
   const colMoltenOrange = [1.0, 0.42, 0.06];
   const colMoltenGold = [1.0, 0.86, 0.25];
-  const colMaunaFrost = [0.84, 0.86, 0.89]; // Subtle Mauna Kea periglacial summit stone/frost
+  const colMaunaFrost = [0.84, 0.86, 0.89];
 
   const terrainGeo = buildPolarTerrainGeometry({
     evalPoint: evalHawaiiPoint,
-    maxRadius: 110.0,
-    nRings: 84,
-    nSegs: 136,
+    maxRadius: 120.0,
+    nRings: 112,
+    nSegs: 160,
     colorFn: (s, slope) => {
       if (s.h <= 0.06) return colDeepSea;
-
-      // Glowing lava channels & open caldera floors baked right into terrain vertex colors too!
       if (s.inKilauea > 0.65 || s.inMaunaLoa > 0.65) {
         return mixRgb(colCraterScoria, colMoltenOrange, 0.75);
       }
-      if (s.lavaRiver > 0.32) {
-        const coreT = smoothstep(0.32, 0.88, s.lavaRiver);
-        return mixRgb(colCraterScoria, mixRgb(colMoltenOrange, colMoltenGold, coreT), coreT);
+      if (s.lavaRiver > 0.3) {
+        const coreT = smoothstep(0.3, 0.88, s.lavaRiver);
+        return mixRgb(
+          colCraterScoria,
+          mixRgb(colMoltenOrange, colMoltenGold, coreT),
+          coreT
+        );
       }
-      if (s.isGoldenBay && s.h < 2.3) {
-        return mixRgb(colGoldenSand, colOhiaEmerald, smoothstep(1.1, 2.3, s.h));
+      if (s.isGoldenBay) {
+        return mixRgb(colGoldenSand, colOhiaEmerald, smoothstep(1.25, 2.25, s.h));
       }
 
-      let rgb = mixRgb(colOhiaEmerald, colUplandKoa, smoothstep(10.0, 44.0, s.h));
-      rgb = mixRgb(rgb, colBlackPahoehoe, clamp01(s.blackLavaField * 0.92));
+      let rgb = mixRgb(colOhiaEmerald, colUplandKoa, smoothstep(12.0, 44.0, s.h));
+      const lavaCoat = mixRgb(colWeatheredLava, colBlackPahoehoe, smoothstep(0.35, 0.95, s.blackLavaField));
+      rgb = mixRgb(rgb, lavaCoat, clamp01(s.blackLavaField * 0.96));
       if (s.inKilauea > 0.05 || s.inMaunaLoa > 0.05) {
         rgb = mixRgb(rgb, colCraterScoria, 0.78);
       }
-      rgb = mixRgb(rgb, colBlackPahoehoe, smoothstep(1.1, 2.0, slope) * 0.72);
+      rgb = mixRgb(rgb, colBlackPahoehoe, smoothstep(0.95, 1.85, slope) * 0.75);
       if (s.alpineCap > 0.01) {
-        rgb = mixRgb(rgb, colMaunaFrost, s.alpineCap * 0.78);
+        rgb = mixRgb(rgb, colMaunaFrost, s.alpineCap * 0.82);
       }
       return rgb;
     },
@@ -1381,16 +1507,15 @@ function buildHawaiiAssembly() {
   terrainMesh.receiveShadow = true;
   group.add(terrainMesh);
 
-  // 1. OPEN-TOP GLOWING MOLTEN LAVA LAKES (Kilauea Halema'uma'u & Mauna Loa Summit Caldera!)
-  const kilaueaLake = createGlowingLavaLakeMesh(trackMat, KILAUEA_RADIUS - 1.1, 39.65);
+  // 1. Open-Top Glowing Molten Lava Lakes (Kilauea Halema'uma'u & Mauna Loa Summit Caldera)
+  const kilaueaLake = createGlowingLavaLakeMesh(trackMat, KILAUEA_RADIUS - 1.5, 34.25);
   kilaueaLake.position.set(KILAUEA_CENTER[0], 0.0, KILAUEA_CENTER[1]);
   group.add(kilaueaLake);
 
-  const maunaLoaLake = createGlowingLavaLakeMesh(trackMat, MAUNA_LOA_RADIUS - 0.9, 58.9);
+  const maunaLoaLake = createGlowingLavaLakeMesh(trackMat, MAUNA_LOA_RADIUS - 1.1, 58.65);
   maunaLoaLake.position.set(MAUNA_LOA_CENTER[0], 0.0, MAUNA_LOA_CENTER[1]);
   group.add(maunaLoaLake);
 
-  // Radiant volcanic crater-rim glow collars around both open lava calderas
   const lavaGlowMat = trackMat(
     new THREE.MeshBasicMaterial({
       color: 0xff5a14,
@@ -1400,202 +1525,225 @@ function buildHawaiiAssembly() {
     0.46
   );
   const kGlowHalo = new THREE.Mesh(
-    new THREE.RingGeometry(KILAUEA_RADIUS - 2.0, KILAUEA_RADIUS + 2.4, 36),
+    new THREE.RingGeometry(KILAUEA_RADIUS - 2.6, KILAUEA_RADIUS + 3.0, 36),
     lavaGlowMat
   );
   kGlowHalo.rotation.x = -Math.PI * 0.5;
-  kGlowHalo.position.set(KILAUEA_CENTER[0], 41.2, KILAUEA_CENTER[1]);
+  kGlowHalo.position.set(KILAUEA_CENTER[0], 35.8, KILAUEA_CENTER[1]);
   group.add(kGlowHalo);
 
   const mGlowHalo = new THREE.Mesh(
-    new THREE.RingGeometry(MAUNA_LOA_RADIUS - 1.4, MAUNA_LOA_RADIUS + 1.8, 28),
+    new THREE.RingGeometry(MAUNA_LOA_RADIUS - 1.8, MAUNA_LOA_RADIUS + 2.2, 28),
     lavaGlowMat
   );
   mGlowHalo.rotation.x = -Math.PI * 0.5;
-  mGlowHalo.position.set(MAUNA_LOA_CENTER[0], 60.1, MAUNA_LOA_CENTER[1]);
+  mGlowHalo.position.set(MAUNA_LOA_CENTER[0], 59.8, MAUNA_LOA_CENTER[1]);
   group.add(mGlowHalo);
 
-  // 2. Self-Luminous 3D Braided Molten Lava Rivers Snaking Down to the Sea!
+  // 2. Self-Luminous 3D Braided Molten Lava Rivers Pouring Down to the Sea
   const riverA = createGlowingLavaRiverRibbon(
     trackMat,
-    (t) => (lerp(-3.5, -9.5, t) + 2.8 * Math.sin(t * Math.PI * 2.6 + 0.3)) * HI_W,
-    -10.2 * HI_W,
-    -43.2 * HI_W,
-    1.55 * HI_W,
-    2.45 * HI_W
+    (t) => lerp(-34.0, -58.0, t) + 5.0 * Math.sin(t * Math.PI * 2.4 + 0.35),
+    -28.5,
+    -74.0,
+    2.6,
+    4.0
   );
   group.add(riverA);
 
   const riverB = createGlowingLavaRiverRibbon(
     trackMat,
-    (t) => (lerp(-2.5, 5.2, t) - 1.9 * Math.sin(t * Math.PI * 2.0)) * HI_W,
-    -16.0 * HI_W,
-    -40.8 * HI_W,
-    1.05 * HI_W,
-    1.65 * HI_W
+    (t) => lerp(-30.0, -14.0, t) - 3.6 * Math.sin(t * Math.PI * 2.0),
+    -35.0,
+    -73.0,
+    1.8,
+    3.0
   );
   group.add(riverB);
 
-  // 3. Ocean-Entry Lava Steam Plume & Glowing Coastal Lava Toes where Molten Rock Meets the Pacific!
+  // 3. Ocean-Entry Lava Steam Plumes + Basalt Coastal Sea-Arch off Lava-Point Tip
   const steamMat = trackMat(
     new THREE.MeshBasicMaterial({ color: 0xf5f2ee, depthWrite: false }),
-    0.68
+    0.66
   );
   const oceanEntryGlowMat = trackMat(
     new THREE.MeshBasicMaterial({ color: 0xff6218, depthWrite: false }),
     0.85
   );
   for (const [sx, sz, sc] of [
-    [-9.4 * HI_W, -43.5 * HI_W, 1.35],
-    [5.0 * HI_W, -41.2 * HI_W, 1.0],
+    [-57.5, -74.5, 1.45],
+    [-14.5, -73.5, 1.15],
   ]) {
     const entryGlow = new THREE.Mesh(
-      new THREE.CircleGeometry(2.6 * sc, 16),
+      new THREE.CircleGeometry(3.2 * sc, 16),
       oceanEntryGlowMat
     );
     entryGlow.rotation.x = -Math.PI * 0.5;
     entryGlow.position.set(sx, 0.34, sz);
     group.add(entryGlow);
 
-    for (let p = 0; p < 3; p += 1) {
+    for (let p = 0; p < 4; p += 1) {
       const puff = new THREE.Mesh(
-        new THREE.DodecahedronGeometry((2.1 + p * 0.85) * sc, 1),
+        new THREE.DodecahedronGeometry((2.2 + p * 0.9) * sc, 1),
         steamMat
       );
-      puff.position.set(sx - p * 0.9, 1.8 + p * 2.6 * sc, sz - p * 0.7);
+      puff.position.set(sx - p * 1.1, 1.9 + p * 2.7 * sc, sz - p * 0.8);
       group.add(puff);
     }
   }
 
-  // White surf collar along the rocky basalt coast (open across Kealakekua Bay)
-  const foamMat = trackMat(
+  // Organic Barrier Reef Surf Contour hugging evalHawaiiCoastR (open across Kealakekua Bay)
+  const reefMat = trackMat(
+    new THREE.MeshStandardMaterial({ color: 0x3b2c25, roughness: 0.96 }),
+    0.92
+  );
+  const surfFoamMat = trackMat(
     new THREE.MeshBasicMaterial({ color: 0xf0faff, depthWrite: false }),
     0.72
   );
-  const foamGeo = new THREE.TorusGeometry(43.2 * HI_W, 1.4, 5, 64, Math.PI * 2.0 - 0.72);
-  const foam = new THREE.Mesh(foamGeo, foamMat);
-  foam.rotation.x = Math.PI * 0.5;
-  foam.rotation.z = 0.36;
-  foam.scale.set(1.0, 1.0, 0.14);
-  foam.position.y = 0.28;
-  group.add(foam);
+  addOrganicBarrierReefArc(
+    group,
+    reefMat,
+    surfFoamMat,
+    (th) => evalHawaiiCoastR(th) + 5.5,
+    0.42,
+    Math.PI * 2.0 - 0.14,
+    96,
+    { reefWidth: 4.2, foamWidth: 2.8, foamOffset: 1.8 }
+  );
 
-  // 4. The Great Ancestral Heiau Ahu (Monumental Black-Basalt Temple + White 'Anu'u Oracle Tower + Braziers!)
-  const hx = 57.0;
-  const hz = 22.4;
+  // Dramatic black-basalt Sea Arch off the tip of Lava-Point Peninsula (canon (74, -49))
+  const basaltMat = trackMat(
+    new THREE.MeshStandardMaterial({ color: 0x1d1d21, roughness: 0.94 })
+  );
+  const archLeft = new THREE.Mesh(new THREE.DodecahedronGeometry(3.2, 1), basaltMat);
+  archLeft.scale.set(0.9, 1.75, 1.0);
+  archLeft.position.set(72.0, 1.8, -46.0);
+  group.add(archLeft);
+  const archRight = new THREE.Mesh(new THREE.DodecahedronGeometry(2.9, 1), basaltMat);
+  archRight.scale.set(0.9, 1.65, 1.0);
+  archRight.position.set(76.0, 1.6, -52.0);
+  group.add(archRight);
+  const archSpan = new THREE.Mesh(new THREE.BoxGeometry(8.6, 1.9, 3.2), basaltMat);
+  archSpan.position.set(74.0, 5.4, -49.0);
+  archSpan.rotation.y = -0.95;
+  group.add(archSpan);
+
+  // 4. Lava-Point Peninsula Observation Circle (canon (62, -32) -> walkable (32, 62), h = 6.5m)
+  const lavaCirclePlinth = new THREE.Mesh(
+    new THREE.CylinderGeometry(3.8, 4.3, 0.24, 18),
+    basaltMat
+  );
+  lavaCirclePlinth.position.set(62.0, 6.42, -32.0);
+  lavaCirclePlinth.receiveShadow = true;
+  group.add(lavaCirclePlinth);
+  for (let m = 0; m < 8; m += 1) {
+    const ma = (m / 8) * Math.PI * 2.0;
+    const cairn = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.18, 0.26, 0.42, 6),
+      basaltMat
+    );
+    cairn.position.set(62.0 + 4.3 * Math.cos(ma), 6.58, -32.0 + 4.3 * Math.sin(ma));
+    group.add(cairn);
+  }
+
+  // 5. The Great Ancestral Heiau Ahu (canon (25.5, 50.5), leveled pad h = 7.8m)
   addMaraePlatform(group, trackMat, {
-    x: hx,
-    y: Math.max(3.2, evalHawaiiPoint(hx, hz).h),
-    z: hz,
-    rotY: -0.35,
-    scale: 1.22,
+    x: 25.5,
+    y: 7.8,
+    z: 50.5,
+    rotY: -0.78,
+    scale: 1.24,
     courtHex: 0x222124,
     ahuHex: 0x363438,
     withOracleTower: true,
     withBraziers: true,
   });
 
-  // Royal Kealakekua Hawaiian Hale Village & Double-Hulled Canoe Landing
-  const huts = [
-    [29.5 * HI_W, -0.18, 1.15, true], // Royal Hale Ali'i longhouse
-    [27.5 * HI_W, -0.06, 1.02, false],
-    [30.2 * HI_W, 0.08, 1.0, false],
-    [28.0 * HI_W, 0.19, 0.98, false],
-    [25.5 * HI_W, -0.14, 0.94, false],
-    [26.2 * HI_W, 0.12, 0.92, false],
-  ].map(([hr, hang, sc, longHouse]) => {
-    const px = hr * Math.cos(hang);
-    const pz = hr * Math.sin(hang);
-    return {
-      x: px,
-      y: Math.max(0.8, evalHawaiiPoint(px, pz).h),
-      z: pz,
-      rotY: -hang,
-      scale: sc,
-      longHouse,
-    };
-  });
-  addRegionalHuts(group, trackMat, huts, 'hawaiian');
-
-  addTimberPier(group, trackMat, {
-    x: 68.0,
-    y: 0.7,
-    z: 2.4,
-    rotY: 0.0,
-    length: 8.5,
-  });
-
-  addOutriggerCanoe(group, trackMat, {
-    x: 66.4,
-    y: Math.max(0.45, evalHawaiiPoint(66.4, -7.0).h + 0.15),
-    z: -7.0,
-    rotY: 0.22,
-    scale: 1.15,
-  });
-
-  addOutriggerCanoe(group, trackMat, {
-    x: 64.5,
-    y: Math.max(0.45, evalHawaiiPoint(64.5, -14.0).h + 0.15),
-    z: -14.0,
-    rotY: 0.38,
-    scale: 1.05,
-  });
-
-  // 4b. Loko I'a (Royal Basalt-Walled Coastal Fishpond) along calm Kealakekua Shallows
-  const fishpondWallMat = trackMat(
-    new THREE.MeshStandardMaterial({ color: 0x2f2e32, roughness: 0.92 })
-  );
-  const fishpondWaterMat = trackMat(
-    new THREE.MeshBasicMaterial({ color: 0x1b7c86, depthWrite: false }),
-    0.76
-  );
-  const fpCenterX = 72.5;
-  const fpCenterZ = 15.0;
-  const fpPool = new THREE.Mesh(new THREE.CircleGeometry(6.8, 20), fishpondWaterMat);
-  fpPool.rotation.x = -Math.PI * 0.5;
-  fpPool.position.set(fpCenterX, 0.18, fpCenterZ);
-  group.add(fpPool);
-
-  for (let i = 0; i < 11; i += 1) {
-    const a = -0.95 + (i / 10) * 1.9;
-    if (i === 5) continue; // Makaha sluice gate opening
-    const wx = fpCenterX + 7.1 * Math.cos(a);
-    const wz = fpCenterZ + 7.1 * Math.sin(a);
-    const wallBlock = new THREE.Mesh(
-      new THREE.BoxGeometry(1.4, 1.05, 1.8),
-      fishpondWallMat
-    );
-    wallBlock.position.set(wx, 0.35, wz);
-    wallBlock.rotation.y = -a;
-    group.add(wallBlock);
+  // Flanking carved Ki'i Akua + feathered Kahili & Pulo'ulo'u standards at Heiau & Hale Ali'i
+  for (const [kx, kz, ky, kr, ks] of [
+    [30.5, 54.0, 7.8, -0.72, 1.08],
+    [21.5, 45.5, 7.8, -0.82, 1.06],
+    [45.5, 7.8, 4.2, -0.15, 0.92],
+  ]) {
+    const { group: kGroup } = createHawaiianKahiliAndKiiGroup(trackMat, { scale: ks });
+    kGroup.position.set(kx, ky, kz);
+    kGroup.rotation.y = kr;
+    group.add(kGroup);
   }
 
-  // 4c. Pu'u Kilohoku Exposed Hill Summit Basalt Star-Platform (canonical 54.0, -26.0)
-  const knollPlatform = new THREE.Mesh(
-    new THREE.CylinderGeometry(3.4, 3.8, 0.32, 16),
-    fishpondWallMat
-  );
-  knollPlatform.position.set(54.0, 18.48, -26.0);
-  knollPlatform.receiveShadow = true;
-  group.add(knollPlatform);
+  // 6. Grounded Halau Wa'a Shipwright Canoe Shed + Carved Koa Hull Pair (h = 3.2m)
+  const { group: shed } = createSculptedShipwrightShedGroup(trackMat, { scale: 1.05 });
+  shed.position.set(42.0, 3.2, 34.5);
+  shed.rotation.y = -0.62;
+  group.add(shed);
 
-  // 4d. Lush Windward Valley Waterfall (Wailele) on the green +Z flank
+  const { group: hullPair } = createCarvedHullPairGroup(trackMat, { scale: 1.0 });
+  hullPair.position.set(46.2, 3.2, 36.2);
+  hullPair.rotation.y = -0.52;
+  group.add(hullPair);
+
+  // 7. 13 Grounded Hawaiian Hale Huts (on leveled pads)
+  const huts = HAWAII_HUT_SPECS.map((hs) => ({
+    x: hs.cx,
+    y: evalHawaiiPoint(hs.cx, hs.cz).h,
+    z: hs.cz,
+    rotY: hs.rotY,
+    scale: hs.scale,
+    longHouse: hs.longHouse,
+  }));
+  addRegionalHuts(group, trackMat, huts, 'hawaiian');
+
+  // 8. Stepped Irrigated Lo'i Kalo Wetland Taro Paddies + Steaming Imu Feast Pit
+  const { group: loiKalo } = createHawaiianLoiKaloGroup(trackMat);
+  loiKalo.position.set(27.0, 5.8, 12.0);
+  loiKalo.rotation.y = -0.1;
+  group.add(loiKalo);
+
+  const { group: imuPit } = createHawaiianImuPitGroup(trackMat, { scale: 1.08 });
+  imuPit.position.set(43.0, 4.2, 10.5);
+  group.add(imuPit);
+
+  // 9. Monumental Loko Kuapa Coastal Basalt Fishpond in sheltered port cove
+  const { group: lokoIa } = createHawaiianLokoIaFishpondGroup(trackMat, { radius: 8.6 });
+  lokoIa.position.set(58.0, 0.0, 49.0);
+  lokoIa.rotation.y = -0.68;
+  group.add(lokoIa);
+
+  // Pier & moored outrigger canoes along Kealakekua Bay
+  addTimberPier(group, trackMat, {
+    x: 68.5,
+    y: 0.72,
+    z: 7.5,
+    rotY: 0.1,
+    length: 8.2,
+  });
+
+  addOutriggerCanoe(group, trackMat, {
+    x: 66.2,
+    y: Math.max(0.45, evalHawaiiPoint(66.2, -1.5).h + 0.16),
+    z: -1.5,
+    rotY: 0.18,
+    scale: 1.12,
+  });
+
+  // 10. Cascading Windward Valley Waterfall (Wailele) feeding Lo'i Kalo
   const waterfallMat = trackMat(
     new THREE.MeshBasicMaterial({ color: 0x9be7ff, depthWrite: false }),
     0.78
   );
-  for (let s = 0; s < 8; s += 1) {
-    const t0 = s / 8;
-    const t1 = (s + 1) / 8;
-    const x0 = lerp(6.0, 12.0, t0);
-    const z0 = lerp(42.0, 68.0, t0);
-    const x1 = lerp(6.0, 12.0, t1);
-    const z1 = lerp(42.0, 68.0, t1);
-    const y0 = evalHawaiiPoint(x0, z0).h + 0.25;
-    const y1 = evalHawaiiPoint(x1, z1).h + 0.25;
+  for (let s = 0; s < 10; s += 1) {
+    const t0 = s / 10;
+    const t1 = (s + 1) / 10;
+    const x0 = lerp(-12.0, 22.0, t0);
+    const z0 = lerp(18.0, 12.0, t0);
+    const x1 = lerp(-12.0, 22.0, t1);
+    const z1 = lerp(18.0, 12.0, t1);
+    const y0 = evalHawaiiPoint(x0, z0).h + 0.24;
+    const y1 = evalHawaiiPoint(x1, z1).h + 0.24;
     const segLen = Math.hypot(x1 - x0, y1 - y0, z1 - z0);
     const wfSeg = new THREE.Mesh(
-      new THREE.BoxGeometry(1.8 + t0 * 1.2, 0.28, segLen + 0.3),
+      new THREE.BoxGeometry(1.6 + t0 * 1.1, 0.26, segLen + 0.35),
       waterfallMat
     );
     wfSeg.position.set((x0 + x1) * 0.5, (y0 + y1) * 0.5, (z0 + z1) * 0.5);
@@ -1603,49 +1751,54 @@ function buildHawaiiAssembly() {
     group.add(wfSeg);
   }
 
-  // 5. Lush Crimson-Blossomed 'Ohi'a Lehua Forest on the Unburned Green Slopes & Bay Palms!
+  // 11. Crimson 'Ohi'a Lehua Forest & Coastal Palms (kept strictly off Lava-Point & landing)
   const ohiaPts = [];
-  for (const [or, oang] of [
-    [22.0 * HI_W, 0.15],
-    [20.5 * HI_W, 0.55],
-    [23.5 * HI_W, 0.85],
-    [19.0 * HI_W, 1.25],
-    [22.5 * HI_W, 1.65],
-    [21.0 * HI_W, 2.15],
-    [23.0 * HI_W, -0.45],
-    [19.5 * HI_W, -0.68],
-    [27.5 * HI_W, 0.68],
-    [29.0 * HI_W, 1.08],
-    [26.0 * HI_W, 1.48],
-    [28.5 * HI_W, 1.92],
+  for (const [ox, oz, sc, rot] of [
+    [14.0, 28.0, 1.18, 0.4],
+    [16.5, 42.0, 1.12, 1.1],
+    [12.5, 16.0, 1.2, 2.0],
+    [18.0, 5.0, 1.15, 0.7],
+    [22.0, 54.0, 1.1, 1.5],
+    [38.0, 56.0, 1.08, 2.4],
+    [10.0, 36.0, 1.22, 0.2],
+    [4.0, 24.0, 1.18, 1.9],
+    [6.5, 44.0, 1.15, 2.8],
+    [29.0, 58.0, 1.06, 0.9],
+    [18.5, 26.5, 1.14, 1.3],
+    [42.5, 48.5, 1.06, 2.2],
+    [8.0, 6.0, 1.16, 0.6],
+    [26.0, 1.5, 1.05, 1.7],
   ]) {
-    const ox = or * Math.cos(oang);
-    const oz = or * Math.sin(oang);
-    // Keep clear of Pu'u Kilohoku summit & ramp
-    if (Math.hypot(ox - 54.0, oz - -26.0) < 12.0) continue;
+    if (!hawaiiIsClear(ox, oz)) continue;
     const oy = evalHawaiiPoint(ox, oz).h;
-    if (oy > 2.5 && oy < 36.0) {
-      ohiaPts.push([ox, oy - 0.2, oz, 1.15, oang]);
+    if (oy > 2.2 && oy < 36.0) {
+      ohiaPts.push([ox, oy - 0.18, oz, sc, rot]);
     }
   }
   addBroadleafTrees(group, trackMat, ohiaPts, {
     canopyHexA: 0x1e5220,
     canopyHexB: 0x316b29,
-    blossomHex: 0xe32b22, // Fiery scarlet 'ohi'a lehua blossoms!
+    blossomHex: 0xe32b22,
   });
 
   const palmPts = [];
-  for (const ang of [-0.34, -0.25, -0.16, -0.07, 0.03, 0.12, 0.21, 0.30]) {
-    const px = 32.2 * HI_W * Math.cos(ang);
-    const pz = 32.2 * HI_W * Math.sin(ang);
+  for (const [px, pz, lean] of [
+    [60.0, 22.0, -0.25],
+    [55.0, 38.0, -0.55],
+    [57.5, 19.5, -0.2],
+    [54.5, 4.5, 0.15],
+    [41.5, 51.5, -0.65],
+    [38.0, 55.0, -0.75],
+  ]) {
+    if (!hawaiiIsClear(px, pz)) continue;
     const py = evalHawaiiPoint(px, pz).h;
-    if (py > 0.5 && py < 8.0) {
-      palmPts.push([px, py - 0.15, pz, -ang, 1.05, 0.2]);
+    if (py > 0.8 && py < 9.0) {
+      palmPts.push([px, py - 0.15, pz, lean, 1.05, 0.2]);
     }
   }
   addCoconutGroves(group, trackMat, palmPts);
 
-  return { group, materials, sinkDepthM: 86.0 };
+  return { group, materials, sinkDepthM: 88.0 };
 }
 
 export function createAct3IslandAssembly(islandId) {

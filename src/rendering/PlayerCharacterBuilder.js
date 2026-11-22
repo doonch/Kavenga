@@ -1860,6 +1860,438 @@ export function createPlayerCharacterRig(difficulty = Difficulty.EASY) {
 }
 
 /**
+ * Builds a procedural 3D Hawaiian Elder Female Navigator / Kupuna Wayfinder rig
+ * wearing a floor-sweeping patterned kapa pa'u wrap, diagonal kihei shoulder mantle,
+ * silver-streaked chignon bun with braided ti-leaf & blossom lei po'o, and lei niho palaoa.
+ * Shares the exact joint hierarchy of `createPlayerCharacterRig` for `animatePlayerCharacterAshore`.
+ */
+export function createElderFemaleRig({ variant = 'kupuna_heiau' } = {}) {
+  const isCeremonial = variant === 'kupuna_heiau';
+  const spec = {
+    id: isCeremonial ? 'elder_female_heiau' : 'elder_female_village',
+    title: isCeremonial ? 'Elder Female Wayfinder' : 'Kupuna Village Keeper',
+    totalHeightM: 1.65,
+    shoulderWidthM: 0.37,
+    chestWidthM: 0.33,
+    chestDepthM: 0.215,
+    waistWidthM: 0.275,
+    hipWidthM: 0.34,
+    limbThickness: 0.90,
+    headRadiusM: 0.107,
+    skinHex: isCeremonial ? 0x915432 : 0x985b38,
+    hairHex: 0x62676f,
+  };
+  const H = spec.totalHeightM;
+  const lt = spec.limbThickness;
+  const R = spec.headRadiusM;
+
+  const root = new THREE.Group();
+  root.name = `elder_female_${variant}`;
+
+  const skinMat = new THREE.MeshStandardMaterial({
+    color: spec.skinHex,
+    roughness: 0.66,
+    metalness: 0.03,
+  });
+  const silverHairMat = new THREE.MeshStandardMaterial({
+    color: 0x6e747d,
+    roughness: 0.76,
+  });
+  const darkHairMat = new THREE.MeshStandardMaterial({
+    color: 0x26282c,
+    roughness: 0.78,
+  });
+  const sennitMat = new THREE.MeshStandardMaterial({
+    color: 0x4b2d17,
+    roughness: 0.86,
+  });
+  const ivoryMat = new THREE.MeshStandardMaterial({
+    color: 0xf4efe2,
+    roughness: 0.34,
+    metalness: 0.12,
+  });
+  const kukuiMat = new THREE.MeshStandardMaterial({
+    color: 0x1e1612,
+    roughness: 0.26,
+    metalness: 0.18,
+  });
+  const tiLeafMat = new THREE.MeshStandardMaterial({
+    color: 0x3b762f,
+    roughness: 0.72,
+    side: THREE.DoubleSide,
+  });
+  const blossomMat = new THREE.MeshStandardMaterial({
+    color: isCeremonial ? 0xc82d22 : 0xf6eed6,
+    roughness: 0.56,
+  });
+  const tatauMat = new THREE.MeshStandardMaterial({
+    color: 0x1c252c,
+    roughness: 0.74,
+    side: THREE.DoubleSide,
+  });
+  const kiheiMat = new THREE.MeshStandardMaterial({
+    color: isCeremonial ? 0x8f281c : 0xe4d2ae,
+    roughness: 0.84,
+    side: THREE.DoubleSide,
+  });
+
+  const hipY = H * 0.525;
+  const waistY = H * 0.585;
+  const neckBaseY = H * 0.845;
+  const headCenterY = H - R * 1.05;
+
+  const pelvisGroup = new THREE.Group();
+  pelvisGroup.position.set(0.0, hipY, 0.0);
+  root.add(pelvisGroup);
+
+  // 1. Bare Feet & Lower Limbs under Long Ceremonial Kapa Pa'u
+  const stanceHalfX = spec.hipWidthM * 0.4;
+  const legLen = hipY;
+  const thighLen = legLen * 0.5;
+  const shinLen = legLen * 0.44;
+  const ankleY = legLen * 0.06;
+
+  const legs = {};
+  for (const side of [-1, 1]) {
+    const hipPivot = new THREE.Group();
+    const zStanceOffset = side < 0 ? -0.035 : 0.045;
+    hipPivot.position.set(side * stanceHalfX, 0.0, zStanceOffset);
+    hipPivot.rotation.z = side * -0.025;
+    pelvisGroup.add(hipPivot);
+
+    const rThigh = 0.062 * lt;
+    const rKnee = 0.044 * lt;
+    const rCalf = 0.047 * lt;
+    const rAnkle = 0.03 * lt;
+
+    const thighMesh = new THREE.Mesh(
+      createLoftedBodyPartGeometry([
+        { y: -thighLen, rx: rKnee, rz: rKnee * 1.04, oz: -0.005 },
+        { y: -thighLen * 0.45, rx: rThigh * 0.94, rz: rThigh * 1.02 },
+        { y: 0.02, rx: rThigh, rz: rThigh * 1.06 },
+      ]),
+      skinMat
+    );
+    thighMesh.castShadow = true;
+    hipPivot.add(thighMesh);
+
+    const kneePivot = new THREE.Group();
+    kneePivot.position.set(0.0, -thighLen, 0.0);
+    hipPivot.add(kneePivot);
+
+    const shinBottomY = -hipY + ankleY + thighLen;
+    const shinMesh = new THREE.Mesh(
+      createLoftedBodyPartGeometry([
+        { y: shinBottomY, rx: rAnkle, rz: rAnkle * 1.08 },
+        { y: shinBottomY + shinLen * 0.56, rx: rCalf, rz: rCalf * 1.1, oz: 0.008 },
+        { y: 0.0, rx: rKnee, rz: rKnee * 1.04, oz: -0.005 },
+      ]),
+      skinMat
+    );
+    shinMesh.castShadow = true;
+    kneePivot.add(shinMesh);
+
+    const footGrp = new THREE.Group();
+    footGrp.position.set(0.0, -hipY + 0.026 + thighLen, -0.034);
+    footGrp.rotation.y = side * -0.06;
+    const footMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(0.072 * lt, 0.042, 0.185 * lt),
+      skinMat
+    );
+    footMesh.castShadow = true;
+    footGrp.add(footMesh);
+    kneePivot.add(footGrp);
+
+    legs[side < 0 ? 'left' : 'right'] = {
+      hipPivot,
+      kneePivot,
+      footGrp,
+      baseZ: zStanceOffset,
+      side,
+    };
+  }
+
+  // 2. Ankle-Sweeping Hawaiian Kapa Pa'u Skirt with Stamped 'Ohe Kapala Hem Borders
+  const skirtTopY = waistY - hipY + 0.02;
+  const baseRgb = isCeremonial ? [0.91, 0.78, 0.44] : [0.88, 0.79, 0.62];
+  const bandRgb = isCeremonial ? [0.58, 0.17, 0.13] : [0.42, 0.24, 0.14];
+  const trimRgb = [0.16, 0.12, 0.1];
+  const kapalaSkirt = createPareuSkirtMesh({
+    topRx: spec.waistWidthM * 0.56,
+    topRz: spec.chestDepthM * 0.56,
+    botRx: spec.hipWidthM * 0.74,
+    botRz: spec.chestDepthM * 0.88,
+    height: H * 0.43,
+    baseRgb,
+    bandRgb,
+    trimRgb,
+    colorFn: (u, v) => {
+      const zig = Math.abs(((u * 16.0) % 1.0) * 2.0 - 1.0);
+      const wave = Math.sin(u * Math.PI * 10.0 + v * 3.0);
+      if (v > 0.91) return trimRgb;
+      if (v > 0.78) return zig > 0.42 ? bandRgb : baseRgb;
+      if (v > 0.68 && v < 0.73) return bandRgb;
+      return wave > 0.62 ? bandRgb : baseRgb;
+    },
+  });
+  kapalaSkirt.position.y = skirtTopY;
+  pelvisGroup.add(kapalaSkirt);
+
+  // Braided dark sennit & kapa waist girdle
+  const waistBeltGeo = new THREE.TorusGeometry(1.0, 0.052, 8, 28);
+  waistBeltGeo.rotateX(Math.PI * 0.5);
+  const waistBelt = new THREE.Mesh(waistBeltGeo, sennitMat);
+  waistBelt.scale.set(spec.waistWidthM * 0.57, 0.52, spec.chestDepthM * 0.57);
+  waistBelt.position.y = skirtTopY - 0.004;
+  pelvisGroup.add(waistBelt);
+
+  // 3. Sculpted Female Torso, Kapa Wrap Bodice, Kihei Shoulder Mantle & Lei Niho Palaoa
+  const torsoGroup = new THREE.Group();
+  torsoGroup.position.set(0.0, waistY - hipY, 0.0);
+  pelvisGroup.add(torsoGroup);
+
+  const torsoH = neckBaseY - waistY;
+  const torsoRings = [
+    { y: -0.02, rx: spec.waistWidthM * 0.5, rz: spec.chestDepthM * 0.48, oz: 0.0 },
+    { y: torsoH * 0.34, rx: spec.chestWidthM * 0.47, rz: spec.chestDepthM * 0.51, oz: 0.0 },
+    { y: torsoH * 0.68, rx: spec.chestWidthM * 0.52, rz: spec.chestDepthM * 0.55, oz: -0.01 },
+    { y: torsoH * 0.92, rx: spec.shoulderWidthM * 0.45, rz: spec.chestDepthM * 0.43, oz: 0.0 },
+    { y: torsoH * 1.03, rx: R * 0.5, rz: R * 0.5, oz: 0.0 },
+  ];
+  const torsoMesh = new THREE.Mesh(createLoftedBodyPartGeometry(torsoRings), skinMat);
+  torsoMesh.castShadow = true;
+  torsoGroup.add(torsoMesh);
+
+  // Upper fitted Kapa Bodice hugging chest cleanly from waist to underarm crest (`torsoH * 0.78`)
+  const bodiceRings = torsoRings
+    .slice(0, 3)
+    .map((rg) => ({ y: rg.y, rx: rg.rx + 0.009, rz: rg.rz + 0.009, oz: rg.oz ?? 0.0 }));
+  bodiceRings.push({
+    y: torsoH * 0.78,
+    rx: spec.chestWidthM * 0.5,
+    rz: spec.chestDepthM * 0.52,
+    oz: -0.006,
+  });
+  const bodiceMesh = createPareuSkirtMesh({
+    topRx: spec.chestWidthM * 0.5,
+    topRz: spec.chestDepthM * 0.52,
+    botRx: spec.waistWidthM * 0.52,
+    botRz: spec.chestDepthM * 0.51,
+    height: torsoH * 0.78,
+    baseRgb,
+    bandRgb,
+    trimRgb,
+    colorFn: (u, v) => {
+      const zig = Math.abs(((u * 14.0) % 1.0) * 2.0 - 1.0);
+      if (v < 0.14) return zig > 0.45 ? bandRgb : trimRgb;
+      if (v > 0.85) return bandRgb;
+      return baseRgb;
+    },
+  });
+  bodiceMesh.position.y = torsoH * 0.78;
+  torsoGroup.add(bodiceMesh);
+
+  // Diagonal Kihei Barkcloth Mantle knotted at right shoulder & sweeping across torso
+  const kiheiSash = createTorsoCrossbodyBandMesh({
+    torsoRings,
+    torsoH,
+    shoulderSide: 1,
+    halfWidth: 0.068,
+    thickness: 0.011,
+    liftM: 0.004,
+    variant: isCeremonial ? 'kihei' : 'royal_kahu',
+  });
+  torsoGroup.add(kiheiSash);
+
+  const kiheiKnot = new THREE.Mesh(new THREE.SphereGeometry(0.036, 10, 8), kiheiMat);
+  kiheiKnot.scale.set(1.1, 0.8, 1.15);
+  kiheiKnot.position.set(spec.shoulderWidthM * 0.34, torsoH * 0.92, -0.01);
+  torsoGroup.add(kiheiKnot);
+
+  // Sacred Hawaiian Lei Niho Palaoa (braided hair cord + carved ivory whale-tooth hook) & Kukui Lei
+  const neck = new THREE.Mesh(
+    new THREE.CylinderGeometry(R * 0.42, R * 0.48, headCenterY - neckBaseY + 0.04, 12),
+    skinMat
+  );
+  neck.position.y = torsoH + (headCenterY - neckBaseY) * 0.42;
+  torsoGroup.add(neck);
+
+  const hairCordRing = new THREE.Mesh(
+    new THREE.TorusGeometry(R * 0.86, 0.018, 8, 22),
+    kukuiMat
+  );
+  hairCordRing.rotation.x = Math.PI * 0.5 + 0.25;
+  hairCordRing.position.set(0.0, torsoH * 0.92, -0.018);
+  torsoGroup.add(hairCordRing);
+
+  const palaoaHook = new THREE.Mesh(
+    new THREE.TorusGeometry(0.03, 0.011, 8, 14, Math.PI * 1.15),
+    ivoryMat
+  );
+  palaoaHook.rotation.set(0.25, Math.PI * 0.5, 0.4);
+  palaoaHook.position.set(0.0, torsoH * 0.82, -spec.chestDepthM * 0.56);
+  torsoGroup.add(palaoaHook);
+
+  for (let b = 0; b < 10; b += 1) {
+    const ba = -Math.PI * 0.5 + ((b / 9) - 0.5) * Math.PI * 1.25;
+    const nut = new THREE.Mesh(new THREE.SphereGeometry(0.012, 7, 7), kukuiMat);
+    nut.position.set(
+      Math.cos(ba) * R * 1.05,
+      torsoH * 0.87 - Math.cos(ba - Math.PI * 0.5) * 0.015,
+      Math.sin(ba) * R * 1.05 - 0.02
+    );
+    torsoGroup.add(nut);
+  }
+
+  // 4. Articulated Slender Arms + Forearm Tatau Bands & Cowrie Wristlets
+  const upperArmLen = H * 0.172;
+  const forearmLen = H * 0.152;
+  const rShoulder = 0.044 * lt;
+  const rElbow = 0.033 * lt;
+  const rWrist = 0.025 * lt;
+
+  const arms = {};
+  for (const side of [-1, 1]) {
+    const shoulderPivot = new THREE.Group();
+    shoulderPivot.position.set(side * spec.shoulderWidthM * 0.48, torsoH * 0.88, 0.0);
+    torsoGroup.add(shoulderPivot);
+
+    shoulderPivot.add(new THREE.Mesh(new THREE.SphereGeometry(rShoulder * 1.05, 10, 10), skinMat));
+    const upperArm = new THREE.Mesh(
+      createLoftedBodyPartGeometry([
+        { y: -upperArmLen, rx: rElbow, rz: rElbow },
+        { y: -upperArmLen * 0.48, rx: rShoulder * 0.9, rz: rShoulder * 0.94 },
+        { y: 0.0, rx: rShoulder, rz: rShoulder },
+      ]),
+      skinMat
+    );
+    upperArm.castShadow = true;
+    shoulderPivot.add(upperArm);
+
+    const elbowPivot = new THREE.Group();
+    elbowPivot.position.set(0.0, -upperArmLen, 0.0);
+    shoulderPivot.add(elbowPivot);
+
+    const forearm = new THREE.Mesh(
+      createLoftedBodyPartGeometry([
+        { y: -forearmLen, rx: rWrist, rz: rWrist * 1.06 },
+        { y: -forearmLen * 0.42, rx: rElbow * 0.94, rz: rElbow * 0.98 },
+        { y: 0.0, rx: rElbow, rz: rElbow },
+      ]),
+      skinMat
+    );
+    forearm.castShadow = true;
+    elbowPivot.add(forearm);
+
+    addTatauBands(
+      elbowPivot,
+      [{ y: -forearmLen * 0.48, r: rElbow * 0.92, h: 0.018 }],
+      tatauMat
+    );
+    const cowrieBand = new THREE.Mesh(
+      new THREE.TorusGeometry(rWrist * 1.18, 0.008, 6, 12),
+      ivoryMat
+    );
+    cowrieBand.rotation.x = Math.PI * 0.5;
+    cowrieBand.position.y = -forearmLen + 0.02;
+    elbowPivot.add(cowrieBand);
+
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(rWrist * 1.22, 8, 8), skinMat);
+    hand.scale.set(0.84, 1.32, 1.04);
+    hand.position.set(0.0, -forearmLen - 0.024 * lt, 0.0);
+    elbowPivot.add(hand);
+
+    arms[side < 0 ? 'left' : 'right'] = { shoulderPivot, elbowPivot };
+  }
+
+  // 5. Dignified Head, Silver-Streaked Chignon Bun & Braided Ti-Leaf / Blossom Lei Po'o
+  const headGroup = new THREE.Group();
+  headGroup.position.set(0.0, headCenterY - waistY, 0.0);
+  torsoGroup.add(headGroup);
+
+  const cranium = new THREE.Mesh(new THREE.SphereGeometry(R, 18, 16), skinMat);
+  cranium.scale.set(0.92, 1.08, 0.98);
+  cranium.castShadow = true;
+  headGroup.add(cranium);
+
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(R * 0.15, R * 0.36, 6), skinMat);
+  nose.rotation.x = -Math.PI * 0.42;
+  nose.position.set(0.0, -R * 0.04, -R * 0.95);
+  headGroup.add(nose);
+
+  const eyeMat = new THREE.MeshStandardMaterial({ color: 0x160f0b, roughness: 0.3 });
+  for (const side of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(R * 0.088, 8, 8), eyeMat);
+    eye.position.set(side * R * 0.32, R * 0.08, -R * 0.88);
+    headGroup.add(eye);
+
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(R * 0.25, R * 0.048, R * 0.075), silverHairMat);
+    brow.position.set(side * R * 0.33, R * 0.22, -R * 0.88);
+    brow.rotation.z = side * -0.06;
+    headGroup.add(brow);
+  }
+
+  // Smooth silver-gray swept hair crown + braided chignon bun at back-crown (+Z)
+  const hairCrown = new THREE.Mesh(
+    new THREE.SphereGeometry(R * 1.04, 16, 14, 0, Math.PI * 2, 0, Math.PI * 0.64),
+    silverHairMat
+  );
+  hairCrown.scale.set(0.95, 1.08, 1.03);
+  hairCrown.rotation.x = -0.22;
+  headGroup.add(hairCrown);
+
+  const darkTempleBand = new THREE.Mesh(
+    new THREE.TorusGeometry(R * 0.98, R * 0.14, 8, 18, Math.PI * 1.35),
+    darkHairMat
+  );
+  darkTempleBand.rotation.set(Math.PI * 0.45, 0, -Math.PI * 0.17);
+  darkTempleBand.position.set(0, R * 0.18, R * 0.12);
+  headGroup.add(darkTempleBand);
+
+  const chignon = new THREE.Mesh(new THREE.SphereGeometry(R * 0.48, 12, 10), silverHairMat);
+  chignon.scale.set(0.98, 1.08, 0.92);
+  chignon.position.set(0.0, R * 0.44, R * 0.92);
+  chignon.castShadow = true;
+  headGroup.add(chignon);
+
+  const ivoryHairPin = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.004, R * 1.25, 6), ivoryMat);
+  ivoryHairPin.position.set(0.0, R * 0.46, R * 0.96);
+  ivoryHairPin.rotation.z = 0.55;
+  headGroup.add(ivoryHairPin);
+
+  // Braided Ti-Leaf & Blossom Lei Po'o Circlet
+  const leiBase = new THREE.Mesh(new THREE.TorusGeometry(R * 1.02, R * 0.14, 8, 24), tiLeafMat);
+  leiBase.rotation.x = Math.PI * 0.5 - 0.12;
+  leiBase.position.y = R * 0.34;
+  headGroup.add(leiBase);
+
+  for (let b = 0; b < 10; b += 1) {
+    const ang = (b / 10) * Math.PI * 2.0;
+    const flower = new THREE.Mesh(new THREE.SphereGeometry(0.019, 7, 6), blossomMat);
+    flower.scale.set(1.0, 0.65, 1.0);
+    flower.position.set(
+      Math.cos(ang) * R * 1.12,
+      R * 0.36 - Math.sin(ang) * R * 0.12,
+      Math.sin(ang) * R * 1.12
+    );
+    headGroup.add(flower);
+  }
+
+  return {
+    root,
+    difficulty: spec.id,
+    spec,
+    pelvisGroup,
+    torsoGroup,
+    headGroup,
+    arms,
+    legs,
+    cloakData: null,
+    cloakMesh: null,
+  };
+}
+
+/**
  * Animates the standing player character on the canoe deck in response to swell motion,
  * steering sweep input (`steerNorm` in [-1..1]), wind speed, and camera yaw.
  */

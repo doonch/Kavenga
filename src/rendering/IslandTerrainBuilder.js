@@ -2043,9 +2043,6 @@ export function getIslandApproachOrientationRad(islandId) {
     case 'moorea':
       // Aligns northern 'Opunohu reef pass, Vaihere's Canoe-Wright Shed & Mount Rotui toward +Z
       return -0.35 - Math.PI * 0.5;
-    case 'hawaii':
-      // Frames Kealakekua Bay & Great Heiau ahead while showing glowing Kilauea lava rivers on starboard!
-      return -0.32 - Math.PI * 0.5;
     case 'rapa_nui':
       // Aligns the grand upright Moai coastline (Ahu Tongariki, Rano Raraku, Akahanga & Vaihu) toward +Z
       return -0.409;
@@ -2071,7 +2068,7 @@ const ISLAND_SHORE_RADIUS_M = Object.freeze({
   kauai: 66.5,
   oahu: 65.0,
   kiritimati: 61.5,
-  hawaii: 74.5,
+  hawaii: 71.5,
   rapa_nui: 55.0,
 });
 
