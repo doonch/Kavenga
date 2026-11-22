@@ -493,7 +493,7 @@ export const ISLANDS = Object.freeze({
     hasPeakCloud: true,
     hasLapaGlow: false,
     hasSteepCliffs: true,
-    birdSpecies: 'white_tern',
+    birdSpecies: 'sooty_tern',
     mentorPortrait: '',
     pois: ['anakena_cove', 'ahu_tongariki', 'rano_raraku_quarry', 'rano_kau_caldera'],
     sandLessons: [],

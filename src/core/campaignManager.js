@@ -6,7 +6,7 @@
 
 import { ISLANDS } from '../data/islandsData.js';
 import { SAND_LESSONS } from '../data/sandDiagramsData.js';
-import { SONGS, buildReturnSong } from '../data/songsData.js';
+import { SECRET_SONGS, SONGS, buildReturnSong } from '../data/songsData.js';
 import {
   activateIslandArrivalObjective,
   recordSanctuaryObjectiveProgress,
@@ -66,6 +66,12 @@ export const CARGO_CATALOG = Object.freeze({
     name: 'Sacred Giant Tridacna Shell',
     sourceIslandId: 'kiritimati',
     description: "Ancient fluted lagoon shell carried from Kiritimati to the Great Ancestral Ahu of Hawai'i.",
+  },
+  sacred_rei_miro_relic: {
+    id: 'sacred_rei_miro_relic',
+    name: "Carved Rei Miro & Obsidian Mata'a",
+    sourceIslandId: 'rapa_nui',
+    description: "Crescent miro-wood pectoral inlaid with coral shell beside a razor-flaked volcanic obsidian spearhead from Rapa Nui.",
   },
 });
 
@@ -185,6 +191,17 @@ export function onVoyageLandfall(gameState, islandId) {
       notes.push(
         "Swell Master Pohaku awaits on the black sand to teach the Four Swell Voices toward O'ahu."
       );
+    }
+  }
+
+  // Unlock Rapa Nui's secret pilgrimage chants immediately on landfall so return navigation is always available
+  if (islandId === 'rapa_nui') {
+    if (!gameState.learnedSongs.secret_rapa_nui_to_mangareva) {
+      gameState.learnSong('secret_rapa_nui_to_mangareva');
+      notes.push('Learned Secret Pilgrimage Chant: Pilgrimage Return to Mangareva.');
+    }
+    if (!gameState.learnedSongs.secret_mangareva_to_rapa_nui) {
+      gameState.learnSong('secret_mangareva_to_rapa_nui');
     }
   }
 
@@ -611,6 +628,32 @@ function _interactWithIslandSanctuaryCore(gameState) {
       rewardsList.push("Learned Song 13: Edge of the Grey Curtain (Kaua'i — Act III)");
       gameState.saveToLocalStorage();
     }
+    if (
+      gameState.hasCargoItem('sacred_rei_miro_relic') ||
+      gameState.discoveredIslands?.rapa_nui
+    ) {
+      gameState.learnSong('secret_mangareva_to_rapa_nui');
+      gameState.learnSong('secret_rapa_nui_to_mangareva');
+      if (gameState.hasCargoItem('sacred_rei_miro_relic') && !gameState.completedQuests.mangareva_rei_miro_blessing) {
+        gameState.completedQuests.mangareva_rei_miro_blessing = true;
+        gameState.hullCondition = 100.0;
+        gameState.sailCondition = 100.0;
+        gameState.lashingsCondition = 100.0;
+        gameState.loadedRations = gameState.maxCargoSlots - gameState.cargoItems.length;
+        rewardsList.push('Elder Rongo Consecrated Your Vaka for Te Pito o Te Henua (100% Condition & Full Rations)');
+        rewardsList.push('Unlocked Secret Pilgrimage Chant: Chant of Te Pito o Te Henua (Mangareva -> Rapa Nui)');
+        gameState.saveToLocalStorage();
+      } else {
+        rewardsList.push('Secret Pilgrimage Chant Ready: Chant of Te Pito o Te Henua (Mangareva -> Rapa Nui)');
+      }
+      return {
+        voiceId: 'sanctuary_mangareva_visit',
+        title: "Elder Rongo's Gateway Marae",
+        speech:
+          "Elder Rongo gazes wide-eyed at the crescent Rei Miro and black obsidian blade from Te Pito o Te Henua. 'Our grandfathers spoke only in sacred chants of that three-volcano isle of giant stone ancestors! Your twin prows have sailed farther than legend—whenever you wish to return, sing the Whale's Spout at dusk back to Rapa Nui, or follow the Setting Horse toward Kaua'i.'",
+        rewardsList,
+      };
+    }
     return {
       voiceId: 'sanctuary_mangareva_visit',
       title: "Elder Rongo's Gateway Marae",
@@ -724,21 +767,40 @@ function _interactWithIslandSanctuaryCore(gameState) {
       rewardsList.push('Placed Sacred Tridacna Shell upon the Great Ancestral Heiau Ahu!');
     }
     rewardsList.push('Master Navigator Mode Unlocked (Replay any of the 17 Chants!)');
+    const hasRapaNuiRelicOrDiscovery =
+      gameState.hasCargoItem('sacred_rei_miro_relic') ||
+      Boolean(gameState.discoveredIslands?.rapa_nui);
+    if (hasRapaNuiRelicOrDiscovery) {
+      rewardsList.push("Council Tribute: Honored the Crescent Rei Miro & Journey Beyond Rapa Nui!");
+    }
     gameState.saveToLocalStorage();
     return {
       voiceId: 'sanctuary_hawaii_finale',
       title: 'Council of Ancestral Wayfinders — Great Heiau Ahu',
-      speech:
-        'Carved stone guardians watch silently over Kealakekua Bay beneath snow-crowned peaks as conch shells echo from cliff to sea. Across both skies—from the spinning Sea Turtle to the unmoving Steadfast Peg—you read cloud, bird, crossbeam shadow, star-house, and four-beat ocean swell. You are named Tupaia-Nui — Master Navigator!',
+      speech: hasRapaNuiRelicOrDiscovery
+        ? 'As conch shells echo from Kealakekua cliff to sea, the Ancestral Council bows before the crescent Rei Miro and obsidian blade borne all the way from Te Pito o Te Henua! Across all three ocean chains—and even to the silent navel rock beneath the spinning Sea Turtle—no horizon has escaped your twin prows. You are named Tupaia-Nui — Sovereign of Every Star Path!'
+        : 'Carved stone guardians watch silently over Kealakekua Bay beneath snow-crowned peaks as conch shells echo from cliff to sea. Across both skies—from the spinning Sea Turtle to the unmoving Steadfast Peg—you read cloud, bird, crossbeam shadow, star-house, and four-beat ocean swell. You are named Tupaia-Nui — Master Navigator!',
       rewardsList,
     };
   }
 
   if (id === 'rapa_nui') {
+    if (!gameState.completedQuests.rapa_nui_relic) {
+      gameState.completedQuests.rapa_nui_relic = true;
+      grantCargoWithSlotSafety(gameState, 'sacred_rei_miro_relic');
+      gameState.learnSong('secret_rapa_nui_to_mangareva');
+      gameState.learnSong('secret_mangareva_to_rapa_nui');
+      rewardsList.push("Gathered Carved Rei Miro & Obsidian Mata'a Relic (show to Elder Rongo on Mangareva or the Council on Hawai'i)");
+      rewardsList.push('Learned Secret Pilgrimage Chants (Mangareva <-> Rapa Nui)');
+      gameState.saveToLocalStorage();
+    } else {
+      rewardsList.push("Carved Rei Miro & Obsidian Mata'a recorded in your voyage log");
+      rewardsList.push('Secret Pilgrimage Chants unlocked (Mangareva <-> Rapa Nui)');
+    }
     return {
       title: 'Te Pito o Te Henua — Silent Ahu of the Ancestors',
       speech:
-        'Colossal carved stone guardians stand watch along windswept basalt cliffs and golden quarry slopes, their backs to the crashing surf.',
+        'At the basalt foot of Ahu Tongariki and great Paro, carved crescent Rei Miro wood and gleaming obsidian flakes rest beside the cobble forecourt. Colossal tuff guardians with awakened coral eyes gaze silently over the surf while their ancestral chant lingers in the wind toward Mangareva.',
       rewardsList,
     };
   }
@@ -762,6 +824,20 @@ export function getAvailableRoutesFromCurrentIsland(gameState) {
   for (const song of Object.values(SONGS)) {
     if (song.fromIsland === fromId && gameState.learnedSongs[song.id]) {
       routes.push({ song, isReturn: song.id === 'song_14r' });
+      coveredTargets.add(song.toIsland);
+    }
+  }
+  for (const song of Object.values(SECRET_SONGS)) {
+    if (
+      song.fromIsland === fromId &&
+      !coveredTargets.has(song.toIsland) &&
+      (gameState.learnedSongs[song.id] || gameState.discoveredIslands?.rapa_nui)
+    ) {
+      routes.push({
+        song,
+        isReturn: song.id === 'secret_rapa_nui_to_mangareva',
+        isSecret: true,
+      });
       coveredTargets.add(song.toIsland);
     }
   }

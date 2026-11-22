@@ -22,7 +22,9 @@ import {
 import { GameState } from '../src/core/gameState.js';
 import {
   CARGO_CATALOG,
+  getAvailableRoutesFromCurrentIsland,
   interactWithIslandSanctuary,
+  onVoyageLandfall,
   performBeachCareeningAndRestock,
 } from '../src/core/campaignManager.js';
 import {
@@ -62,7 +64,7 @@ import {
   CONSTELLATION_GUIDE,
   getQuizPromptsForIsland,
 } from '../src/data/skyVigilData.js';
-import { SONGS, buildReturnSong } from '../src/data/songsData.js';
+import { SECRET_SONGS, SONGS, buildReturnSong } from '../src/data/songsData.js';
 import {
   WALKABLE_ISLAND_IDS,
   WALKABLE_ISLAND_SPECS,
@@ -213,7 +215,7 @@ for (const wid of Object.keys(ISLANDS)) {
   const expectedScale = expectedWalkableIds.includes(wid)
     ? wSpec?.canonicalScale ?? 1.0
     : 1.55;
-  const expectedPoiCount = wid === 'moorea' ? 5 : 4;
+  const expectedPoiCount = wid === 'moorea' || wid === 'rapa_nui' ? 5 : 4;
   assert(
     wSpec &&
       wSpec.pois.length === expectedPoiCount &&
@@ -304,6 +306,18 @@ for (const [sid, song] of Object.entries(SONGS)) {
     auditText(v.cueLabel, `${sid} v${v.verseNumber} cueLabel`);
   }
 }
+for (const [sid, song] of Object.entries(SECRET_SONGS)) {
+  auditText(song.title, `${sid}.title`);
+  for (const v of song.verses) {
+    auditText(v.lyrics, `${sid} v${v.verseNumber} lyrics`);
+    auditText(v.easyCueText, `${sid} v${v.verseNumber} easyCueText`);
+    auditText(v.cueLabel, `${sid} v${v.verseNumber} cueLabel`);
+  }
+}
+for (const [cid, item] of Object.entries(CARGO_CATALOG)) {
+  auditText(item.name, `Cargo ${cid}.name`);
+  auditText(item.description, `Cargo ${cid}.description`);
+}
 for (const [lid, les] of Object.entries(SAND_LESSONS)) {
   auditText(les.title, `SandLesson ${lid}.title`);
   auditText(les.narration, `SandLesson ${lid}.narration`);
@@ -331,6 +345,7 @@ for (const [wid, wSpec] of Object.entries(WALKABLE_ISLAND_SPECS)) {
     if (poi.circleDesc) auditText(poi.circleDesc, `WalkablePOI ${wid}.${poi.id}.circleDesc`);
     if (poi.introTitle) auditText(poi.introTitle, `WalkablePOI ${wid}.${poi.id}.introTitle`);
     if (poi.introSpeech) auditText(poi.introSpeech, `WalkablePOI ${wid}.${poi.id}.introSpeech`);
+    if (poi.rimDesc) auditText(poi.rimDesc, `WalkablePOI ${wid}.${poi.id}.rimDesc`);
   }
 }
 
@@ -1065,6 +1080,73 @@ logLine('\n[8/8] Verifying Objectives Lifecycle, Multi-Fish Harvest, 24h Ocean S
     'Debug trace fish param preserves both harvested and unharvested spawned school flags'
   );
 
+  // D2. Verify Rapa Nui unique Rei Miro & Obsidian Mata'a artifact, Mangareva/Hawai'i secret dialogues,
+  //     and both directions of the Secret Pilgrimage Chant (Mangareva <-> Rapa Nui)!
+  onVoyageLandfall(fullCrewRapaGs, 'rapa_nui');
+  const rapaRes = interactWithIslandSanctuary(fullCrewRapaGs);
+  auditText(rapaRes.title, 'RapaNui sanctuary.title');
+  auditText(rapaRes.speech, 'RapaNui sanctuary.speech');
+  assert(
+    fullCrewRapaGs.hasCargoItem('sacred_rei_miro_relic') &&
+      fullCrewRapaGs.learnedSongs.secret_rapa_nui_to_mangareva &&
+      fullCrewRapaGs.learnedSongs.secret_mangareva_to_rapa_nui,
+    "Rapa Nui sanctuary grants Carved Rei Miro & Obsidian Mata'a relic and unlocks secret pilgrimage chants"
+  );
+  const rapaOutRoutes = getAvailableRoutesFromCurrentIsland(fullCrewRapaGs);
+  assert(
+    rapaOutRoutes.some((r) => r.song.id === 'secret_rapa_nui_to_mangareva'),
+    'Secret Pilgrimage Return Chant is offered from Rapa Nui'
+  );
+  const returnPilgrimageSim = new OceanSim();
+  returnPilgrimageSim.startVoyage(
+    SECRET_SONGS.secret_rapa_nui_to_mangareva,
+    SECRET_SONGS.secret_rapa_nui_to_mangareva.recommendedDeparture,
+    fullCrewRapaGs
+  );
+  for (let t = 0; t < 2000 && returnPilgrimageSim.status === VoyageStatus.SAILING; t += 1) {
+    returnPilgrimageSim.setHeading(returnPilgrimageSim.computeCueAutopilotHeading());
+    returnPilgrimageSim.step(1.0);
+  }
+  assert(
+    returnPilgrimageSim.status === VoyageStatus.ARRIVED &&
+      returnPilgrimageSim.arrivedIsland?.id === 'mangareva' &&
+      returnPilgrimageSim.rationsRemaining > 0.25,
+    `Secret Pilgrimage Return Chant reaches Mangareva cleanly (status=${returnPilgrimageSim.status}, rations=${returnPilgrimageSim.rationsRemaining.toFixed(2)})`
+  );
+  fullCrewRapaGs.currentIslandId = 'mangareva';
+  const mangSecretRes = interactWithIslandSanctuary(fullCrewRapaGs);
+  auditText(mangSecretRes.speech, 'Mangareva Rapa Nui secret dialogue');
+  assert(
+    mangSecretRes.speech.includes('Rei Miro') &&
+      getAvailableRoutesFromCurrentIsland(fullCrewRapaGs).some(
+        (r) => r.song.id === 'secret_mangareva_to_rapa_nui'
+      ),
+    'Elder Rongo greets Rapa Nui Rei Miro relic with secret dialogue and offers Chant of Te Pito o Te Henua'
+  );
+  fullCrewRapaGs.currentIslandId = 'hawaii';
+  const hawaiiSecretRes = interactWithIslandSanctuary(fullCrewRapaGs);
+  auditText(hawaiiSecretRes.speech, 'Hawaii Rapa Nui secret dialogue');
+  assert(
+    hawaiiSecretRes.speech.includes('Rei Miro'),
+    'Ancestral Council on Hawaiʻi honors Rapa Nui Rei Miro relic with secret tribute dialogue'
+  );
+  const forwardPilgrimageSim = new OceanSim();
+  forwardPilgrimageSim.startVoyage(
+    SECRET_SONGS.secret_mangareva_to_rapa_nui,
+    SECRET_SONGS.secret_mangareva_to_rapa_nui.recommendedDeparture,
+    fullCrewRapaGs
+  );
+  for (let t = 0; t < 2000 && forwardPilgrimageSim.status === VoyageStatus.SAILING; t += 1) {
+    forwardPilgrimageSim.setHeading(forwardPilgrimageSim.computeCueAutopilotHeading());
+    forwardPilgrimageSim.step(1.0);
+  }
+  assert(
+    forwardPilgrimageSim.status === VoyageStatus.ARRIVED &&
+      forwardPilgrimageSim.arrivedIsland?.id === 'rapa_nui' &&
+      forwardPilgrimageSim.rationsRemaining > 0.25,
+    `Secret Chant of Te Pito o Te Henua arrives at Rapa Nui via cue autopilot (status=${forwardPilgrimageSim.status}, rations=${forwardPilgrimageSim.rationsRemaining.toFixed(2)})`
+  );
+
   // E. Complete all 17 canonical songs in Master Navigator difficulty -> unlocks `all_songs_master_difficulty`
   //    (and verify downgrading difficulty mid-voyage prevents Master credit!)
   const masterGs = new GameState();
@@ -1148,7 +1230,7 @@ logLine('\n[8/8] Verifying Objectives Lifecycle, Multi-Fish Harvest, 24h Ocean S
 
 // ── CARGO CATALOG SOURCE ISLANDS & AUTO-CAREENING ON LANDFALL ─────────────────
 const cargoEntries = Object.entries(CARGO_CATALOG);
-assert(cargoEntries.length === 9, 'Expected 9 quest cargo items in CARGO_CATALOG');
+assert(cargoEntries.length === 10, 'Expected 10 quest cargo items in CARGO_CATALOG (including sacred_rei_miro_relic)');
 for (const [cargoKey, cargoDef] of cargoEntries) {
   assert(
     typeof cargoDef.sourceIslandId === 'string' && Boolean(ISLANDS[cargoDef.sourceIslandId]),

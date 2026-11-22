@@ -282,8 +282,8 @@ export function evalRapaNuiPoint(wx, wz) {
 
   // 4. Rano Kau Giant Sunken Volcanic Caldera + Kari Kari Seaward Cliff Notch
   const dKau = Math.hypot(x - B_RANO_KAU_CENTER[0], z - B_RANO_KAU_CENTER[1]);
-  const kauOuterSlope = 29.0 * Math.exp(-Math.pow(dKau / 25.5, 1.85));
-  const kauRimRing = 11.5 * Math.exp(-Math.pow((dKau - B_RANO_KAU_RADIUS) / 4.2, 2.0));
+  const kauOuterSlope = 29.0 * Math.exp(-Math.pow(dKau / 26.8, 1.85));
+  const kauRimRing = 11.5 * Math.exp(-Math.pow((dKau - B_RANO_KAU_RADIUS) / 5.4, 2.0));
   const kauAng = Math.atan2(z - B_RANO_KAU_CENTER[1], x - B_RANO_KAU_CENTER[0]);
   const kariKariDiff = Math.atan2(Math.sin(kauAng - 2.38), Math.cos(kauAng - 2.38));
   const kariKariNotch =
@@ -291,7 +291,7 @@ export function evalRapaNuiPoint(wx, wz) {
     Math.exp(-Math.pow((dKau - B_RANO_KAU_RADIUS) / 4.6, 2.0));
 
   baseH += kauOuterSlope + kauRimRing * (1.0 - 0.62 * kariKariNotch);
-  const inRanoKau = 1.0 - smoothstep(B_RANO_KAU_RADIUS - 3.2, B_RANO_KAU_RADIUS + 0.5, dKau);
+  const inRanoKau = 1.0 - smoothstep(B_RANO_KAU_RADIUS - 4.4, B_RANO_KAU_RADIUS - 1.3, dKau);
   if (inRanoKau > 0.001) {
     baseH = lerp(baseH, B_RANO_KAU_LAKE_Y - 2.8, inRanoKau);
   }
@@ -359,6 +359,52 @@ export function evalRapaNuiPoint(wx, wz) {
   if (knollDist < 10.5) {
     const knollFlat = smoothstep(10.5, 4.8, knollDist);
     h = lerp(h, 12.5, knollFlat);
+  }
+
+  // Widen Rano Kau's southern & western crater rim promenade (~8m walkable crest) leading to 'Orongo
+  const dKauW = dKau * W_SCALE;
+  if (dKauW > 20.5 && dKauW < 34.0) {
+    const rimArcWeight =
+      smoothstep(0.05, 0.45, kauAng) * (1.0 - smoothstep(2.12, 2.34, kauAng));
+    if (rimArcWeight > 0.001) {
+      const innerRimBlend = smoothstep(20.6, 22.8, dKauW);
+      const outerRimBlend = 1.0 - smoothstep(28.4, 33.2, dKauW);
+      const rimBelt = innerRimBlend * outerRimBlend * rimArcWeight;
+      const rimTargetH = lerp(23.8, 24.8, smoothstep(0.35, 1.85, kauAng));
+      h = lerp(h, rimTargetH, rimBelt * 0.9);
+    }
+  }
+
+  // Level a broad, flat basalt terrace under the 'Orongo Tangata Manu platform (tmAng = 1.92)
+  const orongoLocalX = RANO_KAU_CENTER[0] + Math.cos(1.92) * RANO_KAU_RADIUS;
+  const orongoLocalZ = RANO_KAU_CENTER[1] + Math.sin(1.92) * RANO_KAU_RADIUS;
+  const orongoPadDist = Math.hypot(wx - orongoLocalX, wz - orongoLocalZ);
+  if (orongoPadDist < 12.0) {
+    const orongoFlat = smoothstep(12.0, 6.8, orongoPadDist);
+    h = lerp(h, 24.8, orongoFlat);
+  }
+
+  // Smooth the eastern rim ascent saddle from coastal path (-39, 70) up onto Rano Kau's rim (-59, 75.5)
+  {
+    const ax = -38.5;
+    const az = 69.8;
+    const bx = -59.0;
+    const bz = 75.6;
+    const abx = bx - ax;
+    const abz = bz - az;
+    const abLenSq = abx * abx + abz * abz;
+    const tRamp = clamp01(((wx - ax) * abx + (wz - az) * abz) / abLenSq);
+    const projX = ax + abx * tRamp;
+    const projZ = az + abz * tRamp;
+    const perpDist = Math.hypot(wx - projX, wz - projZ);
+    if (perpDist < 11.0 && tRamp > 0.01 && tRamp < 0.99) {
+      const rampMask =
+        smoothstep(11.0, 4.5, perpDist) *
+        smoothstep(0.0, 0.16, tRamp) *
+        smoothstep(1.0, 0.84, tRamp);
+      const rampTargetH = lerp(14.0, 24.1, tRamp);
+      h = lerp(h, rampTargetH, rampMask * 0.88);
+    }
   }
 
   // Surface Biome & Geological Color Masks
@@ -1223,7 +1269,7 @@ export function createRapaNuiIslandAssembly(islandId) {
   rarakuLake.position.set(RANO_RARAKU_CENTER[0], 0.0, RANO_RARAKU_CENTER[1]);
   group.add(rarakuLake);
 
-  // 4. 'Orongo Ceremonial Stone Village on Rano Kau's Narrow Seaward Rim
+  // 4. 'Orongo Ceremonial Stone Village & Tangata Manu Shrine on Rano Kau's Seaward Rim
   const orongoSlabMat = mats.ahuDressedSlabMat;
   const orongoHouseGeo = new THREE.CylinderGeometry(1.25, 1.55, 0.88, 10);
   orongoHouseGeo.scale(0.75, 1.0, 1.75);
@@ -1244,14 +1290,112 @@ export function createRapaNuiIslandAssembly(islandId) {
     group.add(stoneHut);
   }
 
-  // 5. MONUMENTAL AHU TONGARIKI — Grand 15 Upright Moai Platform facing outward over the ocean!
+  // Tangata Manu (Birdman) carved basalt petroglyph lookout platform overlooking Motu Nui & Motu Kao Kao
+  {
+    const tmAng = 1.92;
+    const tx = RANO_KAU_CENTER[0] + Math.cos(tmAng) * RANO_KAU_RADIUS;
+    const tz = RANO_KAU_CENTER[1] + Math.sin(tmAng) * RANO_KAU_RADIUS;
+    const ty = evalRapaNuiPoint(tx, tz).h;
+    const orongoShrine = new THREE.Group();
+    orongoShrine.position.set(tx, ty, tz);
+    orongoShrine.rotation.y = -tmAng + Math.PI * 0.5;
+
+    const rimApron = new THREE.Mesh(
+      new THREE.CylinderGeometry(4.5, 5.9, 0.42, 24),
+      mats.ahuBasaltMat
+    );
+    rimApron.position.y = -0.02;
+    rimApron.receiveShadow = true;
+    rimApron.userData.walkableSurface = true;
+    orongoShrine.add(rimApron);
+
+    const rimPlinth = new THREE.Mesh(
+      new THREE.CylinderGeometry(3.4, 4.45, 0.34, 24),
+      mats.poroCobbleMat
+    );
+    rimPlinth.position.y = 0.23;
+    rimPlinth.receiveShadow = true;
+    rimPlinth.userData.walkableSurface = true;
+    orongoShrine.add(rimPlinth);
+
+    const stelaGeo = new THREE.BoxGeometry(0.95, 2.25, 0.42);
+    const reliefDiscGeo = new THREE.TorusGeometry(0.24, 0.055, 6, 14);
+    for (const sx of [-1.65, 1.65]) {
+      const stela = new THREE.Mesh(stelaGeo, mats.ahuBasaltMat);
+      stela.position.set(sx, 1.45, -1.55);
+      stela.rotation.y = sx * -0.18;
+      stela.castShadow = true;
+      orongoShrine.add(stela);
+
+      const carving = new THREE.Mesh(reliefDiscGeo, mats.pukaoScoriaMat);
+      carving.position.set(sx, 1.88, -1.32);
+      carving.rotation.y = sx * -0.18;
+      orongoShrine.add(carving);
+    }
+
+    const altarBoulder = new THREE.Mesh(
+      new THREE.DodecahedronGeometry(0.62, 1),
+      mats.basaltMoaiMat
+    );
+    altarBoulder.scale.set(1.3, 0.72, 1.05);
+    altarBoulder.position.set(0.0, 0.76, -1.5);
+    altarBoulder.castShadow = true;
+    orongoShrine.add(altarBoulder);
+
+    group.add(orongoShrine);
+  }
+
+  // 4b. Te Pito Kura — Smooth Spherical "Navel of the World" Boulder & 4 Flanking Stones
+  {
+    const navelX = -7.16;
+    const navelZ = 16.52;
+    const navelY = evalRapaNuiPoint(navelX, navelZ).h;
+    const navelGroup = new THREE.Group();
+    navelGroup.position.set(navelX, navelY, navelZ);
+
+    const centralOrb = new THREE.Mesh(
+      new THREE.SphereGeometry(0.66, 20, 16),
+      trackMat(
+        new THREE.MeshStandardMaterial({
+          color: 0x24262b,
+          roughness: 0.34,
+          metalness: 0.14,
+        })
+      )
+    );
+    centralOrb.scale.set(1.08, 0.86, 1.04);
+    centralOrb.position.y = 0.46;
+    centralOrb.castShadow = true;
+    navelGroup.add(centralOrb);
+
+    const cradleRing = new THREE.Mesh(
+      new THREE.TorusGeometry(0.72, 0.14, 7, 18),
+      mats.poroCobbleMat
+    );
+    cradleRing.rotation.x = Math.PI * 0.5;
+    cradleRing.position.y = 0.08;
+    navelGroup.add(cradleRing);
+
+    const seatGeo = new THREE.SphereGeometry(0.34, 12, 10);
+    for (let k = 0; k < 4; k += 1) {
+      const ang = (k / 4) * Math.PI * 2.0 + 0.35;
+      const seat = new THREE.Mesh(seatGeo, mats.basaltMoaiMat);
+      seat.scale.set(1.15, 0.72, 1.05);
+      seat.position.set(Math.cos(ang) * 1.48, 0.16, Math.sin(ang) * 1.48);
+      seat.castShadow = true;
+      navelGroup.add(seat);
+    }
+    group.add(navelGroup);
+  }
+
+  // 5. MONUMENTAL AHU TONGARIKI — Grand 15 Real-Scale Upright Moai Platform (up to 8.8m!)
   const tongarikiY = evalRapaNuiPoint(TONGARIKI_SITE[0], TONGARIKI_SITE[1]).h;
   const tongarikiHeights = [
-    4.5, 5.1, 5.6, 5.3, 6.4, 5.9, 7.1, 6.6, 6.0, 6.8, 5.7, 6.1, 5.5, 5.8, 4.9,
+    5.6, 6.4, 7.0, 6.6, 7.8, 7.2, 8.8, 8.2, 7.4, 8.5, 7.1, 7.6, 6.8, 7.3, 6.1,
   ];
   const tongarikiSpecs = tongarikiHeights.map((hM, idx) => ({
     heightM: hM,
-    widthScale: 0.94 + (idx % 3) * 0.08,
+    widthScale: 0.96 + (idx % 3) * 0.08,
     stoneMat:
       idx % 3 === 0
         ? mats.tuffGoldMat
@@ -1268,26 +1412,26 @@ export function createRapaNuiIslandAssembly(islandId) {
     y: tongarikiY,
     z: TONGARIKI_SITE[1],
     rotY: FACE_SE_OCEAN,
-    platformWidth: 34.0,
-    platformHeight: 2.15,
-    platformDepth: 3.6,
-    wingWidth: 7.5,
+    platformWidth: 44.0,
+    platformHeight: 2.45,
+    platformDepth: 4.1,
+    wingWidth: 9.0,
     hasPlaza: true,
     moaiSpecs: tongarikiSpecs,
   });
 
-  // 6. RANO RARAKU QUARRY OUTER SEAWARD SLOPES — All upright Moai gazing out toward the ocean!
+  // 6. RANO RARAKU QUARRY OUTER SEAWARD SLOPES — Real-Scale 8–10.5m Giants + 21.6m Te Tokanga!
   const quarryMoaiPlacements = [
     // [baseX, baseZ, oceanFacingRotY, heightM, buriedHeadOnly]
-    [40.2, 5.8, 0.58, 6.4, true],
-    [41.8, 3.4, 0.72, 5.8, true],
-    [37.8, 7.8, 0.48, 6.2, true],
-    [42.8, 0.6, 0.84, 5.6, true],
-    [35.4, 9.4, 0.44, 6.6, false],
-    [32.6, 9.2, 0.42, 5.6, true],
+    [40.4, 6.2, 0.58, 9.2, true],
+    [41.8, 3.6, 0.72, 8.4, true],
+    [37.8, 7.8, 0.48, 9.6, true],
+    [42.8, 0.4, 0.84, 8.2, true],
+    [35.4, 9.4, 0.44, 10.4, false],
+    [32.6, 9.2, 0.42, 8.6, true],
     // Upright Moai standing along the Ara Moai coastal plain facing the ocean
-    [25.5, 10.5, FACE_SE_OCEAN, 5.4, false],
-    [18.2, 14.2, FACE_SE_OCEAN, 5.2, false],
+    [25.5, 10.5, FACE_SE_OCEAN, 7.4, false],
+    [18.2, 14.2, FACE_SE_OCEAN, 7.8, false],
   ];
 
   for (let i = 0; i < quarryMoaiPlacements.length; i += 1) {
@@ -1297,17 +1441,48 @@ export function createRapaNuiIslandAssembly(islandId) {
     const qy = evalRapaNuiPoint(qx, qz).h;
     const qMoai = buildMoaiInstance(moaiKit, mats, {
       heightM: hM,
-      widthScale: 0.96 + (i % 3) * 0.06,
+      widthScale: 0.98 + (i % 3) * 0.06,
       stoneMat: i % 2 === 0 ? mats.tuffGoldMat : mats.tuffLichenMat,
       detailMat: mats.tuffShadowMat,
       headOnly: buriedHeadOnly,
     });
-    qMoai.position.set(qx, qy - (buriedHeadOnly ? 0.32 : 0.85), qz);
+    qMoai.position.set(qx, qy - (buriedHeadOnly ? 0.45 : 1.15), qz);
     qMoai.rotation.set(0.0, rotY, 0.0); // Cleanly upright, facing the ocean!
     group.add(qMoai);
   }
 
-  // 7. ANAKENA COVE — AHU NAU NAU (7 Upright Moai facing Anakena's turquoise bay!) & AHU ATURE HUKI
+  // Te Tokanga ("El Gigante") — 21.6m unfinished colossus attached in-situ along Rano Raraku quarry slope
+  {
+    const tx = 41.2 * W_SCALE;
+    const tz = 4.6 * W_SCALE;
+    const ty = evalRapaNuiPoint(tx, tz).h;
+    const giganteGroup = new THREE.Group();
+    giganteGroup.position.set(tx, ty + 0.15, tz);
+    giganteGroup.rotation.y = 0.92;
+
+    const quarryTrench = new THREE.Mesh(
+      new THREE.BoxGeometry(7.8, 2.2, 23.4),
+      mats.tuffShadowMat
+    );
+    quarryTrench.position.set(0.0, -0.55, 0.0);
+    quarryTrench.rotation.x = 0.22;
+    giganteGroup.add(quarryTrench);
+
+    const teTokanga = buildMoaiInstance(moaiKit, mats, {
+      heightM: 21.6,
+      widthScale: 1.06,
+      stoneMat: mats.tuffGoldMat,
+      detailMat: mats.tuffShadowMat,
+    });
+    // Lay lengthwise down the golden-tuff quarry ramp (local +Y -> upward along slope, face upward!)
+    teTokanga.rotation.set(-1.34, 0.0, 0.0);
+    teTokanga.position.set(0.0, 2.8, -9.8);
+    giganteGroup.add(teTokanga);
+
+    group.add(giganteGroup);
+  }
+
+  // 7. ANAKENA & LA PEROUSE — AHU NAU NAU, AHU ATURE HUKI & AHU TE PITO KURA (10.0m Paro!)
   const nauNauX = (B_ANAKENA_COVE[0] - 1.2) * W_SCALE;
   const nauNauZ = (B_ANAKENA_COVE[1] + 5.6) * W_SCALE;
   addAhuWithMoaiRow(group, moaiKit, mats, {
@@ -1315,19 +1490,19 @@ export function createRapaNuiIslandAssembly(islandId) {
     y: evalRapaNuiPoint(nauNauX, nauNauZ).h,
     z: nauNauZ,
     rotY: FACE_NE_ANAKENA_OCEAN,
-    platformWidth: 18.5,
-    platformHeight: 1.75,
-    platformDepth: 3.0,
-    wingWidth: 4.2,
+    platformWidth: 21.5,
+    platformHeight: 1.95,
+    platformDepth: 3.2,
+    wingWidth: 4.8,
     hasPlaza: true,
     moaiSpecs: [
-      { heightM: 3.8, stoneMat: mats.tuffWeatheredMat, hasPukao: false },
-      { heightM: 5.4, stoneMat: mats.tuffGoldMat, hasPukao: true },
-      { heightM: 5.7, stoneMat: mats.tuffGoldMat, hasPukao: true, hasEyes: true },
-      { heightM: 5.8, stoneMat: mats.tuffLichenMat, hasPukao: true },
-      { heightM: 5.5, stoneMat: mats.tuffGoldMat, hasPukao: true },
-      { heightM: 4.3, stoneMat: mats.tuffWeatheredMat, hasPukao: false },
-      { heightM: 3.6, stoneMat: mats.tuffLichenMat, hasPukao: false },
+      { heightM: 4.8, stoneMat: mats.tuffWeatheredMat, hasPukao: false },
+      { heightM: 6.2, stoneMat: mats.tuffGoldMat, hasPukao: true },
+      { heightM: 6.6, stoneMat: mats.tuffGoldMat, hasPukao: true, hasEyes: true },
+      { heightM: 6.8, stoneMat: mats.tuffLichenMat, hasPukao: true },
+      { heightM: 6.3, stoneMat: mats.tuffGoldMat, hasPukao: true },
+      { heightM: 5.2, stoneMat: mats.tuffWeatheredMat, hasPukao: false },
+      { heightM: 4.6, stoneMat: mats.tuffLichenMat, hasPukao: false },
     ],
   });
 
@@ -1338,12 +1513,37 @@ export function createRapaNuiIslandAssembly(islandId) {
     y: evalRapaNuiPoint(atureX, atureZ).h,
     z: atureZ,
     rotY: FACE_NE_ANAKENA_OCEAN,
-    platformWidth: 5.4,
-    platformHeight: 1.55,
-    platformDepth: 2.6,
-    wingWidth: 2.0,
+    platformWidth: 6.2,
+    platformHeight: 1.65,
+    platformDepth: 2.8,
+    wingWidth: 2.2,
     hasPlaza: true,
-    moaiSpecs: [{ heightM: 5.6, widthScale: 1.08, stoneMat: mats.tuffWeatheredMat }],
+    moaiSpecs: [{ heightM: 6.4, widthScale: 1.08, stoneMat: mats.tuffWeatheredMat }],
+  });
+
+  // Ahu Te Pito Kura — Paro (10.0m giant Moai + 2.0m red scoria Pukao = 12m monument!)
+  const paroX = 35.5 * W_SCALE;
+  const paroZ = -36.0 * W_SCALE;
+  addAhuWithMoaiRow(group, moaiKit, mats, {
+    x: paroX,
+    y: evalRapaNuiPoint(paroX, paroZ).h,
+    z: paroZ,
+    rotY: FACE_NE_ANAKENA_OCEAN,
+    platformWidth: 8.6,
+    platformHeight: 2.2,
+    platformDepth: 3.6,
+    wingWidth: 3.6,
+    hasPlaza: true,
+    moaiSpecs: [
+      {
+        heightM: 10.0,
+        widthScale: 1.08,
+        stoneMat: mats.tuffGoldMat,
+        detailMat: mats.tuffShadowMat,
+        hasPukao: true,
+        hasEyes: true,
+      },
+    ],
   });
 
   // 8. WEST COAST — AHU KO TE RIKU (Awakened Eyes + Pukao) & AHU VAI URI (5 Upright Moai facing ocean!)
@@ -1354,14 +1554,14 @@ export function createRapaNuiIslandAssembly(islandId) {
     y: evalRapaNuiPoint(koTeRikuX, koTeRikuZ).h,
     z: koTeRikuZ,
     rotY: FACE_WEST_OCEAN,
-    platformWidth: 5.6,
-    platformHeight: 1.7,
-    platformDepth: 2.8,
-    wingWidth: 2.4,
+    platformWidth: 6.6,
+    platformHeight: 1.9,
+    platformDepth: 3.1,
+    wingWidth: 2.6,
     hasPlaza: true,
     moaiSpecs: [
       {
-        heightM: 6.0,
+        heightM: 7.2,
         stoneMat: mats.tuffGoldMat,
         hasPukao: true,
         hasEyes: true,
@@ -1376,17 +1576,17 @@ export function createRapaNuiIslandAssembly(islandId) {
     y: evalRapaNuiPoint(vaiUriX, vaiUriZ).h,
     z: vaiUriZ,
     rotY: FACE_WEST_OCEAN,
-    platformWidth: 14.6,
-    platformHeight: 1.65,
-    platformDepth: 2.8,
-    wingWidth: 3.0,
+    platformWidth: 17.5,
+    platformHeight: 1.85,
+    platformDepth: 3.0,
+    wingWidth: 3.5,
     hasPlaza: true,
     moaiSpecs: [
-      { heightM: 5.1, stoneMat: mats.tuffWeatheredMat },
-      { heightM: 4.6, stoneMat: mats.tuffLichenMat },
-      { heightM: 5.3, stoneMat: mats.tuffGoldMat, hasPukao: true },
-      { heightM: 4.1, stoneMat: mats.tuffWeatheredMat },
-      { heightM: 3.5, stoneMat: mats.tuffLichenMat },
+      { heightM: 6.0, stoneMat: mats.tuffWeatheredMat },
+      { heightM: 5.4, stoneMat: mats.tuffLichenMat },
+      { heightM: 6.4, stoneMat: mats.tuffGoldMat, hasPukao: true },
+      { heightM: 4.9, stoneMat: mats.tuffWeatheredMat },
+      { heightM: 4.3, stoneMat: mats.tuffLichenMat },
     ],
   });
 
@@ -1396,13 +1596,13 @@ export function createRapaNuiIslandAssembly(islandId) {
     y: evalRapaNuiPoint(AKIVI_SITE[0], AKIVI_SITE[1]).h,
     z: AKIVI_SITE[1],
     rotY: FACE_WEST_OCEAN,
-    platformWidth: 18.2,
-    platformHeight: 1.55,
-    platformDepth: 2.8,
-    wingWidth: 3.4,
+    platformWidth: 21.0,
+    platformHeight: 1.75,
+    platformDepth: 3.0,
+    wingWidth: 3.8,
     hasPlaza: true,
     moaiSpecs: Array.from({ length: 7 }, (_, idx) => ({
-      heightM: 5.0 + (idx % 2) * 0.18,
+      heightM: 5.8 + (idx % 2) * 0.28,
       stoneMat: idx % 2 === 0 ? mats.tuffLichenMat : mats.tuffGoldMat,
     })),
   });
@@ -1419,16 +1619,16 @@ export function createRapaNuiIslandAssembly(islandId) {
       y: evalRapaNuiPoint(ax, az).h,
       z: az,
       rotY: FACE_SE_OCEAN,
-      platformWidth: 13.5,
-      platformHeight: 1.65,
-      platformDepth: 2.8,
-      wingWidth: 3.0,
+      platformWidth: 16.5,
+      platformHeight: 1.85,
+      platformDepth: 3.0,
+      wingWidth: 3.4,
       hasPlaza: true,
       moaiSpecs: [
-        { heightM: 4.6, stoneMat: mats.tuffWeatheredMat, hasPukao: hasPukaoIdx === 0 },
-        { heightM: 5.2, stoneMat: mats.tuffGoldMat, hasPukao: hasPukaoIdx === 1 },
-        { heightM: 5.0, stoneMat: mats.tuffLichenMat, hasPukao: hasPukaoIdx === 2 },
-        { heightM: 4.4, stoneMat: mats.tuffWeatheredMat, hasPukao: false },
+        { heightM: 5.4, stoneMat: mats.tuffWeatheredMat, hasPukao: hasPukaoIdx === 0 },
+        { heightM: 6.4, stoneMat: mats.tuffGoldMat, hasPukao: hasPukaoIdx === 1 },
+        { heightM: 6.0, stoneMat: mats.tuffLichenMat, hasPukao: hasPukaoIdx === 2 },
+        { heightM: 5.2, stoneMat: mats.tuffWeatheredMat, hasPukao: false },
       ],
     });
   }
@@ -1534,7 +1734,8 @@ export function createRapaNuiIslandAssembly(islandId) {
 }
 
 /**
- * Builds a dedicated close-up 3D showcase diorama of Rapa Nui's upright sculpted Moai & Ahu masonry
+ * Builds a dedicated close-up 3D showcase diorama of Rapa Nui's real-scale Moai (up to 10.0m Paro
+ * + 2.0m red scoria Pukao = 12.0m), Rano Raraku quarry giant, and human-scale Hare Paenga doorway
  * for detailed inspection in the Asset Manager (`asset-viewer.html`).
  */
 export function createRapaNuiMoaiShowcaseAssembly() {
@@ -1544,43 +1745,43 @@ export function createRapaNuiMoaiShowcaseAssembly() {
   const kit = createMoaiGeometryKit();
 
   const turfBase = new THREE.Mesh(
-    new THREE.CylinderGeometry(10.8, 11.6, 0.55, 36),
+    new THREE.CylinderGeometry(16.2, 17.4, 0.65, 40),
     trackMat(new THREE.MeshStandardMaterial({ color: 0x6e6a38, roughness: 0.9 }))
   );
-  turfBase.position.y = -0.28;
+  turfBase.position.y = -0.32;
   turfBase.receiveShadow = true;
   group.add(turfBase);
 
   addAhuWithMoaiRow(group, kit, mats, {
     x: 0.0,
-    y: 0.35,
-    z: -1.6,
+    y: 0.4,
+    z: -3.4,
     rotY: 0.0,
-    platformWidth: 11.2,
-    platformHeight: 1.65,
-    platformDepth: 2.6,
-    wingWidth: 2.4,
+    platformWidth: 16.5,
+    platformHeight: 2.2,
+    platformDepth: 3.6,
+    wingWidth: 3.6,
     hasPlaza: true,
     moaiSpecs: [
       {
-        heightM: 4.8,
+        heightM: 7.4,
         widthScale: 0.98,
-        stoneMat: mats.tuffGoldMat,
+        stoneMat: mats.tuffLichenMat,
         detailMat: mats.tuffShadowMat,
         hasPukao: false,
         hasEyes: false,
       },
       {
-        heightM: 5.4,
-        widthScale: 1.04,
+        heightM: 10.0,
+        widthScale: 1.06,
         stoneMat: mats.tuffGoldMat,
         detailMat: mats.tuffShadowMat,
         hasPukao: true,
         hasEyes: true,
       },
       {
-        heightM: 4.6,
-        widthScale: 1.0,
+        heightM: 8.2,
+        widthScale: 1.02,
         stoneMat: mats.tuffWeatheredMat,
         detailMat: mats.tuffShadowMat,
         hasPukao: true,
@@ -1589,33 +1790,41 @@ export function createRapaNuiMoaiShowcaseAssembly() {
     ],
   });
 
-  // Foreground right: Upright half-buried Rano Raraku quarry Moai emerging from a golden tuff mound
+  // Foreground right: Upright 8.8m half-buried Rano Raraku quarry Moai emerging from a golden tuff mound
   const quarryMound = new THREE.Mesh(
-    new THREE.DodecahedronGeometry(2.35, 1),
+    new THREE.DodecahedronGeometry(3.5, 1),
     trackMat(new THREE.MeshStandardMaterial({ color: 0xb68f4c, roughness: 0.9 }))
   );
-  quarryMound.scale.set(1.25, 0.52, 1.15);
-  quarryMound.position.set(5.6, 0.35, 4.4);
+  quarryMound.scale.set(1.25, 0.56, 1.15);
+  quarryMound.position.set(8.6, 0.55, 5.8);
   group.add(quarryMound);
 
   const quarryHead = buildMoaiInstance(kit, mats, {
-    heightM: 5.2,
+    heightM: 8.8,
     stoneMat: mats.tuffGoldMat,
     detailMat: mats.tuffShadowMat,
     headOnly: true,
   });
-  quarryHead.position.set(5.6, 0.55, 4.4);
+  quarryHead.position.set(8.6, 0.75, 5.8);
   quarryHead.rotation.set(0.0, -0.35, 0.0);
   group.add(quarryHead);
 
-  // Foreground left: Traditional boat-shaped Hare Paenga + upright Puna Pau red scoria Pukao
-  addHarePaengaAndManavai(group, mats, [[-5.6, 0.0, 4.6, 0.55, 0.88]], []);
+  // Foreground left: Human-scale boat-shaped Hare Paenga + Te Pito Kura Navel Stone & upright Pukao
+  addHarePaengaAndManavai(group, mats, [[-8.8, 0.0, 6.2, 0.52, 0.95]], []);
+
+  // Standing 1.75m timber scale gauge beside Hare Paenga to highlight Paro's true 10m+ stature
+  const scaleMarker = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.14, 0.18, 1.75, 10),
+    mats.basaltMoaiMat
+  );
+  scaleMarker.position.set(-5.8, 0.875, 6.5);
+  group.add(scaleMarker);
 
   const uprightPukao = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.72, 0.78, 0.88, 16),
+    new THREE.CylinderGeometry(1.05, 1.15, 1.45, 16),
     mats.pukaoScoriaMat
   );
-  uprightPukao.position.set(-2.6, 0.44, 5.2);
+  uprightPukao.position.set(-3.4, 0.72, 7.6);
   group.add(uprightPukao);
 
   return { group, materials };

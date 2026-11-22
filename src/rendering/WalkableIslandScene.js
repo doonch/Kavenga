@@ -499,93 +499,116 @@ export class WalkableIslandScene {
           [23.5, 62.7],
         ],
       },
-      rapa_nui: {
-        waypoints: [
-          new THREE.Vector3(1.5, 0, 44.5),
-          new THREE.Vector3(2.2, 0, 36.5),
-          new THREE.Vector3(1.4, 0, 29.0),
-          new THREE.Vector3(0.4, 0, 22.2),
-        ],
-        steps: 22,
-        torches: [
-          [2.8, 44.0],
-          [2.8, 33.0],
-          [1.6, 23.2],
-        ],
-      },
+      rapa_nui: [
+        {
+          waypoints: [
+            new THREE.Vector3(1.5, 0, 44.5),
+            new THREE.Vector3(2.2, 0, 36.5),
+            new THREE.Vector3(1.4, 0, 29.0),
+            new THREE.Vector3(0.4, 0, 22.2),
+          ],
+          steps: 22,
+          torches: [
+            [2.8, 44.0],
+            [2.8, 33.0],
+            [1.6, 23.2],
+          ],
+        },
+        {
+          waypoints: [
+            new THREE.Vector3(-24.0, 0, 48.0),
+            new THREE.Vector3(-44.0, 0, 50.5),
+            new THREE.Vector3(-64.0, 0, 49.0),
+            new THREE.Vector3(-83.7, 0, 46.1),
+            new THREE.Vector3(-93.4, 0, 47.7),
+            new THREE.Vector3(-103.0, 0, 45.4),
+            new THREE.Vector3(-106.8, 0, 42.8),
+          ],
+          steps: 48,
+          torches: [
+            [-54.0, 50.2],
+            [-83.7, 46.1],
+            [-103.8, 45.0],
+          ],
+        },
+      ],
     };
 
-    const spec = trailSpecs[islandId];
-    if (!spec) return;
+    const rawSpec = trailSpecs[islandId];
+    if (!rawSpec) return;
+    const specList = Array.isArray(rawSpec) ? rawSpec : [rawSpec];
 
-    const curve = new THREE.CatmullRomCurve3(spec.waypoints);
-    const stepCount = spec.steps;
     const stepGeo = new THREE.CylinderGeometry(0.58, 0.7, 0.14, 7);
     const kerbGeo = makeStoneRockGeometry(0.25, 11);
 
-    for (let i = 0; i <= stepCount; i += 1) {
-      const t = i / stepCount;
-      const p = curve.getPoint(t);
-      const tan = curve.getTangent(t);
-      const perpX = -tan.z;
-      const perpZ = tan.x;
-      const perpLen = Math.hypot(perpX, perpZ) || 1.0;
-      const nx = perpX / perpLen;
-      const nz = perpZ / perpLen;
+    for (const spec of specList) {
+      const curve = new THREE.CatmullRomCurve3(spec.waypoints);
+      const stepCount = spec.steps;
 
-      // Subtle natural stagger left/right for hand-laid stepping stones
-      const stagger = (i % 2 === 0 ? 1 : -1) * 0.24;
-      const sx = p.x + nx * stagger;
-      const sz = p.z + nz * stagger;
-      const sy = this.getGroundHeight(sx, sz);
-      if (sy < 0.15) continue;
+      for (let i = 0; i <= stepCount; i += 1) {
+        const t = i / stepCount;
+        const p = curve.getPoint(t);
+        const tan = curve.getTangent(t);
+        const perpX = -tan.z;
+        const perpZ = tan.x;
+        const perpLen = Math.hypot(perpX, perpZ) || 1.0;
+        const nx = perpX / perpLen;
+        const nz = perpZ / perpLen;
 
-      // Estimate local forward slope so stepping stone hugs the hillside
-      const fDist = 0.65;
-      const hAhead = this.getGroundHeight(sx + tan.x * fDist, sz + tan.z * fDist);
-      const hBehind = this.getGroundHeight(sx - tan.x * fDist, sz - tan.z * fDist);
-      const pitch = Math.atan2(hAhead - hBehind, fDist * 2.0);
+        // Subtle natural stagger left/right for hand-laid stepping stones
+        const stagger = (i % 2 === 0 ? 1 : -1) * 0.24;
+        const sx = p.x + nx * stagger;
+        const sz = p.z + nz * stagger;
+        const sy = this.getGroundHeight(sx, sz);
+        if (sy < 0.15) continue;
 
-      const stone = new THREE.Mesh(
-        stepGeo,
-        i % 3 === 0 ? coralStoneMat : basaltMat
-      );
-      stone.position.set(sx, sy + 0.04, sz);
-      stone.rotation.order = 'YXZ';
-      stone.rotation.y = Math.atan2(tan.x, tan.z) + (i % 5) * 0.18;
-      stone.rotation.x = -pitch * 0.85;
-      stone.scale.set(
-        1.0 + (i % 3) * 0.12,
-        1.0,
-        0.88 + ((i + 1) % 3) * 0.14
-      );
-      stone.receiveShadow = true;
-      this.root.add(stone);
+        // Estimate local forward slope so stepping stone hugs the hillside
+        const fDist = 0.65;
+        const hAhead = this.getGroundHeight(sx + tan.x * fDist, sz + tan.z * fDist);
+        const hBehind = this.getGroundHeight(sx - tan.x * fDist, sz - tan.z * fDist);
+        const pitch = Math.atan2(hAhead - hBehind, fDist * 2.0);
 
-      // Flanking coral & basalt border kerb stones every step to guide the eye uphill
-      for (const side of [-1, 1]) {
-        if (i % 2 === 1 && side === -1) continue;
-        const kx = p.x + nx * side * (1.12 + (i % 2) * 0.14);
-        const kz = p.z + nz * side * (1.12 + (i % 2) * 0.14);
-        const ky = this.getGroundHeight(kx, kz);
-        if (ky < 0.15) continue;
-
-        const kerb = new THREE.Mesh(
-          kerbGeo,
-          (i + (side > 0 ? 1 : 0)) % 2 === 0 ? coralStoneMat : basaltMat
+        const stone = new THREE.Mesh(
+          stepGeo,
+          i % 3 === 0 ? coralStoneMat : basaltMat
         );
-        kerb.position.set(kx, ky + 0.08, kz);
-        kerb.scale.set(1.25, 0.68, 1.05);
-        kerb.rotation.y = i * 0.9 + side;
-        kerb.castShadow = true;
-        kerb.receiveShadow = true;
-        this.root.add(kerb);
-      }
-    }
+        stone.position.set(sx, sy + 0.04, sz);
+        stone.rotation.order = 'YXZ';
+        stone.rotation.y = Math.atan2(tan.x, tan.z) + (i % 5) * 0.18;
+        stone.rotation.x = -pitch * 0.85;
+        stone.scale.set(
+          1.0 + (i % 3) * 0.12,
+          1.0,
+          0.88 + ((i + 1) % 3) * 0.14
+        );
+        stone.receiveShadow = true;
+        this.root.add(stone);
 
-    // Warm kukui-nut torch markers at trailhead, ridge bend, and summit approach
-    for (const [tx, tz] of spec.torches) {
-      addKukuiTorch(tx, tz, 1.65);
+        // Flanking coral & basalt border kerb stones every step to guide the eye uphill
+        for (const side of [-1, 1]) {
+          if (i % 2 === 1 && side === -1) continue;
+          const kx = p.x + nx * side * (1.12 + (i % 2) * 0.14);
+          const kz = p.z + nz * side * (1.12 + (i % 2) * 0.14);
+          const ky = this.getGroundHeight(kx, kz);
+          if (ky < 0.15) continue;
+
+          const kerb = new THREE.Mesh(
+            kerbGeo,
+            (i + (side > 0 ? 1 : 0)) % 2 === 0 ? coralStoneMat : basaltMat
+          );
+          kerb.position.set(kx, ky + 0.08, kz);
+          kerb.scale.set(1.25, 0.68, 1.05);
+          kerb.rotation.y = i * 0.9 + side;
+          kerb.castShadow = true;
+          kerb.receiveShadow = true;
+          this.root.add(kerb);
+        }
+      }
+
+      // Warm kukui-nut torch markers at trailhead, ridge bend, and summit approach
+      for (const [tx, tz] of spec.torches) {
+        addKukuiTorch(tx, tz, 1.65);
+      }
     }
   }
 
@@ -703,16 +726,23 @@ export class WalkableIslandScene {
       }
 
       // Etched teaching sand circle + sighting post inside the Observation Circle POI
+      // (On Rapa Nui, the dark Te Pito Kura Navel Stone & 4 basalt seats stand at the center instead of a wooden pou!)
       if (poi.kind === 'circle') {
+        const isRapaNavel = islandId === 'rapa_nui';
         const sandBed = new THREE.Mesh(
-          new THREE.CylinderGeometry(1.75, 1.85, 0.14, 24),
+          new THREE.CylinderGeometry(
+            isRapaNavel ? 2.45 : 1.75,
+            isRapaNavel ? 2.55 : 1.85,
+            0.14,
+            24
+          ),
           coralStoneMat
         );
         sandBed.position.y = 0.06;
         sandBed.receiveShadow = true;
         ringGrp.add(sandBed);
 
-        for (const sr of [0.55, 1.05, 1.48]) {
+        for (const sr of isRapaNavel ? [1.05, 1.85, 2.28] : [0.55, 1.05, 1.48]) {
           const groove = new THREE.Mesh(
             new THREE.RingGeometry(sr - 0.03, sr + 0.03, 28),
             reedMat
@@ -722,13 +752,15 @@ export class WalkableIslandScene {
           ringGrp.add(groove);
         }
 
-        const centerPou = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.045, 0.06, 1.25, 7),
-          aitoMat
-        );
-        centerPou.position.y = 0.68;
-        centerPou.castShadow = true;
-        ringGrp.add(centerPou);
+        if (!isRapaNavel) {
+          const centerPou = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.045, 0.06, 1.25, 7),
+            aitoMat
+          );
+          centerPou.position.y = 0.68;
+          centerPou.castShadow = true;
+          ringGrp.add(centerPou);
+        }
 
         for (let s = 0; s < 6; s += 1) {
           const sAng = (s / 6) * Math.PI * 2.0 + 0.52;
@@ -747,7 +779,44 @@ export class WalkableIslandScene {
           stone.mesh.castShadow = true;
           ringGrp.add(stone.group);
         }
-        this.obstacles.push({ x: poi.x, z: poi.z, r: 1.55 });
+        this.obstacles.push({ x: poi.x, z: poi.z, r: isRapaNavel ? 1.85 : 1.55 });
+      }
+
+      if (poi.kind === 'tangata_manu') {
+        addKukuiTorch(poi.x + 3.6, poi.z + 2.3, 1.65);
+        const islYaw = getIslandApproachOrientationRad('rapa_nui');
+        const rotIsland = (lx, lz) => [
+          lx * Math.cos(islYaw) + lz * Math.sin(islYaw),
+          -lx * Math.sin(islYaw) + lz * Math.cos(islYaw),
+        ];
+        const rkCenter = [-75.75, 57.75];
+        const rkRad = 24.9;
+        const tmAng = 1.92;
+        const tx = rkCenter[0] + Math.cos(tmAng) * rkRad;
+        const tz = rkCenter[1] + Math.sin(tmAng) * rkRad;
+        const shrineYaw = -tmAng + Math.PI * 0.5;
+        for (const [sx, sz, obsR] of [
+          [-1.65, -1.55, 0.85],
+          [1.65, -1.55, 0.85],
+          [0.0, -1.5, 0.95],
+        ]) {
+          const lx = tx + sx * Math.cos(shrineYaw) + sz * Math.sin(shrineYaw);
+          const lz = tz - sx * Math.sin(shrineYaw) + sz * Math.cos(shrineYaw);
+          const [wx, wz] = rotIsland(lx, lz);
+          this.obstacles.push({ x: wx, z: wz, r: obsR });
+        }
+        for (const [hAng, rOff, sc] of [
+          [2.02, -0.4, 1.1],
+          [2.14, 0.25, 1.0],
+          [2.25, -0.25, 0.95],
+          [2.56, 0.15, 1.05],
+          [2.68, -0.25, 0.96],
+        ]) {
+          const hx = rkCenter[0] + Math.cos(hAng) * (rkRad + rOff);
+          const hz = rkCenter[1] + Math.sin(hAng) * (rkRad + rOff);
+          const [wx, wz] = rotIsland(hx, hz);
+          this.obstacles.push({ x: wx, z: wz, r: 1.55 * sc });
+        }
       }
 
       // Carved Sail-Dyeing Vats & drying pandanus sail-cloth banner on Mo'orea
@@ -810,18 +879,41 @@ export class WalkableIslandScene {
     }
 
     // Sculpted Birds wheeling above the shore & cove (with land/stand/takeoff lifecycle)
-    // On Manuae spawn 9 red Kura birds; on Kiritimati spawn 12 mixed red Kura, white terns & brown boobies!
+    // On Manuae spawn 9 red Kura birds; on Kiritimati 12 mixed seabirds; on Rapa Nui 7 Sooty Terns (Manutara)
+    // wheeling above 'Orongo cliff rim, Motu Kao Kao & Motu Nui!
     const isManuaeKura =
       this.builtIslandId === 'manuae' || islDef?.birdSpecies === 'red_kura';
     const isKiritimatiFlock = this.builtIslandId === 'kiritimati';
+    const isRapaNuiSooty = this.builtIslandId === 'rapa_nui';
     const useLargeRookery = isManuaeKura || isKiritimatiFlock;
-    const birdCount = isKiritimatiFlock ? 12 : isManuaeKura ? 9 : 3;
-    const birdScale = isManuaeKura ? 1.45 : isKiritimatiFlock ? 1.32 : 1.25;
+    const birdCount = isKiritimatiFlock
+      ? 12
+      : isManuaeKura
+        ? 9
+        : isRapaNuiSooty
+          ? 7
+          : 3;
+    const birdScale = isManuaeKura
+      ? 1.45
+      : isKiritimatiFlock
+        ? 1.32
+        : isRapaNuiSooty
+          ? 1.4
+          : 1.25;
     this.birdPerchSpots = this._findPerchSpots(
       useLargeRookery ? 16 : 6,
       useLargeRookery ? { minZ: -64.0, maxZ: 92.0, minX: -86.0, maxX: 86.0 } : null
     );
     if (this.worldCues) {
+      const rapaOrbits = [
+        { cx: -124.0, cz: 39.0, radius: 18.0, altY: 28.5, speed: 0.34 }, // Motu Kao Kao & 'Orongo cliff
+        { cx: -140.0, cz: 41.5, radius: 22.0, altY: 24.0, speed: 0.29 }, // Motu Nui rookery
+        { cx: -114.0, cz: 42.0, radius: 14.0, altY: 31.5, speed: 0.38 }, // Above 'Orongo Tangata Manu rim
+        { cx: -136.0, cz: 38.0, radius: 24.0, altY: 21.5, speed: 0.31 }, // Motu Iti / Motu Nui channel
+        { cx: -102.0, cz: 26.0, radius: 19.0, altY: 27.5, speed: 0.33 }, // Over Rano Kau reed caldera
+        { cx: -8.0, cz: 38.0, radius: 20.0, altY: 18.0, speed: 0.32 },   // Southern bay surf
+        { cx: 14.0, cz: 48.0, radius: 18.0, altY: 16.5, speed: 0.35 },   // Ahu Tongariki approach
+      ];
       for (let i = 0; i < birdCount; i += 1) {
         const species = isKiritimatiFlock
           ? i % 3 === 0
@@ -831,9 +923,11 @@ export class WalkableIslandScene {
               : 'brown_booby'
           : isManuaeKura
             ? 'red_kura'
-            : i === 1
-              ? 'brown_booby'
-              : 'white_tern';
+            : isRapaNuiSooty
+              ? 'sooty_tern'
+              : i === 1
+                ? 'brown_booby'
+                : 'white_tern';
         const entry = this.worldCues.createSeabird(species, { opaque: true });
         entry.root.userData.sharedGeometries = true;
         entry.root.scale.setScalar(birdScale);
@@ -841,18 +935,33 @@ export class WalkableIslandScene {
 
         const slot = i % 3;
         const band = Math.floor(i / 3);
-        const cx = useLargeRookery
-          ? -18.0 + slot * 24.0 + (band - 1) * 6.0
-          : -4.0 + i * 14.0;
-        const cz = useLargeRookery
-          ? this.spec.mooredCanoe.z - 14.0 - band * 32.0 - slot * 5.0
-          : this.spec.mooredCanoe.z - 4.0 - i * 5.0;
-        const radius = useLargeRookery
-          ? 16.0 + slot * 5.0 + band * 3.0
-          : 14.0 + i * 4.5;
-        const altY = useLargeRookery ? 4.6 + (i % 4) * 1.35 : 14.5 + i * 2.4;
-        const speed = useLargeRookery ? 0.32 + (i % 5) * 0.045 : 0.34 + i * 0.05;
-        const orbitAngle = useLargeRookery
+        const rOrbit = isRapaNuiSooty ? rapaOrbits[i % rapaOrbits.length] : null;
+        const cx = rOrbit
+          ? rOrbit.cx
+          : useLargeRookery
+            ? -18.0 + slot * 24.0 + (band - 1) * 6.0
+            : -4.0 + i * 14.0;
+        const cz = rOrbit
+          ? rOrbit.cz
+          : useLargeRookery
+            ? this.spec.mooredCanoe.z - 14.0 - band * 32.0 - slot * 5.0
+            : this.spec.mooredCanoe.z - 4.0 - i * 5.0;
+        const radius = rOrbit
+          ? rOrbit.radius
+          : useLargeRookery
+            ? 16.0 + slot * 5.0 + band * 3.0
+            : 14.0 + i * 4.5;
+        const altY = rOrbit
+          ? rOrbit.altY
+          : useLargeRookery
+            ? 4.6 + (i % 4) * 1.35
+            : 14.5 + i * 2.4;
+        const speed = rOrbit
+          ? rOrbit.speed
+          : useLargeRookery
+            ? 0.32 + (i % 5) * 0.045
+            : 0.34 + i * 0.05;
+        const orbitAngle = useLargeRookery || isRapaNuiSooty
           ? i * ((Math.PI * 2.0) / birdCount)
           : i * 2.1;
 

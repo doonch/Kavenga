@@ -426,6 +426,7 @@ export class WorldCuesRenderer {
   _createBirdBodyGeometry(species) {
     const isBooby = species === 'brown_booby';
     const isKura = species === 'red_kura';
+    const isSooty = species === 'sooty_tern';
     const uSteps = 36;
     const rSteps = 22;
     const positions = [];
@@ -599,6 +600,24 @@ export class WorldCuesRenderer {
       }
 
       if (!isBooby) {
+        if (isSooty) {
+          // Sooty Tern (Manutara): glossy slate-black cap/nape/mantle/upper-tail, snow-white forehead & belly!
+          if (u <= 0.172) {
+            return [0.06, 0.065, 0.085];
+          }
+          // Crisp white forehead crescent just behind the bill (u ~ 0.175..0.245, dorsal ny > 0.05)
+          const isForehead = u > 0.174 && u < 0.248 && ny > 0.05;
+          // Dark slate-black eye-stripe mask & upper dorsal crown/back/rump
+          const isUpperPlumage =
+            !isForehead &&
+            (ny > 0.02 || (u < 0.30 && ny > -0.18 && Math.abs(nx) > 0.45));
+          if (isUpperPlumage) {
+            const dorsalSheen = 0.08 + 0.045 * (1.0 - Math.max(0.0, ny));
+            return [dorsalSheen, dorsalSheen * 1.05, dorsalSheen * 1.18];
+          }
+          const bellyShade = 0.92 + 0.06 * Math.abs(ny);
+          return [bellyShade * 0.98, bellyShade * 0.99, Math.min(1.0, bellyShade)];
+        }
         // White Tern: black-tipped royal-cobalt-blue bill + luminous snow-white plumage + dark eye-ring halo
         if (u <= 0.172) {
           const bt = Math.max(0.0, Math.min(1.0, (u - 0.05) / 0.122));
@@ -691,7 +710,9 @@ export class WorldCuesRenderer {
       ? pushVC(0.0, 0.012, 0.402, 0.25, 0.16, 0.1)
       : isKura
         ? pushVC(0.0, 0.016, 0.302, 0.78, 0.12, 0.11)
-        : pushVC(0.0, 0.013, 0.292, 0.95, 0.97, 0.99);
+        : isSooty
+          ? pushVC(0.0, 0.013, 0.292, 0.11, 0.115, 0.14)
+          : pushVC(0.0, 0.013, 0.292, 0.95, 0.97, 0.99);
 
     const last = rings.length - 1;
     for (let j = 0; j < rSteps; j += 1) {
@@ -726,6 +747,19 @@ export class WorldCuesRenderer {
       const base = isUpper ? 0.975 - tipTint * 0.45 : 0.935 - tipTint * 0.35;
       const trailIvory = chordFrac > 0.75 ? 0.02 : 0.0;
       return [base - trailIvory * 0.3, base - trailIvory * 0.15, Math.min(1.0, base + 0.02)];
+    };
+
+    // Sooty Tern (Manutara): dark charcoal-slate upperwings, snow-white underwing coverts & slate flight tips
+    const sootyWingColor = ({ isUpper, spanFrac, chordFrac }) => {
+      if (isUpper) {
+        const s = 0.115 - 0.03 * spanFrac;
+        return [s, s * 1.04, s * 1.16];
+      }
+      if (spanFrac < 0.66 && chordFrac < 0.62) {
+        return [0.92, 0.94, 0.96];
+      }
+      const u = 0.22 - 0.06 * spanFrac;
+      return [u, u * 1.04, u * 1.15];
     };
 
     const ternInnerRightSt = [
@@ -986,13 +1020,48 @@ export class WorldCuesRenderer {
         eyePos: { x: 0.04, y: 0.042, z: -0.195 },
         footPos: { x: 0.024, y: -0.026, z: 0.02 },
       },
+      sooty_tern: {
+        bodyGeo: this._createBirdBodyGeometry('sooty_tern'),
+        tailGeo: this._createSheetFoilGeometry(
+          [
+            { x: -0.118, zLead: 0.46, zTrail: 0.535, yBase: 0.018, camber: 0.003, thick: 0.0015, spanFrac: 1.0 },
+            { x: -0.075, zLead: 0.31, zTrail: 0.475, yBase: 0.015, camber: 0.004, thick: 0.0025, spanFrac: 0.65 },
+            { x: -0.032, zLead: 0.255, zTrail: 0.395, yBase: 0.013, camber: 0.005, thick: 0.0035, spanFrac: 0.28 },
+            { x: 0.0, zLead: 0.25, zTrail: 0.355, yBase: 0.012, camber: 0.005, thick: 0.004, spanFrac: 0.0 },
+            { x: 0.032, zLead: 0.255, zTrail: 0.395, yBase: 0.013, camber: 0.005, thick: 0.0035, spanFrac: 0.28 },
+            { x: 0.075, zLead: 0.31, zTrail: 0.475, yBase: 0.015, camber: 0.004, thick: 0.0025, spanFrac: 0.65 },
+            { x: 0.118, zLead: 0.46, zTrail: 0.535, yBase: 0.018, camber: 0.003, thick: 0.0015, spanFrac: 1.0 },
+          ],
+          sootyWingColor
+        ),
+        innerRightGeo: this._createSheetFoilGeometry(ternInnerRightSt, sootyWingColor),
+        innerLeftGeo: this._createSheetFoilGeometry(
+          mirrorWingStations(ternInnerRightSt),
+          sootyWingColor
+        ),
+        outerRightGeo: this._createSheetFoilGeometry(ternOuterRightSt, sootyWingColor),
+        outerLeftGeo: this._createSheetFoilGeometry(
+          mirrorWingStations(ternOuterRightSt),
+          sootyWingColor
+        ),
+        eyeGeo: makeUniformColorSphere(0.0105, 0.04, 0.05, 0.07),
+        legGeo: makeUniformColorShaft(0.0068, 0.0052, 0.095, 0.12, 0.12, 0.14, 0, 0, -0.0475, 0),
+        footGeo: makeWebbedFootGeo(0.052, 0.12, 0.12, 0.14),
+        legLen: 0.095,
+        shoulderX: 0.048,
+        shoulderY: 0.022,
+        shoulderZ: -0.008,
+        wristX: 0.35,
+        eyePos: { x: 0.035, y: 0.041, z: -0.222 },
+        footPos: { x: 0.024, y: -0.026, z: 0.025 },
+      },
     };
   }
 
   /**
    * Instantiates an articulated, vertex-colored 3D White Tern ('white_tern'),
-   * Brown Booby ('brown_booby'), or Red Kura Bird ('red_kura') with 2-joint wings,
-   * species-accurate bill, eyes, articulated legs/feet, and tail.
+   * Sooty Tern ('sooty_tern'), Brown Booby ('brown_booby'), or Red Kura Bird ('red_kura')
+   * with 2-joint wings, species-accurate bill, eyes, articulated legs/feet, and tail.
    */
   createSeabird(species = 'white_tern', { opaque = false } = {}) {
     this._ensureSeabirdAssets();
@@ -1001,17 +1070,20 @@ export class WorldCuesRenderer {
         ? 'brown_booby'
         : species === 'red_kura'
           ? 'red_kura'
-          : 'white_tern';
+          : species === 'sooty_tern'
+            ? 'sooty_tern'
+            : 'white_tern';
     const spec = this._seabirdGeos[key];
     const isBooby = key === 'brown_booby';
     const isKura = key === 'red_kura';
+    const isSooty = key === 'sooty_tern';
 
     const mat = new THREE.MeshStandardMaterial({
       vertexColors: true,
       roughness: isBooby ? 0.62 : isKura ? 0.48 : 0.52,
       metalness: 0.04,
-      emissive: isBooby ? 0x3b281a : isKura ? 0x6b1412 : 0xdce6f2,
-      emissiveIntensity: isBooby ? 0.16 : isKura ? 0.24 : 0.22,
+      emissive: isBooby ? 0x3b281a : isKura ? 0x6b1412 : isSooty ? 0x262e38 : 0xdce6f2,
+      emissiveIntensity: isBooby ? 0.16 : isKura ? 0.24 : isSooty ? 0.16 : 0.22,
       transparent: !opaque,
       opacity: 1.0,
     });
@@ -1211,17 +1283,20 @@ export class WorldCuesRenderer {
     for (let i = 0; i < 8; i += 1) {
       const bird = new THREE.Group();
       const ternEntry = this.createSeabird('white_tern', { opaque: false });
+      const sootyEntry = this.createSeabird('sooty_tern', { opaque: false });
       const boobyEntry = this.createSeabird('brown_booby', { opaque: false });
       const kuraEntry = this.createSeabird('red_kura', { opaque: false });
+      sootyEntry.root.visible = false;
       boobyEntry.root.visible = false;
       kuraEntry.root.visible = false;
 
-      bird.add(ternEntry.root, boobyEntry.root, kuraEntry.root);
+      bird.add(ternEntry.root, sootyEntry.root, boobyEntry.root, kuraEntry.root);
       this.birdFlockGroup.add(bird);
 
       this.homingBirds.push({
         bird,
         ternEntry,
+        sootyEntry,
         boobyEntry,
         kuraEntry,
         leftWing: ternEntry.leftInnerWing,
@@ -2174,10 +2249,12 @@ export class WorldCuesRenderer {
       this._activeBirdSpecies =
         nearestRing1.island.birdSpecies === 'red_kura'
           ? 'red_kura'
-          : nearestRing1.island.birdSpecies === 'brown_booby' ||
-              nearestRing1.island.birdSpecies === 'booby'
-            ? 'brown_booby'
-            : 'white_tern';
+          : nearestRing1.island.birdSpecies === 'sooty_tern'
+            ? 'sooty_tern'
+            : nearestRing1.island.birdSpecies === 'brown_booby' ||
+                nearestRing1.island.birdSpecies === 'booby'
+              ? 'brown_booby'
+              : 'white_tern';
     }
 
     this.birdFlockAlpha = easeToward(
@@ -2199,10 +2276,13 @@ export class WorldCuesRenderer {
         const activeEntry =
           this._activeBirdSpecies === 'red_kura'
             ? b.kuraEntry
-            : this._activeBirdSpecies === 'brown_booby'
-              ? b.boobyEntry
-              : b.ternEntry;
+            : this._activeBirdSpecies === 'sooty_tern'
+              ? b.sootyEntry
+              : this._activeBirdSpecies === 'brown_booby'
+                ? b.boobyEntry
+                : b.ternEntry;
         b.ternEntry.root.visible = activeEntry === b.ternEntry;
+        b.sootyEntry.root.visible = activeEntry === b.sootyEntry;
         b.boobyEntry.root.visible = activeEntry === b.boobyEntry;
         b.kuraEntry.root.visible = activeEntry === b.kuraEntry;
 

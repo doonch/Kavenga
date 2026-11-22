@@ -540,6 +540,8 @@ export class WalkableIslandUI {
       this._renderElderMaraeBody(bodyEl);
     } else if (poi.kind === 'circle') {
       this._renderObservationCircleBody(bodyEl);
+    } else if (poi.kind === 'tangata_manu') {
+      this._renderTangataManuBody(bodyEl);
     } else if (poi.kind === 'canoe') {
       this._renderCanoeLandingBody(bodyEl);
     } else if (poi.kind === 'sail_dye') {
@@ -933,6 +935,41 @@ export class WalkableIslandUI {
         islandId: isl.id,
         guidedLessonId: unlearnedConst ? unlearnedConst.id : undefined,
       });
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // POI 3b: 'Orongo · Tangata Manu (Birdman Rim & Sooty Tern Sea Stacks)
+  // -------------------------------------------------------------------------
+  _renderTangataManuBody(bodyEl) {
+    const gs = this.callbacks.getGameState();
+    const isl = ISLANDS[gs.currentIslandId] || ISLANDS.rapa_nui;
+    const rimDesc =
+      this.currentPoi?.rimDesc ||
+      "From Rano Kau's high basalt rim beside 'Orongo's stone slab houses, carved Tangata Manu petroglyphs overlook the offshore sea stacks of Motu Nui, Motu Iti, and needle-spired Motu Kao Kao as Sooty Terns (Manutara) wheel through the sea spray.";
+
+    bodyEl.innerHTML = `
+      <div class="walkable-elder-layout">
+        <div class="walkable-monolith-emblem" aria-hidden="true">🦅</div>
+        <div class="walkable-elder-copy">
+          <div class="walkable-elder-name">Tangata Manu — Cliff Lookout of 'Orongo</div>
+          <div class="walkable-elder-role">Rano Kau Crater Rim &amp; Offshore Motu Rookeries</div>
+          <p class="walkable-elder-speech">${rimDesc}</p>
+          <ul class="walkable-rewards-list">
+            <li>✦ Sooty Terns (Manutara) nest atop flat-crowned Motu Nui &amp; circle sheer Motu Kao Kao</li>
+            <li>✦ Sky-watch from this far horizon reveals the Sea Turtle climbing high overhead</li>
+          </ul>
+          <div class="walkable-action-row">
+            <button class="primary-btn" id="btnWalkTangataVigil" type="button">
+              ✨ Observe Night Sky from 'Orongo Rim
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    bodyEl.querySelector('#btnWalkTangataVigil').addEventListener('click', () => {
+      this.callbacks.onOpenSkyVigil?.({ islandId: isl.id });
     });
   }
 

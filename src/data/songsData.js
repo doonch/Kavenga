@@ -822,8 +822,148 @@ export const SONGS = Object.freeze({
   },
 });
 
+export const SECRET_SONGS = Object.freeze({
+  secret_mangareva_to_rapa_nui: {
+    id: 'secret_mangareva_to_rapa_nui',
+    number: 'S1',
+    title: 'Chant of Te Pito o Te Henua',
+    fromIsland: 'mangareva',
+    toIsland: 'rapa_nui',
+    act: 2,
+    isSecret: true,
+    sandRecallId: 'sand_mangareva_mist_warning',
+    recommendedDeparture: DepartureWindow.DUSK,
+    expectedDurationMin: 23.4,
+    gameHoursPerRealMin: 1.15,
+    solarRaDeg: 180.0,
+    bpm: 60.0,
+    windFromAz: 85.0,
+    primarySwellFromAz: 101.2, // +45 deg port cheek => 146.2 deg
+    verses: [
+      {
+        verseNumber: 1,
+        endRealSec: 210.0,
+        weather: 'clear',
+        lyrics:
+          "Leave Mangareva's outer lagoon at dusk as the Whale's Spout and Fluke climb above the foam / Steer squarely between your prows beneath the rising Whale while the Sea Turtle wheels high overhead.",
+        easyCueText:
+          "At dusk, steer on the Rising Whale's Spout and Whale's Fluke while holding the long ridge toward the stone isle.",
+        cueLabel: "the Rising Whale's Spout and Fluke toward Te Pito o Te Henua",
+        guidance: {
+          mode: 'star_relay_rising',
+          stars: ['whales_spout', 'whales_fluke'],
+          compensateLeeway: true,
+          fallbackHeadingDeg: 146.2,
+        },
+      },
+      {
+        verseNumber: 2,
+        endRealSec: 720.0,
+        weather: 'clear',
+        lyrics:
+          "Hand the watch to the Shark's Tail and Bird's Wingtip down the same rising path / Keep the four-beat ocean ridge pressing lightly upon your port cheek.",
+        easyCueText:
+          "Relay along Rising Shark's Tail and Bird's Wingtip; keep port-cheek four-beat lift steady.",
+        cueLabel: "the Rising Shark's Tail and Bird's Wingtip",
+        guidance: {
+          mode: 'swell_cheek',
+          cheekSide: 'port',
+          compensateLeeway: true,
+          targetHeadingDeg: 146.2,
+        },
+      },
+      {
+        verseNumber: 3,
+        endRealSec: 1500.0,
+        weather: 'clear',
+        lyrics:
+          'At morning light, watch for leaping bonito schools and hold the four-beat ridge against your port cheek / Steer where cliff-bounced surf and a tall stone-island cloud crown Te Pito o Te Henua.',
+        easyCueText:
+          'Hold four-beat port-cheek lift past the morning bonito school and follow Rapa Nui’s stationary peak cloud and Manutara terns.',
+        cueLabel: 'the port-cheek swell and stone-island cloud of Rapa Nui',
+        guidance: {
+          mode: 'island_beacon',
+          compensateLeeway: true,
+          fallbackHeadingDeg: 146.2,
+        },
+      },
+    ],
+  },
+  secret_rapa_nui_to_mangareva: {
+    id: 'secret_rapa_nui_to_mangareva',
+    number: 'S2',
+    title: 'Pilgrimage Return to Mangareva',
+    fromIsland: 'rapa_nui',
+    toIsland: 'mangareva',
+    act: 2,
+    isSecret: true,
+    sandRecallId: 'sand_maupiti_12_shell_compass',
+    recommendedDeparture: DepartureWindow.DUSK,
+    expectedDurationMin: 23.4,
+    gameHoursPerRealMin: 1.15,
+    solarRaDeg: 240.0,
+    bpm: 60.0,
+    windFromAz: 100.0,
+    primarySwellFromAz: 11.2, // -45 deg starboard cheek => 326.2 deg
+    verses: [
+      {
+        verseNumber: 1,
+        endRealSec: 240.0,
+        weather: 'clear',
+        lyrics:
+          "Leave the stone guardians astern as dusk settles over Rano Kau / Align your twin prows upon the Setting Gecko's Tongue while the Sea Turtle wheels behind your wake.",
+        easyCueText:
+          "At dusk, steer toward the Setting Gecko's Tongue and feel the four-beat swell upon your starboard cheek.",
+        cueLabel: "the Setting Gecko's Tongue beyond Rano Kau",
+        guidance: {
+          mode: 'swell_cheek',
+          cheekSide: 'starboard',
+          compensateLeeway: true,
+          targetHeadingDeg: 326.2,
+        },
+      },
+      {
+        verseNumber: 2,
+        endRealSec: 720.0,
+        weather: 'clear',
+        lyrics:
+          'Through the deep dark, let the four-beat ocean ridge lift your starboard cheek steadily / Watch for morning sun-glint upon the open sea.',
+        easyCueText:
+          'Tune heading for starboard-cheek corkscrew lift every four drum beats until dawn.',
+        cueLabel: 'the starboard-cheek four-beat ridge back toward Mangareva',
+        guidance: {
+          mode: 'swell_cheek',
+          cheekSide: 'starboard',
+          compensateLeeway: true,
+          targetHeadingDeg: 326.2,
+        },
+      },
+      {
+        verseNumber: 3,
+        endRealSec: 1500.0,
+        weather: 'clear',
+        lyrics:
+          "Hold the morning swell four beats upon your starboard cheek across the open blue / Steer where Mangareva's jade lagoon cloud and twin peaks pierce the horizon.",
+        easyCueText:
+          "Stay steady past the midday fish school until Mangareva's twin-peak cloud and turquoise glow appear.",
+        cueLabel: "Mangareva's jade lagoon glow and twin peaks",
+        guidance: {
+          mode: 'island_beacon',
+          compensateLeeway: true,
+          fallbackHeadingDeg: 326.2,
+        },
+      },
+    ],
+  },
+});
+
 export function buildReturnSong(fromId, toId) {
   for (const song of Object.values(SONGS)) {
+    if (song.fromIsland === fromId && song.toIsland === toId) {
+      return song;
+    }
+  }
+  for (const song of Object.values(SECRET_SONGS)) {
     if (song.fromIsland === fromId && song.toIsland === toId) {
       return song;
     }

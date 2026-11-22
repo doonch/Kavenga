@@ -226,6 +226,15 @@ function buildAssetCatalog() {
       species: 'red_kura',
     },
     {
+      id: 'bird_sooty_tern',
+      category: 'Seabirds (Flapping)',
+      name: 'Sooty Tern — Manutara (Rapa Nui)',
+      subtitle: 'Slate-black upper plumage with snow-white forehead crescent & forked swallow tail',
+      tag: 'Manutara',
+      kind: 'bird_single',
+      species: 'sooty_tern',
+    },
+    {
       id: 'bird_homing_flock',
       category: 'Seabirds (Flapping)',
       name: 'Homing Flock (8 Seabirds Flapping)',
@@ -452,10 +461,10 @@ function buildAssetCatalog() {
       {
         id: 'rapa_nui_moai_ahu',
         category: 'Secret Island — Rapa Nui',
-        name: 'Moai Guardians & Ahu (Close-Up)',
+        name: 'Moai Guardians & Ahu (Real Scale)',
         subtitle:
-          'Detailed Rapa Nui Moai study: awakened coral/obsidian eyes, red scoria Pukao, Rano Raraku quarry head & Hare Paenga',
-        tag: 'Moai Study',
+          'True historical scale: 10.0m Paro (+ 2.0m Pukao = 12m), awakened coral/obsidian eyes, 8.8m Rano Raraku quarry giant & 1.75m human scale reference',
+        tag: 'Moai Scale',
         kind: 'moai_showcase',
       }
     );

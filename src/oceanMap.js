@@ -10,7 +10,7 @@
 import * as THREE from 'three';
 import { GameConstants } from './core/gameConstants.js';
 import { ISLANDS, OCEAN_BASINS } from './data/islandsData.js';
-import { SONGS } from './data/songsData.js';
+import { SECRET_SONGS, SONGS } from './data/songsData.js';
 import {
   createSculptedCloudMesh,
   updateCloudMaterialUniforms,
@@ -349,7 +349,7 @@ export function parsePlayerTraceFromSearch(searchString, layout) {
   if (simPoints.length === 0) return null;
 
   const songId = params.get('song') || '';
-  const songDef = SONGS[songId] || null;
+  const songDef = SONGS[songId] || SECRET_SONGS[songId] || null;
   const fromId = params.get('from') || songDef?.fromIsland || '';
   const toId = params.get('to') || songDef?.toIsland || '';
   const basinParam = params.get('basin') || '';

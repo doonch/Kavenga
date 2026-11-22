@@ -304,6 +304,16 @@ export class OceanSim {
         harvested: false,
       });
     }
+    // Returning pilgrimage from Rapa Nui to Mangareva sustains a second afternoon school along the star path
+    // so a Tier 3 canoe carrying the sacred Rei Miro relic (max 7 starting baskets) can fish twice and make landfall.
+    if (song.fromIsland === 'rapa_nui' && song.toIsland === 'mangareva') {
+      this.fishSchools.push({
+        x: this.pos.x + dx * 0.72,
+        y: this.pos.y + dy * 0.72,
+        radius: 0.55,
+        harvested: false,
+      });
+    }
     this._syncNearestFishSchool();
 
     this.offCueAccumSec = 0.0;
