@@ -737,6 +737,14 @@ export class ShoreDioramaRenderer {
     // Update island cloud lighting
     const sun = oceanSim.sunState;
     const sunVec = altAzToDirectionVec3(sun.altDeg, sun.azDeg, 0.0);
+    if (this._activeAssembly?.update) {
+      this._activeAssembly.update(elapsedSec, {
+        sunDir: sunVec,
+        daylight: sun.daylightFactor,
+        twilight: sun.twilightFactor,
+        alpha: 1.0,
+      });
+    }
     if (this.peakCloudGroup.visible) {
       updateCloudMaterialUniforms(this.peakCloudMat, {
         sunDir: sunVec,

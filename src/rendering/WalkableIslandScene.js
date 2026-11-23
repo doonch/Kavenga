@@ -139,6 +139,7 @@ export class WalkableIslandScene {
     this.obstacles = [];
     this.peakCloudMat = null;
     this.dyeBannerMat = null;
+    this.detailedAssembly = null;
   }
 
   _bakeHeightGridFromCanonicalAssembly(assemblyGroup) {
@@ -285,6 +286,7 @@ export class WalkableIslandScene {
 
     // 1. Mount the exact canonical 3D island assembly (same model as ocean & Shore Diorama!)
     const asm = createDetailedIslandAssembly(resolvedId);
+    this.detailedAssembly = asm;
     applyDetailedIslandAlpha(asm, 1.0);
     asm.group.rotation.y = getIslandApproachOrientationRad(resolvedId);
     asm.group.scale.setScalar(scale);
@@ -1826,6 +1828,16 @@ export class WalkableIslandScene {
     }
 
     this._updateLagoonBirds(dt, elapsedSec);
+
+    if (this.detailedAssembly?.update) {
+      const sun = oceanSim?.sunState;
+      this.detailedAssembly.update(elapsedSec, {
+        sunDir: new THREE.Vector3(0.4, 0.72, -0.55).normalize(),
+        daylight: sun?.daylightFactor ?? 0.92,
+        twilight: sun?.twilightFactor ?? 0.14,
+        alpha: 1.0,
+      });
+    }
 
     if (this.peakCloudMat && oceanSim?.sunState) {
       updateCloudMaterialUniforms(this.peakCloudMat, {

@@ -13,6 +13,11 @@
 
 import * as THREE from 'three';
 import {
+  createSculptedCloudMesh,
+  TRADE_CLOUD_VARIANT_KEYS,
+  updateCloudMaterialUniforms,
+} from './CloudSculptBuilder.js';
+import {
   addBarrierReefArc,
   addBroadleafTrees,
   addCoconutGroves,
@@ -1561,19 +1566,16 @@ function buildHawaiiAssembly() {
   );
   group.add(riverB);
 
-  // 3. Ocean-Entry Lava Steam Plumes + Basalt Coastal Sea-Arch off Lava-Point Tip
-  const steamMat = trackMat(
-    new THREE.MeshBasicMaterial({ color: 0xf5f2ee, depthWrite: false }),
-    0.66
-  );
+  // 3. Ocean-Entry Lava Steam Clouds (lightweight sculpted cloud puffs with gentle rise & dissipation)
   const oceanEntryGlowMat = trackMat(
     new THREE.MeshBasicMaterial({ color: 0xff6218, depthWrite: false }),
-    0.85
+    0.82
   );
-  for (const [sx, sz, sc] of [
+  const steamPuffs = [];
+  for (const [mouthIdx, [sx, sz, sc]] of [
     [-57.5, -74.5, 1.45],
     [-14.5, -73.5, 1.15],
-  ]) {
+  ].entries()) {
     const entryGlow = new THREE.Mesh(
       new THREE.CircleGeometry(3.2 * sc, 16),
       oceanEntryGlowMat
@@ -1583,14 +1585,74 @@ function buildHawaiiAssembly() {
     group.add(entryGlow);
 
     for (let p = 0; p < 4; p += 1) {
-      const puff = new THREE.Mesh(
-        new THREE.DodecahedronGeometry((2.2 + p * 0.9) * sc, 1),
-        steamMat
-      );
-      puff.position.set(sx - p * 1.1, 1.9 + p * 2.7 * sc, sz - p * 0.8);
-      group.add(puff);
+      const variantKey =
+        TRADE_CLOUD_VARIANT_KEYS[(mouthIdx * 3 + p) % TRADE_CLOUD_VARIANT_KEYS.length];
+      const puff = createSculptedCloudMesh(variantKey, { opacity: 0.56 });
+      puff.mesh.castShadow = false;
+      puff.mesh.receiveShadow = false;
+      trackMat(puff.material, 0.56);
+      group.add(puff.mesh);
+      steamPuffs.push({
+        mesh: puff.mesh,
+        material: puff.material,
+        sx,
+        sz,
+        sc,
+        phase: p / 4.0 + mouthIdx * 0.13,
+        riseSpeed: 0.085 + p * 0.008,
+        rotBase: mouthIdx * 1.4 + p * 1.1,
+        rotDir: p % 2 === 0 ? 1.0 : -1.0,
+      });
     }
   }
+
+  const updateHawaiiSteam = (elapsedSec = 0.0, opts = null) => {
+    const t = Math.max(0.0, elapsedSec);
+    const baseGlowOp = 0.72 + 0.16 * Math.sin(t * 2.6);
+    oceanEntryGlowMat.userData.baseOpacity = baseGlowOp;
+    const masterFade = opts?.alpha ?? oceanEntryGlowMat.userData?.fadeAlpha ?? 1.0;
+    oceanEntryGlowMat.opacity = baseGlowOp * masterFade;
+
+    const rawDaylight = opts?.daylight ?? 0.9;
+    const rawTwilight = opts?.twilight ?? 0.14;
+    // Keep steam softly visible over glowing lava entry even around dusk/night
+    const steamDaylight = Math.max(0.28, rawDaylight);
+    const steamTwilight = Math.max(rawTwilight, 0.32 * (1.0 - rawDaylight));
+
+    for (let i = 0; i < steamPuffs.length; i += 1) {
+      const sp = steamPuffs[i];
+      const life = ((sp.phase + t * sp.riseSpeed) % 1.0 + 1.0) % 1.0;
+      const smoothIn = life < 0.18 ? life / 0.18 : 1.0;
+      const fadeStart = 0.42;
+      const tOut = life > fadeStart ? (life - fadeStart) / (1.0 - fadeStart) : 0.0;
+      const smoothOut = 1.0 - tOut * tOut * (3.0 - 2.0 * tOut);
+      const puffOpacity = 0.56 * smoothIn * smoothOut;
+
+      sp.material.userData.puffOpacity = puffOpacity;
+      const fadeAlpha = opts?.alpha ?? sp.material.userData?.fadeAlpha ?? 1.0;
+      const finalOpacity = puffOpacity * fadeAlpha;
+
+      const puffScale = (0.095 + 0.145 * Math.pow(life, 0.78)) * sp.sc;
+      sp.mesh.scale.set(puffScale, puffScale * 1.16, puffScale);
+      sp.mesh.position.set(
+        sp.sx - life * 3.6 * sp.sc + Math.sin(life * Math.PI * 2.0 + sp.rotBase) * 0.7,
+        1.7 + life * 11.2 * sp.sc,
+        sp.sz - life * 3.2 * sp.sc
+      );
+      sp.mesh.rotation.y = sp.rotBase + life * 0.55 * sp.rotDir;
+      sp.mesh.visible = finalOpacity > 0.015;
+
+      updateCloudMaterialUniforms(sp.material, {
+        sunDir: opts?.sunDir,
+        daylight: steamDaylight,
+        twilight: steamTwilight,
+        opacity: finalOpacity,
+        lapaGlow: 0.0,
+        elapsedSec: t * 2.6,
+      });
+    }
+  };
+  updateHawaiiSteam(0.0);
 
   // Organic Barrier Reef Surf Contour hugging evalHawaiiCoastR (open across Kealakekua Bay)
   const reefMat = trackMat(
@@ -1798,7 +1860,7 @@ function buildHawaiiAssembly() {
   }
   addCoconutGroves(group, trackMat, palmPts);
 
-  return { group, materials, sinkDepthM: 88.0 };
+  return { group, materials, sinkDepthM: 88.0, update: updateHawaiiSteam };
 }
 
 export function createAct3IslandAssembly(islandId) {

@@ -1769,6 +1769,9 @@ class AssetDebugViewer {
       detailed.group.rotation.y =
         isl.id === 'rapa_nui' ? 0.0 : getIslandApproachOrientationRad(isl.id);
       landGroup.add(detailed.group);
+      if (detailed.update) {
+        this.activeTickFn = (_dt, elapsed) => detailed.update(elapsed, { alpha: 1.0 });
+      }
     } else {
       const isAtoll = isl.archetype === 'coral_atoll';
       mainPeak.visible = !isAtoll;

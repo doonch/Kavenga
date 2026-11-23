@@ -2656,6 +2656,12 @@ export class WorldCuesRenderer {
             slot.landGroup.add(detailed.group);
           }
           applyDetailedIslandAlpha(detailed, slot.landAlpha);
+          detailed.update?.(elapsedSec, {
+            sunDir: sunVec,
+            daylight: sun.daylightFactor,
+            twilight: sun.twilightFactor,
+            alpha: slot.landAlpha,
+          });
           slot.landGroup.position.y =
             -detailed.sinkDepthM * 0.1 * (1.0 - riseT);
         } else {

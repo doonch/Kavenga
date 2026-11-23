@@ -1994,10 +1994,17 @@ export function createDetailedIslandAssembly(islandId) {
 export function applyDetailedIslandAlpha(assembly, alpha) {
   const a = clamp01(alpha);
   for (const mat of assembly.materials) {
+    mat.userData.fadeAlpha = a;
     const base = mat.userData?.baseOpacity ?? 1.0;
-    mat.opacity = base * a;
-    if (mat.userData?.baseOpacity === undefined) {
-      mat.depthWrite = a > 0.35;
+    if (mat.uniforms?.uOpacity) {
+      const puffOp = mat.userData?.puffOpacity ?? base;
+      mat.uniforms.uOpacity.value = puffOp * a;
+      mat.depthWrite = mat.uniforms.uOpacity.value > 0.45;
+    } else {
+      mat.opacity = base * a;
+      if (mat.userData?.baseOpacity === undefined) {
+        mat.depthWrite = a > 0.35;
+      }
     }
   }
 }
