@@ -116,7 +116,6 @@ export class IslandSettingsUI {
         <!-- Secondary Credits Modal -->
         <div class="modal-backdrop settings-confirm-backdrop hidden" id="settingsCreditsModal" role="dialog" aria-modal="true" aria-labelledby="settingsCreditsTitle">
           <div class="dialog-card settings-credits-card">
-            <div class="recall-eyebrow">Wayfinding Voyages</div>
             <h3 id="settingsCreditsTitle">Thank you for playing Kavenga</h3>
             <div class="settings-credits-section">
               <div class="settings-section-label">Developers</div>

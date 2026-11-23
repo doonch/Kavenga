@@ -1305,11 +1305,113 @@ function evalHawaiiPoint(x, z) {
   };
 }
 
-function createGlowingLavaLakeMesh(trackMat, radius, yLevel) {
+const LAVA_LAKE_VERTEX_SHADER = /* glsl */ `
+  attribute vec4 aLakeMeta;
+  uniform float uTime;
+
+  varying vec2 vNormXZ;
+  varying float vRadius01;
+  varying float vCoreHot;
+
+  void main() {
+    vRadius01 = aLakeMeta.x;
+    vNormXZ = aLakeMeta.yz;
+    vCoreHot = aLakeMeta.w;
+
+    vec3 pos = position;
+    // Gentle convective magma dome heave anchored cleanly along caldera rim
+    float swellMask = smoothstep(1.0, 0.65, vRadius01);
+    float domeWave =
+      0.26 * sin(vRadius01 * 7.5 - uTime * 1.45) +
+      0.16 * cos(vNormXZ.x * 5.0 + vNormXZ.y * 4.5 + uTime * 1.9);
+    pos.y += swellMask * (domeWave + 0.22 * vCoreHot * sin(uTime * 2.2));
+
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+  }
+`;
+
+const LAVA_LAKE_FRAGMENT_SHADER = /* glsl */ `
+  uniform float uTime;
+  uniform float uOpacity;
+
+  varying vec2 vNormXZ;
+  varying float vRadius01;
+  varying float vCoreHot;
+
+  float hash21(vec2 p) {
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+  }
+
+  float noise2(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = hash21(i);
+    float b = hash21(i + vec2(1.0, 0.0));
+    float c = hash21(i + vec2(0.0, 1.0));
+    float d = hash21(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+  }
+
+  float fbm2(vec2 p) {
+    float v = 0.0;
+    float amp = 0.52;
+    for (int i = 0; i < 3; i += 1) {
+      v += amp * noise2(p);
+      p = p * 2.07 + vec2(7.1, 13.4);
+      amp *= 0.48;
+    }
+    return v;
+  }
+
+  void main() {
+    float t = uTime;
+    float r = max(0.001, vRadius01);
+    vec2 radialDir = vNormXZ / max(0.02, length(vNormXZ));
+
+    // Slow outward convective spread + dual counter-drifting crust plates
+    float ang = t * 0.04;
+    mat2 rot = mat2(cos(ang), -sin(ang), sin(ang), cos(ang));
+    vec2 p1 = rot * (vNormXZ * 4.4) - radialDir * (t * 0.095);
+    vec2 p2 = vNormXZ * 6.2 + vec2(t * 0.055, -t * 0.042);
+
+    float nA = fbm2(p1);
+    float nB = fbm2(p2);
+    float seam = pow(clamp(1.0 - abs(nA - nB) * 3.4, 0.0, 1.0), 2.8);
+    float crustBreak = smoothstep(0.36, 0.72, nA * 0.65 + nB * 0.35);
+
+    float corePulse = vCoreHot * (0.94 + 0.18 * sin(t * 1.9 + vNormXZ.x * 2.6) * cos(t * 1.5 - vNormXZ.y * 2.6));
+    float rimGlow = smoothstep(0.76, 1.0, r) * (0.64 + 0.14 * sin(t * 1.2 + vNormXZ.x * 3.2));
+    float blister = smoothstep(0.68, 0.92, fbm2(vNormXZ * 8.5 + vec2(-t * 0.12, t * 0.14))) * 0.45;
+
+    float heat = clamp(corePulse * 1.15 + seam * 0.85 * smoothstep(0.12, 0.95, r) + rimGlow + crustBreak * 0.25 + blister * (1.0 - r * 0.4), 0.0, 1.0);
+
+    vec3 colDarkCrust = vec3(0.15, 0.04, 0.03);
+    vec3 colCrimsonMagma = vec3(0.86, 0.14, 0.03);
+    vec3 colBrightOrange = vec3(1.00, 0.45, 0.06);
+    vec3 colWhiteGold = vec3(1.00, 0.95, 0.42);
+
+    vec3 col;
+    if (heat > 0.72) {
+      col = mix(colBrightOrange, colWhiteGold, (heat - 0.72) / 0.28);
+    } else if (heat > 0.32) {
+      col = mix(colCrimsonMagma, colBrightOrange, (heat - 0.32) / 0.40);
+    } else {
+      col = mix(colDarkCrust, colCrimsonMagma, heat / 0.32);
+    }
+
+    gl_FragColor = vec4(col, uOpacity);
+  }
+`;
+
+function createGlowingLavaLakeMesh(trackMat, radius, yLevel, phaseOffset = 0.0) {
   const nRings = 24;
   const nSegs = 48;
   const positions = [];
   const colors = [];
+  const meta = [];
   const indices = [];
   const grid = [];
 
@@ -1324,8 +1426,10 @@ function createGlowingLavaLakeMesh(trackMat, radius, yLevel) {
     const row = [];
     for (let j = 0; j < nSegs; j += 1) {
       const th = (j / nSegs) * Math.PI * 2.0;
-      const lx = r * Math.cos(th);
-      const lz = r * Math.sin(th);
+      const cosTh = Math.cos(th);
+      const sinTh = Math.sin(th);
+      const lx = r * cosTh;
+      const lz = r * sinTh;
 
       const coreHot = Math.exp(-Math.pow(u / 0.34, 2.0));
       const crackA = Math.abs(Math.sin(4.0 * th + u * 5.2));
@@ -1348,6 +1452,7 @@ function createGlowingLavaLakeMesh(trackMat, radius, yLevel) {
       const idx = positions.length / 3;
       positions.push(lx, ly, lz);
       colors.push(rgb[0], rgb[1], rgb[2]);
+      meta.push(u, u * cosTh, u * sinTh, coreHot);
       row.push(idx);
     }
     grid.push(row);
@@ -1370,9 +1475,23 @@ function createGlowingLavaLakeMesh(trackMat, radius, yLevel) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.setAttribute('aLakeMeta', new THREE.Float32BufferAttribute(meta, 4));
   geo.setIndex(indices);
 
-  const mat = trackMat(new THREE.MeshBasicMaterial({ vertexColors: true }));
+  const mat = trackMat(
+    new THREE.ShaderMaterial({
+      vertexShader: LAVA_LAKE_VERTEX_SHADER,
+      fragmentShader: LAVA_LAKE_FRAGMENT_SHADER,
+      uniforms: {
+        uTime: { value: phaseOffset },
+        uOpacity: { value: 1.0 },
+      },
+      transparent: true,
+      depthWrite: true,
+    }),
+    1.0
+  );
+  mat.userData.phaseOffset = phaseOffset;
   return new THREE.Mesh(geo, mat);
 }
 
@@ -1513,12 +1632,14 @@ function buildHawaiiAssembly() {
   group.add(terrainMesh);
 
   // 1. Open-Top Glowing Molten Lava Lakes (Kilauea Halema'uma'u & Mauna Loa Summit Caldera)
-  const kilaueaLake = createGlowingLavaLakeMesh(trackMat, KILAUEA_RADIUS - 1.5, 34.25);
+  const kilaueaLake = createGlowingLavaLakeMesh(trackMat, KILAUEA_RADIUS - 1.5, 34.25, 0.0);
   kilaueaLake.position.set(KILAUEA_CENTER[0], 0.0, KILAUEA_CENTER[1]);
+  kilaueaLake.userData.lavaLake = true;
   group.add(kilaueaLake);
 
-  const maunaLoaLake = createGlowingLavaLakeMesh(trackMat, MAUNA_LOA_RADIUS - 1.1, 58.65);
+  const maunaLoaLake = createGlowingLavaLakeMesh(trackMat, MAUNA_LOA_RADIUS - 1.1, 58.65, 11.4);
   maunaLoaLake.position.set(MAUNA_LOA_CENTER[0], 0.0, MAUNA_LOA_CENTER[1]);
+  maunaLoaLake.userData.lavaLake = true;
   group.add(maunaLoaLake);
 
   const lavaGlowMat = trackMat(
@@ -1606,11 +1727,30 @@ function buildHawaiiAssembly() {
     }
   }
 
-  const updateHawaiiSteam = (elapsedSec = 0.0, opts = null) => {
+  const lavaLakes = [kilaueaLake, maunaLoaLake];
+
+  const updateHawaiiVolcanism = (elapsedSec = 0.0, opts = null) => {
     const t = Math.max(0.0, elapsedSec);
+    const masterFade = opts?.alpha ?? oceanEntryGlowMat.userData?.fadeAlpha ?? 1.0;
+
+    // Pulse crater glow rings and advance molten lava lake convection shader
+    const baseCraterGlowOp = 0.4 + 0.12 * Math.sin(t * 1.9);
+    lavaGlowMat.userData.baseOpacity = baseCraterGlowOp;
+    lavaGlowMat.opacity = baseCraterGlowOp * masterFade;
+
+    for (let k = 0; k < lavaLakes.length; k += 1) {
+      const lakeMat = lavaLakes[k].material;
+      if (lakeMat?.uniforms?.uTime) {
+        lakeMat.uniforms.uTime.value = t + (lakeMat.userData?.phaseOffset ?? 0.0);
+      }
+      if (lakeMat?.uniforms?.uOpacity && opts?.alpha !== undefined) {
+        lakeMat.uniforms.uOpacity.value = masterFade;
+        lakeMat.depthWrite = masterFade > 0.45;
+      }
+    }
+
     const baseGlowOp = 0.72 + 0.16 * Math.sin(t * 2.6);
     oceanEntryGlowMat.userData.baseOpacity = baseGlowOp;
-    const masterFade = opts?.alpha ?? oceanEntryGlowMat.userData?.fadeAlpha ?? 1.0;
     oceanEntryGlowMat.opacity = baseGlowOp * masterFade;
 
     const rawDaylight = opts?.daylight ?? 0.9;
@@ -1652,7 +1792,7 @@ function buildHawaiiAssembly() {
       });
     }
   };
-  updateHawaiiSteam(0.0);
+  updateHawaiiVolcanism(0.0);
 
   // Organic Barrier Reef Surf Contour hugging evalHawaiiCoastR (open across Kealakekua Bay)
   const reefMat = trackMat(
@@ -1860,7 +2000,7 @@ function buildHawaiiAssembly() {
   }
   addCoconutGroves(group, trackMat, palmPts);
 
-  return { group, materials, sinkDepthM: 88.0, update: updateHawaiiSteam };
+  return { group, materials, sinkDepthM: 88.0, update: updateHawaiiVolcanism };
 }
 
 export function createAct3IslandAssembly(islandId) {
