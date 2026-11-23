@@ -524,6 +524,7 @@ class KavengaApp {
     }
 
     window.addEventListener('resize', () => this._onResize());
+    window.visualViewport?.addEventListener('resize', () => this._onResize());
 
     // [DEBUG CHEAT] Shift+G: target homing (~2.4s arrival); Shift+F: toggle 10x super-fast-forward; Shift+8: Ka'upu flyby
     window.addEventListener('keydown', (e) => {

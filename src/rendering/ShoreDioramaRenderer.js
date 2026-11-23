@@ -158,6 +158,7 @@ export class ShoreDioramaRenderer {
 
   _bindPointerOrbit() {
     if (!this.domElement) return;
+    this.domElement.style.touchAction = 'none';
 
     this._onPointerDown = (e) => {
       if (!this.active) return;
@@ -199,6 +200,7 @@ export class ShoreDioramaRenderer {
     this._onTouchStart = (e) => {
       if (!this.active || e.target !== this.domElement) return;
       if (e.touches.length === 2) {
+        e.preventDefault();
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         this._pinchDist = Math.hypot(dx, dy);
@@ -208,6 +210,7 @@ export class ShoreDioramaRenderer {
     this._onTouchMove = (e) => {
       if (!this.active || e.target !== this.domElement) return;
       if (e.touches.length === 2 && this._pinchDist > 4) {
+        e.preventDefault();
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         const nextDist = Math.hypot(dx, dy);
@@ -226,10 +229,10 @@ export class ShoreDioramaRenderer {
     window.addEventListener('pointercancel', this._onPointerUp);
     this.domElement.addEventListener('wheel', this._onWheel, { passive: false });
     this.domElement.addEventListener('touchstart', this._onTouchStart, {
-      passive: true,
+      passive: false,
     });
     this.domElement.addEventListener('touchmove', this._onTouchMove, {
-      passive: true,
+      passive: false,
     });
   }
 

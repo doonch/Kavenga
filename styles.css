@@ -20,7 +20,9 @@ html,
 body {
   width: 100%;
   height: 100%;
+  height: 100dvh;
   overflow: hidden;
+  overscroll-behavior: none;
   background: var(--bg-deep);
   color: var(--text-main);
   font-family: 'Avenir Next', 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -35,6 +37,7 @@ body {
   position: fixed;
   inset: 0;
   z-index: 1;
+  touch-action: none;
 }
 
 #webgl-container canvas {
@@ -42,6 +45,7 @@ body {
   width: 100%;
   height: 100%;
   cursor: grab;
+  touch-action: none;
 }
 
 #webgl-container canvas:active {
@@ -89,7 +93,37 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 16px 22px;
+  padding:
+    max(16px, env(safe-area-inset-top, 0px))
+    max(22px, env(safe-area-inset-right, 0px))
+    max(16px, calc(env(safe-area-inset-bottom, 0px) + 10px))
+    max(22px, env(safe-area-inset-left, 0px));
+}
+
+@media (max-width: 1120px), (max-height: 700px) {
+  #sailing-hud {
+    padding:
+      max(10px, env(safe-area-inset-top, 0px))
+      max(14px, env(safe-area-inset-right, 0px))
+      max(12px, calc(env(safe-area-inset-bottom, 0px) + 8px))
+      max(14px, env(safe-area-inset-left, 0px));
+  }
+
+  .hud-icon-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .hud-chant-banner {
+    padding: 9px 16px;
+    margin-top: 6px;
+  }
+}
+
+@media (max-width: 960px) {
+  .hud-icon-btn .btn-text {
+    display: none;
+  }
 }
 
 .hud-top-bar {
@@ -448,7 +482,11 @@ body {
     rgba(6, 14, 24, 0.08) 58%,
     rgba(6, 14, 24, 0.36) 100%
   );
-  padding: 16px 20px;
+  padding:
+    max(16px, env(safe-area-inset-top, 0px))
+    max(20px, env(safe-area-inset-right, 0px))
+    max(16px, calc(env(safe-area-inset-bottom, 0px) + 8px))
+    max(20px, env(safe-area-inset-left, 0px));
 }
 
 .shore-stage-layout {
@@ -517,8 +555,8 @@ body {
 
 .shore-top-controls {
   position: fixed;
-  top: 16px;
-  right: 20px;
+  top: max(16px, env(safe-area-inset-top, 0px));
+  right: max(20px, env(safe-area-inset-right, 0px));
   z-index: 15;
   display: flex;
   align-items: center;
@@ -621,7 +659,7 @@ body {
   margin-top: 50px;
   align-self: flex-start;
   height: auto;
-  max-height: calc(100vh - 82px);
+  max-height: calc(100% - 50px);
   display: flex;
   flex-direction: column;
   background: rgba(9, 21, 35, 0.86);
@@ -802,7 +840,11 @@ body {
 
 @media (max-width: 900px) {
   #island-hub {
-    padding: 10px;
+    padding:
+      max(10px, env(safe-area-inset-top, 0px))
+      max(10px, env(safe-area-inset-right, 0px))
+      max(10px, calc(env(safe-area-inset-bottom, 0px) + 6px))
+      max(10px, env(safe-area-inset-left, 0px));
   }
 
   .shore-stage-layout {
@@ -812,8 +854,8 @@ body {
   }
 
   .shore-top-controls {
-    top: 10px;
-    right: 10px;
+    top: max(10px, env(safe-area-inset-top, 0px));
+    right: max(10px, env(safe-area-inset-right, 0px));
     gap: 6px;
   }
 
@@ -827,7 +869,7 @@ body {
     min-width: 0;
     margin-top: 0;
     height: auto;
-    max-height: 58vh;
+    max-height: min(58dvh, 58%);
     padding: 12px 14px 14px;
   }
 }
@@ -1493,7 +1535,7 @@ body {
 }
 
 .mentor-lightbox-img {
-  max-height: 74vh;
+  max-height: 74dvh;
   max-width: 100%;
   width: auto;
   height: auto;
@@ -1729,7 +1771,11 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 14px 20px 18px;
+  padding:
+    max(14px, env(safe-area-inset-top, 0px))
+    max(20px, env(safe-area-inset-right, 0px))
+    max(18px, calc(env(safe-area-inset-bottom, 0px) + 10px))
+    max(20px, env(safe-area-inset-left, 0px));
 }
 
 /* Subtle Centered Wayfinder Sighting Ring */
@@ -2193,7 +2239,11 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 16px 22px 20px;
+  padding:
+    max(16px, env(safe-area-inset-top, 0px))
+    max(22px, env(safe-area-inset-right, 0px))
+    max(20px, calc(env(safe-area-inset-bottom, 0px) + 10px))
+    max(22px, env(safe-area-inset-left, 0px));
 }
 
 .walkable-top-bar {
@@ -2346,7 +2396,7 @@ body {
   align-self: center;
   margin-top: auto;
   width: min(690px, 95vw);
-  max-height: min(64vh, 520px);
+  max-height: min(64dvh, 520px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2594,7 +2644,7 @@ body {
 }
 
 .walkable-poi-popup.canoe-poi-active {
-  max-height: min(74vh, 620px);
+  max-height: min(74dvh, 620px);
 }
 
 .walkable-poi-popup.canoe-poi-active .canoe-island-cards-row {
@@ -2651,8 +2701,9 @@ body {
 .walkable-sand-modal-card {
   pointer-events: auto;
   width: min(860px, 95vw);
-  max-height: 90vh;
+  max-height: 90dvh;
   overflow-y: auto;
+  overscroll-behavior: contain;
   background: rgba(11, 24, 38, 0.96);
   border: 1px solid var(--card-border);
   border-radius: 18px;
@@ -2755,8 +2806,9 @@ body {
 
 .island-settings-card {
   width: min(560px, 94vw);
-  max-height: 90vh;
+  max-height: 90dvh;
   overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -2992,7 +3044,7 @@ body {
   width: fit-content;
   min-width: 300px;
   max-width: 94vw;
-  max-height: 90vh;
+  max-height: 90dvh;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -3508,6 +3560,8 @@ body {
 .canoe-modal-body,
 .walkable-poi-body,
 .walkable-poi-popup {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   scrollbar-color: rgba(231, 181, 99, 0.45) rgba(7, 17, 29, 0.55);
 }
@@ -3870,7 +3924,7 @@ body {
 
 .achievements-modal-card {
   width: min(860px, 94vw);
-  max-height: 86vh;
+  max-height: 86dvh;
   display: flex;
   flex-direction: column;
   gap: 16px;
