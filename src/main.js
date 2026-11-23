@@ -63,7 +63,7 @@ import { AchievementsUI } from './ui/AchievementsUI.js';
 import { CanoeModalUI } from './ui/CanoeModalUI.js';
 import { CrewSplashUI } from './ui/CrewSplashUI.js';
 import { ElderVigilPromptUI } from './ui/ElderVigilPromptUI.js';
-import { IslandHubUI } from './ui/IslandHubUI.js?v=20261120q';
+import { IslandHubUI } from './ui/IslandHubUI.js?v=20261123e';
 import { IslandSettingsUI } from './ui/IslandSettingsUI.js?v=20261123d';
 import {
   clearOnboardingDone,

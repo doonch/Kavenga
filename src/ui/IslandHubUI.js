@@ -15,7 +15,6 @@ import {
   CREW_CATALOG,
   POI_LABELS,
   getAvailableRoutesFromCurrentIsland,
-  getDefaultRouteFromList,
   getLearnedSandLessonsList,
   getReiMiroRelicGuidance,
   interactWithIslandSanctuary,
@@ -77,19 +76,17 @@ export class IslandHubUI {
           </div>
         </div>
 
-        <!-- RIGHT-DOCKED 4-STATION SHORE PANEL -->
+        <!-- RIGHT-DOCKED 3-STATION SHORE PANEL -->
         <aside class="island-hub-shell" aria-label="Island Shore Stations">
           <header class="hub-header">
-            <div class="hub-header-top-row">
-              <div class="hub-act-badge" id="hubActBadge"></div>
-            </div>
+            <div class="hub-act-badge" id="hubActBadge"></div>
             <div class="hub-title-row">
               <h1 class="hub-island-name" id="hubIslandName"></h1>
               <p class="hub-island-sub" id="hubIslandSubtitle"></p>
             </div>
           </header>
 
-          <!-- 4 CLEAR, DISTINCT SHORE STATIONS WITH LIVE STATUS BADGES -->
+          <!-- 3 CLEAR, DISTINCT SHORE STATIONS WITH LIVE STATUS BADGES -->
           <nav class="hub-poi-tabs" role="tablist" aria-label="Shore Preparation Stations">
             <button class="poi-tab-btn active" data-tab="sanctuary" id="tabBtnSanctuary" role="tab" type="button">
               <span class="station-tab-main">
@@ -352,16 +349,6 @@ export class IslandHubUI {
           guidedLessonId: unlearnedLocal ? unlearnedLocal.id : undefined,
         });
       });
-
-    // Departure window buttons (also live-preview tide-light in ShoreDioramaRenderer!)
-    this.rootEl.querySelectorAll('.dep-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        this._userPickedDeparture = true;
-        this.selectedDeparture = btn.getAttribute('data-window');
-        this._refreshRoutePanel();
-        this.callbacks.onDepartureChanged?.(this.selectedDeparture);
-      });
-    });
 
     // Redraw Sand button
     this.rootEl.querySelector('#btnRedrawSand').addEventListener('click', () => {
@@ -1114,9 +1101,5 @@ export class IslandHubUI {
   _getAvailableRoutes() {
     const gs = this.callbacks.getGameState();
     return getAvailableRoutesFromCurrentIsland(gs);
-  }
-
-  _getDefaultRoute(routes) {
-    return getDefaultRouteFromList(routes);
   }
 }
