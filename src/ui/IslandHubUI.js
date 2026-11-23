@@ -635,12 +635,14 @@ export class IslandHubUI {
     this.rootEl.querySelector('#sandPoiTitle').textContent =
       (pSand && POI_LABELS[pSand]) || 'Carved Ocean Cue Diagrams';
 
+    const criticalStep = this._resolveCriticalNextStep(gs);
+
     this._renderObjectivesTracker();
-    this._refreshSanctuaryPanel();
+    this._refreshSanctuaryPanel(criticalStep);
     this._refreshSandLessonsList();
-    this._refreshVigilPanel();
+    this._refreshVigilPanel(criticalStep);
     this._updateStationBadges();
-    this._refreshCriticalCta();
+    this._refreshCriticalCta(criticalStep);
   }
 
   _resolveCriticalNextStep(gs) {
@@ -704,11 +706,11 @@ export class IslandHubUI {
     };
   }
 
-  _refreshCriticalCta() {
+  _refreshCriticalCta(precomputedStep = null) {
     const gs = this.callbacks.getGameState();
     const btn = this.rootEl.querySelector('#btnHubCriticalCta');
     if (!gs || !btn) return;
-    const step = this._resolveCriticalNextStep(gs);
+    const step = precomputedStep || this._resolveCriticalNextStep(gs);
     this._currentCriticalStep = step;
     btn.textContent = step.label;
   }
@@ -796,7 +798,7 @@ export class IslandHubUI {
     }
   }
 
-  _refreshSanctuaryPanel() {
+  _refreshSanctuaryPanel(criticalStep = null) {
     const gs = this.callbacks.getGameState();
     const isl = ISLANDS[gs.currentIslandId] || ISLANDS.raiatea;
     const [, , pSanct] = isl.pois;
@@ -809,11 +811,9 @@ export class IslandHubUI {
     const speakBtn = this.rootEl.querySelector('#btnSpeakMentor');
 
     const activeObjs = getActiveObjectivesForDisplay(gs);
-    const hasLocalAction = activeObjs.some(
-      (o) => o.isHere && (o.kind !== 'quest' || o.hasRequiredCargo)
-    );
     const hasGiftHere = activeObjs.some((o) => o.isHere && o.hasRequiredCargo);
-    const hideSpeakAgain = Boolean(this.lastSanctuaryResult && !hasLocalAction);
+    const step = criticalStep || this._resolveCriticalNextStep(gs);
+    const hideDuplicateSanctuaryBtn = step.kind === 'sanctuary';
 
     if (isl.inhabited && isl.mentorPortrait) {
       layoutEl.classList.remove('no-mentor');
@@ -845,7 +845,7 @@ export class IslandHubUI {
         : 'Harvest Wild Rookery & Shallows';
       speakBtn.className = 'secondary-btn';
     }
-    actionsEl?.classList.toggle('hidden', hideSpeakAgain);
+    actionsEl?.classList.toggle('hidden', hideDuplicateSanctuaryBtn);
 
     const res = this.lastSanctuaryResult || {
       title: isl.mentorName
@@ -1004,7 +1004,7 @@ export class IslandHubUI {
     this.shoreSandCanvas.renderLesson(les, { animate });
   }
 
-  _refreshVigilPanel() {
+  _refreshVigilPanel(criticalStep = null) {
     const gs = this.callbacks.getGameState();
     const curIsl = ISLANDS[gs?.currentIslandId] || ISLANDS.raiatea;
     const basin = OCEAN_BASINS[curIsl.basinId];
@@ -1012,6 +1012,8 @@ export class IslandHubUI {
     const portraitBtn = this.rootEl.querySelector('#btnEnlargeVigilPortrait');
     const thumbEl = this.rootEl.querySelector('#shoreVigilThumb');
     const launchBtn = this.rootEl.querySelector('#btnLaunchLocalVigil');
+    const step = criticalStep || this._resolveCriticalNextStep(gs);
+    launchBtn?.classList.toggle('hidden', step.kind === 'vigil');
 
     const localConstLesson = getAvailableConstellationLessonForIsland(
       gs,
