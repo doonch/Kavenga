@@ -854,8 +854,10 @@ export class WalkableIslandScene {
       if (islDef?.inhabited && (poi.kind === 'hut' || poi.kind === 'elder')) {
         const isElder = poi.kind === 'elder';
         const npcRig =
-          isElder && islandId === 'hawaii'
-            ? createElderFemaleRig({ variant: 'kupuna_heiau' })
+          isElder && islDef.mentorGender === 'female'
+            ? createElderFemaleRig({
+                variant: islDef.mentorRigVariant || 'kupuna_heiau',
+              })
             : createPlayerCharacterRig(
                 isElder ? Difficulty.MASTER_NAVIGATOR : Difficulty.MEDIUM
               );

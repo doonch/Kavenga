@@ -1860,26 +1860,96 @@ export function createPlayerCharacterRig(difficulty = Difficulty.EASY) {
 }
 
 /**
- * Builds a procedural 3D Hawaiian Elder Female Navigator / Kupuna Wayfinder rig
- * wearing a floor-sweeping patterned kapa pa'u wrap, diagonal kihei shoulder mantle,
- * silver-streaked chignon bun with braided ti-leaf & blossom lei po'o, and lei niho palaoa.
+ * Builds the Polynesian Female Elder / Adult Woman NPC 3D rig used across inhabited shores:
+ *  - `'kupuna_heiau'` / `'kupuna_village'`: white/silver-streaked hair & chignon bun with braided
+ *    ti-leaf & blossom lei po'o, lei niho palaoa, and kihei mantle (Hawai'i Council & Keeper Akura).
+ *  - `'adult_woman'`: dark cascading braided hair, ti-leaf blossom circlet, woven tapa bodice
+ *    and patterned pareu wrap without heavy elder kihei cloak (Hina, Vaihere, Vaea, Tahia).
  * Shares the exact joint hierarchy of `createPlayerCharacterRig` for `animatePlayerCharacterAshore`.
  */
 export function createElderFemaleRig({ variant = 'kupuna_heiau' } = {}) {
-  const isCeremonial = variant === 'kupuna_heiau';
+  const FEMALE_VARIANTS = {
+    kupuna_heiau: {
+      id: 'elder_female_heiau',
+      title: 'Elder Female Wayfinder',
+      totalHeightM: 1.65,
+      shoulderWidthM: 0.37,
+      chestWidthM: 0.33,
+      chestDepthM: 0.215,
+      waistWidthM: 0.275,
+      hipWidthM: 0.34,
+      limbThickness: 0.9,
+      skinHex: 0x915432,
+      hairHex: 0x6e747d,
+      templeBandHex: 0x26282c,
+      blossomHex: 0xc82d22,
+      kiheiHex: 0x8f281c,
+      kiheiVariant: 'kihei',
+      hasKihei: true,
+      hasFlowingBraid: false,
+      skirtHeightRatio: 0.43,
+      baseRgb: [0.91, 0.78, 0.44],
+      bandRgb: [0.58, 0.17, 0.13],
+    },
+    kupuna_village: {
+      id: 'elder_female_village',
+      title: 'Kupuna Village Keeper',
+      totalHeightM: 1.65,
+      shoulderWidthM: 0.37,
+      chestWidthM: 0.33,
+      chestDepthM: 0.215,
+      waistWidthM: 0.275,
+      hipWidthM: 0.34,
+      limbThickness: 0.9,
+      skinHex: 0x985b38,
+      hairHex: 0x6e747d,
+      templeBandHex: 0x26282c,
+      blossomHex: 0xf6eed6,
+      kiheiHex: 0xe4d2ae,
+      kiheiVariant: 'royal_kahu',
+      hasKihei: true,
+      hasFlowingBraid: false,
+      skirtHeightRatio: 0.43,
+      baseRgb: [0.88, 0.79, 0.62],
+      bandRgb: [0.42, 0.24, 0.14],
+    },
+    adult_woman: {
+      id: 'adult_female_mentor',
+      title: 'Island Wayfinder & Artisan',
+      totalHeightM: 1.67,
+      shoulderWidthM: 0.38,
+      chestWidthM: 0.335,
+      chestDepthM: 0.218,
+      waistWidthM: 0.265,
+      hipWidthM: 0.335,
+      limbThickness: 0.92,
+      skinHex: 0x9c5f3b,
+      hairHex: 0x1b1511,
+      templeBandHex: 0x15100d,
+      blossomHex: 0xf8f0d8,
+      kiheiHex: 0xcaa472,
+      kiheiVariant: 'royal_kahu',
+      hasKihei: false,
+      hasFlowingBraid: true,
+      skirtHeightRatio: 0.36,
+      baseRgb: [0.8, 0.58, 0.34],
+      bandRgb: [0.26, 0.17, 0.12],
+    },
+  };
+  const cfg = FEMALE_VARIANTS[variant] || FEMALE_VARIANTS.kupuna_heiau;
   const spec = {
-    id: isCeremonial ? 'elder_female_heiau' : 'elder_female_village',
-    title: isCeremonial ? 'Elder Female Wayfinder' : 'Kupuna Village Keeper',
-    totalHeightM: 1.65,
-    shoulderWidthM: 0.37,
-    chestWidthM: 0.33,
-    chestDepthM: 0.215,
-    waistWidthM: 0.275,
-    hipWidthM: 0.34,
-    limbThickness: 0.90,
+    id: cfg.id,
+    title: cfg.title,
+    totalHeightM: cfg.totalHeightM,
+    shoulderWidthM: cfg.shoulderWidthM,
+    chestWidthM: cfg.chestWidthM,
+    chestDepthM: cfg.chestDepthM,
+    waistWidthM: cfg.waistWidthM,
+    hipWidthM: cfg.hipWidthM,
+    limbThickness: cfg.limbThickness,
     headRadiusM: 0.107,
-    skinHex: isCeremonial ? 0x915432 : 0x985b38,
-    hairHex: 0x62676f,
+    skinHex: cfg.skinHex,
+    hairHex: cfg.hairHex,
   };
   const H = spec.totalHeightM;
   const lt = spec.limbThickness;
@@ -1894,11 +1964,11 @@ export function createElderFemaleRig({ variant = 'kupuna_heiau' } = {}) {
     metalness: 0.03,
   });
   const silverHairMat = new THREE.MeshStandardMaterial({
-    color: 0x6e747d,
+    color: cfg.hairHex,
     roughness: 0.76,
   });
   const darkHairMat = new THREE.MeshStandardMaterial({
-    color: 0x26282c,
+    color: cfg.templeBandHex,
     roughness: 0.78,
   });
   const sennitMat = new THREE.MeshStandardMaterial({
@@ -1921,7 +1991,7 @@ export function createElderFemaleRig({ variant = 'kupuna_heiau' } = {}) {
     side: THREE.DoubleSide,
   });
   const blossomMat = new THREE.MeshStandardMaterial({
-    color: isCeremonial ? 0xc82d22 : 0xf6eed6,
+    color: cfg.blossomHex,
     roughness: 0.56,
   });
   const tatauMat = new THREE.MeshStandardMaterial({
@@ -1930,7 +2000,7 @@ export function createElderFemaleRig({ variant = 'kupuna_heiau' } = {}) {
     side: THREE.DoubleSide,
   });
   const kiheiMat = new THREE.MeshStandardMaterial({
-    color: isCeremonial ? 0x8f281c : 0xe4d2ae,
+    color: cfg.kiheiHex,
     roughness: 0.84,
     side: THREE.DoubleSide,
   });
@@ -2011,17 +2081,17 @@ export function createElderFemaleRig({ variant = 'kupuna_heiau' } = {}) {
     };
   }
 
-  // 2. Ankle-Sweeping Hawaiian Kapa Pa'u Skirt with Stamped 'Ohe Kapala Hem Borders
+  // 2. Woven Kapa Pa'u Skirt / Patterned Pareu with Stamped 'Ohe Kapala Hem Borders
   const skirtTopY = waistY - hipY + 0.02;
-  const baseRgb = isCeremonial ? [0.91, 0.78, 0.44] : [0.88, 0.79, 0.62];
-  const bandRgb = isCeremonial ? [0.58, 0.17, 0.13] : [0.42, 0.24, 0.14];
+  const baseRgb = cfg.baseRgb;
+  const bandRgb = cfg.bandRgb;
   const trimRgb = [0.16, 0.12, 0.1];
   const kapalaSkirt = createPareuSkirtMesh({
     topRx: spec.waistWidthM * 0.56,
     topRz: spec.chestDepthM * 0.56,
     botRx: spec.hipWidthM * 0.74,
     botRz: spec.chestDepthM * 0.88,
-    height: H * 0.43,
+    height: H * cfg.skirtHeightRatio,
     baseRgb,
     bandRgb,
     trimRgb,
@@ -2091,22 +2161,24 @@ export function createElderFemaleRig({ variant = 'kupuna_heiau' } = {}) {
   bodiceMesh.position.y = torsoH * 0.78;
   torsoGroup.add(bodiceMesh);
 
-  // Diagonal Kihei Barkcloth Mantle knotted at right shoulder & sweeping across torso
-  const kiheiSash = createTorsoCrossbodyBandMesh({
-    torsoRings,
-    torsoH,
-    shoulderSide: 1,
-    halfWidth: 0.068,
-    thickness: 0.011,
-    liftM: 0.004,
-    variant: isCeremonial ? 'kihei' : 'royal_kahu',
-  });
-  torsoGroup.add(kiheiSash);
+  // Diagonal Kihei Barkcloth Mantle for ceremonial/village elders
+  if (cfg.hasKihei) {
+    const kiheiSash = createTorsoCrossbodyBandMesh({
+      torsoRings,
+      torsoH,
+      shoulderSide: 1,
+      halfWidth: 0.068,
+      thickness: 0.011,
+      liftM: 0.004,
+      variant: cfg.kiheiVariant,
+    });
+    torsoGroup.add(kiheiSash);
 
-  const kiheiKnot = new THREE.Mesh(new THREE.SphereGeometry(0.036, 10, 8), kiheiMat);
-  kiheiKnot.scale.set(1.1, 0.8, 1.15);
-  kiheiKnot.position.set(spec.shoulderWidthM * 0.34, torsoH * 0.92, -0.01);
-  torsoGroup.add(kiheiKnot);
+    const kiheiKnot = new THREE.Mesh(new THREE.SphereGeometry(0.036, 10, 8), kiheiMat);
+    kiheiKnot.scale.set(1.1, 0.8, 1.15);
+    kiheiKnot.position.set(spec.shoulderWidthM * 0.34, torsoH * 0.92, -0.01);
+    torsoGroup.add(kiheiKnot);
+  }
 
   // Sacred Hawaiian Lei Niho Palaoa (braided hair cord + carved ivory whale-tooth hook) & Kukui Lei
   const neck = new THREE.Mesh(
@@ -2248,16 +2320,36 @@ export function createElderFemaleRig({ variant = 'kupuna_heiau' } = {}) {
   darkTempleBand.position.set(0, R * 0.18, R * 0.12);
   headGroup.add(darkTempleBand);
 
-  const chignon = new THREE.Mesh(new THREE.SphereGeometry(R * 0.48, 12, 10), silverHairMat);
-  chignon.scale.set(0.98, 1.08, 0.92);
-  chignon.position.set(0.0, R * 0.44, R * 0.92);
-  chignon.castShadow = true;
-  headGroup.add(chignon);
+  if (cfg.hasFlowingBraid) {
+    // Flowing dark hair cascade down the back (+Z) for adult women mentors (Hina, Vaihere, Vaea, Tahia)
+    const hairCascade = new THREE.Mesh(
+      createLoftedBodyPartGeometry([
+        { y: -R * 2.55, rx: R * 0.42, rz: R * 0.24, oz: R * 1.12 },
+        { y: -R * 1.35, rx: R * 0.82, rz: R * 0.36, oz: R * 1.05 },
+        { y: -R * 0.25, rx: R * 0.96, rz: R * 0.42, oz: R * 0.88 },
+        { y: R * 0.35, rx: R * 0.72, rz: R * 0.36, oz: R * 0.62 },
+      ]),
+      silverHairMat
+    );
+    hairCascade.castShadow = true;
+    headGroup.add(hairCascade);
 
-  const ivoryHairPin = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.004, R * 1.25, 6), ivoryMat);
-  ivoryHairPin.position.set(0.0, R * 0.46, R * 0.96);
-  ivoryHairPin.rotation.z = 0.55;
-  headGroup.add(ivoryHairPin);
+    const bonePin = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.0035, R * 1.15, 6), ivoryMat);
+    bonePin.position.set(R * 0.56, R * 0.48, R * 0.52);
+    bonePin.rotation.z = -0.62;
+    headGroup.add(bonePin);
+  } else {
+    const chignon = new THREE.Mesh(new THREE.SphereGeometry(R * 0.48, 12, 10), silverHairMat);
+    chignon.scale.set(0.98, 1.08, 0.92);
+    chignon.position.set(0.0, R * 0.44, R * 0.92);
+    chignon.castShadow = true;
+    headGroup.add(chignon);
+
+    const ivoryHairPin = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.004, R * 1.25, 6), ivoryMat);
+    ivoryHairPin.position.set(0.0, R * 0.46, R * 0.96);
+    ivoryHairPin.rotation.z = 0.55;
+    headGroup.add(ivoryHairPin);
+  }
 
   // Braided Ti-Leaf & Blossom Lei Po'o Circlet
   const leiBase = new THREE.Mesh(new THREE.TorusGeometry(R * 1.02, R * 0.14, 8, 24), tiLeafMat);

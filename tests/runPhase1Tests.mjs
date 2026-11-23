@@ -1346,4 +1346,29 @@ for (const [cargoKey, cargoDef] of cargoEntries) {
   );
 }
 
+// ── MENTOR GENDER & 3D RIG VARIANT PARITY ACROSS INHABITED ISLANDS ────────────
+{
+  const expectedFemale = new Set(['tahaa', 'moorea', 'ua_pou', 'hiva_oa', 'kiritimati', 'hawaii']);
+  const expectedAdultWoman = new Set(['tahaa', 'moorea', 'ua_pou', 'hiva_oa']);
+  for (const isl of Object.values(ISLANDS)) {
+    if (!isl.inhabited) continue;
+    const expectFem = expectedFemale.has(isl.id);
+    assert(
+      isl.mentorGender === (expectFem ? 'female' : 'male'),
+      `Inhabited island ${isl.id} mentorGender must match portrait (${expectFem ? 'female' : 'male'}, got ${isl.mentorGender})`
+    );
+    if (expectedAdultWoman.has(isl.id)) {
+      assert(
+        isl.mentorRigVariant === 'adult_woman',
+        `Female mentor on ${isl.id} (${isl.mentorName}) must use 'adult_woman' rig variant (got ${isl.mentorRigVariant})`
+      );
+    } else if (isl.id === 'kiritimati') {
+      assert(
+        isl.mentorRigVariant === 'kupuna_village',
+        `Keeper Akura on Kiritimati must use 'kupuna_village' elder female rig variant (got ${isl.mentorRigVariant})`
+      );
+    }
+  }
+}
+
 logLine(`\nALL PHASE 1 TESTS PASSED! (${passedCount} assertions verified)`);
