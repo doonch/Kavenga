@@ -250,17 +250,30 @@ body {
 }
 
 .trim-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 34px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(232, 198, 142, 0.28);
   color: var(--sand-warm);
   border-radius: 999px;
-  padding: 6px 14px;
-  font-size: 12.5px;
+  padding: 0 12px;
   cursor: pointer;
+  touch-action: none;
+  transition: background 0.14s, border-color 0.14s, transform 0.1s;
+}
+
+.trim-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: var(--sand-gold);
 }
 
 .trim-btn:active {
   background: rgba(231, 181, 99, 0.32);
+  border-color: var(--sand-gold);
+  transform: scale(0.96);
 }
 
 .trim-status {

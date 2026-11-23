@@ -87,9 +87,31 @@ export class SailingHUD {
 
       <!-- Subtle bottom Trim-Lock touch/click helpers (purely port/starboard paddle trim, zero degrees!) -->
       <div class="hud-trim-bar">
-        <button class="trim-btn" id="btnTrimPort" title="Hold A or Left Arrow to trim steering sweep port">⟵ Trim Left Prow</button>
+        <button
+          class="trim-btn"
+          id="btnTrimPort"
+          type="button"
+          title="Hold A or Left Arrow to trim steering sweep port"
+          aria-label="Trim Left Prow"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M19 12H5"/>
+            <path d="M11 18l-6-6 6-6"/>
+          </svg>
+        </button>
         <div class="trim-status" id="hudTrimStatus">Steering Sweep Locked</div>
-        <button class="trim-btn" id="btnTrimStarboard" title="Hold D or Right Arrow to trim steering sweep starboard">Trim Right Prow ⟶</button>
+        <button
+          class="trim-btn"
+          id="btnTrimStarboard"
+          type="button"
+          title="Hold D or Right Arrow to trim steering sweep starboard"
+          aria-label="Trim Right Prow"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h14"/>
+            <path d="M13 6l6 6-6 6"/>
+          </svg>
+        </button>
       </div>
 
       <!-- Toast banner for diegetic events (bonito catch, low gourds, island cloud sighted) -->
