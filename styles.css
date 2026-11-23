@@ -4358,3 +4358,88 @@ body {
   justify-content: center;
   flex-wrap: wrap;
 }
+
+/* ============================================================
+   Walk Shore Virtual Analog Thumbstick (Bottom-Right on Touch)
+   ============================================================ */
+
+.walkable-hint-touch {
+  display: none;
+}
+
+.walkable-thumbstick-pad {
+  display: none;
+  position: fixed;
+  right: max(22px, calc(env(safe-area-inset-right, 0px) + 16px));
+  bottom: max(22px, calc(env(safe-area-inset-bottom, 0px) + 14px));
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  z-index: 16;
+}
+
+.walkable-thumbstick-ring {
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(9, 21, 35, 0.42) 0%, rgba(9, 21, 35, 0.72) 100%);
+  backdrop-filter: blur(8px);
+  border: 1.5px solid rgba(231, 181, 99, 0.38);
+  box-shadow:
+    0 10px 26px rgba(0, 0, 0, 0.44),
+    inset 0 0 18px rgba(231, 181, 99, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.walkable-thumbstick-pad.active .walkable-thumbstick-ring {
+  border-color: rgba(231, 181, 99, 0.78);
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.54),
+    0 0 18px rgba(231, 181, 99, 0.22),
+    inset 0 0 20px rgba(231, 181, 99, 0.14);
+}
+
+.walkable-thumbstick-knob {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 32%, #f4cf86 0%, #c98636 100%);
+  border: 1.5px solid rgba(255, 241, 208, 0.75);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  pointer-events: none;
+}
+
+@media (pointer: coarse), (hover: none) {
+  .walkable-thumbstick-pad {
+    display: flex;
+  }
+  .walkable-hint-desktop {
+    display: none;
+  }
+  .walkable-hint-touch {
+    display: inline;
+  }
+}
+
+#walkable-island-ui.touch-detected .walkable-thumbstick-pad {
+  display: flex;
+}
+
+#walkable-island-ui.touch-detected .walkable-hint-desktop {
+  display: none;
+}
+
+#walkable-island-ui.touch-detected .walkable-hint-touch {
+  display: inline;
+}

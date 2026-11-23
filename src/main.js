@@ -1740,6 +1740,7 @@ class KavengaApp {
           oceanSim: this.oceanSim,
           camera: this.cameraCtrl.camera,
           keysDown: this.cameraCtrl.keysDown,
+          touchMoveVec: this.walkableIslandUI.getTouchMoveVector(),
           inputBlocked:
             this.canoeModalUI.isOpen() ||
             this.islandSettingsUI.isOpen() ||

@@ -58,6 +58,10 @@ export class WalkableIslandUI {
     this.hutFeedbackText = '';
     this.objectivesCollapsed = false;
     this._recentlyClearedObjectives = [];
+    this.touchMoveVec = { x: 0, y: 0, sprint: false };
+    this._stickPointerId = null;
+    this._stickCenter = { x: 0, y: 0 };
+    this._stickMaxRadius = 42;
 
     this._buildDOM();
   }
@@ -85,7 +89,8 @@ export class WalkableIslandUI {
               <span class="walkable-island-btn-cta">← Shore Stage</span>
             </button>
             <div class="walkable-controls-hint">
-              Arrow Keys (or WASD) to walk · Drag view to orbit · Click ← Shore Stage (or Esc) when ready
+              <span class="walkable-hint-desktop">Arrow Keys (or WASD) to walk · Drag view to orbit · Click ← Shore Stage (or Esc) when ready</span>
+              <span class="walkable-hint-touch">Use bottom-right thumbstick to walk · Drag view to orbit · Tap ← Shore Stage when ready</span>
             </div>
 
             <!-- Ashore Active Objectives Tracker (strictly island-only; never shown while sailing) -->
@@ -132,6 +137,13 @@ export class WalkableIslandUI {
           cancelBtnId: 'btnCancelWalkVoyageModal',
           sailBtnId: 'btnConfirmWalkSailTo',
         })}
+
+        <!-- Touch Virtual Analog Thumbstick (bottom-right on touch/coarse-pointer devices) -->
+        <div class="walkable-thumbstick-pad" id="walkThumbstickPad" aria-label="Walk Thumbstick">
+          <div class="walkable-thumbstick-ring">
+            <div class="walkable-thumbstick-knob" id="walkThumbstickKnob"></div>
+          </div>
+        </div>
 
         <!-- Toast feedback banner -->
         <div class="hud-toast" id="walkShoreToast"></div>
@@ -298,6 +310,104 @@ export class WalkableIslandUI {
         }
       }
     });
+
+    this._bindThumbstick();
+  }
+
+  _bindThumbstick() {
+    const padEl = this.rootEl.querySelector('#walkThumbstickPad');
+    const knobEl = this.rootEl.querySelector('#walkThumbstickKnob');
+    if (!padEl || !knobEl) return;
+
+    // Ensure touch-capable iPads with paired trackpads/keyboards also show the stick upon touch
+    window.addEventListener(
+      'pointerdown',
+      (e) => {
+        if (e.pointerType === 'touch') {
+          this.rootEl.classList.add('touch-detected');
+        }
+      },
+      { passive: true }
+    );
+
+    const updateFromPointer = (clientX, clientY) => {
+      const dx = clientX - this._stickCenter.x;
+      const dy = clientY - this._stickCenter.y;
+      const dist = Math.hypot(dx, dy);
+      const maxR = this._stickMaxRadius;
+      const clampedDist = Math.min(dist, maxR);
+      const kx = dist > 0.001 ? (dx / dist) * clampedDist : 0;
+      const ky = dist > 0.001 ? (dy / dist) * clampedDist : 0;
+      knobEl.style.transform = `translate3d(${kx.toFixed(1)}px, ${ky.toFixed(1)}px, 0)`;
+
+      const mag = Math.min(1.0, dist / maxR);
+      const deadzone = 0.1;
+      if (mag < deadzone) {
+        this.touchMoveVec.x = 0;
+        this.touchMoveVec.y = 0;
+        this.touchMoveVec.sprint = false;
+      } else {
+        const rescaled = (mag - deadzone) / (1.0 - deadzone);
+        this.touchMoveVec.x = (dx / dist) * rescaled;
+        this.touchMoveVec.y = (-dy / dist) * rescaled;
+        this.touchMoveVec.sprint = mag >= 0.88;
+      }
+    };
+
+    padEl.addEventListener('pointerdown', (e) => {
+      if (this._stickPointerId !== null) return;
+      e.preventDefault();
+      e.stopPropagation();
+      this._stickPointerId = e.pointerId;
+      padEl.classList.add('active');
+      try {
+        padEl.setPointerCapture?.(e.pointerId);
+      } catch (_) {
+        // Ignore capture errors on synthetic events
+      }
+      const rect = padEl.getBoundingClientRect();
+      this._stickCenter.x = rect.left + rect.width * 0.5;
+      this._stickCenter.y = rect.top + rect.height * 0.5;
+      this._stickMaxRadius = Math.max(24, rect.width * 0.36);
+      updateFromPointer(e.clientX, e.clientY);
+    });
+
+    const onMove = (e) => {
+      if (this._stickPointerId === null || e.pointerId !== this._stickPointerId) {
+        return;
+      }
+      e.preventDefault();
+      updateFromPointer(e.clientX, e.clientY);
+    };
+
+    const onEnd = (e) => {
+      if (this._stickPointerId === null || e.pointerId !== this._stickPointerId) {
+        return;
+      }
+      this.resetTouchStick();
+    };
+
+    padEl.addEventListener('pointermove', onMove);
+    padEl.addEventListener('pointerup', onEnd);
+    padEl.addEventListener('pointercancel', onEnd);
+    padEl.addEventListener('lostpointercapture', onEnd);
+  }
+
+  resetTouchStick() {
+    this._stickPointerId = null;
+    this.touchMoveVec.x = 0;
+    this.touchMoveVec.y = 0;
+    this.touchMoveVec.sprint = false;
+    const padEl = this.rootEl?.querySelector('#walkThumbstickPad');
+    const knobEl = this.rootEl?.querySelector('#walkThumbstickKnob');
+    padEl?.classList.remove('active');
+    if (knobEl) {
+      knobEl.style.transform = 'translate3d(0, 0, 0)';
+    }
+  }
+
+  getTouchMoveVector() {
+    return this.touchMoveVec;
   }
 
   show() {
@@ -305,6 +415,7 @@ export class WalkableIslandUI {
     this.hutFeedbackText = '';
     this.craftsmanDrawerOpen = false;
     this.minimizedPoiId = null;
+    this.resetTouchStick();
     this.closeSandModal();
     this.closePortraitModal();
     this.closeVoyageConfirmModal();
@@ -316,6 +427,7 @@ export class WalkableIslandUI {
     this.sandCanvas.stopAnimation();
     this.sandModalOpen = false;
     this.portraitModalOpen = false;
+    this.resetTouchStick();
     this.closeVoyageConfirmModal();
     this.currentPoi = null;
     this.callbacks.onStopVoice?.();
@@ -343,6 +455,7 @@ export class WalkableIslandUI {
    */
   setSuspendedForHub(suspended) {
     if (suspended) {
+      this.resetTouchStick();
       this.closeVoyageConfirmModal();
       this.closeSandModal();
       this.closePortraitModal();

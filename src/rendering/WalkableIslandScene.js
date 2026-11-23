@@ -94,6 +94,7 @@ export class WalkableIslandScene {
     this.camTarget = new THREE.Vector3();
     this.camDesiredPos = new THREE.Vector3();
     this._isOrbitDragging = false;
+    this._orbitPointerId = null;
     this._lastPtr = { x: 0, y: 0 };
 
     this.obstacles = [];
@@ -1387,13 +1388,18 @@ export class WalkableIslandScene {
     window.addEventListener('pointerdown', (e) => {
       if (!this.active) return;
       if (e.target?.tagName !== 'CANVAS') return;
+      if (this._isOrbitDragging && this._orbitPointerId !== null) return;
       this._isOrbitDragging = true;
+      this._orbitPointerId = e.pointerId;
       this._lastPtr.x = e.clientX;
       this._lastPtr.y = e.clientY;
     });
 
     window.addEventListener('pointermove', (e) => {
       if (!this.active || !this._isOrbitDragging) return;
+      if (this._orbitPointerId !== null && e.pointerId !== this._orbitPointerId) {
+        return;
+      }
       const dx = e.clientX - this._lastPtr.x;
       const dy = e.clientY - this._lastPtr.y;
       this._lastPtr.x = e.clientX;
@@ -1403,8 +1409,16 @@ export class WalkableIslandScene {
       this.camPitchRad = clamp(this.camPitchRad + dy * 0.0045, 0.11, 0.82);
     });
 
-    const endDrag = () => {
+    const endDrag = (e) => {
+      if (
+        this._orbitPointerId !== null &&
+        e?.pointerId !== undefined &&
+        e.pointerId !== this._orbitPointerId
+      ) {
+        return;
+      }
       this._isOrbitDragging = false;
+      this._orbitPointerId = null;
     };
     window.addEventListener('pointerup', endDrag);
     window.addEventListener('pointercancel', endDrag);
@@ -1508,6 +1522,7 @@ export class WalkableIslandScene {
     this.root.visible = false;
     this.activePoi = null;
     this._isOrbitDragging = false;
+    this._orbitPointerId = null;
 
     for (const el of Object.values(this.poiBadgeEls)) {
       el.classList.add('hidden');
@@ -1703,7 +1718,15 @@ export class WalkableIslandScene {
   update(
     dtSec,
     elapsedSec,
-    { gameState, oceanSim, camera, keysDown, inputBlocked = false, hideLabels = false }
+    {
+      gameState,
+      oceanSim,
+      camera,
+      keysDown,
+      touchMoveVec = null,
+      inputBlocked = false,
+      hideLabels = false,
+    }
   ) {
     if (!this.active) return null;
 
@@ -1716,11 +1739,19 @@ export class WalkableIslandScene {
 
     let moveRight = 0.0;
     let moveFwd = 0.0;
-    if (!inputBlocked && keysDown) {
-      if (keysDown.has('ArrowUp') || keysDown.has('KeyW')) moveFwd += 1.0;
-      if (keysDown.has('ArrowDown') || keysDown.has('KeyS')) moveFwd -= 1.0;
-      if (keysDown.has('ArrowLeft') || keysDown.has('KeyA')) moveRight -= 1.0;
-      if (keysDown.has('ArrowRight') || keysDown.has('KeyD')) moveRight += 1.0;
+    let touchSprint = false;
+    if (!inputBlocked) {
+      if (keysDown) {
+        if (keysDown.has('ArrowUp') || keysDown.has('KeyW')) moveFwd += 1.0;
+        if (keysDown.has('ArrowDown') || keysDown.has('KeyS')) moveFwd -= 1.0;
+        if (keysDown.has('ArrowLeft') || keysDown.has('KeyA')) moveRight -= 1.0;
+        if (keysDown.has('ArrowRight') || keysDown.has('KeyD')) moveRight += 1.0;
+      }
+      if (touchMoveVec) {
+        moveRight += touchMoveVec.x || 0.0;
+        moveFwd += touchMoveVec.y || 0.0;
+        touchSprint = Boolean(touchMoveVec.sprint);
+      }
     }
 
     const inputMag = Math.hypot(moveRight, moveFwd);
@@ -1729,6 +1760,7 @@ export class WalkableIslandScene {
     if (inputMag > 0.01) {
       const nr = moveRight / inputMag;
       const nf = moveFwd / inputMag;
+      const throttle = Math.min(1.0, inputMag);
 
       const fwdX = -Math.sin(this.camYawRad);
       const fwdZ = -Math.cos(this.camYawRad);
@@ -1739,11 +1771,12 @@ export class WalkableIslandScene {
       const worldDirZ = fwdZ * nf + rightZ * nr;
 
       const isSprinting = Boolean(
-        keysDown && (keysDown.has('ShiftLeft') || keysDown.has('ShiftRight'))
+        touchSprint ||
+          (keysDown && (keysDown.has('ShiftLeft') || keysDown.has('ShiftRight')))
       );
-      const speed = isSprinting
-        ? this.spec.sprintSpeedMps
-        : this.spec.walkSpeedMps;
+      const speed =
+        (isSprinting ? this.spec.sprintSpeedMps : this.spec.walkSpeedMps) *
+        throttle;
 
       movedDist = this._tryMovePlayer(
         worldDirX * speed * dt,
