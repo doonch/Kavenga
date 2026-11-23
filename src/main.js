@@ -7,10 +7,14 @@
  */
 
 import * as THREE from 'three';
-import { BackgroundMusicEngine } from './audio/BackgroundMusicEngine.js';
+import {
+  BASE_MUSIC_TRACKS,
+  BackgroundMusicEngine,
+} from './audio/BackgroundMusicEngine.js';
 import { ChantAndDrumEngine } from './audio/ChantAndDrumEngine.js';
 import { SpatialSeaAudio } from './audio/SpatialSeaAudio.js';
 import { VoiceOverEngine } from './audio/VoiceOverEngine.js';
+import { initPWA, setScreenWakeLock } from './pwa.js';
 import { AchievementsManager } from './core/achievementsManager.js';
 import {
   onVoyageLandfall,
@@ -2109,6 +2113,11 @@ class KavengaApp {
       );
     }
 
+    if (this._lastWakeLockPhase !== this.phase) {
+      this._lastWakeLockPhase = this.phase;
+      setScreenWakeLock(this.phase === 'sailing' || this.phase === 'sky_vigil');
+    }
+
     if (!this._webglContextLost) {
       this.renderer.render(this.scene, this.cameraCtrl.camera);
     }
@@ -2118,3 +2127,6 @@ class KavengaApp {
 
 const app = new KavengaApp();
 window.__KAVENGA_APP__ = app;
+initPWA({
+  warmAudioUrls: BASE_MUSIC_TRACKS.map((id) => `./assets/audio/${id}.mp3`),
+});

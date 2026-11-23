@@ -25,6 +25,7 @@
  */
 
 import * as THREE from 'three';
+import { initPWA, setScreenWakeLock } from './pwa.js';
 import {
   DepartureWindow,
   Difficulty,
@@ -741,3 +742,5 @@ class KavengaIntroDirector {
 }
 
 window.__KAVENGA_INTRO__ = new KavengaIntroDirector();
+setScreenWakeLock(true);
+initPWA({ warmAudioUrls: ['./assets/audio/tide.mp3'] });
