@@ -18,7 +18,7 @@
     {
       "imports": {
         "three": "./vendor/three.module.min.js",
-        "./src/pwa.js": "./src/pwa.js?v=20261123j",
+        "./src/pwa.js": "./src/pwa.js?v=20261123m",
         "./src/core/gameConstants.js": "./src/core/gameConstants.js?v=20261120m",
         "./src/core/gameState.js": "./src/core/gameState.js?v=20261120m",
         "./src/data/constellationSilhouettesData.js": "./src/data/constellationSilhouettesData.js?v=20261120m",
@@ -42,10 +42,16 @@
     }
   </script>
   <style>
-    * {
+    *,
+    *::before,
+    *::after {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
     }
 
     html,
@@ -58,7 +64,9 @@
       background: #060e1b;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       color: #f6efe2;
+      -webkit-user-select: none;
       user-select: none;
+      -webkit-touch-callout: none;
     }
 
     #intro-webgl {

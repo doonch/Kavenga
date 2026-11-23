@@ -391,6 +391,14 @@ export class WalkableIslandUI {
     padEl.addEventListener('pointerup', onEnd);
     padEl.addEventListener('pointercancel', onEnd);
     padEl.addEventListener('lostpointercapture', onEnd);
+    padEl.addEventListener(
+      'touchstart',
+      (e) => {
+        e.preventDefault();
+      },
+      { passive: false }
+    );
+    padEl.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
   resetTouchStick() {

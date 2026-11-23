@@ -271,6 +271,10 @@ export class SailingHUD {
       btn.addEventListener('pointerup', end);
       btn.addEventListener('pointerleave', end);
       btn.addEventListener('pointercancel', end);
+      btn.addEventListener('touchstart', start, { passive: false });
+      btn.addEventListener('touchend', end);
+      btn.addEventListener('touchcancel', end);
+      btn.addEventListener('contextmenu', (e) => e.preventDefault());
     };
     bindHoldSteer('#btnTrimPort', 'ArrowLeft');
     bindHoldSteer('#btnTrimStarboard', 'ArrowRight');

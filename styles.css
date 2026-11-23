@@ -10,10 +10,24 @@
   --text-muted: #b9c8d6;
 }
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input,
+textarea,
+select {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
 }
 
 html,
@@ -26,7 +40,9 @@ body {
   background: var(--bg-deep);
   color: var(--text-main);
   font-family: 'Avenir Next', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  -webkit-user-select: none;
   user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .hidden {
@@ -4376,7 +4392,8 @@ body {
    Walk Shore Virtual Analog Thumbstick (Bottom-Right on Touch)
    ============================================================ */
 
-.walkable-hint-touch {
+.walkable-hint-touch,
+.shore-hint-touch {
   display: none;
 }
 
@@ -4437,10 +4454,12 @@ body {
   .walkable-thumbstick-pad {
     display: flex;
   }
-  .walkable-hint-desktop {
+  .walkable-hint-desktop,
+  .shore-hint-desktop {
     display: none;
   }
-  .walkable-hint-touch {
+  .walkable-hint-touch,
+  .shore-hint-touch {
     display: inline;
   }
 }
@@ -4449,10 +4468,12 @@ body {
   display: flex;
 }
 
-#walkable-island-ui.touch-detected .walkable-hint-desktop {
+#walkable-island-ui.touch-detected .walkable-hint-desktop,
+#island-hub.touch-detected .shore-hint-desktop {
   display: none;
 }
 
-#walkable-island-ui.touch-detected .walkable-hint-touch {
+#walkable-island-ui.touch-detected .walkable-hint-touch,
+#island-hub.touch-detected .shore-hint-touch {
   display: inline;
 }

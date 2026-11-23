@@ -64,7 +64,10 @@ export class IslandHubUI {
           </section>
 
           <div class="shore-orbit-bar">
-            <span class="shore-orbit-hint">Drag island or lagoon to orbit · Scroll to zoom</span>
+            <span class="shore-orbit-hint">
+              <span class="shore-hint-desktop">Drag island or lagoon to orbit · Scroll to zoom</span>
+              <span class="shore-hint-touch">Drag island or lagoon to orbit · Pinch to zoom</span>
+            </span>
             <button
               class="secondary-btn small-btn shore-reset-orbit-btn hidden"
               id="btnResetShoreOrbit"
@@ -273,6 +276,16 @@ export class IslandHubUI {
         e.currentTarget.blur();
         this.callbacks.onResetOrbit?.();
       });
+
+    window.addEventListener(
+      'pointerdown',
+      (e) => {
+        if (e.pointerType === 'touch') {
+          this.rootEl.classList.add('touch-detected');
+        }
+      },
+      { passive: true }
+    );
 
     // Portrait Lightbox triggers
     this.rootEl

@@ -55,6 +55,27 @@ export function setScreenWakeLock(active) {
 export function initPWA({ warmAudioUrls = [] } = {}) {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') return;
 
+  // Prevent iPadOS / iOS long-press text selection and callout menus on non-input UI
+  const isEditable = (el) => {
+    const tag = el?.tagName;
+    return (
+      tag === 'INPUT' ||
+      tag === 'TEXTAREA' ||
+      tag === 'SELECT' ||
+      Boolean(el?.isContentEditable)
+    );
+  };
+  document.addEventListener('selectstart', (e) => {
+    if (!isEditable(e.target)) {
+      e.preventDefault();
+    }
+  });
+  document.addEventListener('contextmenu', (e) => {
+    if (!isEditable(e.target) && !e.target?.closest?.('a[href]')) {
+      e.preventDefault();
+    }
+  });
+
   // Request persistent storage on first user gesture so iPadOS / browsers retain saves & caches
   const requestPersistenceOnce = () => {
     window.removeEventListener('pointerdown', requestPersistenceOnce);
