@@ -65,6 +65,14 @@ export class WorldCuesRenderer {
     this.tradeFogOpacity = 1.0;
     this.birdFlockAlpha = 0.0;
     this.albatrossAlpha = 0.0;
+    this._pelagicFlyby = {
+      active: false,
+      timerSec: 0.0,
+      durationSec: 9.0,
+      cooldownSec: 0.0,
+      lockedTargetAzDeg: 0.0,
+      isLongRoute: true,
+    };
     this._lastBirdWorldAz = 0.0;
     this._activeBirdIsBooby = false;
     this._birdTargetColor = new THREE.Color(0xf7fbff);
@@ -1491,8 +1499,8 @@ export class WorldCuesRenderer {
   }
 
   _buildPelagicAlbatross() {
-    // 1-2 solitary open-ocean Ka'upu (Black-footed Albatross) gliding outside Ring 1
-    // across Act III and Rapa Nui crossings, sweeping beside/ahead of the bows with zero sail contact.
+    // Solitary open-ocean Ka'upu (Black-footed Albatross) making brief (9s)
+    // overhead flybys from astern over canoe center, flapping slowly, then turning toward shore.
     this.pelagicAlbatrossGroup = new THREE.Group();
     this.group.add(this.pelagicAlbatrossGroup);
     this.pelagicAlbatrosses = [];
@@ -1500,29 +1508,13 @@ export class WorldCuesRenderer {
     const specs = [
       {
         side: 1,
-        scale: 0.96,
-        baseX: 9.2,
-        ampX: 3.6,
-        baseZ: -14.2,
-        ampZ: 8.6,
-        baseY: 2.3,
-        ampY: 2.9,
-        omega: 0.29,
-        phase: 0.4,
-        longRouteOnly: false,
-      },
-      {
-        side: -1,
-        scale: 0.86,
-        baseX: -9.6,
-        ampX: 3.8,
-        baseZ: -16.8,
-        ampZ: 9.2,
-        baseY: 2.8,
-        ampY: 3.1,
-        omega: 0.25,
-        phase: 2.65,
-        longRouteOnly: true,
+        scale: 0.88,
+        startOffsetSec: 0.0,
+        baseX: -0.25,
+        startZ: 9.8,
+        baseSpeed: 36.5,
+        baseY: 3.85,
+        phase: 0.35,
       },
     ];
 
@@ -1535,96 +1527,217 @@ export class WorldCuesRenderer {
     }
   }
 
-  _evalPelagicAlbatrossLocalPos(spec, t) {
-    const rawX =
-      spec.baseX +
-      spec.side * (spec.ampX * Math.sin(t) + 0.95 * Math.sin(t * 2.0));
-    const rawZ = spec.baseZ + spec.ampZ * Math.cos(t);
-    const waveSurge = 0.5 - 0.5 * Math.cos(t * 2.0);
-    const rawY = spec.baseY + spec.ampY * waveSurge;
-
-    // Enforce hard clearance envelope around canoe hulls, masts & crab-claw sails
-    const minClearX = 4.35;
-    let x = rawX;
-    if (rawY < 10.8 && rawZ > -10.5 && rawZ < 9.2 && Math.abs(x) < minClearX) {
-      x = spec.side * minClearX;
-    }
-    return { x, y: rawY, z: rawZ };
-  }
-
-  _updatePelagicAlbatross(oceanSim, elapsedSec, fadeDt) {
-    if (!this.pelagicAlbatrossGroup || !this.pelagicAlbatrosses?.length) return;
+  _getPelagicAlbatrossContext(oceanSim) {
     const s = oceanSim.song;
-    const isRapaRoute = s?.toIsland === 'rapa_nui' || s?.fromIsland === 'rapa_nui';
-    const isAct3Route =
-      s?.act === 3 ||
-      oceanSim.activeIslands?.[s?.toIsland]?.basinId === 'act3_mist_isles' ||
-      oceanSim.activeIslands?.[s?.fromIsland]?.basinId === 'act3_mist_isles';
-    const isEligible = Boolean(s && (isAct3Route || isRapaRoute));
-
+    const pos = oceanSim.pos;
     const r1 = Math.max(0.5, oceanSim.ringRadii?.ring1 ?? 1.85);
-    const nearestDet = oceanSim.detections?.[0];
+    let nearestDist = oceanSim.detections?.[0]?.distanceUnits ?? Infinity;
+
+    if (pos && oceanSim.activeIslands) {
+      for (const isl of Object.values(oceanSim.activeIslands)) {
+        if (!isl?.simPos) continue;
+        const d = Math.hypot(isl.simPos.x - pos.x, isl.simPos.y - pos.y);
+        if (d < nearestDist) {
+          nearestDist = d;
+        }
+      }
+    }
+
     // Strictly outside Ring 1 of every island
-    const deepWaterEnv = nearestDet
-      ? smoothstep(r1 * 1.0, r1 * 1.24, nearestDet.distanceUnits)
+    const deepWaterEnv = Number.isFinite(nearestDist)
+      ? smoothstep(r1 * 1.0, r1 * 1.24, nearestDist)
       : 1.0;
 
-    const targetAlpha = isEligible ? deepWaterEnv : 0.0;
-    this.albatrossAlpha = easeToward(this.albatrossAlpha, targetAlpha, fadeDt, 1.35);
+    if (!s) {
+      return {
+        isEligible: false,
+        isRapaRoute: false,
+        targetWorldAz: oceanSim.headingDeg ?? 0.0,
+        deepWaterEnv,
+      };
+    }
 
-    if (this.albatrossAlpha <= 0.004) {
+    const bearingTo = (isl) => {
+      if (!pos || !isl?.simPos) return null;
+      const dx = isl.simPos.x - pos.x;
+      const dy = isl.simPos.y - pos.y;
+      if (dx * dx + dy * dy < 1e-6) return null;
+      return posMod((Math.atan2(dx, dy) * 180.0) / Math.PI, 360.0);
+    };
+
+    const isDirectRapaRoute = s.toIsland === 'rapa_nui' || s.fromIsland === 'rapa_nui';
+    const isAct3Route =
+      s.act === 3 ||
+      oceanSim.activeIslands?.[s.toIsland]?.basinId === 'act3_mist_isles' ||
+      oceanSim.activeIslands?.[s.fromIsland]?.basinId === 'act3_mist_isles';
+
+    let isSailingTowardRapaFromMangareva = false;
+    const rapaIsl = oceanSim.activeIslands?.rapa_nui;
+    const rapaAz = bearingTo(rapaIsl);
+    if (s.fromIsland === 'mangareva' && rapaAz !== null) {
+      const sailAz = oceanSim.courseOverGroundDeg ?? oceanSim.headingDeg ?? 0.0;
+      isSailingTowardRapaFromMangareva =
+        Math.abs(wrapDeg180(rapaAz - sailAz)) <= 50.0;
+    }
+
+    const isRapaRoute = isDirectRapaRoute || isSailingTowardRapaFromMangareva;
+    const isEligible = isAct3Route || isRapaRoute;
+
+    const targetIsl = isSailingTowardRapaFromMangareva
+      ? rapaIsl
+      : oceanSim.activeIslands?.[s.toIsland];
+    const targetWorldAz =
+      bearingTo(targetIsl) ?? oceanSim.courseOverGroundDeg ?? oceanSim.headingDeg ?? 0.0;
+
+    return {
+      isEligible,
+      isRapaRoute,
+      targetWorldAz,
+      deepWaterEnv,
+    };
+  }
+
+  _evalPelagicAlbatrossLocalPos(spec, u, flightRelRad) {
+    const turnStartU = 0.42;
+    const turnEndU = 0.78;
+
+    // Stage 1 (u <= 0.42): arrive from behind stern and glide level ~3m above canoe center
+    if (u <= turnStartU) {
+      return {
+        x: spec.baseX,
+        y: spec.baseY,
+        z: spec.startZ - spec.baseSpeed * u,
+      };
+    }
+
+    // Stage 2 (u > 0.42): bank smoothly forward of the foredeck onto target bearing & exit to horizon
+    let x = spec.baseX;
+    let z = spec.startZ - spec.baseSpeed * turnStartU;
+    const steps = 20;
+    const h = (u - turnStartU) / steps;
+    for (let i = 0; i < steps; i += 1) {
+      const s = turnStartU + (i + 0.5) * h;
+      const turnMix = smoothstep(turnStartU, turnEndU, s);
+      const psi = flightRelRad * turnMix;
+      const speed = spec.baseSpeed + 36.0 * smoothstep(turnStartU, 0.88, s);
+      x += Math.sin(psi) * speed * h;
+      z -= Math.cos(psi) * speed * h;
+    }
+
+    return { x, y: spec.baseY, z };
+  }
+
+  _updatePelagicAlbatross(oceanSim, elapsedSec, fadeDt, dtSec = fadeDt) {
+    if (!this.pelagicAlbatrossGroup || !this.pelagicAlbatrosses?.length) return;
+    const flyby = this._pelagicFlyby;
+    const stepDt = Math.max(0.0, Math.min(0.25, dtSec));
+    const { isEligible, targetWorldAz, deepWaterEnv } =
+      this._getPelagicAlbatrossContext(oceanSim);
+
+    if (!flyby.active) {
+      if (flyby.cooldownSec > 0.0) {
+        flyby.cooldownSec = Math.max(0.0, flyby.cooldownSec - stepDt);
+      }
+      if (isEligible && deepWaterEnv > 0.25 && flyby.cooldownSec <= 0.0) {
+        flyby.active = true;
+        flyby.timerSec = 0.0;
+        flyby.durationSec = 9.0; // strictly <= 10.0s visible window
+        flyby.lockedTargetAzDeg = targetWorldAz;
+      }
+    }
+
+    if (!flyby.active) {
+      this.albatrossAlpha = 0.0;
       this.pelagicAlbatrossGroup.visible = false;
       return;
     }
 
-    this.pelagicAlbatrossGroup.visible = true;
-    const isLongRoute = isRapaRoute || (s?.expectedDurationMin ?? 0) >= 7.8;
+    flyby.timerSec += stepDt;
+    if (flyby.timerSec >= flyby.durationSec || deepWaterEnv <= 0.004) {
+      flyby.active = false;
+      flyby.timerSec = 0.0;
+      flyby.cooldownSec = 65.0;
+      this.albatrossAlpha = 0.0;
+      this.pelagicAlbatrossGroup.visible = false;
+      return;
+    }
+
+    // Gently track target island bearing as the canoe sails
+    if (isEligible) {
+      const diffAz = wrapDeg180(targetWorldAz - flyby.lockedTargetAzDeg);
+      flyby.lockedTargetAzDeg = posMod(
+        flyby.lockedTargetAzDeg + diffAz * Math.min(1.0, stepDt * 1.5),
+        360.0
+      );
+    }
+
+    const flightRelRad = degToRad(
+      wrapDeg180(flyby.lockedTargetAzDeg - (oceanSim.headingDeg ?? 0.0))
+    );
+    let maxAlpha = 0.0;
+    const dtU = 0.015;
 
     for (const a of this.pelagicAlbatrosses) {
-      if (a.longRouteOnly && !isLongRoute) {
+      const localDur = Math.max(1.0, flyby.durationSec - a.startOffsetSec);
+      const localT = flyby.timerSec - a.startOffsetSec;
+      if (localT <= 0.0 || localT >= localDur) {
         a.entry.root.visible = false;
         continue;
       }
-      const ph = elapsedSec * a.omega + a.phase;
-      const dtSample = 0.04;
-      const pPrev = this._evalPelagicAlbatrossLocalPos(a, ph - dtSample);
-      const pCur = this._evalPelagicAlbatrossLocalPos(a, ph);
-      const pNext = this._evalPelagicAlbatrossLocalPos(a, ph + dtSample);
 
-      const vx = (pNext.x - pPrev.x) / (2.0 * dtSample);
-      const vy = (pNext.y - pPrev.y) / (2.0 * dtSample);
-      const vz = (pNext.z - pPrev.z) / (2.0 * dtSample);
+      const u = localT / localDur;
+      const pPrev = this._evalPelagicAlbatrossLocalPos(a, u - dtU, flightRelRad);
+      const pCur = this._evalPelagicAlbatrossLocalPos(a, u, flightRelRad);
+      const pNext = this._evalPelagicAlbatrossLocalPos(a, u + dtU, flightRelRad);
+
+      const invSpan = 1.0 / (2.0 * dtU * localDur);
+      const vx = (pNext.x - pPrev.x) * invSpan;
+      const vy = (pNext.y - pPrev.y) * invSpan;
+      const vz = (pNext.z - pPrev.z) * invSpan;
       const horizSpeed = Math.max(0.01, Math.hypot(vx, vz));
 
-      const ax = (pNext.x - 2.0 * pCur.x + pPrev.x) / (dtSample * dtSample);
-      const az = (pNext.z - 2.0 * pCur.z + pPrev.z) / (dtSample * dtSample);
+      const invSq = 1.0 / (dtU * dtU * localDur * localDur);
+      const ax = (pNext.x - 2.0 * pCur.x + pPrev.x) * invSq;
+      const az = (pNext.z - 2.0 * pCur.z + pPrev.z) * invSq;
       const turnSigned = (vx * az - vz * ax) / Math.max(1.0, horizSpeed * horizSpeed);
-      const bankRad = Math.max(-0.68, Math.min(0.68, turnSigned * 0.42 + Math.sin(ph) * 0.22));
-      const pitchRad = Math.atan2(vy, horizSpeed) * 0.85;
+      const bankRad = Math.max(
+        -0.55,
+        Math.min(0.55, -turnSigned * 2.6)
+      );
       const yawRad = Math.atan2(-vx, -vz);
 
-      // Slow occasional climb wingbeats near crest bottom-to-top pullup, otherwise serene glide
-      const beatPulse = Math.max(0.0, Math.sin(ph * 0.5) - 0.58) / 0.42;
-      const glideBlend = clamp01(1.0 - beatPulse * 0.72);
+      // Glide overhead, deliver 1-2 slow deliberate wingbeats above canoe/foredeck, then glide on exit
+      const flapWindow = smoothstep(0.14, 0.22, u) * smoothstep(0.54, 0.44, u);
+      const glideBlend = clamp01(1.0 - flapWindow);
 
-      this.animateSeabird(a.entry, elapsedSec, a.phase, 0.75, {
+      this.animateSeabird(a.entry, elapsedSec, a.phase, 0.68, {
         glideBlend,
         bankRad,
-        pitchRad,
+        pitchRad: 0.0,
       });
 
-      a.entry.root.position.set(pCur.x, pCur.y + a.entry.bobY, pCur.z);
+      const fadeIn = smoothstep(0.0, 0.14, u);
+      const horizonFadeOut = smoothstep(1.0, 0.66, u);
+      const birdAlpha = deepWaterEnv * fadeIn * horizonFadeOut;
+      if (birdAlpha > maxAlpha) maxAlpha = birdAlpha;
+
+      const distShrink = 1.0 - 0.3 * smoothstep(0.55, 1.0, u);
+      a.entry.root.scale.setScalar(a.scale * distShrink);
+      a.entry.root.position.set(pCur.x, pCur.y, pCur.z);
       a.entry.root.rotation.set(0.0, yawRad, 0.0);
 
-      const useTrans = this.albatrossAlpha < 0.995;
-      a.entry.mat.opacity = this.albatrossAlpha;
-      a.entry.mat.depthWrite = this.albatrossAlpha > 0.25;
+      const useTrans = birdAlpha < 0.995;
+      a.entry.mat.opacity = birdAlpha;
+      a.entry.mat.depthWrite = birdAlpha > 0.25;
       if (a.entry.mat.transparent !== useTrans) {
         a.entry.mat.transparent = useTrans;
         a.entry.mat.needsUpdate = true;
       }
-      a.entry.root.visible = true;
+      a.entry.root.visible = birdAlpha > 0.004;
     }
+
+    this.albatrossAlpha = maxAlpha;
+    this.pelagicAlbatrossGroup.visible = maxAlpha > 0.004;
   }
 
   _createHydrofoilFinGeometry(stations) {
@@ -2133,6 +2246,13 @@ export class WorldCuesRenderer {
     }
     this.birdFlockAlpha = 0.0;
     this.birdFlockGroup.visible = false;
+    this.albatrossAlpha = 0.0;
+    this.pelagicAlbatrossGroup.visible = false;
+    if (this._pelagicFlyby) {
+      this._pelagicFlyby.active = false;
+      this._pelagicFlyby.timerSec = 0.0;
+      this._pelagicFlyby.cooldownSec = 0.0;
+    }
     this.fishAlpha = 0.0;
     this.fishGroup.visible = false;
     this.frondAlpha = 0.0;
@@ -2633,7 +2753,7 @@ export class WorldCuesRenderer {
       this.birdFlockGroup.visible = false;
     }
 
-    this._updatePelagicAlbatross(oceanSim, elapsedSec, fadeDt);
+    this._updatePelagicAlbatross(oceanSim, elapsedSec, fadeDt, dtSec);
 
     // -----------------------------------------------------------------------
     // 4. Midday Leaping Bonito Fish School (smooth proximity & twilight fade)

@@ -1258,6 +1258,7 @@ class KavengaApp {
   _refreshShoreOverlays() {
     if (this.phase !== 'shore') return;
     this._syncShoreTopControls();
+    this.canoeModalUI?.syncIslandSession();
     if (this.walkableIslandScene.active) {
       this.walkableIslandUI.refresh();
     } else {

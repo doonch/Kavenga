@@ -301,6 +301,7 @@ export class CanoeModalUI {
   }
 
   getSelectedSongObject() {
+    this.syncIslandSession();
     const routes = this._getAvailableRoutes();
     if (!routes.length) return null;
     const match = routes.find((r) => r.song.id === this.selectedSongId);
