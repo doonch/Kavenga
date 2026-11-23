@@ -193,9 +193,35 @@ export function createClampedTooltipController({ tipEl, getBoundsEl }) {
     tipEl.style.top = `${Math.round(top)}px`;
   };
 
+  let lastTouchTs = 0;
+  const canHover = () =>
+    typeof window !== 'undefined' &&
+    window.matchMedia?.('(hover: hover) and (pointer: fine)')?.matches !== false &&
+    Date.now() - lastTouchTs > 650;
+
   const bindContainer = (containerEl, scrollEl = null) => {
     if (!containerEl) return;
+    containerEl.addEventListener(
+      'touchstart',
+      () => {
+        lastTouchTs = Date.now();
+        hide();
+      },
+      { passive: true }
+    );
+    containerEl.addEventListener(
+      'pointerdown',
+      (e) => {
+        if (e.pointerType === 'touch') {
+          lastTouchTs = Date.now();
+          hide();
+        }
+      },
+      { passive: true }
+    );
+    containerEl.addEventListener('click', hide);
     const onShow = (e) => {
+      if (!canHover()) return;
       const target = e.target?.closest?.('[data-tooltip]');
       if (target) show(target);
     };
@@ -207,7 +233,11 @@ export function createClampedTooltipController({ tipEl, getBoundsEl }) {
     };
     containerEl.addEventListener('mouseover', onShow);
     containerEl.addEventListener('mouseout', onHide);
-    containerEl.addEventListener('focusin', onShow);
+    containerEl.addEventListener('focusin', (e) => {
+      if (Date.now() - lastTouchTs <= 650) return;
+      const target = e.target?.closest?.('[data-tooltip]');
+      if (target) show(target);
+    });
     containerEl.addEventListener('focusout', onHide);
     scrollEl?.addEventListener('scroll', hide, { passive: true });
   };

@@ -18,7 +18,7 @@
     {
       "imports": {
         "three": "./vendor/three.module.min.js",
-        "./src/pwa.js": "./src/pwa.js?v=20261123m",
+        "./src/pwa.js": "./src/pwa.js?v=20261123p",
         "./src/core/gameConstants.js": "./src/core/gameConstants.js?v=20261120m",
         "./src/core/gameState.js": "./src/core/gameState.js?v=20261120m",
         "./src/data/constellationSilhouettesData.js": "./src/data/constellationSilhouettesData.js?v=20261120m",
@@ -61,12 +61,18 @@
       height: 100dvh;
       overflow: hidden;
       overscroll-behavior: none;
+      touch-action: manipulation;
       background: #060e1b;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       color: #f6efe2;
       -webkit-user-select: none;
       user-select: none;
       -webkit-touch-callout: none;
+    }
+
+    button,
+    .intro-overlay {
+      touch-action: manipulation;
     }
 
     #intro-webgl {

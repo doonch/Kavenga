@@ -181,7 +181,10 @@ export class SkyVigilUI {
             <div class="vigil-star-roster" id="vigilAtlasStarRoster"></div>
 
             <div class="vigil-action-bar">
-              <span class="vigil-drag-tip">Drag the sky or press W/A/S/D or I/J/K/L to look freely</span>
+              <span class="vigil-drag-tip">
+                <span class="vigil-hint-desktop">Drag the sky or press W/A/S/D or I/J/K/L to look freely</span>
+                <span class="vigil-hint-touch">Drag the sky to look freely</span>
+              </span>
               <div class="vigil-action-btns">
                 <button class="secondary-btn small-btn hidden" id="btnVigilReplayGuided" type="button">
                   ✨ Replay Local Teaching
@@ -475,6 +478,16 @@ export class SkyVigilUI {
           this.rootEl.querySelector('#vigilPortraitModal').classList.add('hidden');
         }
       });
+
+    window.addEventListener(
+      'pointerdown',
+      (e) => {
+        if (e.pointerType === 'touch') {
+          this.rootEl.classList.add('touch-detected');
+        }
+      },
+      { passive: true }
+    );
   }
 
   _buildAtlasChips() {

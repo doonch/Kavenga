@@ -75,6 +75,15 @@ export function initPWA({ warmAudioUrls = [] } = {}) {
       e.preventDefault();
     }
   });
+  document.addEventListener(
+    'dblclick',
+    (e) => {
+      if (!isEditable(e.target)) {
+        e.preventDefault();
+      }
+    },
+    { passive: false }
+  );
 
   // Request persistent storage on first user gesture so iPadOS / browsers retain saves & caches
   const requestPersistenceOnce = () => {

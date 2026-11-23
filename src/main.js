@@ -1162,9 +1162,7 @@ class KavengaApp {
       this.btnShoreWalkToggle.removeAttribute('title');
       this.btnShoreWalkToggle.setAttribute(
         'data-tooltip',
-        isWalking
-          ? 'Island View'
-          : 'Walk Shore in 3rd-person (Arrow Keys / WASD)'
+        isWalking ? 'Island View' : 'Explore Island on Foot'
       );
       this.btnShoreWalkToggle.setAttribute(
         'aria-label',
