@@ -525,10 +525,11 @@ class KavengaApp {
 
     window.addEventListener('resize', () => this._onResize());
 
-    // [DEBUG CHEAT] Shift+G: target homing (~2.4s arrival); Shift+F: toggle 10x super-fast-forward
+    // [DEBUG CHEAT] Shift+G: target homing (~2.4s arrival); Shift+F: toggle 10x super-fast-forward; Shift+8: Ka'upu flyby
     window.addEventListener('keydown', (e) => {
       if (e.repeat || !e.shiftKey) return;
-      if (e.code !== 'KeyG' && e.code !== 'KeyF') return;
+      const isEight = e.code === 'Digit8' || e.code === 'Numpad8' || e.key === '*';
+      if (e.code !== 'KeyG' && e.code !== 'KeyF' && !isEight) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const tag = document.activeElement?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
@@ -551,6 +552,8 @@ class KavengaApp {
             ? 'Super Fast Wind (10×) active'
             : 'Super Fast Wind off'
         );
+      } else if (isEight) {
+        this.worldCues.triggerPelagicAlbatrossFlyby(this.oceanSim);
       }
     });
 

@@ -72,6 +72,7 @@ export class WorldCuesRenderer {
       cooldownSec: 0.0,
       lockedTargetAzDeg: 0.0,
       isLongRoute: true,
+      forcedDebug: false,
     };
     this._lastBirdWorldAz = 0.0;
     this._activeBirdIsBooby = false;
@@ -1500,7 +1501,7 @@ export class WorldCuesRenderer {
 
   _buildPelagicAlbatross() {
     // Solitary open-ocean Ka'upu (Black-footed Albatross) making brief (9s)
-    // overhead flybys from astern over canoe center, flapping slowly, then turning toward shore.
+    // overhead flybys from astern of the 3rd-person camera over canoe center, flapping slowly, then banking toward shore.
     this.pelagicAlbatrossGroup = new THREE.Group();
     this.group.add(this.pelagicAlbatrossGroup);
     this.pelagicAlbatrosses = [];
@@ -1510,10 +1511,10 @@ export class WorldCuesRenderer {
         side: 1,
         scale: 0.88,
         startOffsetSec: 0.0,
-        baseX: -0.25,
-        startZ: 9.8,
-        baseSpeed: 36.5,
-        baseY: 3.85,
+        baseX: -0.35,
+        startZ: 38.0,
+        baseSpeed: 76.0,
+        baseY: 7.8,
         phase: 0.35,
       },
     ];
@@ -1598,10 +1599,10 @@ export class WorldCuesRenderer {
   }
 
   _evalPelagicAlbatrossLocalPos(spec, u, flightRelRad) {
-    const turnStartU = 0.42;
-    const turnEndU = 0.78;
+    const turnStartU = 0.6;
+    const turnEndU = 0.86;
 
-    // Stage 1 (u <= 0.42): arrive from behind stern and glide level ~3m above canoe center
+    // Stage 1 (u <= 0.60): enter well behind 3rd-person camera (+20.6m), glide high over stern & canoe center
     if (u <= turnStartU) {
       return {
         x: spec.baseX,
@@ -1610,7 +1611,7 @@ export class WorldCuesRenderer {
       };
     }
 
-    // Stage 2 (u > 0.42): bank smoothly forward of the foredeck onto target bearing & exit to horizon
+    // Stage 2 (u > 0.60): bank smoothly ahead of the prows onto target bearing & exit to horizon
     let x = spec.baseX;
     let z = spec.startZ - spec.baseSpeed * turnStartU;
     const steps = 20;
@@ -1619,12 +1620,27 @@ export class WorldCuesRenderer {
       const s = turnStartU + (i + 0.5) * h;
       const turnMix = smoothstep(turnStartU, turnEndU, s);
       const psi = flightRelRad * turnMix;
-      const speed = spec.baseSpeed + 36.0 * smoothstep(turnStartU, 0.88, s);
+      const speed = spec.baseSpeed + 42.0 * smoothstep(turnStartU, 0.92, s);
       x += Math.sin(psi) * speed * h;
       z -= Math.cos(psi) * speed * h;
     }
 
     return { x, y: spec.baseY, z };
+  }
+
+  triggerPelagicAlbatrossFlyby(oceanSim = null) {
+    const flyby = this._pelagicFlyby;
+    if (!flyby) return false;
+    const targetWorldAz = oceanSim
+      ? this._getPelagicAlbatrossContext(oceanSim).targetWorldAz
+      : (flyby.lockedTargetAzDeg ?? 0.0);
+    flyby.active = true;
+    flyby.timerSec = 0.0;
+    flyby.durationSec = 9.0;
+    flyby.cooldownSec = 0.0;
+    flyby.forcedDebug = true;
+    flyby.lockedTargetAzDeg = targetWorldAz;
+    return true;
   }
 
   _updatePelagicAlbatross(oceanSim, elapsedSec, fadeDt, dtSec = fadeDt) {
@@ -1642,6 +1658,7 @@ export class WorldCuesRenderer {
         flyby.active = true;
         flyby.timerSec = 0.0;
         flyby.durationSec = 9.0; // strictly <= 10.0s visible window
+        flyby.forcedDebug = false;
         flyby.lockedTargetAzDeg = targetWorldAz;
       }
     }
@@ -1652,18 +1669,20 @@ export class WorldCuesRenderer {
       return;
     }
 
+    const effectiveDepthEnv = flyby.forcedDebug ? 1.0 : deepWaterEnv;
     flyby.timerSec += stepDt;
-    if (flyby.timerSec >= flyby.durationSec || deepWaterEnv <= 0.004) {
+    if (flyby.timerSec >= flyby.durationSec || effectiveDepthEnv <= 0.004) {
       flyby.active = false;
       flyby.timerSec = 0.0;
       flyby.cooldownSec = 65.0;
+      flyby.forcedDebug = false;
       this.albatrossAlpha = 0.0;
       this.pelagicAlbatrossGroup.visible = false;
       return;
     }
 
     // Gently track target island bearing as the canoe sails
-    if (isEligible) {
+    if (isEligible || flyby.forcedDebug) {
       const diffAz = wrapDeg180(targetWorldAz - flyby.lockedTargetAzDeg);
       flyby.lockedTargetAzDeg = posMod(
         flyby.lockedTargetAzDeg + diffAz * Math.min(1.0, stepDt * 1.5),
@@ -1702,26 +1721,26 @@ export class WorldCuesRenderer {
       const turnSigned = (vx * az - vz * ax) / Math.max(1.0, horizSpeed * horizSpeed);
       const bankRad = Math.max(
         -0.55,
-        Math.min(0.55, -turnSigned * 2.6)
+        Math.min(0.55, -turnSigned * 2.4)
       );
       const yawRad = Math.atan2(-vx, -vz);
 
-      // Glide overhead, deliver 1-2 slow deliberate wingbeats above canoe/foredeck, then glide on exit
-      const flapWindow = smoothstep(0.14, 0.22, u) * smoothstep(0.54, 0.44, u);
+      // Glide from well behind chase camera past canoe center, deliver 1-2 slow overhead flaps, then bank onto target
+      const flapWindow = smoothstep(0.44, 0.5, u) * smoothstep(0.68, 0.61, u);
       const glideBlend = clamp01(1.0 - flapWindow);
 
-      this.animateSeabird(a.entry, elapsedSec, a.phase, 0.68, {
+      this.animateSeabird(a.entry, elapsedSec, a.phase, 0.72, {
         glideBlend,
         bankRad,
         pitchRad: 0.0,
       });
 
       const fadeIn = smoothstep(0.0, 0.14, u);
-      const horizonFadeOut = smoothstep(1.0, 0.66, u);
-      const birdAlpha = deepWaterEnv * fadeIn * horizonFadeOut;
+      const horizonFadeOut = smoothstep(1.0, 0.74, u);
+      const birdAlpha = effectiveDepthEnv * fadeIn * horizonFadeOut;
       if (birdAlpha > maxAlpha) maxAlpha = birdAlpha;
 
-      const distShrink = 1.0 - 0.3 * smoothstep(0.55, 1.0, u);
+      const distShrink = 1.0 - 0.3 * smoothstep(0.68, 1.0, u);
       a.entry.root.scale.setScalar(a.scale * distShrink);
       a.entry.root.position.set(pCur.x, pCur.y, pCur.z);
       a.entry.root.rotation.set(0.0, yawRad, 0.0);
@@ -2252,6 +2271,7 @@ export class WorldCuesRenderer {
       this._pelagicFlyby.active = false;
       this._pelagicFlyby.timerSec = 0.0;
       this._pelagicFlyby.cooldownSec = 0.0;
+      this._pelagicFlyby.forcedDebug = false;
     }
     this.fishAlpha = 0.0;
     this.fishGroup.visible = false;
