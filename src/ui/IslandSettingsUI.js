@@ -57,6 +57,7 @@ export class IslandSettingsUI {
     this.callbacks = callbacks;
     this.open = false;
     this.confirmResetOpen = false;
+    this.creditsOpen = false;
 
     this._buildDOM();
   }
@@ -105,7 +106,51 @@ export class IslandSettingsUI {
             <button class="danger-outline-btn" id="btnSettingsStartOver" type="button">
               ↺ Start Over...
             </button>
-            <button class="primary-btn" id="btnDoneIslandSettings" type="button">Done</button>
+            <div class="settings-footer-right">
+              <button class="secondary-btn" id="btnSettingsCredits" type="button">Credits</button>
+              <button class="primary-btn" id="btnDoneIslandSettings" type="button">Done</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Secondary Credits Modal -->
+        <div class="modal-backdrop settings-confirm-backdrop hidden" id="settingsCreditsModal" role="dialog" aria-modal="true" aria-labelledby="settingsCreditsTitle">
+          <div class="dialog-card settings-credits-card">
+            <div class="recall-eyebrow">Wayfinding Voyages</div>
+            <h3 id="settingsCreditsTitle">Thank you for playing Kavenga</h3>
+            <div class="settings-credits-section">
+              <div class="settings-section-label">Developers</div>
+              <div class="settings-credits-grid">
+                <div class="crew-card settings-credits-dev-card">
+                  <div class="crew-card-art settings-credits-art">
+                    <img src="./assets/crew/dan.png" alt="Dan Elharrar" />
+                  </div>
+                  <div class="crew-card-name">Dan Elharrar</div>
+                </div>
+                <div class="crew-card settings-credits-dev-card">
+                  <div class="crew-card-art settings-credits-art">
+                    <img src="./assets/crew/adam.png" alt="Adam Lukasiewicz Elharrar" />
+                  </div>
+                  <div class="crew-card-name">Adam Lukasiewicz Elharrar</div>
+                </div>
+              </div>
+            </div>
+            <div class="settings-credits-link-row">
+              <p class="settings-credits-prompt">
+                Have an idea, found an issue? Visit our GitHub repository:
+              </p>
+              <a
+                class="settings-credits-link"
+                href="https://github.com/doonch/Kavenga"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                github.com/doonch/Kavenga
+              </a>
+            </div>
+            <div class="dialog-actions">
+              <button class="primary-btn" id="btnDoneCredits" type="button">Done</button>
+            </div>
           </div>
         </div>
 
@@ -143,7 +188,7 @@ export class IslandSettingsUI {
       this.hide();
     });
     backdrop.addEventListener('click', (e) => {
-      if (e.target === backdrop && !this.confirmResetOpen) {
+      if (e.target === backdrop && !this.confirmResetOpen && !this.creditsOpen) {
         this.hide();
       }
     });
@@ -205,12 +250,34 @@ export class IslandSettingsUI {
         this.callbacks.onConfirmStartOver?.({ deleteAchievements });
       });
 
+    // Credits secondary modal handlers
+    const creditsModal = this.rootEl.querySelector('#settingsCreditsModal');
+    this.rootEl
+      .querySelector('#btnSettingsCredits')
+      ?.addEventListener('click', (e) => {
+        e.currentTarget.blur();
+        this._setCreditsOpen(true);
+      });
+    this.rootEl
+      .querySelector('#btnDoneCredits')
+      ?.addEventListener('click', (e) => {
+        e.currentTarget.blur();
+        this._setCreditsOpen(false);
+      });
+    creditsModal?.addEventListener('click', (e) => {
+      if (e.target === creditsModal) {
+        this._setCreditsOpen(false);
+      }
+    });
+
     window.addEventListener(
       'keydown',
       (e) => {
         if (!this.open || e.code !== 'Escape') return;
         e.stopImmediatePropagation();
-        if (this.confirmResetOpen) {
+        if (this.creditsOpen) {
+          this._setCreditsOpen(false);
+        } else if (this.confirmResetOpen) {
           this._setConfirmResetOpen(false);
         } else {
           this.hide();
@@ -218,6 +285,13 @@ export class IslandSettingsUI {
       },
       true
     );
+  }
+
+  _setCreditsOpen(isOpen) {
+    this.creditsOpen = Boolean(isOpen);
+    this.rootEl
+      .querySelector('#settingsCreditsModal')
+      ?.classList.toggle('hidden', !this.creditsOpen);
   }
 
   _setConfirmResetOpen(isOpen) {
@@ -237,6 +311,7 @@ export class IslandSettingsUI {
 
   show() {
     this.open = true;
+    this._setCreditsOpen(false);
     this._setConfirmResetOpen(false);
     this.rootEl.classList.remove('hidden');
     this.refresh();
@@ -244,6 +319,7 @@ export class IslandSettingsUI {
 
   hide() {
     this.open = false;
+    this._setCreditsOpen(false);
     this._setConfirmResetOpen(false);
     this.rootEl.classList.add('hidden');
     this.callbacks.onClose?.();
