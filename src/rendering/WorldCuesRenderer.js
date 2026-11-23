@@ -64,6 +64,7 @@ export class WorldCuesRenderer {
 
     this.tradeFogOpacity = 1.0;
     this.birdFlockAlpha = 0.0;
+    this.albatrossAlpha = 0.0;
     this._lastBirdWorldAz = 0.0;
     this._activeBirdIsBooby = false;
     this._birdTargetColor = new THREE.Color(0xf7fbff);
@@ -79,6 +80,7 @@ export class WorldCuesRenderer {
     this._buildMarchingTradeClouds();
     this._buildIslandBeaconPools();
     this._buildHomingBirdFlocks();
+    this._buildPelagicAlbatross();
     this._buildMiddayFishSchool();
     this._buildDriftingFronds();
   }
@@ -427,6 +429,7 @@ export class WorldCuesRenderer {
     const isBooby = species === 'brown_booby';
     const isKura = species === 'red_kura';
     const isSooty = species === 'sooty_tern';
+    const isAlbatross = species === 'albatross';
     const uSteps = 36;
     const rSteps = 22;
     const positions = [];
@@ -476,6 +479,46 @@ export class WorldCuesRenderer {
           halfH = 0.032 * (1.0 - 0.5 * t);
           halfW = 0.032 * (1.0 - 0.38 * t);
           centerY = 0.014 + 0.002 * t;
+        }
+        return { z, halfH, halfW, centerY };
+      }
+
+      if (isAlbatross) {
+        // KA'UPU (Black-footed Albatross / Phoebastria nigripes):
+        // heavy hooked tube-nose bill, broad oceanic brow, deep pelagic chest & tapered rump
+        const z = -0.665 + 1.105 * u;
+        let halfH;
+        let halfW;
+        let centerY;
+        if (u <= 0.195) {
+          const t = u / 0.195;
+          const hookDip = Math.pow(1.0 - t, 2.2);
+          const tubeBump = Math.sin(clamp01((t - 0.35) / 0.55) * Math.PI);
+          halfH = 0.004 + 0.036 * Math.pow(t, 0.78) + 0.004 * tubeBump;
+          halfW = 0.0035 + 0.03 * Math.pow(t, 0.84);
+          centerY = 0.02 - 0.018 * hookDip + 0.007 * t;
+        } else if (u <= 0.34) {
+          const t = (u - 0.195) / 0.145;
+          const crown = Math.sin(t * Math.PI);
+          halfH = 0.04 + 0.018 * crown + 0.01 * t;
+          halfW = 0.0335 + 0.018 * crown + 0.012 * t;
+          centerY = 0.027 + 0.007 * crown - 0.005 * t;
+        } else if (u <= 0.49) {
+          const t = (u - 0.34) / 0.15;
+          halfH = 0.05 + 0.038 * Math.pow(t, 1.25);
+          halfW = 0.0455 + 0.0385 * Math.pow(t, 1.25);
+          centerY = 0.022 - 0.016 * t;
+        } else if (u <= 0.84) {
+          const t = (u - 0.49) / 0.35;
+          const arch = Math.sin(t * Math.PI);
+          halfH = 0.088 + 0.018 * arch - 0.048 * t * t;
+          halfW = 0.084 + 0.016 * arch - 0.044 * t * t;
+          centerY = 0.006 - 0.009 * arch + 0.007 * t;
+        } else {
+          const t = (u - 0.84) / 0.16;
+          halfH = 0.04 * (1.0 - 0.54 * t);
+          halfW = 0.04 * (1.0 - 0.44 * t);
+          centerY = 0.013 + 0.002 * t;
         }
         return { z, halfH, halfW, centerY };
       }
@@ -599,6 +642,38 @@ export class WorldCuesRenderer {
         return [rCol, gCol, bCol];
       }
 
+      if (isAlbatross) {
+        // Ka'upu (Black-footed Albatross): slate-black hooked bill, crisp white feather ring at bill base,
+        // pale post-ocular crescent, dark chocolate-umber mantle fading to smoky dove-slate breast & belly,
+        // and clean white upper/undertail rump band
+        if (u <= 0.195) {
+          const ridgeHighlight = ny > 0.45 ? 0.04 : 0.0;
+          return [0.09 + ridgeHighlight, 0.085 + ridgeHighlight, 0.105 + ridgeHighlight];
+        }
+        if (u <= 0.232) {
+          return [0.92, 0.92, 0.93];
+        }
+        const dzEyePatch = (z - -0.405) / 0.032;
+        const dyEyePatch = (ny + 0.02) / 0.24;
+        if (Math.abs(nx) > 0.6 && dzEyePatch * dzEyePatch + dyEyePatch * dyEyePatch < 1.0) {
+          return [0.85, 0.84, 0.82];
+        }
+        if (u >= 0.865) {
+          const rumpBlend = smoothstep(0.865, 0.92, u);
+          return [
+            lerp(0.24, 0.88, rumpBlend),
+            lerp(0.19, 0.885, rumpBlend),
+            lerp(0.16, 0.9, rumpBlend),
+          ];
+        }
+        const dorsalFactor = 0.5 + 0.5 * ny;
+        return [
+          lerp(0.35, 0.18, dorsalFactor),
+          lerp(0.3, 0.14, dorsalFactor),
+          lerp(0.275, 0.115, dorsalFactor),
+        ];
+      }
+
       if (!isBooby) {
         if (isSooty) {
           // Sooty Tern (Manutara): glossy slate-black cap/nape/mantle/upper-tail, snow-white forehead & belly!
@@ -703,16 +778,20 @@ export class WorldCuesRenderer {
     // Closed manifold beak tip (-Z) & rump tip (+Z)
     const frontTip = isBooby
       ? pushVC(0.0, 0.013, -0.572, 0.92, 0.83, 0.46)
-      : isKura
-        ? pushVC(0.0, 0.021, -0.322, 0.52, 0.25, 0.08)
-        : pushVC(0.0, 0.03, -0.372, 0.05, 0.06, 0.1);
+      : isAlbatross
+        ? pushVC(0.0, 0.002, -0.672, 0.08, 0.08, 0.095)
+        : isKura
+          ? pushVC(0.0, 0.021, -0.322, 0.52, 0.25, 0.08)
+          : pushVC(0.0, 0.03, -0.372, 0.05, 0.06, 0.1);
     const backTip = isBooby
       ? pushVC(0.0, 0.012, 0.402, 0.25, 0.16, 0.1)
-      : isKura
-        ? pushVC(0.0, 0.016, 0.302, 0.78, 0.12, 0.11)
-        : isSooty
-          ? pushVC(0.0, 0.013, 0.292, 0.11, 0.115, 0.14)
-          : pushVC(0.0, 0.013, 0.292, 0.95, 0.97, 0.99);
+      : isAlbatross
+        ? pushVC(0.0, 0.015, 0.448, 0.88, 0.89, 0.91)
+        : isKura
+          ? pushVC(0.0, 0.016, 0.302, 0.78, 0.12, 0.11)
+          : isSooty
+            ? pushVC(0.0, 0.013, 0.292, 0.11, 0.115, 0.14)
+            : pushVC(0.0, 0.013, 0.292, 0.95, 0.97, 0.99);
 
     const last = rings.length - 1;
     for (let j = 0; j < rSteps; j += 1) {
@@ -1055,13 +1134,82 @@ export class WorldCuesRenderer {
         eyePos: { x: 0.035, y: 0.041, z: -0.222 },
         footPos: { x: 0.024, y: -0.026, z: 0.025 },
       },
+      albatross: (() => {
+        // Ka'upu (Black-footed Albatross): long high-aspect dynamic-soaring glider wings
+        // (3.38m span at 1x) + dark umber upperwings, smoky underwing sheen & short wedged tail
+        const albatrossWingColor = ({ isUpper, spanFrac, chordFrac }) => {
+          const tipDark = 1.0 - 0.34 * spanFrac;
+          if (isUpper) {
+            return [0.21 * tipDark, 0.16 * tipDark, 0.13 * tipDark];
+          }
+          if (spanFrac < 0.56 && chordFrac > 0.14 && chordFrac < 0.62) {
+            const pale = smoothstep(0.56, 0.25, spanFrac) * smoothstep(0.14, 0.32, chordFrac);
+            return [
+              lerp(0.24 * tipDark, 0.48, pale),
+              lerp(0.2 * tipDark, 0.45, pale),
+              lerp(0.18 * tipDark, 0.43, pale),
+            ];
+          }
+          return [0.18 * tipDark, 0.145 * tipDark, 0.125 * tipDark];
+        };
+        const albatrossInnerRightSt = [
+          { x: 0.0, zLead: -0.115, zTrail: 0.135, yBase: 0.0, camber: 0.02, thick: 0.022, spanFrac: 0.0 },
+          { x: 0.22, zLead: -0.125, zTrail: 0.105, yBase: 0.008, camber: 0.018, thick: 0.017, spanFrac: 0.14 },
+          { x: 0.43, zLead: -0.132, zTrail: 0.078, yBase: 0.014, camber: 0.015, thick: 0.013, spanFrac: 0.27 },
+          { x: 0.64, zLead: -0.134, zTrail: 0.052, yBase: 0.016, camber: 0.012, thick: 0.01, spanFrac: 0.4 },
+        ];
+        const albatrossOuterRightSt = [
+          { x: 0.0, zLead: -0.134, zTrail: 0.052, yBase: 0.016, camber: 0.012, thick: 0.01, spanFrac: 0.4 },
+          { x: 0.3, zLead: -0.09, zTrail: 0.068, yBase: 0.011, camber: 0.009, thick: 0.007, spanFrac: 0.6 },
+          { x: 0.6, zLead: -0.018, zTrail: 0.098, yBase: 0.004, camber: 0.006, thick: 0.0045, spanFrac: 0.8 },
+          { x: 0.84, zLead: 0.068, zTrail: 0.136, yBase: -0.003, camber: 0.003, thick: 0.0024, spanFrac: 0.94 },
+          { x: 0.98, zLead: 0.145, zTrail: 0.172, yBase: -0.008, camber: 0.0015, thick: 0.0012, spanFrac: 1.0 },
+        ];
+        const albatrossTailGeo = this._createSheetFoilGeometry(
+          [
+            { x: -0.11, zLead: 0.435, zTrail: 0.565, yBase: 0.012, camber: 0.003, thick: 0.0018, spanFrac: 1.0 },
+            { x: -0.06, zLead: 0.41, zTrail: 0.605, yBase: 0.014, camber: 0.004, thick: 0.0032, spanFrac: 0.55 },
+            { x: 0.0, zLead: 0.405, zTrail: 0.625, yBase: 0.015, camber: 0.005, thick: 0.0042, spanFrac: 0.0 },
+            { x: 0.06, zLead: 0.41, zTrail: 0.605, yBase: 0.014, camber: 0.004, thick: 0.0032, spanFrac: 0.55 },
+            { x: 0.11, zLead: 0.435, zTrail: 0.565, yBase: 0.012, camber: 0.003, thick: 0.0018, spanFrac: 1.0 },
+          ],
+          ({ isUpper, chordFrac }) => {
+            if (chordFrac < 0.25) return [0.85, 0.86, 0.88];
+            return isUpper ? [0.16, 0.12, 0.1] : [0.22, 0.18, 0.16];
+          }
+        );
+        return {
+          bodyGeo: this._createBirdBodyGeometry('albatross'),
+          tailGeo: albatrossTailGeo,
+          innerRightGeo: this._createSheetFoilGeometry(albatrossInnerRightSt, albatrossWingColor),
+          innerLeftGeo: this._createSheetFoilGeometry(
+            mirrorWingStations(albatrossInnerRightSt),
+            albatrossWingColor
+          ),
+          outerRightGeo: this._createSheetFoilGeometry(albatrossOuterRightSt, albatrossWingColor),
+          outerLeftGeo: this._createSheetFoilGeometry(
+            mirrorWingStations(albatrossOuterRightSt),
+            albatrossWingColor
+          ),
+          eyeGeo: makeUniformColorSphere(0.0115, 0.05, 0.04, 0.04),
+          legGeo: makeUniformColorShaft(0.01, 0.0078, 0.135, 0.16, 0.15, 0.17, 0, 0, -0.0675, 0),
+          footGeo: makeWebbedFootGeo(0.088, 0.16, 0.15, 0.17),
+          legLen: 0.135,
+          shoulderX: 0.068,
+          shoulderY: 0.03,
+          shoulderZ: -0.018,
+          wristX: 0.64,
+          eyePos: { x: 0.044, y: 0.036, z: -0.42 },
+          footPos: { x: 0.036, y: -0.034, z: 0.035 },
+        };
+      })(),
     };
   }
 
   /**
    * Instantiates an articulated, vertex-colored 3D White Tern ('white_tern'),
-   * Sooty Tern ('sooty_tern'), Brown Booby ('brown_booby'), or Red Kura Bird ('red_kura')
-   * with 2-joint wings, species-accurate bill, eyes, articulated legs/feet, and tail.
+   * Sooty Tern ('sooty_tern'), Brown Booby ('brown_booby'), Red Kura Bird ('red_kura'),
+   * or Black-footed Albatross ('albatross' / Ka'upu).
    */
   createSeabird(species = 'white_tern', { opaque = false } = {}) {
     this._ensureSeabirdAssets();
@@ -1072,18 +1220,29 @@ export class WorldCuesRenderer {
           ? 'red_kura'
           : species === 'sooty_tern'
             ? 'sooty_tern'
-            : 'white_tern';
+            : species === 'albatross'
+              ? 'albatross'
+              : 'white_tern';
     const spec = this._seabirdGeos[key];
     const isBooby = key === 'brown_booby';
     const isKura = key === 'red_kura';
     const isSooty = key === 'sooty_tern';
+    const isAlbatross = key === 'albatross';
 
     const mat = new THREE.MeshStandardMaterial({
       vertexColors: true,
-      roughness: isBooby ? 0.62 : isKura ? 0.48 : 0.52,
+      roughness: isBooby ? 0.62 : isKura ? 0.48 : isAlbatross ? 0.58 : 0.52,
       metalness: 0.04,
-      emissive: isBooby ? 0x3b281a : isKura ? 0x6b1412 : isSooty ? 0x262e38 : 0xdce6f2,
-      emissiveIntensity: isBooby ? 0.16 : isKura ? 0.24 : isSooty ? 0.16 : 0.22,
+      emissive: isBooby
+        ? 0x3b281a
+        : isKura
+          ? 0x6b1412
+          : isSooty
+            ? 0x262e38
+            : isAlbatross
+              ? 0x3a2f28
+              : 0xdce6f2,
+      emissiveIntensity: isBooby || isSooty || isAlbatross ? 0.16 : isKura ? 0.24 : 0.22,
       transparent: !opaque,
       opacity: 1.0,
     });
@@ -1171,7 +1330,8 @@ export class WorldCuesRenderer {
     if (!entry) return;
     const isBooby = entry.species === 'brown_booby';
     const isKura = entry.species === 'red_kura';
-    const baseFreq = isBooby ? 8.2 : isKura ? 8.8 : 7.2;
+    const isAlbatross = entry.species === 'albatross';
+    const baseFreq = isAlbatross ? 4.1 : isBooby ? 8.2 : isKura ? 8.8 : 7.2;
     const flapSpeed = poseOpts?.flapSpeed ?? 1.0;
     const flapAmp = poseOpts?.flapAmp ?? 1.0;
 
@@ -1191,7 +1351,23 @@ export class WorldCuesRenderer {
     let innerFly;
     let outerFly;
     let bobFly;
-    if (isBooby) {
+    if (isAlbatross) {
+      // Dynamic soaring: long serene gull-arch glides punctuated by slow sweeping wingbeats every ~9s
+      const cycle = ((elapsedSec * 0.42 * speedScale + phaseOffset * 0.3) % 4.0 + 4.0) % 4.0;
+      const beatEnv = smoothstep(0.0, 0.25, cycle) * smoothstep(1.35, 0.95, cycle);
+      const userGlide = poseOpts?.glideBlend;
+      const soarMix = userGlide !== undefined ? clamp01(userGlide) : 1.0 - beatEnv;
+      const sinT = Math.sin(theta);
+      const cosT = Math.cos(theta);
+      const flapInner = (sinT * 0.28 + 0.04) * flapAmp;
+      const flapOuter = (-0.2 * Math.max(0.0, sinT) - 0.14 * cosT - 0.05) * flapAmp;
+      const gustFlex = Math.sin(elapsedSec * 1.45 + phaseOffset) * 0.025;
+      const soarInner = 0.11 + gustFlex * 0.4;
+      const soarOuter = -0.075 - gustFlex;
+      innerFly = lerp(flapInner, soarInner, soarMix);
+      outerFly = lerp(flapOuter, soarOuter, soarMix);
+      bobFly = lerp(-sinT * 0.018 * flapAmp, gustFlex * 0.35, soarMix);
+    } else if (isBooby) {
       const sinT = Math.sin(theta);
       const cosT = Math.cos(theta);
       const wave = sinT + 0.16 * Math.sin(2.0 * theta);
@@ -1219,7 +1395,10 @@ export class WorldCuesRenderer {
       entry.leftOuterWing.rotation.set(0.0, 0.0, -outerFly);
       entry.rightOuterWing.scale.x = 1.0;
       entry.leftOuterWing.scale.x = 1.0;
-      if (entry.bodyPivot) entry.bodyPivot.rotation.set(0.0, 0.0, 0.0);
+      if (entry.bodyPivot) {
+        const autoBank = isAlbatross ? Math.sin(elapsedSec * 0.55 + phaseOffset) * 0.38 : 0.0;
+        entry.bodyPivot.rotation.set(0.0, 0.0, autoBank);
+      }
       if (entry.leftLegPivot) entry.leftLegPivot.rotation.x = -1.42;
       if (entry.rightLegPivot) entry.rightLegPivot.rotation.x = -1.42;
       entry.bobY = bobFly;
@@ -1232,6 +1411,7 @@ export class WorldCuesRenderer {
     const standBlend = clamp01(poseOpts.standBlend ?? 0.0);
     const pitchRad = poseOpts.pitchRad ?? 0.0;
     const lookYawRad = poseOpts.lookYawRad ?? 0.0;
+    const bankRad = (poseOpts.bankRad ?? 0.0) * (1.0 - fold);
 
     // 1. Blend flapping wing pose toward folded standing pose
     let innerX = lerp(0.0, 0.14, fold);
@@ -1262,7 +1442,7 @@ export class WorldCuesRenderer {
     if (entry.bodyPivot) {
       const chestUp = standBlend * 0.36;
       const crouchPitch = spread * -0.14;
-      entry.bodyPivot.rotation.set(pitchRad + chestUp + crouchPitch, lookYawRad, 0.0);
+      entry.bodyPivot.rotation.set(pitchRad + chestUp + crouchPitch, lookYawRad, bankRad);
     }
 
     const legX = lerp(-1.42, 0.0, legExtend);
@@ -1307,6 +1487,143 @@ export class WorldCuesRenderer {
         offsetHeight: 9.5 + (i % 3) * 3.4,
         progress: i / 8.0,
       });
+    }
+  }
+
+  _buildPelagicAlbatross() {
+    // 1-2 solitary open-ocean Ka'upu (Black-footed Albatross) gliding outside Ring 1
+    // across Act III and Rapa Nui crossings, sweeping beside/ahead of the bows with zero sail contact.
+    this.pelagicAlbatrossGroup = new THREE.Group();
+    this.group.add(this.pelagicAlbatrossGroup);
+    this.pelagicAlbatrosses = [];
+
+    const specs = [
+      {
+        side: 1,
+        scale: 0.96,
+        baseX: 9.2,
+        ampX: 3.6,
+        baseZ: -14.2,
+        ampZ: 8.6,
+        baseY: 2.3,
+        ampY: 2.9,
+        omega: 0.29,
+        phase: 0.4,
+        longRouteOnly: false,
+      },
+      {
+        side: -1,
+        scale: 0.86,
+        baseX: -9.6,
+        ampX: 3.8,
+        baseZ: -16.8,
+        ampZ: 9.2,
+        baseY: 2.8,
+        ampY: 3.1,
+        omega: 0.25,
+        phase: 2.65,
+        longRouteOnly: true,
+      },
+    ];
+
+    for (const s of specs) {
+      const entry = this.createSeabird('albatross', { opaque: false });
+      entry.root.scale.setScalar(s.scale);
+      entry.root.visible = false;
+      this.pelagicAlbatrossGroup.add(entry.root);
+      this.pelagicAlbatrosses.push({ entry, ...s });
+    }
+  }
+
+  _evalPelagicAlbatrossLocalPos(spec, t) {
+    const rawX =
+      spec.baseX +
+      spec.side * (spec.ampX * Math.sin(t) + 0.95 * Math.sin(t * 2.0));
+    const rawZ = spec.baseZ + spec.ampZ * Math.cos(t);
+    const waveSurge = 0.5 - 0.5 * Math.cos(t * 2.0);
+    const rawY = spec.baseY + spec.ampY * waveSurge;
+
+    // Enforce hard clearance envelope around canoe hulls, masts & crab-claw sails
+    const minClearX = 4.35;
+    let x = rawX;
+    if (rawY < 10.8 && rawZ > -10.5 && rawZ < 9.2 && Math.abs(x) < minClearX) {
+      x = spec.side * minClearX;
+    }
+    return { x, y: rawY, z: rawZ };
+  }
+
+  _updatePelagicAlbatross(oceanSim, elapsedSec, fadeDt) {
+    if (!this.pelagicAlbatrossGroup || !this.pelagicAlbatrosses?.length) return;
+    const s = oceanSim.song;
+    const isRapaRoute = s?.toIsland === 'rapa_nui' || s?.fromIsland === 'rapa_nui';
+    const isAct3Route =
+      s?.act === 3 ||
+      oceanSim.activeIslands?.[s?.toIsland]?.basinId === 'act3_mist_isles' ||
+      oceanSim.activeIslands?.[s?.fromIsland]?.basinId === 'act3_mist_isles';
+    const isEligible = Boolean(s && (isAct3Route || isRapaRoute));
+
+    const r1 = Math.max(0.5, oceanSim.ringRadii?.ring1 ?? 1.85);
+    const nearestDet = oceanSim.detections?.[0];
+    // Strictly outside Ring 1 of every island
+    const deepWaterEnv = nearestDet
+      ? smoothstep(r1 * 1.0, r1 * 1.24, nearestDet.distanceUnits)
+      : 1.0;
+
+    const targetAlpha = isEligible ? deepWaterEnv : 0.0;
+    this.albatrossAlpha = easeToward(this.albatrossAlpha, targetAlpha, fadeDt, 1.35);
+
+    if (this.albatrossAlpha <= 0.004) {
+      this.pelagicAlbatrossGroup.visible = false;
+      return;
+    }
+
+    this.pelagicAlbatrossGroup.visible = true;
+    const isLongRoute = isRapaRoute || (s?.expectedDurationMin ?? 0) >= 7.8;
+
+    for (const a of this.pelagicAlbatrosses) {
+      if (a.longRouteOnly && !isLongRoute) {
+        a.entry.root.visible = false;
+        continue;
+      }
+      const ph = elapsedSec * a.omega + a.phase;
+      const dtSample = 0.04;
+      const pPrev = this._evalPelagicAlbatrossLocalPos(a, ph - dtSample);
+      const pCur = this._evalPelagicAlbatrossLocalPos(a, ph);
+      const pNext = this._evalPelagicAlbatrossLocalPos(a, ph + dtSample);
+
+      const vx = (pNext.x - pPrev.x) / (2.0 * dtSample);
+      const vy = (pNext.y - pPrev.y) / (2.0 * dtSample);
+      const vz = (pNext.z - pPrev.z) / (2.0 * dtSample);
+      const horizSpeed = Math.max(0.01, Math.hypot(vx, vz));
+
+      const ax = (pNext.x - 2.0 * pCur.x + pPrev.x) / (dtSample * dtSample);
+      const az = (pNext.z - 2.0 * pCur.z + pPrev.z) / (dtSample * dtSample);
+      const turnSigned = (vx * az - vz * ax) / Math.max(1.0, horizSpeed * horizSpeed);
+      const bankRad = Math.max(-0.68, Math.min(0.68, turnSigned * 0.42 + Math.sin(ph) * 0.22));
+      const pitchRad = Math.atan2(vy, horizSpeed) * 0.85;
+      const yawRad = Math.atan2(-vx, -vz);
+
+      // Slow occasional climb wingbeats near crest bottom-to-top pullup, otherwise serene glide
+      const beatPulse = Math.max(0.0, Math.sin(ph * 0.5) - 0.58) / 0.42;
+      const glideBlend = clamp01(1.0 - beatPulse * 0.72);
+
+      this.animateSeabird(a.entry, elapsedSec, a.phase, 0.75, {
+        glideBlend,
+        bankRad,
+        pitchRad,
+      });
+
+      a.entry.root.position.set(pCur.x, pCur.y + a.entry.bobY, pCur.z);
+      a.entry.root.rotation.set(0.0, yawRad, 0.0);
+
+      const useTrans = this.albatrossAlpha < 0.995;
+      a.entry.mat.opacity = this.albatrossAlpha;
+      a.entry.mat.depthWrite = this.albatrossAlpha > 0.25;
+      if (a.entry.mat.transparent !== useTrans) {
+        a.entry.mat.transparent = useTrans;
+        a.entry.mat.needsUpdate = true;
+      }
+      a.entry.root.visible = true;
     }
   }
 
@@ -2315,6 +2632,8 @@ export class WorldCuesRenderer {
     } else {
       this.birdFlockGroup.visible = false;
     }
+
+    this._updatePelagicAlbatross(oceanSim, elapsedSec, fadeDt);
 
     // -----------------------------------------------------------------------
     // 4. Midday Leaping Bonito Fish School (smooth proximity & twilight fade)

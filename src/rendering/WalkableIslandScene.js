@@ -1017,6 +1017,47 @@ export class WalkableIslandScene {
         }
         this.lagoonTerns.push(birdRecord);
       }
+
+      // On strictly Kaua'i and Rapa Nui, spawn 2 pelagic Ka'upu (Black-footed Albatross)
+      // riding cliff & ocean updrafts in long dynamic-soaring banks without landing.
+      if (this.builtIslandId === 'kauai' || this.builtIslandId === 'rapa_nui') {
+        const kaupuOrbits =
+          this.builtIslandId === 'rapa_nui'
+            ? [
+                { cx: -120.0, cz: 36.0, radius: 36.0, altY: 36.5, speed: 0.16, scale: 1.15 },
+                { cx: -96.0, cz: 46.0, radius: 32.0, altY: 33.0, speed: -0.18, scale: 1.08 },
+              ]
+            : [
+                { cx: -14.0, cz: 26.0, radius: 36.0, altY: 25.0, speed: 0.165, scale: 1.15 },
+                { cx: 18.0, cz: 38.0, radius: 32.0, altY: 22.5, speed: -0.18, scale: 1.05 },
+              ];
+        kaupuOrbits.forEach((ko, idx) => {
+          const entry = this.worldCues.createSeabird('albatross', { opaque: true });
+          entry.root.userData.sharedGeometries = true;
+          entry.root.scale.setScalar(ko.scale);
+          this.root.add(entry.root);
+          const initAngle = idx * Math.PI + 0.65;
+          this.lagoonTerns.push({
+            entry,
+            group: entry.root,
+            scale: ko.scale,
+            cx: ko.cx,
+            cz: ko.cz,
+            radius: ko.radius,
+            altY: ko.altY,
+            speed: ko.speed,
+            phase: idx * 2.1,
+            orbitAngle: initAngle,
+            state: 'flying',
+            alwaysSoaring: true,
+            stateTimer: 9999.0,
+            stateProgress: 0.0,
+            stateDur: 1.0,
+            perchSpot: null,
+            currentYaw: initAngle,
+          });
+        });
+      }
     }
   }
 
@@ -1103,15 +1144,30 @@ export class WalkableIslandScene {
 
       const evalOrbit = (ang) => {
         const ox = tb.cx + Math.cos(ang) * tb.radius;
-        const oy = tb.altY + Math.sin(ang * 2.0) * 0.65;
+        const oy = tb.altY + Math.sin(ang * 2.0) * (tb.alwaysSoaring ? 2.1 : 0.65);
         const oz = tb.cz + Math.sin(ang) * tb.radius;
-        const oyaw = Math.atan2(Math.sin(ang), -Math.cos(ang));
+        const vx = -Math.sin(ang) * tb.speed;
+        const vz = Math.cos(ang) * tb.speed;
+        const oyaw = Math.atan2(-vx, -vz);
         return { ox, oy, oz, oyaw };
       };
 
       if (tb.state === 'flying') {
         tb.orbitAngle += tb.speed * dt;
         const { ox, oy, oz, oyaw } = evalOrbit(tb.orbitAngle);
+        if (tb.alwaysSoaring) {
+          const beatPulse = Math.max(0.0, Math.sin(elapsedSec * 0.45 + tb.phase) - 0.62) / 0.38;
+          const bankRad = Math.sign(tb.speed) * (0.44 + 0.16 * Math.sin(tb.orbitAngle * 2.0));
+          const pitchRad = Math.cos(tb.orbitAngle * 2.0) * 0.09 * Math.sign(tb.speed);
+          this.worldCues.animateSeabird(entry, elapsedSec, tb.phase, 0.72, {
+            glideBlend: 1.0 - beatPulse * 0.68,
+            bankRad,
+            pitchRad,
+          });
+          tb.group.position.set(ox, oy + (entry?.bobY ?? 0.0), oz);
+          tb.group.rotation.set(0.0, oyaw, 0.0);
+          continue;
+        }
         this.worldCues.animateSeabird(entry, elapsedSec, tb.phase, 1.0, null);
         tb.group.position.set(ox, oy + (entry?.bobY ?? 0.0), oz);
         tb.group.rotation.set(0.0, oyaw, 0.14);

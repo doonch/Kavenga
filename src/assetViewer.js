@@ -235,6 +235,15 @@ function buildAssetCatalog() {
       species: 'sooty_tern',
     },
     {
+      id: 'bird_albatross',
+      category: 'Seabirds (Flapping)',
+      name: "Black-footed Albatross — Kaʻupu",
+      subtitle: 'Wide high-aspect pelagic glider with hooked tube-nose bill, white eye-ring & dynamic banking',
+      tag: 'Kaʻupu',
+      kind: 'bird_single',
+      species: 'albatross',
+    },
+    {
       id: 'bird_homing_flock',
       category: 'Seabirds (Flapping)',
       name: 'Homing Flock (8 Seabirds Flapping)',
@@ -1105,8 +1114,40 @@ class AssetDebugViewer {
         ? 'brown_booby'
         : item.species === 'red_kura'
           ? 'red_kura'
-          : 'white_tern';
+          : item.species === 'sooty_tern'
+            ? 'sooty_tern'
+            : item.species === 'albatross'
+              ? 'albatross'
+              : 'white_tern';
     const entry = this.worldCues.createSeabird(species, { opaque: true });
+
+    if (species === 'albatross') {
+      entry.root.position.set(0, 1.05, 0);
+      this.stageGroup.add(entry.root);
+
+      const applySoar = (elapsed) => {
+        const spd = this.animCtrl.speed || 1.0;
+        const ph = elapsed * spd * 0.72;
+        const bankRad = Math.sin(ph) * 0.56;
+        const pitchRad = Math.cos(ph * 2.0) * 0.14;
+        const beatPulse = Math.max(0.0, Math.sin(ph * 0.55) - 0.65) / 0.35;
+        this.worldCues.animateSeabird(entry, elapsed, 0.0, spd, {
+          glideBlend: 1.0 - beatPulse * 0.7,
+          bankRad,
+          pitchRad,
+        });
+        entry.root.position.set(
+          Math.sin(ph) * 1.15,
+          1.05 + Math.sin(ph * 2.0) * 0.28 + entry.bobY,
+          0.0
+        );
+        entry.root.rotation.y = Math.cos(ph) * 0.42;
+      };
+      applySoar(this.animElapsedSec);
+      this.activeTickFn = (_dt, elapsed) => applySoar(elapsed);
+      return;
+    }
+
     entry.root.position.set(0, 0.52, 0);
     this.stageGroup.add(entry.root);
 
