@@ -523,6 +523,7 @@ class AssetDebugViewer {
     // Shared simulation & state for live canoe updates
     this.gameState = new GameState();
     this.oceanSim = new OceanSim();
+    this.oceanSim.setShoreIsland('raiatea');
     this.vakaCtrl = {
       tier: 1,
       rations: 4,
@@ -1038,7 +1039,10 @@ class AssetDebugViewer {
 
     this.oceanSim.rationsRemaining = this.vakaCtrl.rations;
     this.oceanSim.solarHour = this.vakaCtrl.solarHour;
-    this.oceanSim.step(this.vakaCtrl.swellMotion ? dt : 0.0);
+    if (this.vakaCtrl.swellMotion) {
+      this.oceanSim.elapsedRealSec += dt;
+    }
+    this.oceanSim._refreshEnvironment(0.0);
 
     if (!this.vakaCtrl.swellMotion && this.oceanSim.hullState) {
       this.oceanSim.hullState.heaveM = 0.0;
