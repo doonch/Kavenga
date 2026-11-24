@@ -2230,7 +2230,8 @@ export class WorldCuesRenderer {
         mesh,
         mat,
         progress: i / 12.0,
-        lateral: ((i * 29) % 26) - 13.0,
+        lateral: ((i * 29) % 28) - 14.0,
+        yawJitter: ((i % 5) - 2) * 0.14,
       });
     }
   }
@@ -2838,25 +2839,42 @@ export class WorldCuesRenderer {
     }
 
     // -----------------------------------------------------------------------
-    // 5. Drifting Green Palm Fronds & Kelp (smooth Ring 3 & drift-loop fade)
+    // 5. Drifting Green Palm Fronds & Kelp (stream from approaching island toward prows)
     // -----------------------------------------------------------------------
-    const nearestIsl = oceanSim.detections[0];
-    const targetFrondAlpha = nearestIsl
-      ? smoothstep(r3 * 1.08, r3 * 0.82, nearestIsl.distanceUnits)
+    const frondDet = !launchAnim?.active
+      ? oceanSim.detections.find(
+          (d) =>
+            d?.island &&
+            !(
+              d.island.id === oceanSim.song?.fromIsland &&
+              oceanSim.elapsedRealSec < 90.0
+            )
+        ) || null
+      : null;
+    const targetFrondAlpha = frondDet
+      ? smoothstep(r3 * 1.08, r3 * 0.82, frondDet.distanceUnits)
       : 0.0;
     this.frondAlpha = easeToward(this.frondAlpha, targetFrondAlpha, fadeDt, 1.5);
 
-    if (this.frondAlpha > 0.004) {
+    if (this.frondAlpha > 0.004 && frondDet) {
       this.frondGroup.visible = true;
-      for (const fr of this.fronds) {
+      const outFromIslAz = posMod(frondDet.bearingDeg + 180.0, 360.0);
+      const frondRelRad = degToRad(wrapDeg180(outFromIslAz - headingDeg));
+      const frondDirX = Math.sin(frondRelRad);
+      const frondDirZ = -Math.cos(frondRelRad);
+      const frondPerpX = -frondDirZ;
+      const frondPerpZ = frondDirX;
+
+      for (let idx = 0; idx < this.fronds.length; idx += 1) {
+        const fr = this.fronds[idx];
         fr.progress = (fr.progress + dtSec * 0.08) % 1.0;
-        const along = (fr.progress - 0.5) * 58.0;
+        const along = -38.0 + fr.progress * 58.0;
         fr.mesh.position.set(
-          marchDirX * along + perpX * fr.lateral,
-          0.08,
-          marchDirZ * along + perpZ * fr.lateral
+          frondDirX * along + frondPerpX * fr.lateral,
+          0.07 + Math.sin(elapsedSec * 1.9 + idx * 0.9) * 0.025,
+          frondDirZ * along + frondPerpZ * fr.lateral
         );
-        fr.mesh.rotation.z = -downwindRelRad;
+        fr.mesh.rotation.z = -frondRelRad + (fr.yawJitter || 0.0);
         const driftEnv =
           smoothstep(0.0, 0.16, fr.progress) *
           smoothstep(0.0, 0.16, 1.0 - fr.progress);
