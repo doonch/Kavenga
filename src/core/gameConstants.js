@@ -120,6 +120,25 @@ export function radToDeg(rad) {
   return (rad * 180.0) / Math.PI;
 }
 
+/**
+ * Widens vertical FOV on narrow portrait phone screens so prows, star arcs,
+ * and island silhouettes stay framed horizontally without affecting iPad/desktop.
+ * @param {number} baseFovDeg
+ * @param {number} width
+ * @param {number} height
+ * @returns {number}
+ */
+export function computeAdaptiveFovDeg(baseFovDeg, width, height) {
+  if (!(width > 0) || !(height > 0)) return baseFovDeg;
+  const aspect = width / height;
+  const minDim = Math.min(width, height);
+  if (aspect >= 1.0 || minDim > 520) return baseFovDeg;
+  const halfTan = Math.tan(degToRad(baseFovDeg) * 0.5);
+  const scale = Math.min(1.55, Math.max(1.0, 0.85 / Math.max(aspect, 0.35)));
+  const adapted = radToDeg(2.0 * Math.atan(halfTan * scale));
+  return Math.max(baseFovDeg, Math.min(76.0, adapted));
+}
+
 export const DEFAULT_SAIL_COLOR = '#e6cfa3';
 
 export const SAIL_DYE_PALETTE = Object.freeze([

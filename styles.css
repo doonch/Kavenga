@@ -672,6 +672,74 @@ textarea,
   overflow: visible;
 }
 
+/* Phone-only Top-Left Objectives Button & Modal (hidden on desktop / iPad) */
+.shore-objectives-fab {
+  display: none;
+  position: fixed;
+  z-index: 15;
+  overflow: visible;
+}
+
+.shore-objectives-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--sand-gold);
+  color: #0b1826;
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 17px;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+.shore-objectives-modal-card {
+  width: min(460px, 92vw);
+  max-height: min(78dvh, 540px);
+  display: flex;
+  flex-direction: column;
+  background: rgba(10, 22, 36, 0.96);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(231, 181, 99, 0.48);
+  border-radius: 18px;
+  padding: 16px 18px;
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.65);
+}
+
+.shore-objectives-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.shore-objectives-modal-header h3 {
+  font-size: 16.5px;
+  color: var(--sand-warm);
+  margin-top: 2px;
+}
+
+.shore-objectives-modal-list {
+  max-height: none;
+  flex: 1;
+  min-height: 0;
+  padding: 10px 2px 2px;
+}
+
+.shore-objectives-empty {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  padding: 8px 4px;
+}
+
 .shore-canoe-fab[data-tooltip]:focus-visible::after,
 .shore-walk-fab[data-tooltip]:focus-visible::after {
   content: attr(data-tooltip);
@@ -2217,6 +2285,30 @@ textarea,
 
 /* Right Controls Card: Nocturnal Time Scrubber & Layer Toggles */
 .vigil-controls-card {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.vigil-controls-collapse-btn {
+  display: none;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  color: var(--sand-gold);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 0;
+  cursor: pointer;
+}
+
+.vigil-controls-body {
   display: flex;
   flex-direction: column;
   gap: 9px;
@@ -4076,7 +4168,7 @@ textarea,
 
 .achievements-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
   gap: 12px;
   overflow-y: auto;
   padding-right: 4px;
@@ -4552,4 +4644,223 @@ textarea,
 #island-hub.touch-detected .shore-hint-touch,
 #sky-vigil-ui.touch-detected .vigil-hint-touch {
   display: inline;
+}
+
+/* =========================================================================
+   RESPONSIVE PHONE ADAPTATIONS (PORTRAIT <= 540px & SHORT LANDSCAPE <= 500px)
+   Desktop & iPad (> 540px wide AND > 500px tall) keep original layout/FABs.
+   ========================================================================= */
+
+@media (max-width: 600px), (max-height: 500px) {
+  .settings-diff-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .vigil-controls-collapse-btn {
+    display: flex;
+  }
+
+  .vigil-controls-card.collapsed {
+    padding: 9px 13px;
+  }
+
+  .vigil-controls-card.collapsed .vigil-controls-body {
+    display: none;
+  }
+
+  .vigil-controls-card .vigil-time-header .vigil-eyebrow {
+    display: none;
+  }
+
+  .walkable-reopen-pill {
+    align-self: flex-start;
+    max-width: calc(100vw - 134px);
+    font-size: 12.5px;
+    padding: 8px 14px;
+    text-align: left;
+  }
+
+  .hud-trim-bar {
+    gap: 8px;
+    padding: 5px 9px;
+  }
+
+  .trim-btn {
+    min-width: 38px;
+    height: 32px;
+    padding: 0 9px;
+  }
+
+  .trim-status {
+    min-width: 112px;
+    font-size: 11px;
+  }
+
+  .onboarding-tour-card {
+    width: min(310px, calc(100vw - 20px));
+    padding: 13px 15px;
+  }
+}
+
+@media (max-width: 540px), (max-height: 500px) and (orientation: landscape) {
+  /* Phone-only Top-Left 40x40 Dock: Vaka, Walk, Objectives */
+  .shore-canoe-fab {
+    top: max(10px, env(safe-area-inset-top, 0px));
+    bottom: auto;
+    left: max(10px, env(safe-area-inset-left, 0px));
+    width: 40px;
+    height: 40px;
+    padding: 2px !important;
+    border-radius: 12px;
+  }
+
+  .shore-canoe-fab img,
+  .shore-walk-fab img {
+    border-radius: 9px;
+  }
+
+  .shore-walk-fab {
+    top: max(10px, env(safe-area-inset-top, 0px));
+    bottom: auto;
+    left: calc(max(10px, env(safe-area-inset-left, 0px)) + 46px);
+    width: 40px;
+    height: 40px;
+    padding: 2px !important;
+    border-radius: 12px;
+  }
+
+  .shore-objectives-fab:not(.hidden) {
+    display: inline-flex;
+    top: max(10px, env(safe-area-inset-top, 0px));
+    bottom: auto;
+    left: calc(max(10px, env(safe-area-inset-left, 0px)) + 92px);
+  }
+
+  .shore-walk-fab.hidden + .shore-objectives-fab:not(.hidden) {
+    left: calc(max(10px, env(safe-area-inset-left, 0px)) + 46px);
+  }
+
+  /* Hide inline Objectives cards on phone; replaced by Top-Left Objectives modal */
+  #hubObjectivesCard,
+  #walkObjectivesCard {
+    display: none !important;
+  }
+
+  /* Walk Shore phone framing & compact analog thumbstick */
+  .walkable-shore-shell {
+    padding:
+      calc(max(10px, env(safe-area-inset-top, 0px)) + 48px)
+      max(12px, env(safe-area-inset-right, 0px))
+      max(12px, calc(env(safe-area-inset-bottom, 0px) + 8px))
+      max(12px, env(safe-area-inset-left, 0px));
+  }
+
+  .walkable-thumbstick-pad {
+    right: max(12px, env(safe-area-inset-right, 0px));
+    bottom: max(12px, calc(env(safe-area-inset-bottom, 0px) + 6px));
+    width: 98px;
+    height: 98px;
+  }
+
+  .walkable-thumbstick-ring {
+    width: 92px;
+    height: 92px;
+  }
+
+  .walkable-thumbstick-knob {
+    width: 38px;
+    height: 38px;
+  }
+
+  #walkable-island-ui.poi-popup-open .walkable-thumbstick-pad {
+    display: none !important;
+  }
+
+  .walkable-poi-popup {
+    width: min(520px, calc(100vw - 20px));
+    max-height: min(62dvh, 430px);
+    padding: 12px 14px;
+    border-radius: 15px;
+  }
+
+  /* Compact Sailing HUD */
+  .hud-voyage-badge {
+    padding: 6px 10px;
+    gap: 7px;
+  }
+
+  .hud-song-title {
+    font-size: 12.5px;
+  }
+
+  .hud-chant-banner {
+    padding: 7px 12px;
+    margin-top: 5px;
+    border-radius: 12px;
+  }
+
+  .chant-lyrics {
+    font-size: 14px;
+    line-height: 1.35;
+  }
+
+  .chant-easy-hint {
+    font-size: 11.5px;
+    margin-top: 5px;
+    padding-top: 5px;
+  }
+}
+
+@media (max-width: 520px) {
+  .mentor-portrait-panel {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .mentor-portrait-frame {
+    width: 92px;
+    flex-shrink: 0;
+  }
+
+  .mentor-fullbody-img {
+    max-height: 118px;
+  }
+
+  .mentor-portrait-caption {
+    text-align: left;
+  }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  /* Side-by-side compact Hub drawer on landscape phones */
+  .shore-stage-layout {
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: flex-end;
+    gap: 10px;
+  }
+
+  .island-hub-shell {
+    align-self: flex-end;
+    width: min(46vw, 410px);
+    min-width: 260px;
+    margin-top: 48px;
+    height: calc(100% - 48px);
+    max-height: calc(100% - 48px);
+    padding: 10px 12px 12px;
+  }
+
+  .vigil-bottom-deck {
+    grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.85fr);
+    gap: 10px;
+  }
+
+  .vigil-main-card {
+    padding: 10px 14px;
+  }
+
+  .walkable-poi-popup {
+    max-height: min(74dvh, 330px);
+  }
 }

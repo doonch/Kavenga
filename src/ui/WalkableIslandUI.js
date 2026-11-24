@@ -503,7 +503,13 @@ export class WalkableIslandUI {
     if (prevId === nextId) return;
 
     this.currentPoi = poi || null;
-    if (nextId !== this.minimizedPoiId) {
+    const isPhone =
+      typeof window !== 'undefined' &&
+      (window.innerWidth <= 540 ||
+        (window.innerHeight <= 500 && window.innerWidth > window.innerHeight));
+    if (isPhone && nextId) {
+      this.minimizedPoiId = nextId;
+    } else if (nextId !== this.minimizedPoiId) {
       this.minimizedPoiId = null;
     }
     if (this.currentPoi?.kind !== 'canoe') {
@@ -521,6 +527,7 @@ export class WalkableIslandUI {
     if (!this.currentPoi) {
       popupEl.classList.add('hidden');
       reopenEl.classList.add('hidden');
+      this.rootEl.classList.remove('poi-popup-open');
       return;
     }
 
@@ -528,9 +535,11 @@ export class WalkableIslandUI {
       popupEl.classList.add('hidden');
       reopenEl.classList.remove('hidden');
       reopenEl.textContent = `${this.currentPoi.glyph} ${this.currentPoi.promptHint}`;
+      this.rootEl.classList.remove('poi-popup-open');
     } else {
       reopenEl.classList.add('hidden');
       popupEl.classList.remove('hidden');
+      this.rootEl.classList.add('poi-popup-open');
     }
   }
 

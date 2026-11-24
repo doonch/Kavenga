@@ -14,7 +14,11 @@
  */
 
 import * as THREE from 'three';
-import { DepartureWindow, wrapDeg180 } from '../core/gameConstants.js';
+import {
+  DepartureWindow,
+  computeAdaptiveFovDeg,
+  wrapDeg180,
+} from '../core/gameConstants.js';
 import { ISLANDS } from '../data/islandsData.js';
 import { getWalkableIslandSpec } from '../data/walkableIslandsData.js';
 import { altAzToDirectionVec3 } from '../simulation/celestialSim.js';
@@ -711,29 +715,39 @@ export class ShoreDioramaRenderer {
     oceanSim._refreshEnvironment(dtSec);
 
     // Compute spherical camera pose around `curCenter`
+    const w = typeof window !== 'undefined' ? window.innerWidth : 1280;
+    const h = typeof window !== 'undefined' ? Math.max(1, window.innerHeight) : 720;
+    const isNarrowPortraitPhone = w <= 540 && w / h < 0.78;
+    const effDist = isNarrowPortraitPhone ? this.curDist * 1.22 : this.curDist;
+
+    const targetFov = computeAdaptiveFovDeg(56.0, w, h);
+    if (Math.abs(camera.fov - targetFov) > 0.05) {
+      camera.fov = targetFov;
+      camera.updateProjectionMatrix();
+    }
+
     const cosPhi = Math.cos(this.curPhi);
     const sinPhi = Math.sin(this.curPhi);
     const sinTheta = Math.sin(this.curTheta);
     const cosTheta = Math.cos(this.curTheta);
 
-    const camX = this.curCenter.x + this.curDist * cosPhi * sinTheta;
-    const camY = Math.max(1.85, this.curCenter.y + this.curDist * sinPhi);
-    const camZ = this.curCenter.z + this.curDist * cosPhi * cosTheta;
+    const camX = this.curCenter.x + effDist * cosPhi * sinTheta;
+    const camY = Math.max(1.85, this.curCenter.y + effDist * sinPhi);
+    const camZ = this.curCenter.z + effDist * cosPhi * cosTheta;
     camera.position.set(camX, camY, camZ);
 
     // Offset look-at target rightward in camera space on wide viewports so the 3D island
     // centers naturally inside the unobstructed left ~60% of the screen!
-    const w = typeof window !== 'undefined' ? window.innerWidth : 1280;
     this._lookTarget.copy(this.curCenter);
-    if (w > 900) {
+    if (w > 900 || (h <= 500 && w > h)) {
       const rightX = cosTheta;
       const rightZ = -sinTheta;
-      const panelShift = this.curDist * 0.21;
+      const panelShift = effDist * 0.21;
       this._lookTarget.x += rightX * panelShift;
       this._lookTarget.z += rightZ * panelShift;
     } else {
-      // On narrow/mobile screens where panel docks at bottom, shift look-at slightly downward
-      this._lookTarget.y -= this.curDist * 0.11;
+      // On portrait/narrow screens where panel docks at bottom, shift look-at slightly downward
+      this._lookTarget.y -= effDist * 0.11;
     }
     camera.lookAt(this._lookTarget);
 

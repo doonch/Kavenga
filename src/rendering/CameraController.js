@@ -7,7 +7,12 @@
  */
 
 import * as THREE from 'three';
-import { GameConstants, degToRad, wrapDeg180 } from '../core/gameConstants.js';
+import {
+  GameConstants,
+  computeAdaptiveFovDeg,
+  degToRad,
+  wrapDeg180,
+} from '../core/gameConstants.js';
 
 function clamp(val, minVal, maxVal) {
   return Math.max(minVal, Math.min(maxVal, val));
@@ -21,11 +26,15 @@ function smootherstep(e0, e1, x) {
 export class CameraController {
   constructor(domElement) {
     this.domElement = domElement;
+    this.viewportWidth =
+      typeof window !== 'undefined' ? window.innerWidth : 1280;
+    this.viewportHeight =
+      typeof window !== 'undefined' ? Math.max(1, window.innerHeight) : 720;
 
     // 56 deg vertical FOV with +13.5 deg base pitch frames -14.5 deg (deck/prows) to +41.5 deg (~42 deg sky)
     this.camera = new THREE.PerspectiveCamera(
-      56.0,
-      window.innerWidth / Math.max(1, window.innerHeight),
+      this._getAdaptiveFov(56.0),
+      this.viewportWidth / this.viewportHeight,
       0.25,
       1800.0
     );
@@ -157,8 +166,23 @@ export class CameraController {
     window.addEventListener('pointercancel', this._onPointerUp);
   }
 
+  _getAdaptiveFov(baseFovDeg) {
+    return computeAdaptiveFovDeg(
+      baseFovDeg,
+      this.viewportWidth,
+      this.viewportHeight
+    );
+  }
+
   resize(width, height) {
-    this.camera.aspect = width / Math.max(1, height);
+    this.viewportWidth = width;
+    this.viewportHeight = Math.max(1, height);
+    this.camera.aspect = this.viewportWidth / this.viewportHeight;
+    if (!this._landfallActive && !this._launchActive) {
+      this.camera.fov = this._getAdaptiveFov(
+        GameConstants.DEFAULT_CAMERA_TOP_ALT_DEG + 14.0
+      );
+    }
     this.camera.updateProjectionMatrix();
   }
 
@@ -279,7 +303,9 @@ export class CameraController {
     this._landfallActive = false;
     this.lookYawDeg = 0.0;
     this.lookPitchOffsetDeg = 0.0;
-    this.camera.fov = GameConstants.DEFAULT_CAMERA_TOP_ALT_DEG + 14.0;
+    this.camera.fov = this._getAdaptiveFov(
+      GameConstants.DEFAULT_CAMERA_TOP_ALT_DEG + 14.0
+    );
     this.camera.updateProjectionMatrix();
   }
 
@@ -362,8 +388,9 @@ export class CameraController {
         slerpT
       );
 
-      const targetFov =
-        this._landfallStartFov + (62.0 - this._landfallStartFov) * posT;
+      const targetFov = this._getAdaptiveFov(
+        this._landfallStartFov + (62.0 - this._landfallStartFov) * posT
+      );
       if (Math.abs(this.camera.fov - targetFov) > 0.01) {
         this.camera.fov = targetFov;
         this.camera.updateProjectionMatrix();
@@ -464,7 +491,9 @@ export class CameraController {
       const baseFov = GameConstants.DEFAULT_CAMERA_TOP_ALT_DEG + 14.0;
       const heroFov = 58.0;
       const stage1Fov = 64.0 + (heroFov - 64.0) * s1;
-      const targetFov = stage1Fov + (baseFov - stage1Fov) * s2;
+      const targetFov = this._getAdaptiveFov(
+        stage1Fov + (baseFov - stage1Fov) * s2
+      );
       if (Math.abs(this.camera.fov - targetFov) > 0.01) {
         this.camera.fov = targetFov;
         this.camera.updateProjectionMatrix();

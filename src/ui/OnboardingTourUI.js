@@ -370,8 +370,8 @@ export class OnboardingTourUI {
     const target = selector ? document.querySelector(selector) : null;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    const margin = 14;
-    const cw = card.offsetWidth || 300;
+    const margin = vw <= 540 || vh <= 500 ? 10 : 14;
+    const cw = Math.min(card.offsetWidth || 300, Math.max(200, vw - margin * 2));
     const ch = card.offsetHeight || 130;
 
     if (!target || target.classList.contains('hidden')) {

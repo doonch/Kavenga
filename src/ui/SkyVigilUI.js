@@ -230,49 +230,60 @@ export class SkyVigilUI {
         </section>
 
         <!-- RIGHT PANEL: NIGHT TIME SCRUBBER & SKY LAYER TOGGLES -->
-        <aside class="vigil-controls-card">
-          <div class="vigil-time-header">
-            <div>
-              <span class="vigil-eyebrow">Wheel of the Night Dome</span>
-              <strong class="vigil-watch-label" id="vigilWatchLabel">First Star Watch</strong>
+        <aside class="vigil-controls-card" id="vigilControlsCard">
+          <button
+            class="vigil-controls-collapse-btn"
+            id="btnVigilControlsToggle"
+            type="button"
+            aria-expanded="true"
+          >
+            <span>Wheel of the Night Dome &amp; Sky Layers</span>
+            <span class="vigil-controls-chev" id="vigilControlsChev">▾</span>
+          </button>
+          <div class="vigil-controls-body" id="vigilControlsBody">
+            <div class="vigil-time-header">
+              <div>
+                <span class="vigil-eyebrow">Wheel of the Night Dome</span>
+                <strong class="vigil-watch-label" id="vigilWatchLabel">First Star Watch</strong>
+              </div>
+              <button class="secondary-btn small-btn" id="btnVigilSpinToggle" type="button">
+                ▶ Turn Night
+              </button>
             </div>
-            <button class="secondary-btn small-btn" id="btnVigilSpinToggle" type="button">
-              ▶ Turn Night
-            </button>
-          </div>
 
-          <input
-            type="range"
-            class="vigil-time-slider"
-            id="vigilTimeSlider"
-            min="18.4"
-            max="29.6"
-            step="0.03"
-            value="21.4"
-            aria-label="Scrub night sky from evening dusk to pre-dawn"
-          />
-          <div class="vigil-slider-ends">
-            <span>Dusk</span>
-            <span>Midnight</span>
-            <span>Pre-Dawn</span>
-          </div>
+            <input
+              type="range"
+              class="vigil-time-slider"
+              id="vigilTimeSlider"
+              min="18.4"
+              max="29.6"
+              step="0.03"
+              value="21.4"
+              aria-label="Scrub night sky from evening dusk to pre-dawn"
+            />
+            <div class="vigil-slider-ends">
+              <span>Dusk</span>
+              <span>Midnight</span>
+              <span>Pre-Dawn</span>
+            </div>
 
-          <div class="vigil-layer-toggles">
-            <button class="vigil-toggle-chip active" id="btnToggleVigilLines" type="button">
-              ✦ Chalk Lines
-            </button>
-            <button class="vigil-toggle-chip active" id="btnToggleVigilStarNames" type="button">
-              ✦ Star Names
-            </button>
-            <button class="vigil-toggle-chip active" id="btnToggleVigilStones" type="button">
-              ✦ Stone Houses
-            </button>
-            <button class="vigil-toggle-chip" id="btnToggleVigilAnimals" type="button" title="Show or hide learned constellation animal silhouettes on the night dome">
-              🐢 Animal Silhouettes
-            </button>
-            <button class="vigil-toggle-chip vigil-toggle-chip-wide" id="btnVigilLookZenith" type="button" title="Tilt gaze straight overhead to inspect zenith stars">
-              ↑ Mast-Top Zenith
-            </button>
+            <div class="vigil-layer-toggles">
+              <button class="vigil-toggle-chip active" id="btnToggleVigilLines" type="button">
+                ✦ Chalk Lines
+              </button>
+              <button class="vigil-toggle-chip active" id="btnToggleVigilStarNames" type="button">
+                ✦ Star Names
+              </button>
+              <button class="vigil-toggle-chip active" id="btnToggleVigilStones" type="button">
+                ✦ Stone Houses
+              </button>
+              <button class="vigil-toggle-chip" id="btnToggleVigilAnimals" type="button" title="Show or hide learned constellation animal silhouettes on the night dome">
+                🐢 Animal Silhouettes
+              </button>
+              <button class="vigil-toggle-chip vigil-toggle-chip-wide" id="btnVigilLookZenith" type="button" title="Tilt gaze straight overhead to inspect zenith stars">
+                ↑ Mast-Top Zenith
+              </button>
+            </div>
           </div>
         </aside>
       </div>
@@ -465,6 +476,14 @@ export class SkyVigilUI {
         }
       });
 
+    this.rootEl
+      .querySelector('#btnVigilControlsToggle')
+      ?.addEventListener('click', () => {
+        const card = this.rootEl.querySelector('#vigilControlsCard');
+        const nextCollapsed = !card.classList.contains('collapsed');
+        this._setControlsCollapsed(nextCollapsed);
+      });
+
     // Portrait Lightbox close
     this.rootEl
       .querySelector('#btnCloseVigilModal')
@@ -594,7 +613,22 @@ export class SkyVigilUI {
     } else {
       this.selectConstellation(this.selectedConstellationId, true);
     }
+    const isShortLandscapePhone =
+      typeof window !== 'undefined' && window.innerHeight <= 500;
+    this._setControlsCollapsed(isShortLandscapePhone);
     this._refreshControlsDOM();
+  }
+
+  _setControlsCollapsed(collapsed) {
+    const card = this.rootEl.querySelector('#vigilControlsCard');
+    const toggleBtn = this.rootEl.querySelector('#btnVigilControlsToggle');
+    const chevEl = this.rootEl.querySelector('#vigilControlsChev');
+    if (!card || !toggleBtn) return;
+    card.classList.toggle('collapsed', Boolean(collapsed));
+    toggleBtn.setAttribute('aria-expanded', String(!collapsed));
+    if (chevEl) {
+      chevEl.textContent = collapsed ? '▸' : '▾';
+    }
   }
 
   hide() {

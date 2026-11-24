@@ -96,6 +96,21 @@ class KavengaApp {
     this.shoreCanoeImgEl = document.getElementById('shoreCanoeImg');
     this.btnShoreWalkToggle = document.getElementById('btnShoreWalkToggle');
     this.shoreWalkImgEl = document.getElementById('shoreWalkImg');
+    this.btnShoreObjectivesModal = document.getElementById(
+      'btnShoreObjectivesModal'
+    );
+    this.shoreObjectivesBadgeEl = document.getElementById(
+      'shoreObjectivesBadge'
+    );
+    this.shoreObjectivesModalEl = document.getElementById(
+      'shore-objectives-modal'
+    );
+    this.shoreObjectivesModalListEl = document.getElementById(
+      'shoreObjectivesModalList'
+    );
+    this.btnCloseObjectivesModal = document.getElementById(
+      'btnCloseObjectivesModal'
+    );
     this.btnShoreToggleSound = document.getElementById('btnShoreToggleSound');
     this.shoreSoundGlyphEl = document.getElementById('shoreSoundGlyph');
     this.btnShoreOpenAchievements = document.getElementById(
@@ -177,7 +192,11 @@ class KavengaApp {
       this._showWebGLErrorBanner();
       return;
     }
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    const isCompactPhoneScreen =
+      Math.min(window.screen?.width || 1000, window.screen?.height || 1000) <=
+      500;
+    const maxDpr = isCompactPhoneScreen ? 1.25 : 1.5;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxDpr));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -1101,6 +1120,25 @@ class KavengaApp {
         this.enterWalkableShoreMode();
       }
     });
+    this.btnShoreObjectivesModal?.addEventListener('click', (e) => {
+      e.currentTarget.blur();
+      if (
+        this.shoreObjectivesModalEl &&
+        !this.shoreObjectivesModalEl.classList.contains('hidden')
+      ) {
+        this.closeObjectivesModal();
+      } else {
+        this.openObjectivesModal();
+      }
+    });
+    this.btnCloseObjectivesModal?.addEventListener('click', () => {
+      this.closeObjectivesModal();
+    });
+    this.shoreObjectivesModalEl?.addEventListener('click', (e) => {
+      if (e.target === this.shoreObjectivesModalEl) {
+        this.closeObjectivesModal();
+      }
+    });
     this.btnShoreToggleSound?.addEventListener('click', (e) => {
       e.currentTarget.blur();
       this.setSoundMuted(!this.chantEngine.muted);
@@ -1121,6 +1159,8 @@ class KavengaApp {
       this.shoreTopControlsEl.classList.add('hidden');
       this.btnShoreCanoeModal?.classList.add('hidden');
       this.btnShoreWalkToggle?.classList.add('hidden');
+      this.btnShoreObjectivesModal?.classList.add('hidden');
+      this.closeObjectivesModal();
       return;
     }
     this.shoreTopControlsEl.classList.remove('hidden');
@@ -1174,6 +1214,27 @@ class KavengaApp {
       );
     }
 
+    if (this.btnShoreObjectivesModal) {
+      const activeObjs = getActiveObjectivesForDisplay(this.gameState).filter(
+        (item) => !this._pendingObjectiveIds.has(item.id)
+      );
+      const count = activeObjs.length;
+      const modalOpen = Boolean(
+        this.shoreObjectivesModalEl &&
+          !this.shoreObjectivesModalEl.classList.contains('hidden')
+      );
+      this.btnShoreObjectivesModal.classList.remove('hidden');
+      this.btnShoreObjectivesModal.classList.toggle('active', modalOpen);
+      this.btnShoreObjectivesModal.setAttribute(
+        'aria-pressed',
+        String(modalOpen)
+      );
+      if (this.shoreObjectivesBadgeEl) {
+        this.shoreObjectivesBadgeEl.textContent = String(count);
+        this.shoreObjectivesBadgeEl.classList.toggle('hidden', count === 0);
+      }
+    }
+
     const muted = Boolean(this.chantEngine.muted);
     if (this.shoreSoundGlyphEl) {
       this.shoreSoundGlyphEl.textContent = muted ? '🔇' : '🔊';
@@ -1189,6 +1250,7 @@ class KavengaApp {
 
   openCanoeModal() {
     if (this.phase !== 'shore') return;
+    this.closeObjectivesModal();
     this.onboardingTourUI?.hide();
     this.elderVigilPromptUI.hide();
     this.islandSettingsUI.hide();
@@ -1198,6 +1260,7 @@ class KavengaApp {
   }
 
   enterWalkableShoreMode({ spawnMode = 'canoe' } = {}) {
+    this.closeObjectivesModal();
     this.onboardingTourUI?.hide();
     this.canoeModalUI?.hide({ silent: true });
     if (
@@ -1245,6 +1308,7 @@ class KavengaApp {
 
   openIslandSettings() {
     if (this.phase !== 'shore') return;
+    this.closeObjectivesModal();
     this.canoeModalUI?.hide({ silent: true });
     this.elderVigilPromptUI.hide();
     this.achievementsUI.hideModal();
@@ -1254,11 +1318,86 @@ class KavengaApp {
 
   openIslandAchievements() {
     if (this.phase !== 'shore') return;
+    this.closeObjectivesModal();
     this.canoeModalUI?.hide({ silent: true });
     this.elderVigilPromptUI.hide();
     this.islandSettingsUI.hide();
     this.cameraCtrl.keysDown.clear();
     this.achievementsUI.showModal();
+  }
+
+  openObjectivesModal() {
+    if (this.phase !== 'shore' || !this.shoreObjectivesModalEl) return;
+    this.canoeModalUI?.hide({ silent: true });
+    this.elderVigilPromptUI.hide();
+    this.islandSettingsUI.hide();
+    this.achievementsUI.hideModal();
+    this.cameraCtrl.keysDown.clear();
+    this._renderObjectivesModal();
+    this.shoreObjectivesModalEl.classList.remove('hidden');
+    this._syncShoreTopControls();
+  }
+
+  closeObjectivesModal() {
+    if (!this.shoreObjectivesModalEl) return;
+    const wasOpen = !this.shoreObjectivesModalEl.classList.contains('hidden');
+    this.shoreObjectivesModalEl.classList.add('hidden');
+    if (wasOpen && this.phase === 'shore') {
+      this._syncShoreTopControls();
+    }
+  }
+
+  _renderObjectivesModal() {
+    const listEl = this.shoreObjectivesModalListEl;
+    if (!listEl) return;
+    const activeItems = getActiveObjectivesForDisplay(this.gameState).filter(
+      (item) => !this._pendingObjectiveIds.has(item.id)
+    );
+    listEl.innerHTML = '';
+
+    if (activeItems.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'shore-objectives-empty';
+      empty.textContent =
+        'All current shore objectives are cleared. Open Vaka (🛶) to prepare rations and chart your next crossing.';
+      listEl.appendChild(empty);
+      return;
+    }
+
+    for (const item of activeItems) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `shore-obj-item shore-obj-btn ${item.isHere ? 'is-local' : ''} ${
+        item.hasRequiredCargo ? 'cargo-ready' : ''
+      }`;
+      btn.innerHTML = `
+        <span class="shore-obj-bullet" aria-hidden="true">${item.glyph || '✦'}</span>
+        <div class="shore-obj-copy">
+          <div class="shore-obj-title-row">
+            <strong>${item.title}</strong>
+            ${
+              item.statusBadge
+                ? `<span class="shore-obj-badge">${item.statusBadge}</span>`
+                : ''
+            }
+          </div>
+          <span class="shore-obj-detail">${item.detail}</span>
+        </div>
+      `;
+      btn.addEventListener('click', () => {
+        this.closeObjectivesModal();
+        if (item.isHere) {
+          if (this.walkableIslandScene.active) {
+            this.exitWalkableShoreMode({ hubTab: 'sanctuary' });
+          } else {
+            this.islandHub.switchTab('sanctuary');
+          }
+        } else {
+          this.openCanoeModal();
+        }
+      });
+      listEl.appendChild(btn);
+    }
   }
 
   _refreshShoreOverlays() {
@@ -1272,6 +1411,12 @@ class KavengaApp {
     }
     if (this.canoeModalUI?.isOpen()) {
       this.canoeModalUI.refresh();
+    }
+    if (
+      this.shoreObjectivesModalEl &&
+      !this.shoreObjectivesModalEl.classList.contains('hidden')
+    ) {
+      this._renderObjectivesModal();
     }
   }
 

@@ -12,6 +12,7 @@
 
 import * as THREE from 'three';
 import {
+  computeAdaptiveFovDeg,
   computeSailVariantColors,
   Difficulty,
   wrapDeg180,
@@ -1760,8 +1761,12 @@ export class WalkableIslandScene {
       } else {
         camera.position.lerp(this.camDesiredPos, blendAlpha);
       }
-      if (Math.abs(camera.fov - 56.0) > 0.05) {
-        camera.fov = 56.0;
+      const w = typeof window !== 'undefined' ? window.innerWidth : 1280;
+      const h =
+        typeof window !== 'undefined' ? Math.max(1, window.innerHeight) : 720;
+      const targetFov = computeAdaptiveFovDeg(56.0, w, h);
+      if (Math.abs(camera.fov - targetFov) > 0.05) {
+        camera.fov = targetFov;
         camera.updateProjectionMatrix();
       }
       camera.lookAt(this.camTarget);
