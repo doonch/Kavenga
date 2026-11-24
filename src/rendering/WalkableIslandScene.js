@@ -95,6 +95,8 @@ export class WalkableIslandScene {
     this.camDesiredPos = new THREE.Vector3();
     this._isOrbitDragging = false;
     this._orbitPointerId = null;
+    this._canvasPointers = new Map();
+    this._pinchDist = 0.0;
     this._lastPtr = { x: 0, y: 0 };
 
     this.obstacles = [];
@@ -1385,19 +1387,48 @@ export class WalkableIslandScene {
   _bindCameraPointerOrbit() {
     if (typeof window === 'undefined') return;
 
+    const getPinchDist = () => {
+      if (this._canvasPointers.size < 2) return 0.0;
+      const pts = Array.from(this._canvasPointers.values());
+      return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    };
+
     window.addEventListener('pointerdown', (e) => {
       if (!this.active) return;
       if (e.target?.tagName !== 'CANVAS') return;
-      if (this._isOrbitDragging && this._orbitPointerId !== null) return;
-      this._isOrbitDragging = true;
-      this._orbitPointerId = e.pointerId;
-      this._lastPtr.x = e.clientX;
-      this._lastPtr.y = e.clientY;
+      this._canvasPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      if (this._canvasPointers.size === 1) {
+        this._isOrbitDragging = true;
+        this._orbitPointerId = e.pointerId;
+        this._lastPtr.x = e.clientX;
+        this._lastPtr.y = e.clientY;
+        this._pinchDist = 0.0;
+      } else if (this._canvasPointers.size >= 2) {
+        this._isOrbitDragging = false;
+        this._orbitPointerId = null;
+        this._pinchDist = getPinchDist();
+      }
     });
 
     window.addEventListener('pointermove', (e) => {
-      if (!this.active || !this._isOrbitDragging) return;
-      if (this._orbitPointerId !== null && e.pointerId !== this._orbitPointerId) {
+      if (!this.active || !this._canvasPointers.has(e.pointerId)) return;
+      this._canvasPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      if (this._canvasPointers.size >= 2) {
+        const nextDist = getPinchDist();
+        if (this._pinchDist > 4.0 && nextDist > 4.0) {
+          const ratio = this._pinchDist / nextDist;
+          this.camDist = clamp(this.camDist * ratio, 5.4, 22.0);
+        }
+        this._pinchDist = nextDist;
+        return;
+      }
+
+      if (
+        !this._isOrbitDragging ||
+        (this._orbitPointerId !== null && e.pointerId !== this._orbitPointerId)
+      ) {
         return;
       }
       const dx = e.clientX - this._lastPtr.x;
@@ -1410,18 +1441,39 @@ export class WalkableIslandScene {
     });
 
     const endDrag = (e) => {
-      if (
-        this._orbitPointerId !== null &&
-        e?.pointerId !== undefined &&
-        e.pointerId !== this._orbitPointerId
-      ) {
-        return;
+      if (e?.pointerId !== undefined) {
+        this._canvasPointers.delete(e.pointerId);
+      } else {
+        this._canvasPointers.clear();
       }
-      this._isOrbitDragging = false;
-      this._orbitPointerId = null;
+      this._pinchDist = 0.0;
+
+      if (this._canvasPointers.size === 1) {
+        const [remId, remPos] = this._canvasPointers.entries().next().value;
+        this._isOrbitDragging = true;
+        this._orbitPointerId = remId;
+        this._lastPtr.x = remPos.x;
+        this._lastPtr.y = remPos.y;
+      } else if (this._canvasPointers.size === 0) {
+        this._isOrbitDragging = false;
+        this._orbitPointerId = null;
+      }
     };
     window.addEventListener('pointerup', endDrag);
     window.addEventListener('pointercancel', endDrag);
+
+    const preventCanvasPinchDefault = (e) => {
+      if (!this.active) return;
+      if (e.target?.tagName === 'CANVAS' && e.touches?.length >= 2) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('touchstart', preventCanvasPinchDefault, {
+      passive: false,
+    });
+    window.addEventListener('touchmove', preventCanvasPinchDefault, {
+      passive: false,
+    });
 
     window.addEventListener(
       'wheel',
@@ -1523,6 +1575,8 @@ export class WalkableIslandScene {
     this.activePoi = null;
     this._isOrbitDragging = false;
     this._orbitPointerId = null;
+    this._canvasPointers.clear();
+    this._pinchDist = 0.0;
 
     for (const el of Object.values(this.poiBadgeEls)) {
       el.classList.add('hidden');
