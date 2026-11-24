@@ -1451,9 +1451,10 @@ class KavengaApp {
   }
 
   requestLaunchVoyage(song, departureWindow) {
+    const departIslandId = song?.fromIsland || this.gameState.currentIslandId;
     const pendingLesson = getAvailableUnlearnedLessonForIsland(
       this.gameState,
-      this.gameState.currentIslandId
+      departIslandId
     );
     if (pendingLesson) {
       this.canoeModalUI?.hide({ silent: true });
@@ -1466,6 +1467,10 @@ class KavengaApp {
 
   launchVoyage(song, departureWindow) {
     this.onboardingTourUI?.hide();
+    if (song?.fromIsland && ISLANDS[song.fromIsland]) {
+      this.gameState.currentIslandId = song.fromIsland;
+      this.gameState.currentBasinId = ISLANDS[song.fromIsland].basinId;
+    }
     // Snapshot pre-voyage state so Lost at Sea / Return to Shore restores cleanly with zero loss!
     this.gameState.savePreVoyageSnapshot();
     this._enteredVigilFromWalkMode = false;

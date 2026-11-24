@@ -6,9 +6,47 @@
  */
 
 import { Difficulty, departureWindowLabel } from '../core/gameConstants.js';
-import { CARGO_CATALOG, CREW_CATALOG } from '../core/campaignManager.js';
+import {
+  CANOE_ROUTE_FILTERS,
+  CARGO_CATALOG,
+  CREW_CATALOG,
+} from '../core/campaignManager.js';
 import { ISLANDS } from '../data/islandsData.js';
 import { getPlayerCharacterProfile } from '../data/playerCharactersData.js';
+
+/**
+ * Render archipelago filter pills inside `.canoe-section-head` once `gs.masterReplayUnlocked` is true.
+ */
+export function renderCanoeRouteFilterPills({
+  containerEl,
+  gs,
+  activeFilter = 'local',
+  onSelectFilter,
+}) {
+  if (!containerEl) return;
+  if (!gs?.masterReplayUnlocked) {
+    containerEl.classList.add('hidden');
+    containerEl.innerHTML = '';
+    return;
+  }
+
+  containerEl.classList.remove('hidden');
+  containerEl.innerHTML = '';
+  for (const filter of CANOE_ROUTE_FILTERS) {
+    const isActive = filter.id === activeFilter;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `canoe-filter-pill${isActive ? ' active' : ''}`;
+    btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    btn.textContent = filter.label;
+    btn.addEventListener('click', () => {
+      if (filter.id !== activeFilter) {
+        onSelectFilter?.(filter.id);
+      }
+    });
+    containerEl.appendChild(btn);
+  }
+}
 
 /**
  * Render destination island cards (3D thumbnail once discovered, "?" silhouette before)
@@ -19,12 +57,14 @@ export function renderDestinationIslandCards({
   routes,
   gs,
   getIslandThumbnailUrl,
+  isAnthology = false,
   emptyHtml = '',
   onEmptyAction = null,
   emptyActionSelector = null,
   onSelectRoute,
 }) {
   if (!containerEl) return;
+  containerEl.classList.toggle('anthology-mode', Boolean(isAnthology));
 
   if (!routes || routes.length === 0) {
     containerEl.innerHTML = emptyHtml;
@@ -37,17 +77,32 @@ export function renderDestinationIslandCards({
   }
 
   containerEl.innerHTML = '';
-  for (const { song } of routes) {
+  for (const route of routes) {
+    const { song, isAnthology: routeAnthology } = route;
+    const showSub = Boolean(isAnthology || routeAnthology);
     const dstId = song.toIsland;
     const dst = ISLANDS[dstId];
     const dstName = dst?.name || dstId;
-    const isDiscovered = Boolean(gs.discoveredIslands?.[dstId]);
+    const fromName = ISLANDS[song.fromIsland]?.name || song.fromIsland;
+    const isDiscovered = Boolean(
+      gs.discoveredIslands?.[dstId] || (gs.masterReplayUnlocked && !song.isSecret)
+    );
     const thumbUrl = isDiscovered ? getIslandThumbnailUrl?.(dstId) : null;
+
+    const songBadge = song.isSecret
+      ? 'Secret Chant'
+      : song.number === 'R'
+        ? 'Return Chant'
+        : `Song ${song.number}`;
+    const tipText = showSub
+      ? `${songBadge}: ${song.title} · From ${fromName} to ${dstName}`
+      : `${songBadge}: ${song.title}`;
 
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = `canoe-island-card ${isDiscovered ? 'discovered' : 'undiscovered'}`;
-    btn.setAttribute('aria-label', dstName);
+    btn.setAttribute('aria-label', showSub ? `${dstName} (${songBadge})` : dstName);
+    btn.setAttribute('data-tooltip', tipText);
 
     const artHtml = isDiscovered
       ? thumbUrl
@@ -58,9 +113,10 @@ export function renderDestinationIslandCards({
     btn.innerHTML = `
       <div class="canoe-island-card-art">${artHtml}</div>
       <div class="canoe-island-card-name">${dstName}</div>
+      ${showSub ? `<div class="canoe-island-card-sub">${songBadge}</div>` : ''}
     `;
     btn.addEventListener('click', () => {
-      onSelectRoute?.(song);
+      onSelectRoute?.(song, route);
     });
     containerEl.appendChild(btn);
   }
@@ -310,15 +366,23 @@ export function populateVoyageConfirmModal({
   const { song, isReturn } = activeRoute;
   const dst = ISLANDS[song.toIsland];
   const dstName = dst?.name || song.toIsland;
+  const fromName = ISLANDS[song.fromIsland]?.name || song.fromIsland;
+  const isCrossShore = Boolean(
+    song.fromIsland && song.fromIsland !== gs.currentIslandId
+  );
 
   if (eyebrowEl) {
-    eyebrowEl.textContent =
-      isReturn && song.number === 'R'
-        ? `Return Chant · ${song.title}`
-        : `Song ${song.number} · ${song.title}`;
+    const badge = song.isSecret
+      ? 'Secret Chant'
+      : isReturn && song.number === 'R'
+        ? 'Return Chant'
+        : `Song ${song.number}`;
+    eyebrowEl.textContent = `${badge} · ${song.title}`;
   }
   if (titleEl) {
-    titleEl.textContent = `Voyage to ${dstName}`;
+    titleEl.textContent = isCrossShore
+      ? `${fromName} → ${dstName}`
+      : `Voyage to ${dstName}`;
   }
   if (recHintEl) {
     recHintEl.textContent = `(Sung for ${departureWindowLabel(song.recommendedDeparture)})`;

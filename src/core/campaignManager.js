@@ -767,7 +767,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       gameState.removeCargoItem('sacred_tridacna_shell');
       rewardsList.push('Placed Sacred Tridacna Shell upon the Great Ancestral Heiau Ahu!');
     }
-    rewardsList.push('Master Navigator Mode Unlocked (Replay any of the 17 Chants!)');
+    rewardsList.push('Master Navigator Anthology Unlocked (Replay any of the 17 Chants from your Vaka!)');
     const hasRapaNuiRelicOrDiscovery =
       gameState.hasCargoItem('sacred_rei_miro_relic') ||
       Boolean(gameState.discoveredIslands?.rapa_nui);
@@ -865,6 +865,61 @@ export function getAvailableRoutesFromCurrentIsland(gameState) {
       const fallbackSong = buildReturnSong(fromId, fallbackPeer);
       if (fallbackSong) {
         routes.push({ song: fallbackSong, isReturn: true });
+      }
+    }
+  }
+
+  return routes;
+}
+
+export const CANOE_ROUTE_FILTERS = Object.freeze([
+  { id: 'local', label: 'Local Waters' },
+  { id: 'act1', label: "Act I · Ra'iatea" },
+  { id: 'act2', label: 'Act II · Nuku Hiva' },
+  { id: 'act3', label: "Act III · Hawai'i" },
+]);
+
+/**
+ * Resolves destination route entries for the Canoe departure modal's archipelago filter pills.
+ * Returns local waters routes when `filterId === 'local'` or before `masterReplayUnlocked`,
+ * and full Act I / II / III chant anthologies once Master Navigator replay is unlocked.
+ */
+export function getRoutesForCanoeFilter(gameState, filterId = 'local') {
+  if (!gameState) return [];
+  if (!gameState.masterReplayUnlocked || !filterId || filterId === 'local') {
+    return getAvailableRoutesFromCurrentIsland(gameState);
+  }
+
+  const targetAct =
+    filterId === 'act1' ? 1 : filterId === 'act2' ? 2 : filterId === 'act3' ? 3 : null;
+  if (!targetAct) {
+    return getAvailableRoutesFromCurrentIsland(gameState);
+  }
+
+  const routes = [];
+  for (const song of Object.values(SONGS)) {
+    if (song.act === targetAct) {
+      routes.push({
+        song,
+        isReturn: song.id === 'song_14r',
+        isAnthology: true,
+      });
+    }
+  }
+
+  if (
+    targetAct === 2 &&
+    (gameState.discoveredIslands?.rapa_nui ||
+      gameState.learnedSongs?.secret_mangareva_to_rapa_nui)
+  ) {
+    for (const song of Object.values(SECRET_SONGS)) {
+      if (song.act === 2) {
+        routes.push({
+          song,
+          isReturn: song.id === 'secret_rapa_nui_to_mangareva',
+          isSecret: true,
+          isAnthology: true,
+        });
       }
     }
   }

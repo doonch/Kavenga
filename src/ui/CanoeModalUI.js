@@ -16,6 +16,7 @@ import { DepartureWindow } from '../core/gameConstants.js';
 import {
   getAvailableRoutesFromCurrentIsland,
   getDefaultRouteFromList,
+  getRoutesForCanoeFilter,
 } from '../core/campaignManager.js';
 import {
   buildVoyageConfirmModalHtml,
@@ -24,6 +25,7 @@ import {
   getCrewLightboxData,
   getPlayerLightboxData,
   populateVoyageConfirmModal,
+  renderCanoeRouteFilterPills,
   renderCrewAndCargoRows,
   renderDestinationIslandCards,
 } from './canoePanelWidgets.js';
@@ -33,8 +35,10 @@ export class CanoeModalUI {
     this.rootEl = rootEl;
     this.callbacks = callbacks;
     this.open = false;
+    this.activeRouteFilter = 'local';
     this.selectedSongId = null;
     this.selectedDeparture = DepartureWindow.DAWN;
+    this._confirmingRoute = null;
     this._currentIslandSessionId = null;
     this._userPickedRoute = false;
     this._userPickedDeparture = false;
@@ -56,6 +60,7 @@ export class CanoeModalUI {
             <section class="canoe-modal-section canoe-routes-section">
               <div class="canoe-section-head">
                 <h4>Where to?</h4>
+                <div class="canoe-filter-pills hidden" id="canoeRouteFilterPills" role="group" aria-label="Archipelago routes"></div>
               </div>
               <div class="canoe-island-cards-row" id="canoeRouteList"></div>
             </section>
@@ -156,7 +161,8 @@ export class CanoeModalUI {
     this.rootEl
       .querySelector('#btnConfirmSailTo')
       .addEventListener('click', () => {
-        const song = this.getSelectedSongObject();
+        const song =
+          this._confirmingRoute?.song || this.getSelectedSongObject();
         if (!song) return;
         this.hide({ silent: true });
         this.callbacks.onLaunchVoyage?.(song, this.selectedDeparture);
@@ -227,8 +233,13 @@ export class CanoeModalUI {
   syncIslandSession() {
     const gs = this.callbacks.getGameState();
     const curIslId = gs?.currentIslandId || 'raiatea';
+    if (!gs?.masterReplayUnlocked) {
+      this.activeRouteFilter = 'local';
+    }
     if (this._currentIslandSessionId !== curIslId) {
       this._currentIslandSessionId = curIslId;
+      this.activeRouteFilter = 'local';
+      this._confirmingRoute = null;
       this.selectedSongId = null;
       this._userPickedRoute = false;
       this._userPickedDeparture = false;
@@ -268,12 +279,18 @@ export class CanoeModalUI {
     }
   }
 
-  _openVoyageConfirmModal(song) {
+  _openVoyageConfirmModal(song, routeObj = null) {
     if (!song) return;
     this._hideCardTooltip();
-    this.selectedSongId = song.id;
+    this._confirmingRoute = routeObj || {
+      song,
+      isReturn: song.id === 'song_14r',
+    };
+    if (this.activeRouteFilter === 'local') {
+      this.selectedSongId = song.id;
+      this._userPickedRoute = true;
+    }
     this.selectedDeparture = song.recommendedDeparture;
-    this._userPickedRoute = true;
     this._userPickedDeparture = false;
     this._refreshVoyageConfirmModal();
     this.rootEl
@@ -282,6 +299,7 @@ export class CanoeModalUI {
   }
 
   closeVoyageConfirmModal() {
+    this._confirmingRoute = null;
     this.rootEl
       .querySelector('#canoeVoyageConfirmModal')
       ?.classList.add('hidden');
@@ -294,6 +312,11 @@ export class CanoeModalUI {
   _getAvailableRoutes() {
     const gs = this.callbacks.getGameState();
     return gs ? getAvailableRoutesFromCurrentIsland(gs) : [];
+  }
+
+  _getFilteredRoutes() {
+    const gs = this.callbacks.getGameState();
+    return gs ? getRoutesForCanoeFilter(gs, this.activeRouteFilter) : [];
   }
 
   _getDefaultRoute(routes) {
@@ -322,15 +345,30 @@ export class CanoeModalUI {
     const gs = this.callbacks.getGameState();
     if (!gs) return;
 
-    const routes = this._getAvailableRoutes();
+    const filterPillsEl = this.rootEl.querySelector('#canoeRouteFilterPills');
+    renderCanoeRouteFilterPills({
+      containerEl: filterPillsEl,
+      gs,
+      activeFilter: this.activeRouteFilter,
+      onSelectFilter: (nextFilterId) => {
+        this._hideCardTooltip();
+        this.activeRouteFilter = nextFilterId;
+        this._refreshRoutePanel();
+      },
+    });
+
+    const isAnthology =
+      Boolean(gs.masterReplayUnlocked) && this.activeRouteFilter !== 'local';
+    const localRoutes = this._getAvailableRoutes();
+    const routes = isAnthology ? this._getFilteredRoutes() : localRoutes;
     const listEl = this.rootEl.querySelector('#canoeRouteList');
 
-    if (routes.length > 0) {
-      const defaultRoute = this._getDefaultRoute(routes);
+    if (localRoutes.length > 0) {
+      const defaultRoute = this._getDefaultRoute(localRoutes);
       if (
         !this._userPickedRoute ||
         !this.selectedSongId ||
-        !routes.some((r) => r.song.id === this.selectedSongId)
+        !localRoutes.some((r) => r.song.id === this.selectedSongId)
       ) {
         this._userPickedRoute = false;
         const changedSong = this.selectedSongId !== defaultRoute.song.id;
@@ -346,6 +384,7 @@ export class CanoeModalUI {
       routes,
       gs,
       getIslandThumbnailUrl: this.callbacks.getIslandThumbnailUrl,
+      isAnthology,
       emptyHtml: `
         <div class="empty-route-callout">
           <p>Speak with this island's wayfinder in the <strong>Elder</strong> station first to learn the next route chant.</p>
@@ -359,8 +398,8 @@ export class CanoeModalUI {
         this.hide();
         this.callbacks.onGoToSanctuary?.();
       },
-      onSelectRoute: (song) => {
-        this._openVoyageConfirmModal(song);
+      onSelectRoute: (song, routeObj) => {
+        this._openVoyageConfirmModal(song, routeObj);
         this.callbacks.onDepartureChanged?.(this.selectedDeparture);
       },
     });
@@ -368,9 +407,10 @@ export class CanoeModalUI {
 
   _refreshVoyageConfirmModal() {
     const gs = this.callbacks.getGameState();
-    const routes = this._getAvailableRoutes();
-    const matched = routes.find((r) => r.song.id === this.selectedSongId);
-    const activeRoute = matched || this._getDefaultRoute(routes);
+    const localRoutes = this._getAvailableRoutes();
+    const matched = localRoutes.find((r) => r.song.id === this.selectedSongId);
+    const activeRoute =
+      this._confirmingRoute || matched || this._getDefaultRoute(localRoutes);
     populateVoyageConfirmModal({
       eyebrowEl: this.rootEl.querySelector('#canoeConfirmEyebrow'),
       titleEl: this.rootEl.querySelector('#canoeConfirmTitle'),

@@ -15,6 +15,7 @@ import {
   getAvailableRoutesFromCurrentIsland,
   getLearnedSandLessonsList,
   getReiMiroRelicGuidance,
+  getRoutesForCanoeFilter,
   interactWithIslandSanctuary,
   performBeachCareeningAndRestock,
 } from '../core/campaignManager.js';
@@ -31,12 +32,12 @@ import {
 } from '../data/constellationLessonsData.js';
 import { ISLANDS, OCEAN_BASINS } from '../data/islandsData.js';
 import { getPlayerCharacterProfile } from '../data/playerCharactersData.js';
-import { SONGS } from '../data/songsData.js';
 import { getWalkableIslandSpec } from '../data/walkableIslandsData.js';
 import { SandCanvas } from './SandCanvas.js';
 import {
   buildVoyageConfirmModalHtml,
   populateVoyageConfirmModal,
+  renderCanoeRouteFilterPills,
   renderDestinationIslandCards,
 } from './canoePanelWidgets.js';
 
@@ -51,6 +52,8 @@ export class WalkableIslandUI {
     this.sandModalOpen = false;
     this.portraitModalOpen = false;
     this.voyageConfirmOpen = false;
+    this.activeRouteFilter = 'local';
+    this._confirmingRoute = null;
     this.selectedLessonId = null;
     this.selectedSongId = null;
     this.selectedDeparture = DepartureWindow.DAWN;
@@ -287,7 +290,8 @@ export class WalkableIslandUI {
         const gs = this.callbacks.getGameState();
         const routes = gs ? getAvailableRoutesFromCurrentIsland(gs) : [];
         const match = routes.find((r) => r.song.id === this.selectedSongId);
-        const song = match?.song || routes[0]?.song;
+        const song =
+          this._confirmingRoute?.song || match?.song || routes[0]?.song;
         if (!song) return;
         this.closeVoyageConfirmModal();
         this.callbacks.onLaunchVoyage?.(song, this.selectedDeparture);
@@ -419,6 +423,8 @@ export class WalkableIslandUI {
   }
 
   show() {
+    this.activeRouteFilter = 'local';
+    this._confirmingRoute = null;
     this.lastSanctuaryResult = null;
     this.hutFeedbackText = '';
     this.craftsmanDrawerOpen = false;
@@ -941,14 +947,6 @@ export class WalkableIslandUI {
           </div>
         </div>
       </div>
-      ${
-        gs.masterReplayUnlocked || isl.id === 'hawaii'
-          ? `<div class="walkable-replay-strip" id="walkMasterReplayStrip">
-               <div class="walkable-mini-heading">Master Navigator Anthology (Replay Any Crossing)</div>
-               <div class="walkable-replay-btns" id="walkMasterReplayBtns"></div>
-             </div>`
-          : ''
-      }
     `;
 
     const elderPortraitBtn = bodyEl.querySelector('#btnWalkElderPortrait');
@@ -1009,21 +1007,6 @@ export class WalkableIslandUI {
           });
         }
       });
-    }
-
-    const stripEl = bodyEl.querySelector('#walkMasterReplayBtns');
-    if (stripEl) {
-      for (const song of Object.values(SONGS)) {
-        if (song.number === '14R') continue;
-        const b = document.createElement('button');
-        b.className = 'secondary-btn small-btn';
-        b.type = 'button';
-        b.textContent = `Song ${song.number}: ${ISLANDS[song.toIsland]?.name || song.title}`;
-        b.addEventListener('click', () => {
-          this.callbacks.onLaunchVoyage?.(song, song.recommendedDeparture);
-        });
-        stripEl.appendChild(b);
-      }
     }
   }
 
@@ -1116,18 +1099,29 @@ export class WalkableIslandUI {
   // -------------------------------------------------------------------------
   _renderCanoeLandingBody(bodyEl) {
     const gs = this.callbacks.getGameState();
+    if (!gs.masterReplayUnlocked) {
+      this.activeRouteFilter = 'local';
+    }
     const isl = ISLANDS[gs.currentIslandId] || ISLANDS.raiatea;
     const walkSpec = getWalkableIslandSpec(isl.id);
     const elderPoi = walkSpec?.pois.find((p) => p.kind === 'elder');
-    const routes = getAvailableRoutesFromCurrentIsland(gs);
+    const localRoutes = getAvailableRoutesFromCurrentIsland(gs);
+    const isAnthology =
+      Boolean(gs.masterReplayUnlocked) && this.activeRouteFilter !== 'local';
+    const routes = isAnthology
+      ? getRoutesForCanoeFilter(gs, this.activeRouteFilter)
+      : localRoutes;
 
     if (
-      routes.length > 0 &&
-      (!this.selectedSongId || !routes.some((r) => r.song.id === this.selectedSongId))
+      localRoutes.length > 0 &&
+      (!this.selectedSongId ||
+        !localRoutes.some((r) => r.song.id === this.selectedSongId))
     ) {
-      const forwardRoutes = routes.filter((r) => !r.isReturn);
+      const forwardRoutes = localRoutes.filter((r) => !r.isReturn);
       const defaultRoute =
-        forwardRoutes.length > 0 ? forwardRoutes[forwardRoutes.length - 1] : routes[0];
+        forwardRoutes.length > 0
+          ? forwardRoutes[forwardRoutes.length - 1]
+          : localRoutes[0];
       this.selectedSongId = defaultRoute.song.id;
       this.selectedDeparture = defaultRoute.song.recommendedDeparture;
     }
@@ -1137,29 +1131,48 @@ export class WalkableIslandUI {
         <section class="canoe-modal-section canoe-routes-section">
           <div class="canoe-section-head">
             <h4>Where to?</h4>
+            <div class="canoe-filter-pills hidden" id="walkRouteFilterPills" role="group" aria-label="Archipelago routes"></div>
           </div>
           <div class="canoe-island-cards-row" id="walkRouteList"></div>
         </section>
       </div>
     `;
 
+    renderCanoeRouteFilterPills({
+      containerEl: bodyEl.querySelector('#walkRouteFilterPills'),
+      gs,
+      activeFilter: this.activeRouteFilter,
+      onSelectFilter: (nextFilterId) => {
+        this.activeRouteFilter = nextFilterId;
+        this._renderCanoeLandingBody(bodyEl);
+      },
+    });
+
     renderDestinationIslandCards({
       containerEl: bodyEl.querySelector('#walkRouteList'),
       routes,
       gs,
       getIslandThumbnailUrl: this.callbacks.getIslandThumbnailUrl,
+      isAnthology,
       emptyHtml: `
         <div class="empty-route-callout">
           <p>Walk over to <strong>${elderPoi?.title || isl.mentorName || 'the island sanctuary'}</strong> first to learn your next star-path chant before launching.</p>
         </div>
       `,
-      onSelectRoute: (song) => this._openWalkVoyageConfirmModal(song),
+      onSelectRoute: (song, routeObj) =>
+        this._openWalkVoyageConfirmModal(song, routeObj),
     });
   }
 
-  _openWalkVoyageConfirmModal(song) {
+  _openWalkVoyageConfirmModal(song, routeObj = null) {
     if (!song) return;
-    this.selectedSongId = song.id;
+    this._confirmingRoute = routeObj || {
+      song,
+      isReturn: song.id === 'song_14r',
+    };
+    if (this.activeRouteFilter === 'local') {
+      this.selectedSongId = song.id;
+    }
     this.selectedDeparture = song.recommendedDeparture;
     this.voyageConfirmOpen = true;
     this._refreshWalkVoyageConfirmModal();
@@ -1170,9 +1183,9 @@ export class WalkableIslandUI {
 
   _refreshWalkVoyageConfirmModal() {
     const gs = this.callbacks.getGameState();
-    const routes = gs ? getAvailableRoutesFromCurrentIsland(gs) : [];
-    const match = routes.find((r) => r.song.id === this.selectedSongId);
-    const activeRoute = match || routes[0];
+    const localRoutes = gs ? getAvailableRoutesFromCurrentIsland(gs) : [];
+    const match = localRoutes.find((r) => r.song.id === this.selectedSongId);
+    const activeRoute = this._confirmingRoute || match || localRoutes[0];
     populateVoyageConfirmModal({
       eyebrowEl: this.rootEl.querySelector('#walkConfirmEyebrow'),
       titleEl: this.rootEl.querySelector('#walkConfirmTitle'),
@@ -1187,6 +1200,7 @@ export class WalkableIslandUI {
   }
 
   closeVoyageConfirmModal() {
+    this._confirmingRoute = null;
     this.voyageConfirmOpen = false;
     this.rootEl
       .querySelector('#walkVoyageConfirmModal')

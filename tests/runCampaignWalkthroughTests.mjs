@@ -4,10 +4,12 @@
  */
 
 import {
+  CANOE_ROUTE_FILTERS,
   CARGO_CATALOG,
   CREW_CATALOG,
   POI_LABELS,
   getAvailableRoutesFromCurrentIsland,
+  getRoutesForCanoeFilter,
   interactWithIslandSanctuary,
   onVoyageLandfall,
   performBeachCareeningAndRestock,
@@ -244,6 +246,40 @@ assert(gs.vakaTier === 3 && gs.maxCargoSlots === 8, 'Upgraded to Tier 3 Vaka Moa
 assert(
   gs.hasFisher() && gs.hasSailTender() && gs.hasHullWright(),
   'Recruited all 3 specialist crewmates (Tama, Moana, Kahu)'
+);
+
+// Verify Canoe Modal Archipelago Filter Pills (`Option 1A`)
+for (const filter of CANOE_ROUTE_FILTERS) {
+  auditText(filter.label, `Canoe route filter pill ${filter.id}`);
+}
+const localHawaiiRoutes = getRoutesForCanoeFilter(gs, 'local');
+assert(
+  localHawaiiRoutes.length === getAvailableRoutesFromCurrentIsland(gs).length &&
+    localHawaiiRoutes.every((r) => !r.isAnthology),
+  "Canoe 'local' filter returns physical local-waters routes from Hawai'i"
+);
+const act1Routes = getRoutesForCanoeFilter(gs, 'act1');
+const act2Routes = getRoutesForCanoeFilter(gs, 'act2');
+const act3Routes = getRoutesForCanoeFilter(gs, 'act3');
+assert(act1Routes.length === 6, `Expected 6 Act I chants, got ${act1Routes.length}`);
+assert(
+  act2Routes.length === 6,
+  `Expected 6 Act II chants before Rapa Nui discovery, got ${act2Routes.length}`
+);
+assert(
+  act3Routes.length === 5 && act3Routes.some((r) => r.song.id === 'song_14r'),
+  `Expected 5 Act III chants (including Song 14R), got ${act3Routes.length}`
+);
+assert(
+  act1Routes.length + act2Routes.length + act3Routes.length === 17,
+  'Archipelago filter pills cover all 17 canonical chants across Acts I-III'
+);
+gs.markIslandDiscovered('rapa_nui', 'act2_nuku_hiva');
+const act2WithSecret = getRoutesForCanoeFilter(gs, 'act2');
+assert(
+  act2WithSecret.length === 8 &&
+    act2WithSecret.some((r) => r.song.id === 'secret_mangareva_to_rapa_nui'),
+  'Discovering Rapa Nui surfaces the secret pilgrimage chants under Act II'
 );
 
 logLine(`\nFULL 17-LEG CAMPAIGN WALKTHROUGH PASSED! (${assertions} assertions verified)`);

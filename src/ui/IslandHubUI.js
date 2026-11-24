@@ -27,7 +27,6 @@ import {
   getAvailableUnlearnedLessonForIsland,
 } from '../data/constellationLessonsData.js';
 import { ISLANDS, OCEAN_BASINS } from '../data/islandsData.js';
-import { SONGS } from '../data/songsData.js';
 import { SandCanvas } from './SandCanvas.js';
 
 const TOTAL_SKY_TEACHINGS = Object.keys(CONSTELLATION_LESSONS).length;
@@ -153,13 +152,6 @@ export class IslandHubUI {
                     <strong id="sanctuaryCrewName"></strong>
                     <span id="sanctuaryCrewTrait"></span>
                   </div>
-                </div>
-
-                <!-- Unlocked after Hawai'i Finale: Free Replay Any of the 17 Chants! -->
-                <div class="master-replay-box hidden" id="masterReplayBox">
-                  <h3>Master Navigator Anthology — Replay Any Chant</h3>
-                  <p>Having reached Hawai'i, you may launch any route chant across all three archipelagos directly.</p>
-                  <div class="replay-song-grid" id="masterReplayGrid"></div>
                 </div>
               </div>
             </section>
@@ -901,26 +893,6 @@ export class IslandHubUI {
         crewObj.traitText;
     } else {
       crewCardEl.classList.add('hidden');
-    }
-
-    // Master Replay Anthology box once Hawai'i Finale is completed
-    const replayBox = this.rootEl.querySelector('#masterReplayBox');
-    replayBox.classList.toggle('hidden', !gs.masterReplayUnlocked);
-    if (gs.masterReplayUnlocked) {
-      const grid = this.rootEl.querySelector('#masterReplayGrid');
-      grid.innerHTML = '';
-      for (const song of Object.values(SONGS)) {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'secondary-btn small-btn';
-        b.textContent = `Song ${song.number}: ${song.title}`;
-        b.addEventListener('click', () => {
-          gs.currentIslandId = song.fromIsland;
-          gs.currentBasinId = ISLANDS[song.fromIsland].basinId;
-          this.callbacks.onLaunchVoyage?.(song, song.recommendedDeparture);
-        });
-        grid.appendChild(b);
-      }
     }
   }
 
