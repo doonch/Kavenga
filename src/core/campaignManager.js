@@ -178,13 +178,6 @@ export function onVoyageLandfall(gameState, islandId) {
   gameState.sailCondition = Math.max(46.0, gameState.sailCondition - wear);
   gameState.lashingsCondition = Math.max(46.0, gameState.lashingsCondition - wear);
 
-  // Unlock immediate teaching sand lessons on arrival if the island has a shore mentor
-  for (const lessonId of isl.sandLessons || []) {
-    if (!gameState.learnedSandLessons[lessonId]) {
-      gameState.learnSandLesson(lessonId);
-    }
-  }
-
   // Kaua'i immediately grants the initial fog-swell trial (Song 14 to O'ahu) on arrival
   if (islandId === 'kauai' && isl.rewards?.initialSong) {
     if (!gameState.learnedSongs[isl.rewards.initialSong]) {
@@ -350,6 +343,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       rewardsList.push('Braided Sennit Lashings restored to 100%');
       rewardsList.push('Recruited Crewmate: Tama (Lagoon Fisher)');
       rewardsList.push('Loaded Cargo: Medicinal Kava Bundle (for Huahine)');
+      rewardsList.push('Learned Sand Reference: Homing Terns & Crossbeam Shadows');
       rewardsList.push('Learned Song 2: Beaks of the Morning Fisher');
       gameState.saveToLocalStorage();
     }
@@ -382,6 +376,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       gameState.learnSong('song_04');
       gameState.loadedRations = gameState.maxCargoSlots - gameState.cargoItems.length;
       rewardsList.push('Woven Pandanus Sail restored to 100%');
+      rewardsList.push('Learned Sand Reference: Lagoon Lapa & The Bull and The Rat');
       rewardsList.push('Learned Song 3 (Manuae Atoll) & Song 4 (Moʻorea)');
       gameState.saveToLocalStorage();
     }
@@ -439,6 +434,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       gameState.loadedRations = gameState.maxCargoSlots - gameState.cargoItems.length;
       rewardsList.push('Twin Hulls restored to 100% & Upgraded to 6 Cargo Slots!');
       rewardsList.push('Received Polished Basalt Adze (for First Master Teraʻi)');
+      rewardsList.push('Learned Sand Reference: Passing the Watch Along One Star Path');
       rewardsList.push("Learned Song 5: Return to Taputapuatea (Ra'iatea)");
       gameState.saveToLocalStorage();
     }
@@ -512,6 +508,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       gameState.loadedRations = gameState.maxCargoSlots - gameState.cargoItems.length;
       rewardsList.push('Recruited Crewmate: Moana (Master Sail-Tender — halves leeway)');
       rewardsList.push('Loaded Cargo: Carved Bone Harpoon Heads (for Rangiroa)');
+      rewardsList.push('Learned Sand Reference: Path of the Horse');
       rewardsList.push('Learned Song 9: Three Lanterns Down to Rangiroa');
       gameState.saveToLocalStorage();
     }
@@ -542,6 +539,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       gameState.learnSong('song_10');
       gameState.loadedRations = gameState.maxCargoSlots - gameState.cargoItems.length;
       rewardsList.push('Loaded Cargo: Mother-of-Pearl Star Discs (for Hiva Oa)');
+      rewardsList.push('Learned Sand Reference: Steering by the Wake Star');
       rewardsList.push('Learned Song 10: The Cloud-Veiled Reach to Hiva Oa');
       gameState.saveToLocalStorage();
     }
@@ -574,6 +572,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       gameState.loadedRations = gameState.maxCargoSlots - gameState.cargoItems.length;
       rewardsList.push('Recruited Crewmate: Kahu (Master Hull-Wright — halves wear)');
       rewardsList.push('Loaded Cargo: Volcanic Obsidian Blanks (for Fatu Hiva)');
+      rewardsList.push('Learned Sand Reference: The Mast-Top Zenith Star');
       rewardsList.push('Learned Song 11: Beneath the Overhead Gecko');
       gameState.saveToLocalStorage();
     }
@@ -607,6 +606,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       gameState.learnSong('song_12');
       gameState.loadedRations = gameState.maxCargoSlots - gameState.cargoItems.length;
       rewardsList.push('Upgraded to Double-Sail Vaka Moana (8 Cargo Slots, 100% Condition)!');
+      rewardsList.push('Learned Sand Reference: Path of the Whale');
       rewardsList.push('Learned Song 12: Wake of the Great Whale (Mangareva)');
       gameState.saveToLocalStorage();
     }
@@ -626,6 +626,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       gameState.learnSandLesson('sand_mangareva_mist_warning');
       gameState.learnSong('song_13');
       gameState.loadedRations = gameState.maxCargoSlots - gameState.cargoItems.length;
+      rewardsList.push('Learned Sand Reference: Crossing Into the Steadfast Sky & Mist');
       rewardsList.push("Learned Song 13: Edge of the Grey Curtain (Kaua'i — Act III)");
       gameState.saveToLocalStorage();
     }
@@ -667,8 +668,8 @@ function _interactWithIslandSanctuaryCore(gameState) {
   // 13. KAUA'I (Act III Swell Master Hub)
   if (id === 'kauai') {
     gameState.learnSong('song_14');
+    const learnedVoicesNow = !gameState.learnedSandLessons.sand_kauai_four_swell_voices;
     gameState.learnSandLesson('sand_kauai_four_swell_voices');
-    gameState.learnSandLesson('sand_kauai_refraction_lattice');
 
     if (
       !gameState.completedQuests.kauai_drum &&
@@ -679,10 +680,12 @@ function _interactWithIslandSanctuaryCore(gameState) {
       gameState.hullCondition = 100.0;
       gameState.sailCondition = 100.0;
       gameState.lashingsCondition = 100.0;
+      gameState.learnSandLesson('sand_kauai_refraction_lattice');
       gameState.learnSong('song_15');
       gameState.learnSong('song_16');
       gameState.loadedRations = gameState.maxCargoSlots - gameState.cargoItems.length;
       rewardsList.push('Carved the Sacred Pahu Swell-Drum & Restored Vaka to 100%!');
+      rewardsList.push('Learned Sand Reference: Island Wave Shadows & Diamond Ripples');
       rewardsList.push("Learned Song 15 (Kiritimati) & Song 16 (The Great Chant of Hawai'i)!");
       gameState.saveToLocalStorage();
       return {
@@ -695,6 +698,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
     }
 
     if (gameState.completedQuests.kauai_drum) {
+      gameState.learnSandLesson('sand_kauai_refraction_lattice');
       return {
         voiceId: 'sanctuary_kauai_after_drum',
         title: "Swell Master Pohaku's High Crag Sanctuary",
@@ -704,12 +708,17 @@ function _interactWithIslandSanctuaryCore(gameState) {
       };
     }
 
+    if (learnedVoicesNow) {
+      rewardsList.push('Learned Sand Reference: The Four Voices of the Deep Swell');
+      gameState.saveToLocalStorage();
+    }
+    rewardsList.push("Active Trial: Sail Song 14 to O'ahu at Dawn and bring back Miro Drum-Timber.");
     return {
       voiceId: 'sanctuary_kauai_trial',
       title: "Swell Master Pohaku's Drum & Pebble Shore",
       speech:
         "Swell Master Pohaku closes his eyes and presses his palm to the wet sand. 'In these mist-seas stars vanish, yet the Great Ocean Swell never lies. Sail at Dawn on Song 14—let the swell lift your port cheek every four drum-beats into O'ahu's calm wave-shadow, and bring back Sacred Miro Drum-Timber!'",
-      rewardsList: ["Active Trial: Sail Song 14 to O'ahu at Dawn and bring back Miro Drum-Timber."],
+      rewardsList,
     };
   }
 
@@ -722,6 +731,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       gameState.learnSong('song_14r');
       gameState.loadedRations = gameState.maxCargoSlots - gameState.cargoItems.length;
       rewardsList.push("Harvested Sacred Miro Drum-Timber (for Pohaku on Kaua'i)");
+      rewardsList.push('Learned Sand Reference: Holding the Return Ridge');
       rewardsList.push("Learned Song 14R: Echo of the Fortress Crag (Return to Kaua'i)");
       gameState.saveToLocalStorage();
     }
@@ -747,6 +757,7 @@ function _interactWithIslandSanctuaryCore(gameState) {
       gameState.loadedRations = gameState.maxCargoSlots - gameState.cargoItems.length;
       rewardsList.push('Loaded Sacred Giant Tridacna Shell');
       rewardsList.push('Full Grand-Voyage Provisioning & 100% Careening');
+      rewardsList.push("Learned Sand Reference: The Four Legs to Ancestral Hawai'i");
       rewardsList.push("Ready for Song 16: The Great Chant of Hawai'i (Dawn Departure)");
       gameState.saveToLocalStorage();
     }
@@ -928,23 +939,27 @@ export function getRoutesForCanoeFilter(gameState, filterId = 'local') {
 }
 
 /**
- * Returns sand lessons available for inspection on the current island (or all learned lessons).
+ * Returns unlocked sand reference lessons for inspection ashore:
+ * current island's newly/locally learned lessons first, followed by all other
+ * learned lessons in canonical storyline order (`SAND_LESSONS`).
  */
 export function getLearnedSandLessonsList(gameState) {
+  if (!gameState) return [];
   const curIsl = ISLANDS[gameState.currentIslandId];
   const localIds = curIsl?.sandLessons || [];
+  const learnedMap = gameState.learnedSandLessons || {};
   const ordered = [];
   const seen = new Set();
 
   for (const id of localIds) {
-    if (SAND_LESSONS[id]) {
+    if (learnedMap[id] && SAND_LESSONS[id] && !seen.has(id)) {
       ordered.push(SAND_LESSONS[id]);
       seen.add(id);
     }
   }
-  for (const [id, unlocked] of Object.entries(gameState.learnedSandLessons)) {
-    if (unlocked && !seen.has(id) && SAND_LESSONS[id]) {
-      ordered.push(SAND_LESSONS[id]);
+  for (const [id, lesson] of Object.entries(SAND_LESSONS)) {
+    if (learnedMap[id] && !seen.has(id)) {
+      ordered.push(lesson);
       seen.add(id);
     }
   }

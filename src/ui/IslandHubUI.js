@@ -27,6 +27,7 @@ import {
   getAvailableUnlearnedLessonForIsland,
 } from '../data/constellationLessonsData.js';
 import { ISLANDS, OCEAN_BASINS } from '../data/islandsData.js';
+import { getSeenSandLessonIds, markSandLessonSeen } from './OnboardingTourUI.js';
 import { SandCanvas } from './SandCanvas.js';
 
 const TOTAL_SKY_TEACHINGS = Object.keys(CONSTELLATION_LESSONS).length;
@@ -40,7 +41,7 @@ export class IslandHubUI {
     this.selectedLessonId = null;
     this.lastSanctuaryResult = null;
     this._currentIslandSessionId = null;
-    this._seenSandLessons = new Set();
+    this._seenSandLessons = getSeenSandLessonIds();
     this._recentlyClearedObjectives = [];
     this.objectivesCollapsed = false;
     this.orbitCustomized = false;
@@ -98,20 +99,20 @@ export class IslandHubUI {
               <span class="station-badge hidden" id="badgeSanctuary"></span>
             </button>
 
-            <button class="poi-tab-btn" data-tab="sand" id="tabBtnSand" role="tab" type="button">
-              <span class="station-tab-main">
-                <span class="station-tab-glyph">🐚</span>
-                <span class="station-tab-label">Sand</span>
-              </span>
-              <span class="station-badge hidden" id="badgeSand"></span>
-            </button>
-
             <button class="poi-tab-btn" data-tab="vigil" id="tabBtnVigil" role="tab" type="button">
               <span class="station-tab-main">
                 <span class="station-tab-glyph">✨</span>
                 <span class="station-tab-label">Sky Vigil</span>
               </span>
               <span class="station-badge hidden" id="badgeVigil"></span>
+            </button>
+
+            <button class="poi-tab-btn" data-tab="sand" id="tabBtnSand" role="tab" type="button">
+              <span class="station-tab-main">
+                <span class="station-tab-glyph">🐚</span>
+                <span class="station-tab-label">Sand</span>
+              </span>
+              <span class="station-badge hidden" id="badgeSand"></span>
             </button>
           </nav>
 
@@ -156,33 +157,7 @@ export class IslandHubUI {
               </div>
             </section>
 
-            <!-- STATION 2: STICK-IN-THE-SAND DIAGRAMS -->
-            <section class="hub-panel hidden" id="panelSand" role="tabpanel">
-              <div class="hub-card sand-stage-card">
-                <div class="sand-stage-header">
-                  <div>
-                    <span class="sand-mentor-tag" id="sandStageMentor"></span>
-                    <h3 id="sandStageTitle">Stick-in-the-Sand Lessons</h3>
-                  </div>
-                  <button class="secondary-btn small-btn" id="btnRedrawSand" type="button">Redraw</button>
-                </div>
-                <canvas id="shoreSandCanvas" width="520" height="350"></canvas>
-                <p class="sand-narration-box" id="sandStageNarration"></p>
-              </div>
-
-              <div class="hub-card sand-list-card">
-                <div class="sand-list-head">
-                  <h4 id="sandPoiTitle">Carved Ocean Cue Diagrams</h4>
-                  <button class="sand-mentor-mini-btn hidden" id="btnEnlargeSandPortrait" type="button" title="Inspect teaching mentor portrait">
-                    <img id="sandMentorImg" alt="" />
-                    <span id="sandMentorCardName"></span>
-                  </button>
-                </div>
-                <div class="lesson-list" id="hubLessonList"></div>
-              </div>
-            </section>
-
-            <!-- STATION 3: STAR-STONE SKY VIGIL -->
+            <!-- STATION 2: STAR-STONE SKY VIGIL -->
             <section class="hub-panel hidden" id="panelVigil" role="tabpanel">
               <div class="hub-card vigil-station-card">
                 <div class="vigil-station-hero">
@@ -210,6 +185,32 @@ export class IslandHubUI {
                   </p>
                   <div class="vigil-learned-chips" id="vigilLearnedChips"></div>
                 </div>
+              </div>
+            </section>
+
+            <!-- STATION 3: STICK-IN-THE-SAND REFERENCE LOG -->
+            <section class="hub-panel hidden" id="panelSand" role="tabpanel">
+              <div class="hub-card sand-stage-card">
+                <div class="sand-stage-header">
+                  <div>
+                    <span class="sand-mentor-tag" id="sandStageMentor"></span>
+                    <h3 id="sandStageTitle">Stick-in-the-Sand Reference</h3>
+                  </div>
+                  <button class="secondary-btn small-btn" id="btnRedrawSand" type="button">Redraw</button>
+                </div>
+                <canvas id="shoreSandCanvas" width="520" height="350"></canvas>
+                <p class="sand-narration-box" id="sandStageNarration"></p>
+              </div>
+
+              <div class="hub-card sand-list-card">
+                <div class="sand-list-head">
+                  <h4 id="sandPoiTitle">Reference Log · Carved Ocean Cues</h4>
+                  <button class="sand-mentor-mini-btn hidden" id="btnEnlargeSandPortrait" type="button" title="Inspect teaching mentor portrait">
+                    <img id="sandMentorImg" alt="" />
+                    <span id="sandMentorCardName"></span>
+                  </button>
+                </div>
+                <div class="lesson-list" id="hubLessonList"></div>
               </div>
             </section>
           </main>
@@ -566,7 +567,7 @@ export class IslandHubUI {
   switchTab(tabId) {
     const validTabs = ['sanctuary', 'sand', 'vigil'];
     const nextTab = validTabs.includes(tabId) ? tabId : 'sanctuary';
-    if (nextTab !== 'sanctuary') {
+    if (nextTab !== this.activeTab || nextTab !== 'sanctuary') {
       this.callbacks.onStopVoice?.();
     }
     this.activeTab = nextTab;
@@ -591,11 +592,14 @@ export class IslandHubUI {
       this.shoreSandCanvas.stopAnimation();
     }
 
+    this._seenSandLessons = getSeenSandLessonIds();
     this.refresh();
 
     if (nextTab === 'sand') {
-      if (this.selectedLessonId) {
+      if (this.selectedLessonId && !this._seenSandLessons.has(this.selectedLessonId)) {
         this._seenSandLessons.add(this.selectedLessonId);
+        markSandLessonSeen(this.selectedLessonId);
+        this._refreshSandLessonsList();
         this._updateStationBadges();
       }
       this._renderSelectedShoreLesson(true);
@@ -763,7 +767,8 @@ export class IslandHubUI {
       this._setBadge(this.rootEl.querySelector('#badgeSanctuary'), '', '');
     }
 
-    // 2. Sand Diagrams badge
+    // 3. Sand Reference Log badge
+    this._seenSandLessons = getSeenSandLessonIds();
     const lessons = getLearnedSandLessonsList(gs);
     const localUnseen = (isl.sandLessons || []).some(
       (lid) => gs.learnedSandLessons?.[lid] && !this._seenSandLessons.has(lid)
@@ -902,6 +907,7 @@ export class IslandHubUI {
     const lessons = getLearnedSandLessonsList(gs);
     const listEl = this.rootEl.querySelector('#hubLessonList');
     const miniMentorBtn = this.rootEl.querySelector('#btnEnlargeSandPortrait');
+    this._seenSandLessons = getSeenSandLessonIds();
     listEl.innerHTML = '';
 
     if (!lessons.length) {
@@ -910,25 +916,37 @@ export class IslandHubUI {
       return;
     }
 
-    // Prefer selecting the current island's sand lesson first when arriving on a new island
+    // Sort unseen current-shore lessons first, then seen current-shore lessons, keeping prior log in story order
+    const ordered = lessons
+      .map((les, idx) => ({ les, idx }))
+      .sort((a, b) => {
+        const aLocal = a.les.islandId === curIsl.id;
+        const bLocal = b.les.islandId === curIsl.id;
+        const aUnseen = aLocal && !this._seenSandLessons.has(a.les.id) ? 0 : aLocal ? 1 : 2;
+        const bUnseen = bLocal && !this._seenSandLessons.has(b.les.id) ? 0 : bLocal ? 1 : 2;
+        if (aUnseen !== bUnseen) return aUnseen - bUnseen;
+        return a.idx - b.idx;
+      })
+      .map((entry) => entry.les);
+
+    // Prefer selecting an unseen/local lesson first when arriving or unlocking a new diagram
+    const unseenLocalMatch = ordered.find(
+      (l) => l.islandId === curIsl.id && !this._seenSandLessons.has(l.id)
+    );
     if (
       !this.selectedLessonId ||
-      !lessons.some((l) => l.id === this.selectedLessonId)
+      !ordered.some((l) => l.id === this.selectedLessonId) ||
+      (unseenLocalMatch &&
+        this.selectedLessonId !== unseenLocalMatch.id &&
+        this.activeTab !== 'sand')
     ) {
-      const localMatch = lessons.find((l) => l.islandId === curIsl.id);
-      this.selectedLessonId = (localMatch || lessons[lessons.length - 1]).id;
+      this.selectedLessonId = (unseenLocalMatch || ordered[0]).id;
     }
-
-    // Sort current island's lesson(s) to the top for instant clarity
-    const ordered = lessons.slice().sort((a, b) => {
-      const aLocal = a.islandId === curIsl.id ? 0 : 1;
-      const bLocal = b.islandId === curIsl.id ? 0 : 1;
-      return aLocal - bLocal;
-    });
 
     for (const les of ordered) {
       const isLocal = les.islandId === curIsl.id;
       const isUnseen = isLocal && !this._seenSandLessons.has(les.id);
+      const srcIslName = ISLANDS[les.islandId]?.name || les.islandId;
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = `lesson-choice-btn ${les.id === this.selectedLessonId ? 'selected' : ''}`;
@@ -943,11 +961,12 @@ export class IslandHubUI {
                 : ''
           }
         </div>
-        <span>Taught by ${les.mentor}</span>
+        <span>${srcIslName} · ${les.mentor}</span>
       `;
       btn.addEventListener('click', () => {
         this.selectedLessonId = les.id;
         this._seenSandLessons.add(les.id);
+        markSandLessonSeen(les.id);
         this._refreshSandLessonsList();
         this._updateStationBadges();
         this._renderSelectedShoreLesson(true);
@@ -987,6 +1006,9 @@ export class IslandHubUI {
     this.rootEl.querySelector('#sandStageTitle').textContent = les.title;
     this.rootEl.querySelector('#sandStageNarration').textContent = les.narration;
     this.shoreSandCanvas.renderLesson(les, { animate });
+    if (animate && (les.voiceId || les.id)) {
+      this.callbacks.onPlayVoice?.(les.voiceId || les.id, { restart: true });
+    }
   }
 
   _refreshVigilPanel(criticalStep = null) {

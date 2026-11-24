@@ -33,6 +33,7 @@ import {
 import { ISLANDS, OCEAN_BASINS } from '../data/islandsData.js';
 import { getPlayerCharacterProfile } from '../data/playerCharactersData.js';
 import { getWalkableIslandSpec } from '../data/walkableIslandsData.js';
+import { getSeenSandLessonIds, markSandLessonSeen } from './OnboardingTourUI.js';
 import { SandCanvas } from './SandCanvas.js';
 import {
   buildVoyageConfirmModalHtml,
@@ -151,13 +152,13 @@ export class WalkableIslandUI {
         <!-- Toast feedback banner -->
         <div class="hud-toast" id="walkShoreToast"></div>
 
-        <!-- Interactive Stick-in-the-Sand Teaching Modal (opened from Hilltop Observation Circle) -->
+        <!-- Interactive Stick-in-the-Sand Reference Log Modal (opened from Hilltop Observation Circle) -->
         <div class="modal-backdrop hidden" id="walkSandModal">
           <div class="walkable-sand-modal-card">
             <div class="recall-header">
               <div>
-                <div class="recall-eyebrow">Navigator's Teaching Sand · Hilltop Observation Circle</div>
-                <h3 id="walkSandModalTitle">Stick-in-the-Sand Diagrams</h3>
+                <div class="recall-eyebrow">Reference Log · Navigator's Teaching Sand</div>
+                <h3 id="walkSandModalTitle">Stick-in-the-Sand Reference</h3>
               </div>
               <div style="display:flex;gap:8px;">
                 <button class="secondary-btn small-btn" id="btnWalkRedrawSand" type="button">Redraw in Sand</button>
@@ -1039,7 +1040,7 @@ export class WalkableIslandUI {
       </div>
       <div class="walkable-action-row">
         <button class="primary-btn" id="btnWalkOpenSand" type="button">
-          🐚 Trace Stick-in-the-Sand Diagrams (${lessons.length})
+          🐚 Sand Reference Log (${lessons.length})
         </button>
         <button class="${unlearnedConst ? 'primary-btn elder-vigil-cta-btn' : 'secondary-btn'}" id="btnWalkEnterVigil" type="button">
           ${vigilBtnLabel}
@@ -1305,15 +1306,22 @@ export class WalkableIslandUI {
   // -------------------------------------------------------------------------
   openSandModal() {
     const gs = this.callbacks.getGameState();
+    const curIslId = gs?.currentIslandId || 'raiatea';
     const lessons = getLearnedSandLessonsList(gs);
     if (!lessons.length) return;
 
+    const seen = getSeenSandLessonIds();
+    const unseenLocal = lessons.find(
+      (l) => l.islandId === curIslId && !seen.has(l.id)
+    );
     if (
+      unseenLocal ||
       !this.selectedLessonId ||
       !lessons.some((l) => l.id === this.selectedLessonId)
     ) {
-      this.selectedLessonId = lessons[0].id;
+      this.selectedLessonId = (unseenLocal || lessons[0]).id;
     }
+    markSandLessonSeen(this.selectedLessonId);
 
     this.sandModalOpen = true;
     this.rootEl.querySelector('#walkSandModal').classList.remove('hidden');
@@ -1324,22 +1332,41 @@ export class WalkableIslandUI {
   closeSandModal() {
     this.sandModalOpen = false;
     this.sandCanvas?.stopAnimation();
+    this.callbacks.onStopVoice?.();
     this.rootEl.querySelector('#walkSandModal')?.classList.add('hidden');
   }
 
   _populateSandModalList() {
     const gs = this.callbacks.getGameState();
+    const curIslId = gs?.currentIslandId || 'raiatea';
+    const seen = getSeenSandLessonIds();
     const lessons = getLearnedSandLessonsList(gs);
     const listEl = this.rootEl.querySelector('#walkSandLessonList');
     listEl.innerHTML = '';
 
     for (const les of lessons) {
+      const isLocal = les.islandId === curIslId;
+      const isUnseen = isLocal && !seen.has(les.id);
+      const srcIslName = ISLANDS[les.islandId]?.name || les.islandId;
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = `lesson-choice-btn ${les.id === this.selectedLessonId ? 'selected' : ''}`;
-      btn.innerHTML = `<strong>${les.title}</strong><span>Taught by ${les.mentor}</span>`;
+      btn.innerHTML = `
+        <div class="lesson-choice-row">
+          <strong>${les.title}</strong>
+          ${
+            isUnseen
+              ? '<span class="station-badge badge-action">New</span>'
+              : isLocal
+                ? '<span class="station-badge badge-neutral">This Shore</span>'
+                : ''
+          }
+        </div>
+        <span>${srcIslName} · ${les.mentor}</span>
+      `;
       btn.addEventListener('click', () => {
         this.selectedLessonId = les.id;
+        markSandLessonSeen(les.id);
         this._populateSandModalList();
         this._renderSelectedSandLesson(true);
       });
@@ -1359,6 +1386,9 @@ export class WalkableIslandUI {
       `Mentor: ${les.mentor}`;
     this.rootEl.querySelector('#walkSandNarration').textContent = les.narration;
     this.sandCanvas.renderLesson(les, { animate });
+    if (animate && (les.voiceId || les.id)) {
+      this.callbacks.onPlayVoice?.(les.voiceId || les.id, { restart: true });
+    }
   }
 
   openPortraitModal({ eyebrow, name, role, src }) {

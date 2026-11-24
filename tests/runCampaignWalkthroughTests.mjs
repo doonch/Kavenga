@@ -9,11 +9,14 @@ import {
   CREW_CATALOG,
   POI_LABELS,
   getAvailableRoutesFromCurrentIsland,
+  getLearnedSandLessonsList,
   getRoutesForCanoeFilter,
   interactWithIslandSanctuary,
   onVoyageLandfall,
   performBeachCareeningAndRestock,
 } from '../src/core/campaignManager.js';
+import { SAND_LESSONS } from '../src/data/sandDiagramsData.js';
+import { SECRET_SONGS } from '../src/data/songsData.js';
 import { GameState } from '../src/core/gameState.js';
 import { getActiveObjectivesForDisplay } from '../src/core/objectivesManager.js';
 import {
@@ -98,12 +101,41 @@ const CAMPAIGN_STEPS = [
   { expectedIsland: 'kiritimati', sailSongId: 'song_16' }, // Grand Voyage prep -> sails to Hawai'i!
 ];
 
+assert(
+  Object.keys(gs.learnedSandLessons).length === 1 &&
+    Boolean(gs.learnedSandLessons.sand_raiatea_clouds) &&
+    !gs.learnedSandLessons.sand_raiatea_leeway,
+  "Campaign starts with only Ra'iatea cloud sand lesson learned (consecration leeway stays locked)"
+);
+
 for (let i = 0; i < CAMPAIGN_STEPS.length; i += 1) {
   const step = CAMPAIGN_STEPS[i];
   assert(
     gs.currentIslandId === step.expectedIsland,
     `Step ${i + 1}: expected to be on ${step.expectedIsland}, got ${gs.currentIslandId}`
   );
+
+  // Verify sand lessons stay locked until the elder teaches them on that shore
+  if (step.expectedIsland === 'huahine') {
+    assert(
+      !gs.learnedSandLessons.sand_huahine_lapa_and_bull &&
+        getLearnedSandLessonsList(gs).every((l) => l.id !== 'sand_huahine_lapa_and_bull'),
+      'Huahine sand lesson stays hidden from Reference Log until kava is presented to Elder Ariʻi'
+    );
+  }
+  if (step.expectedIsland === 'raiatea' && i === 5) {
+    assert(
+      !gs.learnedSandLessons.sand_raiatea_leeway,
+      'Raʻiatea leeway sand lesson stays locked on return until Elder Metua consecrates the vaka'
+    );
+  }
+  if (step.expectedIsland === 'kauai' && i === 13) {
+    assert(
+      !gs.learnedSandLessons.sand_kauai_four_swell_voices &&
+        !gs.learnedSandLessons.sand_kauai_refraction_lattice,
+      'Kauaʻi swell sand lessons wait for Swell Master Pohakuʻs teaching and drum ritual'
+    );
+  }
 
   const isFirstSanctuaryVisit = !visitedSanctuaries.has(step.expectedIsland);
   const expectedArrivalObjId = ISLAND_ARRIVAL_OBJECTIVE_MAP[step.expectedIsland];
@@ -246,6 +278,17 @@ assert(gs.vakaTier === 3 && gs.maxCargoSlots === 8, 'Upgraded to Tier 3 Vaka Moa
 assert(
   gs.hasFisher() && gs.hasSailTender() && gs.hasHullWright(),
   'Recruited all 3 specialist crewmates (Tama, Moana, Kahu)'
+);
+
+const allLearnedSand = getLearnedSandLessonsList(gs);
+assert(
+  Object.keys(SAND_LESSONS).every((lid) => Boolean(gs.learnedSandLessons[lid])) &&
+    allLearnedSand.length === Object.keys(SAND_LESSONS).length,
+  `All ${Object.keys(SAND_LESSONS).length} sand reference lessons are earned in storyline flow by Hawai'i finale`
+);
+assert(
+  SECRET_SONGS.secret_mangareva_to_rapa_nui.sandRecallId === 'sand_fatu_hiva_band5_whale',
+  'Secret pilgrimage chant to Rapa Nui recalls Path of the Whale (Band 5) instead of Kauaʻi mist'
 );
 
 // Verify Canoe Modal Archipelago Filter Pills (`Option 1A`)

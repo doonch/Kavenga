@@ -831,7 +831,7 @@ export const SECRET_SONGS = Object.freeze({
     toIsland: 'rapa_nui',
     act: 2,
     isSecret: true,
-    sandRecallId: 'sand_mangareva_mist_warning',
+    sandRecallId: 'sand_fatu_hiva_band5_whale',
     recommendedDeparture: DepartureWindow.DUSK,
     expectedDurationMin: 23.4,
     gameHoursPerRealMin: 1.15,

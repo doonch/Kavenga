@@ -324,6 +324,10 @@ for (const [cid, item] of Object.entries(CARGO_CATALOG)) {
 for (const [lid, les] of Object.entries(SAND_LESSONS)) {
   auditText(les.title, `SandLesson ${lid}.title`);
   auditText(les.narration, `SandLesson ${lid}.narration`);
+  assert(
+    typeof les.voiceId === 'string' && Boolean(VOICE_LINES[les.voiceId]),
+    `SandLesson ${lid} declares voiceId registered in VOICE_LINES`
+  );
   for (const prim of les.primitives) {
     if (prim.label) auditText(prim.label, `SandLesson ${lid} label`);
   }

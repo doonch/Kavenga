@@ -15,7 +15,7 @@
  *     `<audio>` elements play seamlessly from cache on iPadOS, iOS, and macOS.
  */
 
-const CORE_CACHE = 'kavenga-core-v6';
+const CORE_CACHE = 'kavenga-core-v7';
 const AUDIO_CACHE = 'kavenga-audio-v1';
 const VALID_CACHES = new Set([CORE_CACHE, AUDIO_CACHE]);
 

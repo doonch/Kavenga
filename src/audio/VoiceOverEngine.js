@@ -68,12 +68,12 @@ export class VoiceOverEngine {
     return `./assets/audio/voices/${voiceId}.mp3`;
   }
 
-  play(voiceId) {
+  play(voiceId, { restart = false } = {}) {
     if (!voiceId || !this.enabled || this.muted) {
       this.stop();
       return;
     }
-    if (this.speaking && this.currentVoiceId === voiceId) {
+    if (!restart && this.speaking && this.currentVoiceId === voiceId) {
       return;
     }
 

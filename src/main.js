@@ -313,7 +313,7 @@ class KavengaApp {
       onOpenSettings: () => this.openIslandSettings(),
       onOpenAchievements: () => this.openIslandAchievements(),
       onSanctuaryInteracted: (res) => this._handleSanctuaryInteracted(res),
-      onPlayVoice: (voiceId) => this.voiceEngine.play(voiceId),
+      onPlayVoice: (voiceId, opts) => this.voiceEngine.play(voiceId, opts),
       onStopVoice: () => this.voiceEngine.stop(),
       onAshoreStateChanged: () =>
         this.achievementsManager.evaluateAshoreState(
@@ -400,7 +400,7 @@ class KavengaApp {
       onOpenSettings: () => this.openIslandSettings(),
       onOpenAchievements: () => this.openIslandAchievements(),
       onSanctuaryInteracted: (res) => this._handleSanctuaryInteracted(res),
-      onPlayVoice: (voiceId) => this.voiceEngine.play(voiceId),
+      onPlayVoice: (voiceId, opts) => this.voiceEngine.play(voiceId, opts),
       onStopVoice: () => this.voiceEngine.stop(),
       onAshoreStateChanged: () =>
         this.achievementsManager.evaluateAshoreState(

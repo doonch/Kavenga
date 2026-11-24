@@ -11,6 +11,44 @@
 export const ONBOARDING_STORAGE_KEY = 'kavenga_onboarding_done_v1';
 export const SAILING_ONBOARDING_STORAGE_KEY = 'kavenga_sailing_onboarding_done_v1';
 export const TAHAA_CLOUD_TOUR_STORAGE_KEY = 'kavenga_tahaa_cloud_tour_done_v1';
+export const SEEN_SAND_LESSONS_STORAGE_KEY = 'kavenga_seen_sand_v1';
+
+export function getSeenSandLessonIds() {
+  const seen = new Set();
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(SEEN_SAND_LESSONS_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          for (const id of parsed) {
+            if (typeof id === 'string') seen.add(id);
+          }
+        }
+      }
+    }
+  } catch {
+    // Ignore storage errors in restricted contexts
+  }
+  return seen;
+}
+
+export function markSandLessonSeen(lessonId) {
+  if (!lessonId) return;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const seen = getSeenSandLessonIds();
+      if (seen.has(lessonId)) return;
+      seen.add(lessonId);
+      localStorage.setItem(
+        SEEN_SAND_LESSONS_STORAGE_KEY,
+        JSON.stringify(Array.from(seen))
+      );
+    }
+  } catch {
+    // Ignore storage errors in restricted contexts
+  }
+}
 
 export function clearOnboardingDone() {
   try {
@@ -18,6 +56,7 @@ export function clearOnboardingDone() {
       localStorage.removeItem(ONBOARDING_STORAGE_KEY);
       localStorage.removeItem(SAILING_ONBOARDING_STORAGE_KEY);
       localStorage.removeItem(TAHAA_CLOUD_TOUR_STORAGE_KEY);
+      localStorage.removeItem(SEEN_SAND_LESSONS_STORAGE_KEY);
     }
   } catch {
     // Ignore storage errors in restricted contexts

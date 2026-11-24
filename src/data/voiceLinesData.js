@@ -12,6 +12,7 @@
 
 import { CONSTELLATION_LESSONS } from './constellationLessonsData.js';
 import { ISLANDS } from './islandsData.js';
+import { SAND_LESSONS } from './sandDiagramsData.js';
 
 export const SANCTUARY_VOICE_LINES = Object.freeze({
   sanctuary_raiatea_welcome: Object.freeze({
@@ -225,6 +226,17 @@ for (const lesson of Object.values(CONSTELLATION_LESSONS)) {
       text: beat.speech,
     });
   }
+}
+
+for (const sandLesson of Object.values(SAND_LESSONS)) {
+  const voiceId = sandLesson.voiceId || sandLesson.id;
+  allVoiceLines[voiceId] = Object.freeze({
+    id: voiceId,
+    islandId: sandLesson.islandId,
+    elderName: sandLesson.mentor,
+    category: 'sand',
+    text: sandLesson.narration,
+  });
 }
 
 export const VOICE_LINES = Object.freeze(allVoiceLines);
