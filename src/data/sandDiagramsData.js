@@ -255,7 +255,7 @@ export const SAND_LESSONS = Object.freeze({
       { type: 'canoe_mark', at: [-0.35, 0.28], angleRad: 3.14, scale: 0.78 },
       { type: 'shell', at: [-0.35, -0.2], label: "Gecko's Heart Straight Overhead!", labelAt: [-0.52, -0.58], labelTone: 'gold' },
       { type: 'canoe_mark', at: [-0.04, -0.2], angleRad: 1.57, scale: 0.82 },
-      { type: 'groove_ray', from: [0.22, -0.2], to: [1.06, -0.2], highlight: true, label: "2. Turn to Rising Shark's Jaw", labelAt: [0.64, 0.04], labelTone: 'gold' },
+      { type: 'groove_ray', from: [0.22, -0.2], to: [1.06, -0.2], highlight: true, label: "2. Bull's Path · Shark's Jaw", labelAt: [0.64, 0.04], labelTone: 'gold' },
       { type: 'island_cone', at: [1.22, -0.2], scale: 0.9, crag: true, label: 'Fatu Hiva', labelAt: [1.22, -0.48] },
     ],
   },

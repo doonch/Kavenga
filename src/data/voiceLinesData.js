@@ -111,7 +111,7 @@ export const SANCTUARY_VOICE_LINES = Object.freeze({
     islandId: 'rangiroa',
     elderName: 'Tane',
     category: 'sanctuary',
-    text: "Tane presses luminous pearl star discs into your palm. 'Rain-squalls often curtain your prows halfway to Hiva Oa. When forward stars vanish, look straight back over your steering sweep and hold the Setting Gecko's Tongue centered in your wake!'",
+    text: "Tane presses luminous pearl star discs into your palm. 'Sail out from the great lagoon down the Rising Path of the Shark toward Hiva Oa. Rain-squalls often curtain your prows halfway there—when forward stars vanish, look straight back over your steering sweep and hold the Setting Gecko's Tongue centered in your wake!'",
   }),
   sanctuary_hiva_oa_need_discs: Object.freeze({
     id: 'sanctuary_hiva_oa_need_discs',
@@ -167,7 +167,7 @@ export const SANCTUARY_VOICE_LINES = Object.freeze({
     islandId: 'kauai',
     elderName: 'Swell Master Pohaku',
     category: 'sanctuary',
-    text: "Swell Master Pohaku hollows your O'ahu miro timber into a deep resonant Pahu drum! 'You sailed through blind mist by the feel of the ocean alone. Now cross to sacred Kiritimati (Song 15) to study the Steadfast Peg with Keeper Akura and provision for the Grand Voyage to ancestral Hawai'i!'",
+    text: "Swell Master Pohaku hollows your O'ahu miro timber into a deep resonant Pahu drum! 'You sailed through blind mist by the feel of the ocean alone. Now cross to sacred Kiritimati (Song 15): keep the setting sun astern at dusk, follow Rising Bull's Horn under the stars, hold the four-beat swell on your starboard cheek through cloud, and ride the diamond ripples toward Kiritimati's jade cloud—there study the Steadfast Peg with Keeper Akura and provision for Hawai'i!'",
   }),
   sanctuary_kauai_after_drum: Object.freeze({
     id: 'sanctuary_kauai_after_drum',
@@ -188,7 +188,7 @@ export const SANCTUARY_VOICE_LINES = Object.freeze({
     islandId: 'kiritimati',
     elderName: 'Keeper Akura',
     category: 'sanctuary',
-    text: "Keeper Akura cradles a still lagoon-water mirror reflecting the Steadfast Peg high above the sea. 'Here across the great waters, the Sea Turtle has sunk out of sight and the Steadfast Peg anchors our night sky! Study the Star-Stone Ring with me on Navigator's Shore, then sing Song 16 at Dawn all the way to ancestral Hawai'i!'",
+    text: "Keeper Akura cradles a still lagoon-water mirror reflecting the Steadfast Peg high above the sea. 'Here across the great waters, the Sea Turtle has sunk out of sight and the Steadfast Peg anchors our night sky! Study the Star-Stone Ring with me on Navigator's Shore, then sing Song 16 at Dawn: ride morning shadow and port-cheek swell through mist, turn down the Rising Path of the Shark with the Steadfast Peg off your port beam, and follow reflected pyramid waves and dawn terns to ancestral Hawai'i!'",
   }),
   sanctuary_hawaii_finale: Object.freeze({
     id: 'sanctuary_hawaii_finale',

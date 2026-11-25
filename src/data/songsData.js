@@ -114,10 +114,10 @@ export const SONGS = Object.freeze({
         endRealSec: 410.0,
         weather: 'clear',
         lyrics:
-          "Center the amber Setting Bull's Horn descending between your prows / When grey dawn softens the sky, steer beneath the flat cloud painted green on its belly.",
+          "Center the amber Setting Bull's Horn descending between your prows, then hand the watch to the Setting Rat's Nose / When grey dawn softens the sky, steer beneath the flat cloud painted jade on its belly.",
         easyCueText:
-          "At night, center the Setting Bull's Horn between your twin prows; at dawn, steer toward the low cloud glowing pale turquoise underneath.",
-        cueLabel: "the Setting Bull's Horn and the jade-bellied lagoon cloud",
+          "At night, center the Setting Bull's Horn and then the Setting Rat's Nose between your twin prows; at dawn, steer toward the low cloud glowing pale jade underneath.",
+        cueLabel: "the Setting Bull's Horn, Rat's Nose, and the jade-bellied lagoon cloud",
         guidance: { mode: 'star_relay_setting', stars: ['bulls_horn', 'rats_nose'], fallbackHeadingDeg: 270.0 },
       },
     ],
@@ -144,10 +144,10 @@ export const SONGS = Object.freeze({
         endRealSec: 220.0,
         weather: 'clear',
         lyrics:
-          'Put the green ring of Manuae behind your wake / Hold the afternoon post shadow steady across the left outer lashing while trade clouds march across your bow.',
+          'Put the green ring of Manuae behind your wake / Bind the afternoon post shadow across the left outer crossbeam lashing while trade clouds march across your bow.',
         easyCueText:
-          'Keep the deck post shadow aligned with the outer port (left) lashing as afternoon sun shines from starboard.',
-        cueLabel: 'the afternoon post shadow across the left outer lashing',
+          'Keep the deck post shadow aligned with the left outer crossbeam lashing as afternoon sun shines from starboard.',
+        cueLabel: 'the afternoon post shadow across the left outer crossbeam lashing',
         guidance: { mode: 'sun_shadow', targetLashingZone: 'left_outer', targetHeadingDeg: 184.9 },
       },
       {
@@ -155,9 +155,9 @@ export const SONGS = Object.freeze({
         endRealSec: 460.0,
         weather: 'clear',
         lyrics:
-          "When the sun sinks golden off your right beam, follow the white tern's tail feathers homeward / Aim where the jagged spire-cloud stands unmoving against the twilight sea.",
+          "When the sun sinks golden off your right beam, follow the white terns' tail feathers homeward / Aim where the jagged spire-cloud stands unmoving against the twilight sea.",
         easyCueText:
-          'Near sunset, follow straight-flying white terns in the same direction they fly toward the motionless tall spire cloud.',
+          "Near sunset, follow the white terns' tail feathers homeward (fly the same way they fly) toward the motionless tall spire cloud.",
         cueLabel: "the homeward white terns and Mo'orea's motionless spire-cloud",
         guidance: { mode: 'island_beacon', fallbackHeadingDeg: 184.9 },
       },
@@ -230,10 +230,10 @@ export const SONGS = Object.freeze({
         endRealSec: 180.0,
         weather: 'clear',
         lyrics:
-          "Steer for the Setting Bull's Hoof descending toward the dark foam / Glance back at your white wake—lean half a prow into the wind so your trail runs straight.",
+          "Steer for the Setting Bull's Hoof sinking toward the dark foam / Glance astern at your white wake—lean half a prow into the wind so your trail runs true.",
         easyCueText:
-          "Aim toward the Setting Bull's Hoof (aim half a prow into the crosswind so your stern wake trails straight).",
-        cueLabel: "the Setting Bull's Hoof while compensating your foamy wake",
+          "Center the Setting Bull's Hoof and lean half a prow into the crosswind so your stern wake trails straight.",
+        cueLabel: "the Setting Bull's Hoof while compensating half a prow for wake leeway",
         guidance: {
           mode: 'star_relay_setting',
           stars: ['bulls_hoof'],
@@ -245,9 +245,9 @@ export const SONGS = Object.freeze({
         verseNumber: 2,
         endRealSec: 360.0,
         weather: 'clear',
-        lyrics: "Before the Bull's Hoof drowns beneath the sea, let the Setting Rat's Tail take the watch above him.",
-        easyCueText: "Just before Bull's Hoof sets into the water, track the Setting Rat's Tail descending above it.",
-        cueLabel: "the Setting Rat's Tail",
+        lyrics: "Before the Setting Bull's Hoof drowns beneath the sea, lift your eyes higher in the same house and let the Setting Rat's Tail take the watch above him.",
+        easyCueText: "As Bull's Hoof drops into the sea, hand the watch upward to the Setting Rat's Tail descending directly above it.",
+        cueLabel: "the Setting Rat's Tail above Bull's Hoof",
         guidance: {
           mode: 'star_relay_setting',
           stars: ['rats_tail'],
@@ -260,9 +260,9 @@ export const SONGS = Object.freeze({
         endRealSec: 530.0,
         weather: 'clear',
         lyrics:
-          "At first light, steer against the brown boobies flying outward / Thread the foaming reef-pass where Maupiti's fortress rock stands.",
-        easyCueText: 'At dawn, steer opposite outward-flying boobies to reach Maupiti.',
-        cueLabel: 'the outward-flying dawn boobies of Maupiti',
+          "At first light, read the brown boobies flying outward to fish—steer opposite their flight, as with terns, toward shore / Thread the foaming reef-pass where Maupiti's fortress rock stands.",
+        easyCueText: 'At dawn, fly opposite the outward-bound brown boobies (turn their flight backward toward their island) to reach Maupiti.',
+        cueLabel: 'the outward-flying dawn brown boobies of Maupiti',
         guidance: { mode: 'island_beacon', compensateLeeway: true, fallbackHeadingDeg: 240.0 },
       },
     ],
@@ -300,23 +300,39 @@ export const SONGS = Object.freeze({
       },
       {
         verseNumber: 2,
-        endRealSec: 440.0,
+        endRealSec: 290.0,
         weather: 'clear',
         lyrics:
-          "When the Boar's Tusk climbs three hands high, hand the watch to the Rising Crab's Left Claw / Hold that pale claw steady between your prows across the deep night sea.",
+          "When the Boar's Tusk climbs three hands high, hand the watch downward to the Rising Crab's Left Claw / Hold that pale claw steady between your prows across the deep night sea.",
         easyCueText:
           "Once Boar's Tusk climbs past three hands high, relay down the same horizon house to Rising Crab's Left Claw.",
         cueLabel: "the Rising Crab's Left Claw beneath Boar's Tusk",
         guidance: {
           mode: 'star_relay_rising',
           stars: ['crabs_left_claw'],
-          useRing2BeaconOnApproach: true,
           compensateLeeway: true,
           fallbackHeadingDeg: 60.0,
         },
       },
       {
         verseNumber: 3,
+        endRealSec: 430.0,
+        weather: 'clear',
+        lyrics:
+          "When the Left Claw climbs above three hands, drop your gaze once more down the same house to the Rising Crab's Carapace / Ride that third star of the relay toward the dark horizon.",
+        easyCueText:
+          "When Crab's Left Claw climbs past three hands high, relay to the third star in the same house: Rising Crab's Carapace.",
+        cueLabel: "the Rising Crab's Carapace (third star of the relay)",
+        guidance: {
+          mode: 'star_relay_rising',
+          stars: ['crabs_shell'],
+          useRing2BeaconOnApproach: true,
+          compensateLeeway: true,
+          fallbackHeadingDeg: 60.0,
+        },
+      },
+      {
+        verseNumber: 4,
         endRealSec: 660.0,
         weather: 'clear',
         lyrics:
@@ -444,12 +460,12 @@ export const SONGS = Object.freeze({
         verseNumber: 1,
         endRealSec: 240.0,
         weather: 'clear',
-        lyrics: "Leave the great lagoon on the Rising Bull's Hoof / When he climbs three hands high, hold the Rising Rat's Tail.",
-        easyCueText: "Center Rising Bull's Hoof, then hand off to Rising Rat's Tail.",
-        cueLabel: "the Rising Bull's Hoof and Rat's Tail",
+        lyrics: "Leave the great lagoon down the Rising Path of the Shark / Center the Rising Bull's Hoof, then pass the watch to the Rising Rat's Tail and Shark's Fin as each climbs three hands high.",
+        easyCueText: "Follow the Rising Path of the Shark: center Rising Bull's Hoof, then hand off to Rising Rat's Tail and Rising Shark's Fin.",
+        cueLabel: "the Rising Path of the Shark (Bull's Hoof, Rat's Tail, and Shark's Fin)",
         guidance: {
           mode: 'star_relay_rising',
-          stars: ['bulls_hoof', 'rats_tail'],
+          stars: ['bulls_hoof', 'rats_tail', 'sharks_fin'],
           compensateLeeway: true,
           fallbackHeadingDeg: 120.0,
         },
@@ -506,10 +522,10 @@ export const SONGS = Object.freeze({
         endRealSec: 560.0,
         weather: 'clear',
         lyrics:
-          "Tilt your eyes to the mast-top: when the Gecko's Heart passes straight overhead / Turn your prows to the Rising Shark's Jaw until Fatu Hiva's green cliffs greet the sun.",
+          "Tilt your eyes to the mast-top: when the Gecko's Heart passes straight overhead / Turn your prows onto the Rising Path of the Bull where the Rising Shark's Jaw lifts above the surf until Fatu Hiva's green cliffs greet the sun.",
         easyCueText:
-          "Look straight up in Free-Look; once Gecko's Heart passes directly overhead above your mast, turn to center the Rising Shark's Jaw between your prows.",
-        cueLabel: "the turn onto the Rising Shark's Jaw when Gecko's Heart passed overhead",
+          "Look straight up in Free-Look; once Gecko's Heart passes directly overhead above your mast, turn onto the Rising Path of the Bull and center the Rising Shark's Jaw between your prows.",
+        cueLabel: "the turn onto the Rising Path of the Bull (Rising Shark's Jaw) when Gecko's Heart passed overhead",
         guidance: {
           mode: 'star_relay_rising',
           stars: ['sharks_jaw', 'crabs_eye'],
@@ -719,8 +735,8 @@ export const SONGS = Object.freeze({
         endRealSec: 120.0,
         weather: 'clear',
         lyrics:
-          "Put Kaua'i's Fortress Crag behind your stern-post / Sail against the sinking sun until the Gecko's Tongue breaks the dark foam.",
-        easyCueText: "Keep the setting sun astern until Gecko's Tongue rises.",
+          "Put Kaua'i's Fortress Crag and the sinking sun behind your stern-post / Sail straight away from sunset until the Gecko's Tongue breaks the dark foam.",
+        easyCueText: "Put both Kaua'i and the setting sun directly behind your stern until Gecko's Tongue rises ahead.",
         cueLabel: "the sinking sun astern while awaiting the Gecko's Tongue",
         guidance: { mode: 'heading', compensateLeeway: true, targetHeadingDeg: 90.0 },
       },
@@ -796,10 +812,10 @@ export const SONGS = Object.freeze({
         endRealSec: 570.0,
         weather: 'clear',
         lyrics:
-          "When night wind tears the fog apart, set your prows upon the Rising Gecko's Tail / Hand the watch to the Bull's Hoof, the Rat's Tail, and icy Shark's Fin, keeping the Steadfast Peg shining off your port beam.",
+          "When night wind tears the fog apart, set your prows down the Rising Path of the Shark—upon the Rising Gecko's Tail / Hand the watch to the Bull's Hoof, the Rat's Tail, and icy Shark's Fin, keeping the Steadfast Peg shining off your port beam.",
         easyCueText:
-          "Under night stars, relay along Rising Gecko's Tail, Bull's Hoof, Rat's Tail, and Shark's Fin while the Steadfast Peg shines off your left beam.",
-        cueLabel: "the Rising Gecko's Tail, Bull's Hoof, Rat's Tail, and Shark's Fin",
+          "Under night stars, relay down the Rising Path of the Shark—Rising Gecko's Tail, Bull's Hoof, Rat's Tail, and Shark's Fin—while the Steadfast Peg shines off your left beam.",
+        cueLabel: "the Rising Path of the Shark (Gecko's Tail, Bull's Hoof, Rat's Tail, and Shark's Fin)",
         guidance: {
           mode: 'star_relay_rising',
           stars: ['geckos_tail', 'bulls_hoof', 'rats_tail', 'sharks_fin'],
