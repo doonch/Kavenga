@@ -54,6 +54,7 @@ export class CameraController {
     this.lookPitchOffsetDeg = 0.0;
     this.isDraggingLook = false;
     this.freeLookPinned = false; // If toggled via HUD button, holds gaze until recentered
+    this.phoneCameraState = 0; // Phone eye-cycle: 0 Deck, 1 Canoe, 2 Astern, 3 Look Up
     this.vigilMode = false; // Grounded ashore mode: zero boat motion, gaze stays parked where aimed
     this.shoreWalkMode = false; // 3D Walkable Island mode: WalkableIslandScene controls camera & arrow keys
     this._panTarget = null; // { yawDeg, pitchOffsetDeg } for smooth Master-guided pans
@@ -202,6 +203,42 @@ export class CameraController {
     return this.thirdPersonMode;
   }
 
+  isPhoneViewport() {
+    return (
+      typeof window !== 'undefined' &&
+      (window.innerWidth <= 540 ||
+        (window.innerHeight <= 500 && window.innerWidth > window.innerHeight))
+    );
+  }
+
+  /**
+   * Cycles through the 4 sailing camera states on phone:
+   * 0 Deck View -> 1 Canoe View -> 2 Look Astern -> 3 Look Up -> 0 Deck View.
+   */
+  cyclePhoneCameraView() {
+    this.phoneCameraState = (this.phoneCameraState + 1) % 4;
+    this.isDraggingLook = false;
+    this._panTarget = null;
+    this.freeLookPinned = true;
+
+    if (this.phoneCameraState === 0) {
+      this.thirdPersonMode = false;
+      this.lookYawDeg = 0.0;
+      this.lookPitchOffsetDeg = 0.0;
+    } else if (this.phoneCameraState === 1) {
+      this.thirdPersonMode = true;
+      this.lookYawDeg = 0.0;
+      this.lookPitchOffsetDeg = 0.0;
+    } else if (this.phoneCameraState === 2) {
+      this.thirdPersonMode = false;
+      this.lookAstern();
+    } else {
+      this.thirdPersonMode = false;
+      this.lookZenith();
+    }
+    return this.phoneCameraState;
+  }
+
   togglePinnedFreeLook() {
     this.freeLookPinned = !this.freeLookPinned;
     if (!this.freeLookPinned) {
@@ -215,6 +252,9 @@ export class CameraController {
     this.isDraggingLook = false;
     if (this.vigilMode) {
       this._panTarget = { yawDeg: 0.0, pitchOffsetDeg: 2.5 };
+    } else if (this.isPhoneViewport()) {
+      this._panTarget = { yawDeg: 0.0, pitchOffsetDeg: 0.0 };
+      this.phoneCameraState = this.thirdPersonMode ? 1 : 0;
     } else {
       this._panTarget = null;
     }
@@ -230,6 +270,7 @@ export class CameraController {
       this.thirdPersonBlend = 0.0;
     } else {
       this.freeLookPinned = false;
+      this.phoneCameraState = 0;
       this.lookYawDeg = 0.0;
       this.lookPitchOffsetDeg = 0.0;
     }
@@ -269,12 +310,14 @@ export class CameraController {
 
   lookAstern() {
     this.freeLookPinned = true;
+    this._panTarget = null;
     this.lookYawDeg = 180.0;
     this.lookPitchOffsetDeg = -6.0;
   }
 
   lookZenith() {
     this.freeLookPinned = true;
+    this._panTarget = null;
     this.lookYawDeg = 0.0;
     this.lookPitchOffsetDeg = 90.0 - this.basePitchDeg;
   }
@@ -301,6 +344,7 @@ export class CameraController {
 
   resetLandfallCamera() {
     this._landfallActive = false;
+    this.phoneCameraState = 0;
     this.lookYawDeg = 0.0;
     this.lookPitchOffsetDeg = 0.0;
     this.camera.fov = this._getAdaptiveFov(
@@ -321,6 +365,7 @@ export class CameraController {
     this.steerVelocityDegPerSec = 0.0;
     this.isDraggingLook = false;
     this.freeLookPinned = false;
+    this.phoneCameraState = 0;
     this._panTarget = null;
     this.lookYawDeg = 0.0;
     this.lookPitchOffsetDeg = 0.0;
@@ -598,9 +643,10 @@ export class CameraController {
       !this.vigilMode &&
       !this.isDraggingLook &&
       !this.freeLookPinned &&
+      !this.isPhoneViewport() &&
       !keyLookActive
     ) {
-      // Smooth snap-back to dead-ahead between twin prows when released at sea and not pinned
+      // Smooth snap-back to dead-ahead between twin prows when released on desktop/iPad and not pinned
       const spring = Math.min(1.0, 6.2 * dt);
       this.lookYawDeg *= 1.0 - spring;
       this.lookPitchOffsetDeg *= 1.0 - spring;
@@ -668,8 +714,9 @@ export class CameraController {
     // Subtle FOV breathing during 2.75x Fast Forward & 3rd-person framing
     const baseViewFov =
       GameConstants.DEFAULT_CAMERA_TOP_ALT_DEG + 14.0 + 2.0 * tpEase;
-    const targetFov =
-      oceanSim?.fastForward && sailingActive ? baseViewFov + 3.5 : baseViewFov;
+    const targetFov = this._getAdaptiveFov(
+      oceanSim?.fastForward && sailingActive ? baseViewFov + 3.5 : baseViewFov
+    );
     if (Math.abs(this.camera.fov - targetFov) > 0.05) {
       this.camera.fov += (targetFov - this.camera.fov) * Math.min(1.0, 5.0 * dt);
       this.camera.updateProjectionMatrix();

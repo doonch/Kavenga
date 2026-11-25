@@ -461,7 +461,11 @@ class KavengaApp {
       getGameState: () => this.gameState,
       getOceanSim: () => this.oceanSim,
       onToggleCameraView: () => {
-        this.cameraCtrl.toggleThirdPersonView();
+        if (this.cameraCtrl.isPhoneViewport()) {
+          this.cameraCtrl.cyclePhoneCameraView();
+        } else {
+          this.cameraCtrl.toggleThirdPersonView();
+        }
       },
       onToggleFreeLook: () => {
         if (this.cameraCtrl.isGazeOffset()) {
@@ -1215,15 +1219,22 @@ class KavengaApp {
     }
 
     if (this.btnShoreObjectivesModal) {
+      const isPhone = Boolean(this.cameraCtrl?.isPhoneViewport?.());
       const activeObjs = getActiveObjectivesForDisplay(this.gameState).filter(
         (item) => !this._pendingObjectiveIds.has(item.id)
       );
       const count = activeObjs.length;
-      const modalOpen = Boolean(
-        this.shoreObjectivesModalEl &&
-          !this.shoreObjectivesModalEl.classList.contains('hidden')
-      );
-      this.btnShoreObjectivesModal.classList.remove('hidden');
+      const showPhoneObjBtn = isPhone && count > 0;
+      if (!showPhoneObjBtn && this.shoreObjectivesModalEl) {
+        this.shoreObjectivesModalEl.classList.add('hidden');
+      }
+      const modalOpen =
+        showPhoneObjBtn &&
+        Boolean(
+          this.shoreObjectivesModalEl &&
+            !this.shoreObjectivesModalEl.classList.contains('hidden')
+        );
+      this.btnShoreObjectivesModal.classList.toggle('hidden', !showPhoneObjBtn);
       this.btnShoreObjectivesModal.classList.toggle('active', modalOpen);
       this.btnShoreObjectivesModal.setAttribute(
         'aria-pressed',
@@ -1794,6 +1805,9 @@ class KavengaApp {
     const h = window.innerHeight;
     this.renderer.setSize(w, h);
     this.cameraCtrl.resize(w, h);
+    if (this.phase === 'shore') {
+      this._syncShoreTopControls();
+    }
   }
 
   _updateTahaaCloudTour(dtSec) {

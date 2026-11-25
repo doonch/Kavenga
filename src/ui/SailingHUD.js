@@ -33,7 +33,6 @@ export class SailingHUD {
       <div class="hud-top-bar">
         <div class="hud-voyage-badge">
           <span class="hud-song-title" id="hudSongTitle"></span>
-          <span class="hud-difficulty-pill" id="hudDifficultyPill"></span>
         </div>
 
         <div class="hud-corner-controls">
@@ -53,10 +52,6 @@ export class SailingHUD {
           <button class="hud-icon-btn" id="btnLookZenith" title="Tilt gaze straight up to the mast-top zenith (Z)">
             <span class="btn-glyph">✦</span>
             <span class="btn-text">Mast-Top</span>
-          </button>
-          <button class="hud-icon-btn" id="btnFastForward" title="Toggle 2.75x Fast Forward (F)">
-            <span class="btn-glyph">»»</span>
-            <span class="btn-text">Fast Wind</span>
           </button>
           <button class="hud-icon-btn" id="btnRecall" title="Recall static stick-in-sand lesson (R)">
             <span class="btn-glyph">🐚</span>
@@ -99,7 +94,22 @@ export class SailingHUD {
             <path d="M11 18l-6-6 6-6"/>
           </svg>
         </button>
-        <div class="trim-status" id="hudTrimStatus">Steering Sweep Locked</div>
+        <button
+          class="trim-btn wind-boost-btn"
+          id="btnFastForward"
+          type="button"
+          title="Toggle 2.75x Wind Surge (F)"
+          aria-label="Fast Wind"
+          aria-pressed="false"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <g transform="rotate(-90 12 12)">
+              <path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/>
+              <path d="M9.6 4.6A2 2 0 1 1 11 8H2"/>
+              <path d="M12.6 19.4A2 2 0 1 0 14 16H2"/>
+            </g>
+          </svg>
+        </button>
         <button
           class="trim-btn"
           id="btnTrimStarboard"
@@ -513,51 +523,44 @@ export class SailingHUD {
         `Song ${song.number}: ${song.title}`;
     }
 
-    const diffNames = {
-      [Difficulty.EASY]: 'Easy · Apprentice',
-      [Difficulty.MEDIUM]: 'Medium · Wayfinder',
-      [Difficulty.HARD]: 'Hard · Navigator',
-      [Difficulty.MASTER_NAVIGATOR]: 'Master Navigator',
-    };
-    this.rootEl.querySelector('#hudDifficultyPill').textContent =
-      diffNames[diff] || diff;
-
     // Mode-gated Recall button
     const recallBtn = this.rootEl.querySelector('#btnRecall');
     recallBtn.style.display = allowsRecallAtSea(diff) ? 'inline-flex' : 'none';
 
-    // Camera perspective (Eye button), Fast Forward & Free-Look button states
-    const isThirdPerson = Boolean(cameraCtrl?.isThirdPersonView?.());
-    this.rootEl
-      .querySelector('#btnCameraView')
-      .classList.toggle('active', isThirdPerson);
-    this.rootEl.querySelector('#btnCameraViewLabel').textContent = isThirdPerson
-      ? 'Deck View'
-      : 'Canoe View';
+    // Camera perspective (Eye button), Fast Wind & Free-Look button states
+    const camBtn = this.rootEl.querySelector('#btnCameraView');
+    const isPhoneCam = Boolean(cameraCtrl?.isPhoneViewport?.());
+    if (isPhoneCam) {
+      const phoneStates = ['Deck View', 'Canoe View', 'Look Astern', 'Look Up'];
+      const stateIdx = cameraCtrl.phoneCameraState ?? 0;
+      const stateLabel = phoneStates[stateIdx] || 'Deck View';
+      camBtn.classList.toggle('active', stateIdx !== 0);
+      camBtn.setAttribute('aria-label', `Camera View: ${stateLabel}`);
+      camBtn.setAttribute('title', `Camera View: ${stateLabel} (Tap to Switch)`);
+      this.rootEl.querySelector('#btnCameraViewLabel').textContent = stateLabel;
+    } else {
+      const isThirdPerson = Boolean(cameraCtrl?.isThirdPersonView?.());
+      camBtn.classList.toggle('active', isThirdPerson);
+      camBtn.setAttribute(
+        'title',
+        'Toggle between behind-canoe view and 1st-person deck view (V)'
+      );
+      camBtn.setAttribute('aria-label', isThirdPerson ? 'Deck View' : 'Canoe View');
+      this.rootEl.querySelector('#btnCameraViewLabel').textContent = isThirdPerson
+        ? 'Deck View'
+        : 'Canoe View';
+    }
 
-    this.rootEl
-      .querySelector('#btnFastForward')
-      .classList.toggle('active', Boolean(oceanSim.fastForward));
+    const fastWind = Boolean(oceanSim.fastForward);
+    const fastBtn = this.rootEl.querySelector('#btnFastForward');
+    fastBtn.classList.toggle('active', fastWind);
+    fastBtn.setAttribute('aria-pressed', String(fastWind));
 
     const gazeOffset = cameraCtrl?.isGazeOffset();
     this.rootEl.querySelector('#btnFreeLook').classList.toggle('active', Boolean(gazeOffset));
     this.rootEl.querySelector('#btnFreeLookLabel').textContent = gazeOffset
       ? 'Center Gaze'
       : 'Look Astern';
-
-    // Trim-Lock status readout (strictly cue/paddle phrasing — zero degrees!)
-    const steerNorm = cameraCtrl ? cameraCtrl.getSteeringNormalized() : 0.0;
-    const trimEl = this.rootEl.querySelector('#hudTrimStatus');
-    if (Math.abs(steerNorm) > 0.06) {
-      trimEl.textContent =
-        steerNorm < 0
-          ? 'Turning Twin Prows Left...'
-          : 'Turning Twin Prows Right...';
-    } else {
-      trimEl.textContent = oceanSim.fastForward
-        ? 'Sweep Locked · Fast Wind Active'
-        : 'Steering Sweep Locked Steady';
-    }
 
     // Mode-gated Chant Lyrics & Easy Cue Instructions
     const banner = this.rootEl.querySelector('#hudChantBanner');
