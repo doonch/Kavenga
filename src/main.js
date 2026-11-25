@@ -242,6 +242,11 @@ class KavengaApp {
     // 3. Web Audio Engines
     this.chantEngine = new ChantAndDrumEngine();
     this.spatialAudio = new SpatialSeaAudio(this.chantEngine);
+    this.worldCues.onAlbatrossCrossCanoe = ({ targetWorldAz, headingDeg }) => {
+      if (this.phase !== 'sailing') return;
+      const relRad = (wrapDeg180(targetWorldAz - headingDeg) * Math.PI) / 180.0;
+      this.spatialAudio.playAlbatrossFlyby(Math.sin(relRad));
+    };
     this.musicEngine = new BackgroundMusicEngine({
       discoveredIslands: this.gameState.discoveredIslands,
     });

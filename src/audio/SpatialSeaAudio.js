@@ -224,4 +224,106 @@ export class SpatialSeaAudio {
     osc.start(now);
     osc.stop(now + 0.22);
   }
+
+  /**
+   * Plays an atmospheric overhead wing-swoosh and nasal Ka'upu (Black-footed Albatross)
+   * sky-call when the pelagic bird crosses above the canoe and banks toward shore.
+   */
+  playAlbatrossFlyby(targetPan = 0.0) {
+    const ctx = this.chantEngine.ensureContext();
+    if (!ctx || this.chantEngine.muted || ctx.state !== 'running') return;
+    const now = ctx.currentTime + 0.01;
+    const clampedPan = Math.max(-0.85, Math.min(0.85, targetPan || 0.0));
+
+    // Ensure surf/wind noise buffer exists even if SpatialSeaAudio wasn't started yet
+    if (!this.noiseBuffer) {
+      const length = ctx.sampleRate * 2;
+      const buf = ctx.createBuffer(1, length, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      let last = 0.0;
+      for (let i = 0; i < length; i += 1) {
+        const white = Math.random() * 2.0 - 1.0;
+        last = (last + 0.035 * white) / 1.035;
+        data[i] = last * 3.2;
+      }
+      this.noiseBuffer = buf;
+    }
+
+    // 1. Slow broad-wing air swoosh sweeping overhead
+    const wingSrc = ctx.createBufferSource();
+    wingSrc.buffer = this.noiseBuffer;
+
+    const wingFilter = ctx.createBiquadFilter();
+    wingFilter.type = 'bandpass';
+    wingFilter.Q.value = 1.15;
+    wingFilter.frequency.setValueAtTime(240.0, now);
+    wingFilter.frequency.exponentialRampToValueAtTime(520.0, now + 0.24);
+    wingFilter.frequency.exponentialRampToValueAtTime(210.0, now + 0.78);
+
+    const wingGain = ctx.createGain();
+    wingGain.gain.setValueAtTime(0.0001, now);
+    wingGain.gain.linearRampToValueAtTime(0.095, now + 0.14);
+    wingGain.gain.linearRampToValueAtTime(0.038, now + 0.34);
+    wingGain.gain.linearRampToValueAtTime(0.075, now + 0.5);
+    wingGain.gain.exponentialRampToValueAtTime(0.0005, now + 0.84);
+
+    const wingPan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+    wingSrc.connect(wingFilter);
+    wingFilter.connect(wingGain);
+    if (wingPan) {
+      wingPan.pan.setValueAtTime(-clampedPan * 0.2, now);
+      wingPan.pan.linearRampToValueAtTime(clampedPan * 0.6, now + 0.8);
+      wingGain.connect(wingPan);
+      wingPan.connect(this.chantEngine.masterGain);
+    } else {
+      wingGain.connect(this.chantEngine.masterGain);
+    }
+    wingSrc.start(now, Math.random() * 0.9, 0.88);
+
+    // 2. Haunting pelagic Ka'upu nasal sky-call
+    const callT = now + 0.14;
+    const callFilter = ctx.createBiquadFilter();
+    callFilter.type = 'bandpass';
+    callFilter.frequency.value = 780.0;
+    callFilter.Q.value = 1.4;
+
+    const callGain = ctx.createGain();
+    callGain.gain.setValueAtTime(0.0001, callT);
+    callGain.gain.linearRampToValueAtTime(0.068, callT + 0.08);
+    callGain.gain.linearRampToValueAtTime(0.052, callT + 0.26);
+    callGain.gain.exponentialRampToValueAtTime(0.0004, callT + 0.54);
+
+    const mainOsc = ctx.createOscillator();
+    mainOsc.type = 'triangle';
+    mainOsc.frequency.setValueAtTime(590.0, callT);
+    mainOsc.frequency.linearRampToValueAtTime(625.0, callT + 0.09);
+    mainOsc.frequency.exponentialRampToValueAtTime(445.0, callT + 0.52);
+
+    const subOsc = ctx.createOscillator();
+    subOsc.type = 'sine';
+    subOsc.frequency.setValueAtTime(295.0, callT);
+    subOsc.frequency.exponentialRampToValueAtTime(222.5, callT + 0.52);
+
+    const subGain = ctx.createGain();
+    subGain.gain.value = 0.42;
+
+    const callPan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+    mainOsc.connect(callFilter);
+    subOsc.connect(subGain);
+    subGain.connect(callFilter);
+    callFilter.connect(callGain);
+    if (callPan) {
+      callPan.pan.setValueAtTime(clampedPan * 0.25, callT);
+      callPan.pan.linearRampToValueAtTime(clampedPan * 0.78, callT + 0.52);
+      callGain.connect(callPan);
+      callPan.connect(this.chantEngine.masterGain);
+    } else {
+      callGain.connect(this.chantEngine.masterGain);
+    }
+
+    mainOsc.start(callT);
+    subOsc.start(callT);
+    mainOsc.stop(callT + 0.56);
+    subOsc.stop(callT + 0.56);
+  }
 }

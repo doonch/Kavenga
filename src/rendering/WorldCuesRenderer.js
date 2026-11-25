@@ -65,11 +65,14 @@ export class WorldCuesRenderer {
     this.tradeFogOpacity = 1.0;
     this.birdFlockAlpha = 0.0;
     this.albatrossAlpha = 0.0;
+    this.onAlbatrossCrossCanoe = null;
     this._pelagicFlyby = {
       active: false,
       timerSec: 0.0,
       durationSec: 9.0,
       cooldownSec: 0.0,
+      flybyCount: 0,
+      crossingTriggered: false,
       lockedTargetAzDeg: 0.0,
       isLongRoute: true,
       forcedDebug: false,
@@ -1638,6 +1641,7 @@ export class WorldCuesRenderer {
     flyby.timerSec = 0.0;
     flyby.durationSec = 9.0;
     flyby.cooldownSec = 0.0;
+    flyby.crossingTriggered = false;
     flyby.forcedDebug = true;
     flyby.lockedTargetAzDeg = targetWorldAz;
     return true;
@@ -1654,10 +1658,17 @@ export class WorldCuesRenderer {
       if (flyby.cooldownSec > 0.0) {
         flyby.cooldownSec = Math.max(0.0, flyby.cooldownSec - stepDt);
       }
-      if (isEligible && deepWaterEnv > 0.25 && flyby.cooldownSec <= 0.0) {
+      if (
+        isEligible &&
+        deepWaterEnv > 0.25 &&
+        flyby.cooldownSec <= 0.0 &&
+        (flyby.flybyCount ?? 0) < 2
+      ) {
         flyby.active = true;
         flyby.timerSec = 0.0;
         flyby.durationSec = 9.0; // strictly <= 10.0s visible window
+        flyby.flybyCount = (flyby.flybyCount ?? 0) + 1;
+        flyby.crossingTriggered = false;
         flyby.forcedDebug = false;
         flyby.lockedTargetAzDeg = targetWorldAz;
       }
@@ -1674,7 +1685,7 @@ export class WorldCuesRenderer {
     if (flyby.timerSec >= flyby.durationSec || effectiveDepthEnv <= 0.004) {
       flyby.active = false;
       flyby.timerSec = 0.0;
-      flyby.cooldownSec = 65.0;
+      flyby.cooldownSec = 95.0;
       flyby.forcedDebug = false;
       this.albatrossAlpha = 0.0;
       this.pelagicAlbatrossGroup.visible = false;
@@ -1708,6 +1719,14 @@ export class WorldCuesRenderer {
       const pPrev = this._evalPelagicAlbatrossLocalPos(a, u - dtU, flightRelRad);
       const pCur = this._evalPelagicAlbatrossLocalPos(a, u, flightRelRad);
       const pNext = this._evalPelagicAlbatrossLocalPos(a, u + dtU, flightRelRad);
+
+      if (pCur.z <= 0.0 && !flyby.crossingTriggered) {
+        flyby.crossingTriggered = true;
+        this.onAlbatrossCrossCanoe?.({
+          targetWorldAz: flyby.lockedTargetAzDeg,
+          headingDeg: oceanSim.headingDeg ?? 0.0,
+        });
+      }
 
       const invSpan = 1.0 / (2.0 * dtU * localDur);
       const vx = (pNext.x - pPrev.x) * invSpan;
@@ -2272,6 +2291,8 @@ export class WorldCuesRenderer {
       this._pelagicFlyby.active = false;
       this._pelagicFlyby.timerSec = 0.0;
       this._pelagicFlyby.cooldownSec = 0.0;
+      this._pelagicFlyby.flybyCount = 0;
+      this._pelagicFlyby.crossingTriggered = false;
       this._pelagicFlyby.forcedDebug = false;
     }
     this.fishAlpha = 0.0;
