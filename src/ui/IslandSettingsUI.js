@@ -24,7 +24,7 @@ export function formatShortSettingsSummary(difficulty, isMuted) {
   return `${shortDiff[difficulty] || 'Wayfinder'} · ${soundGlyph}`;
 }
 
-const DIFFICULTY_META = Object.freeze({
+export const DIFFICULTY_META = Object.freeze({
   [Difficulty.EASY]: {
     short: 'Easy',
     persona: 'Apprentice',

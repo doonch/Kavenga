@@ -13,6 +13,7 @@ import {
 } from '../core/gameConstants.js';
 import { SAND_LESSONS } from '../data/sandDiagramsData.js';
 import { VoyageStatus } from '../simulation/oceanSim.js';
+import { DIFFICULTY_META } from './IslandSettingsUI.js';
 import { SandCanvas } from './SandCanvas.js';
 
 export class SailingHUD {
@@ -29,6 +30,18 @@ export class SailingHUD {
   }
 
   _buildDOM() {
+    const diffCardsHtml = Object.entries(DIFFICULTY_META)
+      .map(
+        ([key, meta]) => `
+        <button class="settings-diff-card" data-mode="${key}" type="button">
+          <div class="settings-diff-art">
+            <img src="${meta.portrait}" alt="${meta.short}" />
+          </div>
+          <strong>${meta.short}</strong>
+        </button>`
+      )
+      .join('');
+
     this.rootEl.innerHTML = `
       <div class="hud-top-bar">
         <div class="hud-voyage-badge">
@@ -144,26 +157,15 @@ export class SailingHUD {
 
       <!-- Options / Difficulty / Restore Before Voyage Modal -->
       <div class="modal-backdrop hidden" id="pauseModal">
-        <div class="dialog-card">
+        <div class="dialog-card hud-pause-dialog-card">
           <h3>Wayfinder Options</h3>
           <p class="dialog-sub">Switch guidance mode at any time or return to shore before departure.</p>
-          <div class="mode-selector-grid" id="hudModeGrid">
-            <button class="mode-option-btn" data-mode="easy">
-              <strong>Easy · Apprentice (12–14 yrs)</strong>
-              <span>Youth apprentice at the helm · Chant audio, lyrics, cue hints &amp; active star shimmer</span>
-            </button>
-            <button class="mode-option-btn" data-mode="medium">
-              <strong>Medium · Wayfinder (18–20 yrs)</strong>
-              <span>Young wayfinder at the helm · Chant audio, poetic lyrics &amp; constellation sky</span>
-            </button>
-            <button class="mode-option-btn" data-mode="hard">
-              <strong>Hard · Navigator (30 yrs)</strong>
-              <span>Seasoned navigator at the helm · Chant audio &amp; constellation sky — zero on-screen text</span>
-            </button>
-            <button class="mode-option-btn" data-mode="master_navigator" id="btnHudMasterMode">
-              <strong>Master Navigator (50 yrs, Gray Beard)</strong>
-              <span>Elder master at the helm · Pure sea silence, raw starfield &amp; no Recall at sea</span>
-            </button>
+          <div class="settings-section hud-pause-diff-section">
+            <div class="settings-section-label">Difficulty &amp; Wayfinder</div>
+            <div class="settings-diff-grid" id="hudModeGrid">
+              ${diffCardsHtml}
+            </div>
+            <div class="settings-diff-summary" id="hudDifficultyDesc"></div>
           </div>
           <div class="dialog-actions">
             <button class="secondary-btn" id="btnToggleAudio">Toggle Sound</button>
@@ -289,11 +291,13 @@ export class SailingHUD {
     bindHoldSteer('#btnTrimPort', 'ArrowLeft');
     bindHoldSteer('#btnTrimStarboard', 'ArrowRight');
 
-    // Difficulty buttons
-    this.rootEl.querySelectorAll('.mode-option-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
+    // Difficulty cards
+    this.rootEl.querySelectorAll('#hudModeGrid .settings-diff-card').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.currentTarget.blur();
         const mode = btn.getAttribute('data-mode');
         this.callbacks.onChangeDifficulty?.(mode);
+        this._syncPauseDifficultyUI(mode);
       });
     });
 
@@ -487,8 +491,27 @@ export class SailingHUD {
     }
   }
 
+  _syncPauseDifficultyUI(diff) {
+    const resolved = DIFFICULTY_META[diff] ? diff : Difficulty.EASY;
+    this.rootEl
+      .querySelectorAll('#hudModeGrid .settings-diff-card')
+      .forEach((btn) => {
+        const m = btn.getAttribute('data-mode');
+        btn.classList.toggle('selected', m === resolved);
+      });
+    const descEl = this.rootEl.querySelector('#hudDifficultyDesc');
+    if (descEl) {
+      descEl.textContent = DIFFICULTY_META[resolved].summary;
+    }
+  }
+
   setPauseModal(open) {
     this.pauseOpen = Boolean(open);
+    if (this.pauseOpen) {
+      this._syncPauseDifficultyUI(
+        this.callbacks.getGameState?.()?.difficulty || Difficulty.EASY
+      );
+    }
     this.rootEl
       .querySelector('#pauseModal')
       .classList.toggle('hidden', !this.pauseOpen);
@@ -591,11 +614,8 @@ export class SailingHUD {
       }
     }
 
-    // Sync Pause Modal active mode highlight
-    this.rootEl.querySelectorAll('.mode-option-btn').forEach((btn) => {
-      const m = btn.getAttribute('data-mode');
-      btn.classList.toggle('selected', m === diff);
-    });
+    // Sync Pause Modal active mode highlight & unified explanation
+    this._syncPauseDifficultyUI(diff);
 
     // Lost at Sea Mist Curtain
     const lostOverlay = this.rootEl.querySelector('#lostMistOverlay');
