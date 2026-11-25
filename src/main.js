@@ -67,8 +67,8 @@ import { AchievementsUI } from './ui/AchievementsUI.js';
 import { CanoeModalUI } from './ui/CanoeModalUI.js';
 import { CrewSplashUI } from './ui/CrewSplashUI.js';
 import { ElderVigilPromptUI } from './ui/ElderVigilPromptUI.js';
-import { IslandHubUI } from './ui/IslandHubUI.js?v=20261123f';
-import { IslandSettingsUI } from './ui/IslandSettingsUI.js?v=20261123d';
+import { IslandHubUI } from './ui/IslandHubUI.js';
+import { IslandSettingsUI } from './ui/IslandSettingsUI.js';
 import {
   clearOnboardingDone,
   OnboardingTourUI,
@@ -76,8 +76,8 @@ import {
   SAILING_TOUR_STEPS,
   TAHAA_CLOUD_TOUR_STEPS,
   TAHAA_CLOUD_TOUR_STORAGE_KEY,
-} from './ui/OnboardingTourUI.js?v=20261120q';
-import { SailingHUD } from './ui/SailingHUD.js?v=20261120q';
+} from './ui/OnboardingTourUI.js';
+import { SailingHUD } from './ui/SailingHUD.js';
 import { SkyVigilUI } from './ui/SkyVigilUI.js';
 import { WalkableIslandUI } from './ui/WalkableIslandUI.js';
 
@@ -282,7 +282,13 @@ class KavengaApp {
       },
     });
 
-    this.onboardingTourUI = new OnboardingTourUI(this.onboardingRootEl);
+    this.onboardingTourUI = new OnboardingTourUI(this.onboardingRootEl, {
+      onBeforeStep: (stepIdx) => {
+        if (stepIdx >= 1 && this.islandHub?.drawerCollapsed) {
+          this.islandHub._setDrawerCollapsed(false, { immediate: true });
+        }
+      },
+    });
     this.sailingTourUI = new OnboardingTourUI(this.sailingTourRootEl, {
       steps: SAILING_TOUR_STEPS,
       storageKey: SAILING_ONBOARDING_STORAGE_KEY,
@@ -547,7 +553,7 @@ class KavengaApp {
         playSound: false,
         onRevealed: () => {
           if (this.onboardingTourUI?.open) {
-            this.onboardingTourUI._positionCard();
+            this.onboardingTourUI._applyHighlightAndPosition();
           }
         },
       });

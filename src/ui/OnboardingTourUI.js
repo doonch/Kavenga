@@ -95,9 +95,9 @@ const TOUR_STEPS = Object.freeze([
     preferSide: 'top',
   },
   {
-    selector: '#hubObjectivesCard',
+    selector: '#hubObjectivesCard, #btnShoreObjectivesModal',
     title: 'Objectives',
-    body: 'Track your objectives here.',
+    body: 'Track your active objectives here.',
     preferSide: 'bottom',
   },
 ]);
@@ -111,8 +111,8 @@ export const SAILING_TOUR_STEPS = Object.freeze([
   },
   {
     selector: '.hud-trim-bar',
-    title: 'Steering the Vaka',
-    body: "These buttons turn your canoe - but right now you're in the right direction. Keep an eye out for a large, motionless cloud!",
+    title: 'Steering & Wind Surge',
+    body: 'Hold the arrows to steer your prows, and tap the center Wind icon for a brisk surge. Keep watch ahead for a tall, motionless cloud!',
     preferSide: 'top',
   },
 ]);
@@ -144,6 +144,7 @@ export class OnboardingTourUI {
       storageKey = ONBOARDING_STORAGE_KEY,
       ariaLabel = 'Interface Tour',
       hideHubOnStepZero = true,
+      onBeforeStep = null,
     } = {}
   ) {
     this.rootEl = rootEl;
@@ -151,6 +152,7 @@ export class OnboardingTourUI {
     this.storageKey = storageKey;
     this.ariaLabel = ariaLabel;
     this.hideHubOnStepZero = Boolean(hideHubOnStepZero);
+    this.onBeforeStep = onBeforeStep;
     this.open = false;
     this.stepIndex = 0;
     this._highlightedEl = null;
@@ -306,12 +308,32 @@ export class OnboardingTourUI {
     return step.selector;
   }
 
+  _isElementVisible(el) {
+    if (!el || el.classList?.contains('hidden')) return false;
+    if (typeof getComputedStyle === 'function') {
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+    }
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  }
+
+  _resolveTargetElement() {
+    const selector = this._getActiveSelector();
+    if (!selector) return null;
+    const candidates = document.querySelectorAll(selector);
+    for (const el of candidates) {
+      if (this._isElementVisible(el)) return el;
+    }
+    return null;
+  }
+
   _applyHighlightAndPosition() {
     const step = this.steps[this.stepIndex];
     if (!step) return;
+    this.onBeforeStep?.(this.stepIndex, step);
     this._clearHighlight();
-    const selector = this._getActiveSelector();
-    const target = selector ? document.querySelector(selector) : null;
+    const target = this._resolveTargetElement();
     if (target) {
       target.classList.add('onboarding-highlight');
       if (step.interactive) {
@@ -366,15 +388,14 @@ export class OnboardingTourUI {
     const step = this.steps[this.stepIndex];
     if (!card || !step) return;
 
-    const selector = this._getActiveSelector();
-    const target = selector ? document.querySelector(selector) : null;
+    const target = this._resolveTargetElement();
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const margin = vw <= 540 || vh <= 500 ? 10 : 14;
     const cw = Math.min(card.offsetWidth || 300, Math.max(200, vw - margin * 2));
     const ch = card.offsetHeight || 130;
 
-    if (!target || target.classList.contains('hidden')) {
+    if (!target) {
       if (spotlight) {
         spotlight.classList.add('no-target');
         spotlight.style.left = '-20px';
@@ -382,12 +403,21 @@ export class OnboardingTourUI {
         spotlight.style.width = '0px';
         spotlight.style.height = '0px';
       }
+      let topPos = Math.max(margin, vh - ch - 24);
+      if (step.preferSide === 'center') {
+        topPos = Math.max(margin, (vh - ch) * 0.5);
+      } else if (step.preferSide === 'bottom') {
+        const trimBar = document.querySelector('.hud-trim-bar');
+        const trimRect =
+          trimBar && this._isElementVisible(trimBar)
+            ? trimBar.getBoundingClientRect()
+            : null;
+        if (trimRect) {
+          topPos = Math.max(margin, Math.min(topPos, trimRect.top - ch - 12));
+        }
+      }
       card.style.left = `${Math.round(Math.max(margin, (vw - cw) * 0.5))}px`;
-      card.style.top = `${Math.round(
-        step.preferSide === 'center'
-          ? Math.max(margin, (vh - ch) * 0.5)
-          : Math.max(margin, vh - ch - 24)
-      )}px`;
+      card.style.top = `${Math.round(topPos)}px`;
       return;
     }
 

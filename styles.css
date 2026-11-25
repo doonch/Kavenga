@@ -4676,19 +4676,49 @@ textarea,
   }
 
   .hud-trim-bar {
-    gap: 8px;
-    padding: 5px 9px;
+    gap: 12px;
+    padding: 7px 12px;
   }
 
   .trim-btn {
-    min-width: 38px;
-    height: 32px;
-    padding: 0 9px;
+    min-width: 56px;
+    height: 42px;
+    padding: 0 16px;
   }
 
-  .onboarding-tour-card {
+  .trim-btn svg {
+    width: 21px;
+    height: 21px;
+  }
+
+  .onboarding-card {
     width: min(310px, calc(100vw - 20px));
-    padding: 13px 15px;
+    padding: 12px 14px;
+    border-radius: 12px;
+  }
+
+  .onboarding-card-head {
+    margin-bottom: 5px;
+  }
+
+  .onboarding-card-title {
+    font-size: 16px;
+  }
+
+  .onboarding-skip-btn {
+    font-size: 13px;
+    padding: 2px 6px;
+  }
+
+  .onboarding-card-body {
+    margin: 0 0 10px;
+    font-size: 14px;
+    line-height: 1.38;
+  }
+
+  .onboarding-actions .small-btn {
+    font-size: 13.5px;
+    padding: 5px 11px;
   }
 }
 
