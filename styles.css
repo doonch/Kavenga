@@ -2040,6 +2040,10 @@ textarea,
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
 }
 
+.vigil-drawer-handle {
+  display: none;
+}
+
 .vigil-pane {
   display: flex;
   flex-direction: column;
@@ -4861,6 +4865,168 @@ textarea,
     margin-top: 5px;
     padding-top: 5px;
   }
+
+  /* Phone-only Sky Vigil: remove controls card, aggressive Guided bar, collapsible Atlas drawer */
+  #vigilControlsCard {
+    display: none !important;
+  }
+
+  #sky-vigil-ui {
+    padding:
+      max(8px, env(safe-area-inset-top, 0px))
+      max(10px, env(safe-area-inset-right, 0px))
+      max(10px, calc(env(safe-area-inset-bottom, 0px) + 4px))
+      max(10px, env(safe-area-inset-left, 0px));
+  }
+
+  .vigil-top-bar {
+    padding: 6px 10px;
+    gap: 6px 8px;
+    border-radius: 12px;
+  }
+
+  .vigil-ring-eyebrow {
+    display: none;
+  }
+
+  .vigil-ring-title {
+    font-size: 13.5px;
+  }
+
+  .vigil-mode-tabs {
+    padding: 2px;
+    gap: 2px;
+  }
+
+  .vigil-mode-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  .vigil-exit-btn {
+    padding: 5px 10px;
+    font-size: 11.5px;
+  }
+
+  .vigil-bottom-deck {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .vigil-main-card {
+    padding: 10px 13px;
+    max-height: min(56dvh, 420px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .vigil-main-card.vigil-drawer-animating {
+    transition:
+      height 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+      max-height 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .vigil-main-card:not(.vigil-mode-guided) .vigil-drawer-handle {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    touch-action: none;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+    flex-shrink: 0;
+  }
+
+  .vigil-drawer-grip {
+    width: 38px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(232, 198, 142, 0.48);
+    align-self: center;
+  }
+
+  .vigil-drawer-handle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .vigil-drawer-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sand-warm);
+  }
+
+  .vigil-drawer-chev {
+    font-size: 13px;
+    color: var(--sand-gold);
+  }
+
+  .vigil-main-card.vigil-drawer-collapsed {
+    padding: 7px 14px 9px;
+  }
+
+  .vigil-main-card.vigil-drawer-collapsed .vigil-pane {
+    display: none !important;
+  }
+
+  .vigil-main-card:not(.vigil-mode-guided) .vigil-pane {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-top: 8px;
+    margin-top: 6px;
+    border-top: 1px solid rgba(232, 198, 142, 0.16);
+    gap: 8px;
+  }
+
+  /* Guided Sky Vigil on phone: ONLY step-dots and gold Next button */
+  .vigil-main-card.vigil-mode-guided {
+    width: fit-content;
+    max-width: 100%;
+    justify-self: center;
+    padding: 7px 14px;
+    border-radius: 999px;
+  }
+
+  #vigilPaneGuided {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding-top: 0;
+    margin-top: 0;
+    border-top: none;
+  }
+
+  #btnVigilEnlargeGuidedMentor,
+  #vigilGuidedTitle,
+  #vigilGuidedByline,
+  #vigilGuidedSpeech,
+  #vigilGuidedHint,
+  #vigilGuidedStatusBadge,
+  #btnVigilGuidedReframe,
+  #btnVigilGuidedPrev {
+    display: none !important;
+  }
+
+  #vigilPaneGuided .vigil-action-bar {
+    border-top: none;
+    padding-top: 0;
+  }
+
+  /* Free Observation (Atlas) on phone: omit explanatory text paragraph */
+  #vigilAtlasNote,
+  #vigilPaneAtlas .vigil-drag-tip {
+    display: none !important;
+  }
+
+  #vigilPaneAtlas .vigil-atlas-header {
+    display: none;
+  }
 }
 
 @media (max-width: 520px) {
@@ -4903,13 +5069,9 @@ textarea,
     padding: 10px 12px 12px;
   }
 
-  .vigil-bottom-deck {
-    grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.85fr);
-    gap: 10px;
-  }
-
   .vigil-main-card {
-    padding: 10px 14px;
+    padding: 9px 13px;
+    max-height: min(68dvh, 270px);
   }
 
   .walkable-poi-popup {

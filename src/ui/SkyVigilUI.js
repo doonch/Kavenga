@@ -96,6 +96,9 @@ export class SkyVigilUI {
 
     // Reusable gaze vector
     this._gazeVec = new THREE.Vector3();
+    this.mainDrawerCollapsed = false;
+    this._cachedDrawerExpandedH = null;
+    this._drawerAnimTimer = null;
 
     this._buildDOM();
   }
@@ -130,6 +133,14 @@ export class SkyVigilUI {
       <div class="vigil-bottom-deck">
         <!-- LEFT PANEL -->
         <section class="vigil-main-card" id="vigilMainCard">
+          <div class="vigil-drawer-handle" id="vigilDrawerHandle">
+            <span class="vigil-drawer-grip" aria-hidden="true"></span>
+            <div class="vigil-drawer-handle-row">
+              <span class="vigil-drawer-title" id="vigilDrawerTitle">🌌 Constellations</span>
+              <span class="vigil-drawer-chev" id="vigilDrawerChev">▴</span>
+            </div>
+          </div>
+
           <!-- MODE 1: ELDER-GUIDED CONSTELLATION INTRODUCTION -->
           <div class="vigil-pane hidden" id="vigilPaneGuided">
             <div class="vigil-mentor-row">
@@ -498,6 +509,13 @@ export class SkyVigilUI {
         }
       });
 
+    this._bindPhoneMainDrawerGestures();
+    window.addEventListener('resize', () => {
+      if (!this._isPhoneViewport() && this.mainDrawerCollapsed) {
+        this._setMainDrawerCollapsed(false, { immediate: true });
+      }
+    });
+
     window.addEventListener(
       'pointerdown',
       (e) => {
@@ -613,10 +631,184 @@ export class SkyVigilUI {
     } else {
       this.selectConstellation(this.selectedConstellationId, true);
     }
+    this._setMainDrawerCollapsed(
+      this._isPhoneViewport() && this.mode === 'atlas',
+      { immediate: true }
+    );
     const isShortLandscapePhone =
       typeof window !== 'undefined' && window.innerHeight <= 500;
     this._setControlsCollapsed(isShortLandscapePhone);
     this._refreshControlsDOM();
+  }
+
+  _isPhoneViewport() {
+    return (
+      typeof window !== 'undefined' &&
+      (window.innerWidth <= 540 ||
+        (window.innerHeight <= 500 && window.innerWidth > window.innerHeight))
+    );
+  }
+
+  _setMainDrawerCollapsed(
+    collapsed,
+    { fromHeight = null, immediate = false } = {}
+  ) {
+    const cardEl = this.rootEl.querySelector('#vigilMainCard');
+    const handleEl = this.rootEl.querySelector('#vigilDrawerHandle');
+    const chevEl = this.rootEl.querySelector('#vigilDrawerChev');
+    if (!cardEl) return;
+
+    const allowCollapsed =
+      Boolean(collapsed) && this._isPhoneViewport() && this.mode !== 'guided';
+    clearTimeout(this._drawerAnimTimer);
+
+    if (immediate || !handleEl) {
+      this.mainDrawerCollapsed = allowCollapsed;
+      cardEl.classList.toggle('vigil-drawer-collapsed', allowCollapsed);
+      cardEl.classList.remove('vigil-drawer-dragging', 'vigil-drawer-animating');
+      cardEl.style.height = '';
+      cardEl.style.maxHeight = '';
+      if (chevEl) chevEl.textContent = allowCollapsed ? '▴' : '▾';
+      return;
+    }
+
+    const metrics = this._measureMainDrawerMetrics();
+    if (!metrics) {
+      this.mainDrawerCollapsed = allowCollapsed;
+      cardEl.classList.toggle('vigil-drawer-collapsed', allowCollapsed);
+      if (chevEl) chevEl.textContent = allowCollapsed ? '▴' : '▾';
+      return;
+    }
+
+    const { collapsedH, expandedH } = metrics;
+    const startH =
+      fromHeight !== null
+        ? fromHeight
+        : this.mainDrawerCollapsed
+          ? collapsedH
+          : expandedH;
+    const endH = allowCollapsed ? collapsedH : expandedH;
+
+    this.mainDrawerCollapsed = allowCollapsed;
+    cardEl.classList.remove('vigil-drawer-collapsed', 'vigil-drawer-dragging');
+    cardEl.style.height = `${Math.round(startH)}px`;
+    cardEl.style.maxHeight = `${Math.round(startH)}px`;
+    void cardEl.offsetHeight;
+
+    cardEl.classList.add('vigil-drawer-animating');
+    requestAnimationFrame(() => {
+      cardEl.style.height = `${Math.round(endH)}px`;
+      cardEl.style.maxHeight = `${Math.round(endH)}px`;
+    });
+
+    this._drawerAnimTimer = setTimeout(() => {
+      cardEl.classList.toggle('vigil-drawer-collapsed', allowCollapsed);
+      cardEl.classList.remove('vigil-drawer-dragging', 'vigil-drawer-animating');
+      cardEl.style.height = '';
+      cardEl.style.maxHeight = '';
+      if (chevEl) chevEl.textContent = allowCollapsed ? '▴' : '▾';
+    }, 240);
+  }
+
+  _measureMainDrawerMetrics() {
+    const cardEl = this.rootEl.querySelector('#vigilMainCard');
+    const handleEl = this.rootEl.querySelector('#vigilDrawerHandle');
+    if (!cardEl || !handleEl) return null;
+
+    const cs = getComputedStyle(cardEl);
+    const padTop = parseFloat(cs.paddingTop) || 0;
+    const padBottom = parseFloat(cs.paddingBottom) || 0;
+    const handleH = handleEl.getBoundingClientRect().height || 34;
+    const collapsedH = Math.ceil(padTop + handleH + padBottom);
+
+    if (!this.mainDrawerCollapsed && cardEl.offsetHeight > collapsedH + 20) {
+      this._cachedDrawerExpandedH = Math.round(
+        cardEl.getBoundingClientRect().height
+      );
+    }
+    const maxCap = Math.max(collapsedH + 80, Math.round(window.innerHeight * 0.62));
+    const expandedH = Math.min(
+      maxCap,
+      this._cachedDrawerExpandedH || maxCap
+    );
+    return { cardEl, collapsedH, expandedH };
+  }
+
+  _bindPhoneMainDrawerGestures() {
+    const handleEl = this.rootEl.querySelector('#vigilDrawerHandle');
+    if (!handleEl) return;
+
+    let activePtrId = null;
+    let startY = 0;
+    let startH = 0;
+    let startCollapsed = false;
+    let moved = false;
+    let lastDy = 0;
+    let curH = 0;
+    let metrics = null;
+
+    const finish = (e) => {
+      if (activePtrId !== e.pointerId) return;
+      handleEl.releasePointerCapture?.(e.pointerId);
+      activePtrId = null;
+      if (!metrics) return;
+      const { cardEl, collapsedH, expandedH } = metrics;
+      cardEl.classList.remove('vigil-drawer-dragging');
+
+      if (!moved) {
+        this._setMainDrawerCollapsed(!startCollapsed, {
+          fromHeight: startCollapsed ? collapsedH : expandedH,
+        });
+        return;
+      }
+
+      const span = Math.max(1, expandedH - collapsedH);
+      const shouldCollapse =
+        lastDy > 24
+          ? true
+          : lastDy < -24
+            ? false
+            : curH < collapsedH + span * 0.55;
+      this._setMainDrawerCollapsed(shouldCollapse, { fromHeight: curH });
+    };
+
+    handleEl.addEventListener('pointerdown', (e) => {
+      if (!this._isPhoneViewport() || this.mode === 'guided') return;
+      if (e.button !== undefined && e.button !== 0) return;
+
+      clearTimeout(this._drawerAnimTimer);
+      metrics = this._measureMainDrawerMetrics();
+      if (!metrics) return;
+
+      const { cardEl, collapsedH, expandedH } = metrics;
+      activePtrId = e.pointerId;
+      startY = e.clientY;
+      startCollapsed = this.mainDrawerCollapsed;
+      startH = startCollapsed ? collapsedH : expandedH;
+      curH = startH;
+      lastDy = 0;
+      moved = false;
+
+      cardEl.classList.remove('vigil-drawer-collapsed', 'vigil-drawer-animating');
+      cardEl.classList.add('vigil-drawer-dragging');
+      cardEl.style.height = `${Math.round(startH)}px`;
+      cardEl.style.maxHeight = `${Math.round(startH)}px`;
+      handleEl.setPointerCapture?.(e.pointerId);
+    });
+
+    handleEl.addEventListener('pointermove', (e) => {
+      if (activePtrId !== e.pointerId || !metrics) return;
+      const dy = e.clientY - startY;
+      lastDy = dy;
+      if (Math.abs(dy) > 5) moved = true;
+      const { cardEl, collapsedH, expandedH } = metrics;
+      curH = Math.max(collapsedH, Math.min(expandedH, startH - dy));
+      cardEl.style.height = `${Math.round(curH)}px`;
+      cardEl.style.maxHeight = `${Math.round(curH)}px`;
+    });
+
+    handleEl.addEventListener('pointerup', finish);
+    handleEl.addEventListener('pointercancel', finish);
   }
 
   _setControlsCollapsed(collapsed) {
@@ -680,6 +872,12 @@ export class SkyVigilUI {
     this.rootEl
       .querySelector('.vigil-controls-card')
       ?.classList.toggle('hidden', this.mode === 'guided');
+    this.rootEl
+      .querySelector('#vigilMainCard')
+      ?.classList.toggle('vigil-mode-guided', this.mode === 'guided');
+    this.rootEl
+      .querySelector('#vigilMainCard')
+      ?.classList.toggle('vigil-mode-atlas', this.mode === 'atlas');
   }
 
   setMode(nextMode) {
@@ -703,6 +901,10 @@ export class SkyVigilUI {
       this.quizPeekHints = false;
       this.setQuizPrompt(this.quizIndex);
     }
+    this._setMainDrawerCollapsed(
+      this._isPhoneViewport() && nextMode === 'atlas',
+      { immediate: true }
+    );
     this._refreshControlsDOM();
   }
 
@@ -712,6 +914,7 @@ export class SkyVigilUI {
     this.guidedLesson = lesson;
     this.mode = 'guided';
     this.activeIslandId = lesson.islandId;
+    this._setMainDrawerCollapsed(false, { immediate: true });
 
     const sim = this.callbacks.getOceanSim?.();
     if (sim) {
@@ -1096,8 +1299,13 @@ export class SkyVigilUI {
     const replayBtn = this.rootEl.querySelector('#btnVigilReplayGuided');
 
     if (!isLearned) {
-      this.rootEl.querySelector('#vigilAtlasTitle').textContent =
+      const fallbackTitle =
         learnedCount === 0 ? `${isl.name} Night Vault` : 'Uncharted Sky Pattern';
+      this.rootEl.querySelector('#vigilAtlasTitle').textContent = fallbackTitle;
+      const drawerTitleEl = this.rootEl.querySelector('#vigilDrawerTitle');
+      if (drawerTitleEl) {
+        drawerTitleEl.textContent = `🌌 ${fallbackTitle}`;
+      }
       this.rootEl.querySelector('#vigilAtlasStatusPill').textContent =
         learnedCount === 0
           ? 'Twelve Carved Horizon Stones'
@@ -1128,6 +1336,10 @@ export class SkyVigilUI {
 
     this.rootEl.querySelector('#vigilAtlasTitle').textContent =
       constObj?.name || guide.id;
+    const drawerTitleEl = this.rootEl.querySelector('#vigilDrawerTitle');
+    if (drawerTitleEl) {
+      drawerTitleEl.textContent = `🌌 ${constObj?.name || 'Constellations'}`;
+    }
     this.rootEl.querySelector('#vigilAtlasStatusPill').textContent = isNorth
       ? guide.northStatus
       : guide.southStatus;
@@ -1159,6 +1371,10 @@ export class SkyVigilUI {
     this.rootEl.querySelector('#vigilQuizTally').textContent =
       `Sighted: ${this.quizScore} · Streak: ${this.quizStreak}`;
     this.rootEl.querySelector('#vigilQuizPrompt').textContent = q.prompt;
+    const drawerTitleEl = this.rootEl.querySelector('#vigilDrawerTitle');
+    if (drawerTitleEl && this.mode === 'quiz') {
+      drawerTitleEl.textContent = "🎯 Wayfinder's Eye Trial";
+    }
 
     const peekBtn = this.rootEl.querySelector('#btnVigilQuizPeek');
     peekBtn.textContent = `Peek Sky Hints: ${this.quizPeekHints ? 'On' : 'Off'}`;
