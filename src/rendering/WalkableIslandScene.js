@@ -23,6 +23,7 @@ import {
   getWalkableIslandSpec,
 } from '../data/walkableIslandsData.js';
 import {
+  TRADE_CLOUD_VARIANT_KEYS,
   createSculptedCloudMesh,
   updateCloudMaterialUniforms,
 } from './CloudSculptBuilder.js';
@@ -108,6 +109,9 @@ export class WalkableIslandScene {
     this.lagoonTerns = [];
     this.npcEntries = [];
     this.peakCloudMat = null;
+    this.islandPeakPos = new THREE.Vector3(0, 60.0, 0);
+    this.marchingClouds = [];
+    this._marchWindYawRad = 0.52;
     this.builtIslandId = null;
 
     this._buildPlayerGroup();
@@ -142,6 +146,7 @@ export class WalkableIslandScene {
     this.npcEntries = [];
     this.obstacles = [];
     this.peakCloudMat = null;
+    this.marchingClouds = [];
     this.dyeBannerMat = null;
     this.detailedAssembly = null;
   }
@@ -178,7 +183,11 @@ export class WalkableIslandScene {
 
     if (!terrainMesh) return;
 
-    const rasterizeMesh = (mesh, edgePad = -1e-4) => {
+    let highestY = -Infinity;
+    let highestX = 0.0;
+    let highestZ = 0.0;
+
+    const rasterizeMesh = (mesh, edgePad = -1e-4, trackPeak = false) => {
       const posAttr = mesh.geometry.getAttribute('position');
       const idxAttr = mesh.geometry.index;
       const mw = mesh.matrixWorld.elements;
@@ -195,6 +204,11 @@ export class WalkableIslandScene {
         wx[i] = mw[0] * lx + mw[4] * ly + mw[8] * lz + mw[12];
         wy[i] = mw[1] * lx + mw[5] * ly + mw[9] * lz + mw[13];
         wz[i] = mw[2] * lx + mw[6] * ly + mw[10] * lz + mw[14];
+        if (trackPeak && wy[i] > highestY) {
+          highestY = wy[i];
+          highestX = wx[i];
+          highestZ = wz[i];
+        }
       }
 
       const idxArr = idxAttr ? idxAttr.array : null;
@@ -248,7 +262,12 @@ export class WalkableIslandScene {
       }
     };
 
-    rasterizeMesh(terrainMesh, -1e-4);
+    rasterizeMesh(terrainMesh, -1e-4, true);
+    this.islandPeakPos.set(
+      highestX,
+      Number.isFinite(highestY) ? Math.max(0.0, highestY) : 60.0,
+      highestZ
+    );
     for (const surfaceMesh of walkableSurfaces) {
       if (surfaceMesh !== terrainMesh) {
         rasterizeMesh(surfaceMesh, -0.02);
@@ -304,15 +323,21 @@ export class WalkableIslandScene {
     // 2. Bake walkable ground heightmap directly from canonical terrain triangles
     this._bakeHeightGridFromCanonicalAssembly(asm.group);
 
-    // 3. Crown high islands with their signature stationary peak cumulus cloud
+    // 3. Crown island with its stationary peak cumulus 30m above the island's true high point
     if (islDef?.hasPeakCloud) {
-      const peakH = (islDef.peakHeightM ?? 60.0) * scale;
       const peakSculpt = createSculptedCloudMesh('peak', { opacity: 0.95 });
-      peakSculpt.mesh.position.set(0.0, Math.max(68.0, peakH * 0.86 + 18.0), -6.0);
+      peakSculpt.mesh.position.set(
+        this.islandPeakPos.x,
+        this.islandPeakPos.y + 30.0,
+        this.islandPeakPos.z
+      );
       peakSculpt.mesh.scale.setScalar(1.2);
       this.peakCloudMat = peakSculpt.material;
       this.root.add(peakSculpt.mesh);
     }
+
+    // 3b. Spawn 4 (< 5) random drifting trade-wind marching clouds around the island
+    this._spawnMarchingClouds(4);
 
     // 4. Add subtle diegetic POI threshold rings, teaching sand circle, NPCs & lagoon terns
     this._buildPoiMarkersAndAshoreProps(resolvedId);
@@ -1941,6 +1966,8 @@ export class WalkableIslandScene {
       });
     }
 
+    this._updateMarchingClouds(dt, elapsedSec, oceanSim);
+
     this._syncCamera(Math.min(1.0, 9.5 * dt), camera);
 
     let nearestPoi = null;
@@ -2009,6 +2036,93 @@ export class WalkableIslandScene {
       el.classList.remove('hidden');
       el.classList.toggle('active-poi', this.activePoi?.id === poi.id);
       el.style.transform = `translate(-50%, -100%) translate(${sx.toFixed(1)}px, ${sy.toFixed(1)}px)`;
+    }
+  }
+
+  _spawnMarchingClouds(count = 4) {
+    const safeCount = Math.min(4, Math.max(1, count));
+    this._marchWindYawRad = Math.random() * Math.PI * 2.0;
+    this.marchingClouds = [];
+
+    for (let i = 0; i < safeCount; i += 1) {
+      const variantKey =
+        TRADE_CLOUD_VARIANT_KEYS[
+          Math.floor(Math.random() * TRADE_CLOUD_VARIANT_KEYS.length)
+        ] || 'trade_0';
+      const sculpted = createSculptedCloudMesh(variantKey, { opacity: 0.0 });
+      this.root.add(sculpted.mesh);
+
+      const mc = {
+        mesh: sculpted.mesh,
+        mat: sculpted.material,
+        progress: (i + Math.random() * 0.7) / safeCount,
+        speed: 0.011,
+        lateralOffset: 0.0,
+        altY: 60.0,
+        baseScale: 0.65,
+        yawJitter: 0.0,
+        spanDist: 540.0,
+      };
+      this._assignMarchingCloudTraits(mc);
+      this.marchingClouds.push(mc);
+    }
+  }
+
+  _assignMarchingCloudTraits(mc) {
+    const minBaseAlt = Math.max(46.0, this.islandPeakPos.y + 14.0);
+    mc.speed = 0.011 + Math.random() * 0.008;
+    mc.lateralOffset = (Math.random() - 0.5) * 420.0;
+    mc.altY = minBaseAlt + Math.random() * 28.0;
+    mc.baseScale = 0.52 + Math.random() * 0.34;
+    mc.yawJitter = (Math.random() - 0.5) * 0.55;
+  }
+
+  _updateMarchingClouds(dt, elapsedSec, oceanSim) {
+    if (!this.marchingClouds.length) return;
+    const sun = oceanSim?.sunState;
+    const sunDir = new THREE.Vector3(0.4, 0.72, -0.55).normalize();
+    const daylight = sun?.daylightFactor ?? 0.92;
+    const twilight = sun?.twilightFactor ?? 0.14;
+
+    const dirX = Math.sin(this._marchWindYawRad);
+    const dirZ = Math.cos(this._marchWindYawRad);
+    const perpX = dirZ;
+    const perpZ = -dirX;
+
+    for (const mc of this.marchingClouds) {
+      const nextProgress = mc.progress + dt * mc.speed;
+      if (nextProgress >= 1.0) {
+        mc.progress = nextProgress % 1.0;
+        this._assignMarchingCloudTraits(mc);
+      } else {
+        mc.progress = nextProgress;
+      }
+
+      const along = (mc.progress - 0.5) * mc.spanDist;
+      mc.mesh.position.set(
+        dirX * along + perpX * mc.lateralOffset,
+        mc.altY,
+        dirZ * along + perpZ * mc.lateralOffset
+      );
+      mc.mesh.rotation.y = this._marchWindYawRad + mc.yawJitter;
+
+      const fadeEnv =
+        smoothstep(0.0, 0.22, mc.progress) *
+        smoothstep(0.0, 0.22, 1.0 - mc.progress);
+      const opacity = 0.88 * fadeEnv;
+      mc.mesh.scale.setScalar(mc.baseScale * (0.85 + 0.15 * fadeEnv));
+      mc.mesh.visible = opacity > 0.005;
+
+      if (mc.mesh.visible) {
+        updateCloudMaterialUniforms(mc.mat, {
+          sunDir,
+          daylight,
+          twilight,
+          opacity,
+          lapaGlow: 0.0,
+          elapsedSec,
+        });
+      }
     }
   }
 }

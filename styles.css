@@ -4726,10 +4726,46 @@ textarea,
     left: calc(max(10px, env(safe-area-inset-left, 0px)) + 46px);
   }
 
-  /* Hide inline Objectives cards on phone; replaced by Top-Left Objectives modal */
+  /* Hide inline Objectives & Diorama Reset View button on phone */
   #hubObjectivesCard,
-  #walkObjectivesCard {
+  #walkObjectivesCard,
+  .shore-reset-orbit-btn {
     display: none !important;
+  }
+
+  /* Phone-only collapsible Island Hub drawer (slid from header down to CTA bar) */
+  .island-hub-shell.drawer-animating {
+    transition:
+      height 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+      max-height 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .hub-header {
+    touch-action: none;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .hub-header::before {
+    content: '';
+    width: 38px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(232, 198, 142, 0.48);
+    align-self: center;
+    margin-bottom: 4px;
+    flex-shrink: 0;
+  }
+
+  .island-hub-shell.hub-drawer-collapsed .hub-poi-tabs,
+  .island-hub-shell.hub-drawer-collapsed .hub-content {
+    display: none !important;
+  }
+
+  .island-hub-shell.hub-drawer-collapsed .hub-critical-cta-bar {
+    margin-top: 8px;
+    padding-top: 8px;
   }
 
   /* Walk Shore phone framing & compact analog thumbstick */
@@ -4862,7 +4898,7 @@ textarea,
     width: min(46vw, 410px);
     min-width: 260px;
     margin-top: 48px;
-    height: calc(100% - 48px);
+    height: auto;
     max-height: calc(100% - 48px);
     padding: 10px 12px 12px;
   }

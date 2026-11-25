@@ -1395,9 +1395,21 @@ export class WalkableIslandUI {
       `Mentor: ${les.mentor}`;
     this.rootEl.querySelector('#walkSandNarration').textContent = les.narration;
     this.sandCanvas.renderLesson(les, { animate });
+    if (animate) {
+      this._scrollSandStageIntoView();
+    }
     if (animate && (les.voiceId || les.id)) {
       this.callbacks.onPlayVoice?.(les.voiceId || les.id, { restart: true });
     }
+  }
+
+  _scrollSandStageIntoView() {
+    const colEl = this.rootEl.querySelector('.walkable-sand-canvas-col');
+    const modalCard = this.rootEl.querySelector('.walkable-sand-modal-card');
+    if (!colEl || !modalCard) return;
+    requestAnimationFrame(() => {
+      colEl.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+    });
   }
 
   openPortraitModal({ eyebrow, name, role, src }) {

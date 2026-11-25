@@ -46,6 +46,10 @@ export class IslandHubUI {
     this.objectivesCollapsed = false;
     this.orbitCustomized = false;
     this._lightboxMentor = null;
+    this.drawerCollapsed = false;
+    this._drawerExpandedHeight = null;
+    this._drawerTabsHeight = null;
+    this._drawerTransitionTimer = null;
 
     this._buildDOM();
   }
@@ -368,6 +372,226 @@ export class IslandHubUI {
         e.currentTarget.blur();
         this._handleCriticalCtaClick();
       });
+
+    // Phone-only collapsible bottom drawer drag/tap gesture from Hub header
+    this._bindPhoneDrawerGestures();
+    window.addEventListener('resize', () => {
+      if (!this._isPhoneViewport() && this.drawerCollapsed) {
+        this._setDrawerCollapsed(false, { immediate: true });
+      }
+    });
+  }
+
+  _isPhoneViewport() {
+    return (
+      typeof window !== 'undefined' &&
+      (window.innerWidth <= 540 ||
+        (window.innerHeight <= 500 && window.innerWidth > window.innerHeight))
+    );
+  }
+
+  _measureDrawerHeights() {
+    const shellEl = this.rootEl.querySelector('.island-hub-shell');
+    const headerEl = this.rootEl.querySelector('.hub-header');
+    const tabsEl = this.rootEl.querySelector('.hub-poi-tabs');
+    const ctaBarEl = this.rootEl.querySelector('#hubCriticalCtaBar');
+    if (!shellEl || !headerEl) return null;
+
+    const shellStyle = getComputedStyle(shellEl);
+    const padTop = parseFloat(shellStyle.paddingTop) || 0;
+    const padBottom = parseFloat(shellStyle.paddingBottom) || 0;
+    const headerH = headerEl.getBoundingClientRect().height;
+    const ctaBarH = ctaBarEl ? ctaBarEl.getBoundingClientRect().height : 0;
+    const collapsedH = Math.ceil(padTop + headerH + 8 + ctaBarH + padBottom);
+
+    if (!this.drawerCollapsed && tabsEl && tabsEl.offsetHeight > 0) {
+      const ts = getComputedStyle(tabsEl);
+      this._drawerTabsHeight = Math.ceil(
+        tabsEl.getBoundingClientRect().height +
+          (parseFloat(ts.marginTop) || 0) +
+          (parseFloat(ts.marginBottom) || 0)
+      );
+    }
+    const tabsFullH = this._drawerTabsHeight || 68;
+
+    const expandedH = !this.drawerCollapsed
+      ? Math.max(collapsedH + 40, Math.round(shellEl.getBoundingClientRect().height))
+      : this._drawerExpandedHeight ||
+        Math.max(
+          collapsedH + 120,
+          Math.round(
+            window.innerHeight * (window.innerHeight <= 500 ? 0.84 : 0.58)
+          )
+        );
+    if (!this.drawerCollapsed) {
+      this._drawerExpandedHeight = expandedH;
+    }
+
+    return { shellEl, tabsEl, collapsedH, expandedH, tabsFullH };
+  }
+
+  _resetDrawerInlineStyles(shellEl, tabsEl) {
+    if (shellEl) {
+      shellEl.classList.remove('drawer-dragging', 'drawer-animating');
+      shellEl.style.height = '';
+      shellEl.style.maxHeight = '';
+    }
+    if (tabsEl) {
+      tabsEl.style.maxHeight = '';
+      tabsEl.style.overflow = '';
+      tabsEl.style.marginTop = '';
+      tabsEl.style.marginBottom = '';
+      tabsEl.style.opacity = '';
+    }
+  }
+
+  _setDrawerCollapsed(
+    collapsed,
+    { fromHeight = null, immediate = false } = {}
+  ) {
+    const next = Boolean(collapsed) && this._isPhoneViewport();
+    const shellEl = this.rootEl.querySelector('.island-hub-shell');
+    const tabsEl = this.rootEl.querySelector('.hub-poi-tabs');
+    if (!shellEl) return;
+
+    clearTimeout(this._drawerTransitionTimer);
+    if (immediate) {
+      this.drawerCollapsed = next;
+      shellEl.classList.toggle('hub-drawer-collapsed', next);
+      this._resetDrawerInlineStyles(shellEl, tabsEl);
+      return;
+    }
+
+    const metrics = this._measureDrawerHeights();
+    if (!metrics) {
+      this.drawerCollapsed = next;
+      shellEl.classList.toggle('hub-drawer-collapsed', next);
+      return;
+    }
+
+    const { collapsedH, expandedH } = metrics;
+    const startH =
+      fromHeight !== null
+        ? fromHeight
+        : this.drawerCollapsed
+          ? collapsedH
+          : expandedH;
+    const endH = next ? collapsedH : expandedH;
+
+    this.drawerCollapsed = next;
+    shellEl.classList.remove('hub-drawer-collapsed', 'drawer-dragging');
+    this._resetDrawerInlineStyles(null, tabsEl);
+    shellEl.style.height = `${Math.round(startH)}px`;
+    shellEl.style.maxHeight = `${Math.round(startH)}px`;
+    void shellEl.offsetHeight;
+
+    shellEl.classList.add('drawer-animating');
+    requestAnimationFrame(() => {
+      shellEl.style.height = `${Math.round(endH)}px`;
+      shellEl.style.maxHeight = `${Math.round(endH)}px`;
+    });
+
+    this._drawerTransitionTimer = setTimeout(() => {
+      shellEl.classList.toggle('hub-drawer-collapsed', next);
+      this._resetDrawerInlineStyles(shellEl, tabsEl);
+    }, 240);
+  }
+
+  _bindPhoneDrawerGestures() {
+    const headerEl = this.rootEl.querySelector('.hub-header');
+    if (!headerEl) return;
+
+    let activePointerId = null;
+    let startY = 0;
+    let startHeight = 0;
+    let startCollapsed = false;
+    let moved = false;
+    let lastDy = 0;
+    let currentH = 0;
+    let metrics = null;
+
+    const finishDrag = (e) => {
+      if (activePointerId !== e.pointerId) return;
+      headerEl.releasePointerCapture?.(e.pointerId);
+      activePointerId = null;
+
+      if (!metrics) return;
+      const { shellEl, tabsEl, collapsedH, expandedH } = metrics;
+      shellEl.classList.remove('drawer-dragging');
+      this._resetDrawerInlineStyles(null, tabsEl);
+
+      if (!moved) {
+        if (startCollapsed) {
+          this._setDrawerCollapsed(false, { fromHeight: collapsedH });
+        } else {
+          this._resetDrawerInlineStyles(shellEl, tabsEl);
+        }
+        return;
+      }
+
+      const span = Math.max(1, expandedH - collapsedH);
+      const shouldCollapse =
+        lastDy > 28
+          ? true
+          : lastDy < -28
+            ? false
+            : currentH < collapsedH + span * 0.55;
+      this._setDrawerCollapsed(shouldCollapse, { fromHeight: currentH });
+    };
+
+    headerEl.addEventListener('pointerdown', (e) => {
+      if (!this._isPhoneViewport()) return;
+      if (e.button !== undefined && e.button !== 0) return;
+
+      clearTimeout(this._drawerTransitionTimer);
+      metrics = this._measureDrawerHeights();
+      if (!metrics) return;
+
+      const { shellEl, collapsedH, expandedH } = metrics;
+      activePointerId = e.pointerId;
+      startY = e.clientY;
+      startCollapsed = this.drawerCollapsed;
+      startHeight = startCollapsed ? collapsedH : expandedH;
+      currentH = startHeight;
+      lastDy = 0;
+      moved = false;
+
+      shellEl.classList.remove('hub-drawer-collapsed', 'drawer-animating');
+      shellEl.classList.add('drawer-dragging');
+      shellEl.style.height = `${Math.round(startHeight)}px`;
+      shellEl.style.maxHeight = `${Math.round(startHeight)}px`;
+      headerEl.setPointerCapture?.(e.pointerId);
+    });
+
+    headerEl.addEventListener('pointermove', (e) => {
+      if (activePointerId !== e.pointerId || !metrics) return;
+      const dy = e.clientY - startY;
+      lastDy = dy;
+      if (Math.abs(dy) > 5) {
+        moved = true;
+      }
+      const { shellEl, tabsEl, collapsedH, expandedH, tabsFullH } = metrics;
+      currentH = Math.max(collapsedH, Math.min(expandedH, startHeight - dy));
+      shellEl.style.height = `${Math.round(currentH)}px`;
+      shellEl.style.maxHeight = `${Math.round(currentH)}px`;
+
+      const availMiddle = Math.max(0, currentH - collapsedH);
+      if (tabsEl) {
+        if (availMiddle >= tabsFullH) {
+          this._resetDrawerInlineStyles(null, tabsEl);
+        } else {
+          const ratio = availMiddle / Math.max(1, tabsFullH);
+          tabsEl.style.maxHeight = `${Math.round(availMiddle)}px`;
+          tabsEl.style.overflow = 'hidden';
+          tabsEl.style.marginTop = `${(ratio * 10).toFixed(1)}px`;
+          tabsEl.style.marginBottom = `${(ratio * 10).toFixed(1)}px`;
+          tabsEl.style.opacity = ratio.toFixed(2);
+        }
+      }
+    });
+
+    headerEl.addEventListener('pointerup', finishDrag);
+    headerEl.addEventListener('pointercancel', finishDrag);
   }
 
   setOrbitCustomized(customized) {
@@ -551,6 +775,7 @@ export class IslandHubUI {
 
     this.rootEl.classList.remove('hidden');
     this.closePortraitModal();
+    this._setDrawerCollapsed(false, { immediate: true });
 
     const validTabs = ['sanctuary', 'sand', 'vigil'];
     const resolvedTab = validTabs.includes(initialTab) ? initialTab : 'sanctuary';
@@ -560,11 +785,16 @@ export class IslandHubUI {
   hide() {
     this.shoreSandCanvas.stopAnimation();
     this.closePortraitModal();
+    this._setDrawerCollapsed(false, { immediate: true });
     this.callbacks.onStopVoice?.();
     this.rootEl.classList.add('hidden');
   }
 
   switchTab(tabId) {
+    const wasDrawerCollapsed = this.drawerCollapsed;
+    if (wasDrawerCollapsed) {
+      this._setDrawerCollapsed(false);
+    }
     const validTabs = ['sanctuary', 'sand', 'vigil'];
     const nextTab = validTabs.includes(tabId) ? tabId : 'sanctuary';
     if (nextTab !== this.activeTab || nextTab !== 'sanctuary') {
@@ -603,6 +833,9 @@ export class IslandHubUI {
         this._updateStationBadges();
       }
       this._renderSelectedShoreLesson(true);
+      if (wasDrawerCollapsed) {
+        setTimeout(() => this._scrollSandStageIntoView(), 260);
+      }
     }
 
     this.callbacks.onStationChanged?.(nextTab);
@@ -1006,9 +1239,21 @@ export class IslandHubUI {
     this.rootEl.querySelector('#sandStageTitle').textContent = les.title;
     this.rootEl.querySelector('#sandStageNarration').textContent = les.narration;
     this.shoreSandCanvas.renderLesson(les, { animate });
+    if (animate) {
+      this._scrollSandStageIntoView();
+    }
     if (animate && (les.voiceId || les.id)) {
       this.callbacks.onPlayVoice?.(les.voiceId || les.id, { restart: true });
     }
+  }
+
+  _scrollSandStageIntoView() {
+    const contentEl = this.rootEl.querySelector('.hub-content');
+    const stageCard = this.rootEl.querySelector('.sand-stage-card');
+    if (!contentEl || !stageCard) return;
+    requestAnimationFrame(() => {
+      stageCard.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+    });
   }
 
   _refreshVigilPanel(criticalStep = null) {

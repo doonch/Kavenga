@@ -437,13 +437,8 @@ export class ShoreDioramaRenderer {
 
     this.currentIslandId = resolvedId;
 
-    // Position island's signature stationary peak cloud or coral-atoll lapa cloud
-    const peakH = isl.peakHeightM ?? 60.0;
-    this.peakCloudGroup.visible = Boolean(isl.hasPeakCloud);
-    if (this.peakCloudGroup.visible) {
-      this.peakCloudGroup.position.set(0.0, Math.max(56.0, peakH * 0.72 + 22.0), -4.0);
-      this.peakCloudGroup.scale.setScalar(resolvedId === 'rapa_nui' ? 1.15 : 0.96);
-    }
+    // Peak cloud is omitted in diorama view; preserve coral-atoll lapa cloud when applicable
+    this.peakCloudGroup.visible = false;
 
     this.lapaCloudGroup.visible = Boolean(isl.hasLapaGlow);
     if (this.lapaCloudGroup.visible) {
