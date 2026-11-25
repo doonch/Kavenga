@@ -348,6 +348,116 @@ export function buildVoyageConfirmModalHtml({
   `;
 }
 
+const _confirmPreviewState = new WeakMap();
+
+function _renderConfirmVersePreview(previewEl, state) {
+  const { song, gs, warnMismatch, verseIdx } = state;
+  const verses = Array.isArray(song?.verses) ? song.verses : [];
+  const total = verses.length;
+  if (!total) {
+    previewEl.innerHTML = '';
+    return;
+  }
+
+  const idx = Math.max(0, Math.min(total - 1, verseIdx));
+  state.verseIdx = idx;
+  const verse = verses[idx];
+  const eyebrowText = total > 1 ? 'Full Chant Memorized Ashore' : 'Chant Memorized Ashore';
+  const showEasyCue = gs.difficulty === Difficulty.EASY && Boolean(verse.easyCueText);
+
+  const dotsHtml = verses
+    .map(
+      (_, i) =>
+        `<button class="verse-step-dot${i === idx ? ' active' : ''}" type="button" role="tab" aria-selected="${i === idx}" aria-label="Verse ${i + 1} of ${total}" data-verse-idx="${i}"></button>`
+    )
+    .join('');
+
+  const navHtml =
+    total > 1
+      ? `
+        <div class="preview-verse-nav">
+          <button class="verse-nav-btn" type="button" data-verse-nav="-1" aria-label="Previous verse"${idx === 0 ? ' disabled' : ''}>&lt;</button>
+          <div class="verse-step-dots" role="tablist" aria-label="Chant verses">${dotsHtml}</div>
+          <button class="verse-nav-btn" type="button" data-verse-nav="1" aria-label="Next verse"${idx === total - 1 ? ' disabled' : ''}>&gt;</button>
+        </div>
+      `
+      : '';
+
+  previewEl.innerHTML = `
+    <div class="preview-verse-header">
+      <div class="preview-eyebrow">${eyebrowText}</div>
+      <span class="preview-verse-count">Verse ${idx + 1} of ${total}</span>
+    </div>
+    <div class="preview-verse-body">
+      <blockquote>"${verse.lyrics}"</blockquote>
+      ${showEasyCue ? `<div class="preview-easy-cue">${verse.easyCueText}</div>` : ''}
+    </div>
+    ${navHtml}
+    ${warnMismatch}
+  `;
+}
+
+function _stepConfirmVerse(previewEl, delta) {
+  const state = _confirmPreviewState.get(previewEl);
+  const total = state?.song?.verses?.length || 0;
+  if (!state || total <= 1) return;
+  const next = Math.max(0, Math.min(total - 1, state.verseIdx + delta));
+  if (next === state.verseIdx) return;
+  state.verseIdx = next;
+  _renderConfirmVersePreview(previewEl, state);
+}
+
+function _bindConfirmPreviewInteractions(previewEl) {
+  if (previewEl.dataset.verseBound === '1') return;
+  previewEl.dataset.verseBound = '1';
+
+  previewEl.addEventListener('click', (e) => {
+    const navBtn = e.target.closest('[data-verse-nav]');
+    if (navBtn) {
+      const dir = Number(navBtn.getAttribute('data-verse-nav')) || 0;
+      _stepConfirmVerse(previewEl, dir);
+      return;
+    }
+    const dotBtn = e.target.closest('[data-verse-idx]');
+    if (dotBtn) {
+      const state = _confirmPreviewState.get(previewEl);
+      if (!state) return;
+      const targetIdx = Number(dotBtn.getAttribute('data-verse-idx'));
+      if (Number.isInteger(targetIdx) && targetIdx !== state.verseIdx) {
+        state.verseIdx = targetIdx;
+        _renderConfirmVersePreview(previewEl, state);
+      }
+    }
+  });
+
+  previewEl.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') {
+      _stepConfirmVerse(previewEl, -1);
+    } else if (e.key === 'ArrowRight') {
+      _stepConfirmVerse(previewEl, 1);
+    }
+  });
+
+  let swipeStart = null;
+  previewEl.addEventListener('pointerdown', (e) => {
+    if (e.button && e.button !== 0) return;
+    if (e.target.closest('button')) return;
+    swipeStart = { id: e.pointerId, x: e.clientX, y: e.clientY };
+  });
+  previewEl.addEventListener('pointerup', (e) => {
+    if (!swipeStart || swipeStart.id !== e.pointerId) return;
+    const dx = e.clientX - swipeStart.x;
+    const dy = e.clientY - swipeStart.y;
+    swipeStart = null;
+    if (Math.abs(dx) >= 32 && Math.abs(dx) > Math.abs(dy) * 1.15) {
+      _stepConfirmVerse(previewEl, dx < 0 ? 1 : -1);
+    }
+  });
+  previewEl.addEventListener('pointercancel', () => {
+    swipeStart = null;
+  });
+}
+
 /**
  * Populate the secondary Destination Voyage Confirmation dialog for the active route.
  */
@@ -395,17 +505,25 @@ export function populateVoyageConfirmModal({
   });
 
   if (previewEl) {
-    const v1 = song.verses[0];
+    _bindConfirmPreviewInteractions(previewEl);
+    const prevState = _confirmPreviewState.get(previewEl);
+    const modalOpening = Boolean(
+      previewEl.closest('.modal-backdrop')?.classList.contains('hidden')
+    );
+    const shouldReset =
+      modalOpening || !prevState || prevState.song?.id !== song.id;
     const warnMismatch =
       selectedDeparture !== song.recommendedDeparture
         ? `<div class="dep-warning">Note: This chant expects ${departureWindowLabel(song.recommendedDeparture)} skies; launching at ${departureWindowLabel(selectedDeparture)} shifts sun and stars out of phase!</div>`
         : '';
-    previewEl.innerHTML = `
-      <div class="preview-eyebrow">Opening Verse Memorized Ashore</div>
-      <blockquote>"${v1.lyrics}"</blockquote>
-      ${gs.difficulty === Difficulty.EASY ? `<div class="preview-easy-cue">${v1.easyCueText}</div>` : ''}
-      ${warnMismatch}
-    `;
+    const nextState = {
+      song,
+      gs,
+      warnMismatch,
+      verseIdx: shouldReset ? 0 : prevState.verseIdx,
+    };
+    _confirmPreviewState.set(previewEl, nextState);
+    _renderConfirmVersePreview(previewEl, nextState);
   }
   if (sailBtnEl) {
     sailBtnEl.textContent = `⛵ Sail to ${dstName}`;

@@ -1295,6 +1295,17 @@ textarea,
   border-radius: 12px;
   padding: 12px 14px;
   border-left: 3px solid var(--sand-gold);
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.preview-verse-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
 }
 
 .preview-eyebrow {
@@ -1302,7 +1313,18 @@ textarea,
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--sand-gold);
-  margin-bottom: 5px;
+}
+
+.preview-verse-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(244, 239, 230, 0.72);
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+
+.preview-verse-body {
+  min-height: 58px;
 }
 
 .song-preview-box blockquote {
@@ -1317,6 +1339,77 @@ textarea,
   margin-top: 6px;
   font-size: 12px;
   color: var(--lapa-jade);
+}
+
+.preview-verse-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.verse-nav-btn {
+  width: 32px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(231, 181, 99, 0.35);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--sand-gold);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+.verse-nav-btn:hover:not(:disabled) {
+  background: rgba(231, 181, 99, 0.2);
+  border-color: var(--sand-gold);
+}
+
+.verse-nav-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.verse-step-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.verse-step-dot {
+  position: relative;
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(244, 239, 230, 0.28);
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+
+.verse-step-dot::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+
+.verse-step-dot:hover {
+  background: rgba(244, 211, 94, 0.65);
+}
+
+.verse-step-dot.active {
+  background: var(--sand-gold);
+  transform: scale(1.25);
 }
 
 .dep-warning {
