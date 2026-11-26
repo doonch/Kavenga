@@ -282,8 +282,8 @@ export const SONGS = Object.freeze({
     isInterBasinCrossing: true,
     crossingVector: { x: 9.09, y: 5.25 },
     recommendedDeparture: DepartureWindow.DUSK,
-    expectedDurationMin: 10.5,
-    gameHoursPerRealMin: 1.15,
+    expectedDurationMin: 10.2,
+    gameHoursPerRealMin: 1.45,
     solarRaDeg: 256.0,
     bpm: 60.0,
     windFromAz: 115.0,
@@ -291,7 +291,7 @@ export const SONGS = Object.freeze({
     verses: [
       {
         verseNumber: 1,
-        endRealSec: 165.0,
+        endRealSec: 115.0,
         weather: 'clear',
         lyrics: "Watch Maupiti vanish in your wake as darkness claims the sea / Place the Rising Boar's Tusk squarely between your twin prows.",
         easyCueText: "Center the Rising Boar's Tusk between your twin prows.",
@@ -300,7 +300,7 @@ export const SONGS = Object.freeze({
       },
       {
         verseNumber: 2,
-        endRealSec: 290.0,
+        endRealSec: 225.0,
         weather: 'clear',
         lyrics:
           "When the Boar's Tusk climbs three hands high, hand the watch downward to the Rising Crab's Left Claw / Hold that pale claw steady between your prows across the deep night sea.",
@@ -316,19 +316,17 @@ export const SONGS = Object.freeze({
       },
       {
         verseNumber: 3,
-        endRealSec: 430.0,
+        endRealSec: 485.0,
         weather: 'clear',
         lyrics:
-          "When the Left Claw climbs above three hands, drop your gaze once more down the same house to the Rising Crab's Carapace / Ride that third star of the relay toward the dark horizon.",
+          "When the Left Claw climbs above three hands, drop your gaze once more to Rising Crab's Carapace / When the Crab wheels high overhead before dawn, lock your steering sweep steady across the dark water until sunrise.",
         easyCueText:
-          "When Crab's Left Claw climbs past three hands high, relay to the third star in the same house: Rising Crab's Carapace.",
-        cueLabel: "the Rising Crab's Carapace (third star of the relay)",
+          "Drop to Rising Crab's Carapace; once it climbs past three hands high, hold your Trim-Lock heading steady across the pre-dawn dark (half a prow into the crosswind).",
+        cueLabel: "the Rising Crab's Carapace and locked night sweep",
         guidance: {
-          mode: 'star_relay_rising',
-          stars: ['crabs_shell'],
-          useRing2BeaconOnApproach: true,
+          mode: 'heading',
           compensateLeeway: true,
-          fallbackHeadingDeg: 60.0,
+          targetHeadingDeg: 60.0,
         },
       },
       {
