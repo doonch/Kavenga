@@ -93,7 +93,7 @@ export const SONGS = Object.freeze({
     sandRecallId: 'sand_huahine_lapa_and_bull',
     recommendedDeparture: DepartureWindow.DUSK,
     expectedDurationMin: 6.5,
-    gameHoursPerRealMin: 1.9,
+    gameHoursPerRealMin: 2.15,
     solarRaDeg: 285.0,
     bpm: 56.0,
     windFromAz: 95.0,
@@ -194,7 +194,7 @@ export const SONGS = Object.freeze({
         endRealSec: 400.0,
         weather: 'clear',
         lyrics:
-          "When the Bull's Horn climbs three hands above the dark sea, drop your eyes to the Rising Rat's Nose / Hold him true until sacred Ra'iatea lifts against the morning light.",
+          "When the Bull's Horn climbs three hands above the dark sea, drop your eyes to the Rising Rat's Nose / Hold him true until sacred Ra'iatea lifts beneath the starlit sky.",
         easyCueText:
           "Once Bull's Horn climbs high near the top of your view, switch to the Rising Rat's Nose right beneath it on the horizon.",
         cueLabel: "the Rising Rat's Nose beneath the climbing Bull's Horn",
@@ -397,7 +397,7 @@ export const SONGS = Object.freeze({
     sandRecallId: 'sand_ua_pou_band1_horse',
     recommendedDeparture: DepartureWindow.DUSK,
     expectedDurationMin: 8.5,
-    gameHoursPerRealMin: 1.45,
+    gameHoursPerRealMin: 1.6,
     solarRaDeg: 336.0,
     bpm: 58.0,
     windFromAz: 85.0,
@@ -405,7 +405,7 @@ export const SONGS = Object.freeze({
     verses: [
       {
         verseNumber: 1,
-        endRealSec: 260.0,
+        endRealSec: 230.0,
         weather: 'clear',
         lyrics:
           "Aim your twin prows where the Horse's Tail descends toward the dark waves / Before it drowns, let the descending Boar's Bristle take its place.",
@@ -497,16 +497,16 @@ export const SONGS = Object.freeze({
     act: 2,
     sandRecallId: 'sand_hiva_oa_zenith_dogleg',
     recommendedDeparture: DepartureWindow.DUSK,
-    expectedDurationMin: 9.0,
-    gameHoursPerRealMin: 1.45,
-    solarRaDeg: 182.0,
+    expectedDurationMin: 8.5,
+    gameHoursPerRealMin: 1.55,
+    solarRaDeg: 140.0,
     bpm: 60.0,
     windFromAz: 100.0,
     primarySwellFromAz: 135.0,
     verses: [
       {
         verseNumber: 1,
-        endRealSec: 270.0,
+        endRealSec: 300.0,
         zenithTriggerStarId: 'geckos_heart',
         weather: 'clear',
         lyrics:
@@ -553,7 +553,7 @@ export const SONGS = Object.freeze({
     verses: [
       {
         verseNumber: 1,
-        endRealSec: 380.0,
+        endRealSec: 475.0,
         weather: 'clear',
         lyrics:
           "Set the Rising Whale's Spout between your prows / Hand the watch to the Whale's Fluke, and then to the Rising Shark's Tail.",
@@ -595,7 +595,7 @@ export const SONGS = Object.freeze({
     crossingVector: { x: -4.5, y: 7.79 },
     recommendedDeparture: DepartureWindow.DUSK,
     expectedDurationMin: 9.0,
-    gameHoursPerRealMin: 1.4,
+    gameHoursPerRealMin: 1.55,
     solarRaDeg: 336.0,
     bpm: 58.0,
     windFromAz: 120.0,
@@ -603,7 +603,7 @@ export const SONGS = Object.freeze({
     verses: [
       {
         verseNumber: 1,
-        endRealSec: 260.0,
+        endRealSec: 235.0,
         weather: 'clear',
         lyrics:
           "Follow the Setting Horse's Tail and Boar's Bristle down toward the dark sea / Watch the Sea Turtle drown in your wake while the Steadfast Peg lifts above the foam.",
@@ -682,7 +682,7 @@ export const SONGS = Object.freeze({
     sandRecallId: 'sand_oahu_return_swell',
     recommendedDeparture: DepartureWindow.DUSK,
     expectedDurationMin: 8.5,
-    gameHoursPerRealMin: 1.45,
+    gameHoursPerRealMin: 1.6,
     solarRaDeg: 180.0,
     bpm: 60.0,
     windFromAz: 45.0,
@@ -690,7 +690,7 @@ export const SONGS = Object.freeze({
     verses: [
       {
         verseNumber: 1,
-        endRealSec: 360.0,
+        endRealSec: 400.0,
         weather: 'sea_fog',
         lyrics:
           "Leave O'ahu's timber cove with the sinking sun behind your left shoulder / Let the deep ocean ridge lift your starboard cheek every four beats through the dark mist.",
@@ -772,8 +772,8 @@ export const SONGS = Object.freeze({
     sandRecallId: 'sand_kiritimati_grand_voyage_prep',
     recommendedDeparture: DepartureWindow.DAWN,
     expectedDurationMin: 12.0,
-    gameHoursPerRealMin: 2.1,
-    solarRaDeg: 190.0,
+    gameHoursPerRealMin: 2.3,
+    solarRaDeg: 155.0,
     bpm: 60.0,
     windFromAz: 30.0,
     primarySwellFromAz: 45.0,
@@ -781,7 +781,7 @@ export const SONGS = Object.freeze({
     verses: [
       {
         verseNumber: 1,
-        endRealSec: 180.0,
+        endRealSec: 165.0,
         weather: 'clear',
         lyrics:
           'Sail against the morning boobies with the rising sun warm between your twin prows / When the sun climbs high, bind the post shadow to the center deck-lashing.',
@@ -797,7 +797,7 @@ export const SONGS = Object.freeze({
       },
       {
         verseNumber: 2,
-        endRealSec: 360.0,
+        endRealSec: 345.0,
         weather: 'sea_fog',
         lyrics:
           'When white mist swallows sun and sky, ignore the quick chop slapping your beam / Feel only the slow ocean ridge lifting your port cheek every four strikes of the deep drum.',
@@ -807,7 +807,7 @@ export const SONGS = Object.freeze({
       },
       {
         verseNumber: 3,
-        endRealSec: 570.0,
+        endRealSec: 595.0,
         weather: 'clear',
         lyrics:
           "When night wind tears the fog apart, set your prows down the Rising Path of the Shark—upon the Rising Gecko's Tail / Hand the watch to the Bull's Hoof, the Rat's Tail, and icy Shark's Fin, keeping the Steadfast Peg shining off your port beam.",

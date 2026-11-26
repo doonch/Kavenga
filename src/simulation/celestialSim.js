@@ -179,12 +179,15 @@ export function pickActiveRelayStar(
     let chosen = evaluated[0];
     for (let i = 0; i < evaluated.length; i += 1) {
       const cur = evaluated[i];
-      if (cur.altDeg >= 0.2 && cur.altDeg <= 33.0) {
+      const isPivot = cur.bandId === 'north_pivot' || cur.bandId === 'south_pivot';
+      // Multi-star rising relays stay on the eastern/rising side (haDeg <= 0) instead of reverting to setting stars in the west
+      const isRisingSide = evaluated.length === 1 || isPivot || cur.haDeg <= 10.0;
+      if (isRisingSide && cur.altDeg >= 0.2 && cur.altDeg <= 33.0) {
         chosen = cur;
         break;
       }
       if (
-        cur.altDeg > 33.0 &&
+        (cur.altDeg > 33.0 || !isRisingSide) &&
         i + 1 < evaluated.length &&
         evaluated[i + 1].altDeg >= -0.5
       ) {
@@ -196,7 +199,9 @@ export function pickActiveRelayStar(
 
   let chosen = evaluated[evaluated.length - 1];
   for (const cur of evaluated) {
-    if (cur.altDeg >= 1.0 && cur.altDeg <= 40.0) {
+    const isPivot = cur.bandId === 'north_pivot' || cur.bandId === 'south_pivot';
+    const isSettingSide = evaluated.length === 1 || isPivot || cur.haDeg >= -10.0;
+    if (isSettingSide && cur.altDeg >= 1.0 && cur.altDeg <= 40.0) {
       chosen = cur;
       break;
     }
